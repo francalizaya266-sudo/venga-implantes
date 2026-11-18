@@ -13,6 +13,7 @@ use App\Models\Treatment;
 use App\Models\TreatmentPackage;
 use App\Services\Web\ClinicInfo;
 use App\Services\Web\PublicImages;
+use App\Services\Web\StructuredData;
 use App\Support\SiteArt;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
@@ -1184,6 +1185,15 @@ class PublicPagesTest extends TestCase
             ->assertOk()
             ->assertSeeInOrder(['class="footer-cta"', '<strong>Tu salud bucal, en buenas manos</strong>', '<a href="'.route('site.booking').'" class="btn">Reservar cita<svg'], false)
             ->assertDontSee(['¿No encontraste tu respuesta?', 'Escribir por WhatsApp']);
+    }
+
+    public function test_the_breadcrumbs_for_google_number_each_step_from_the_home(): void
+    {
+        $breadcrumbs = app(StructuredData::class)->breadcrumbs(['Servicios' => route('site.treatments'), 'Endodoncia' => route('site.treatment', 'endodoncia')]);
+
+        $this->assertSame([1, 2, 3], array_column($breadcrumbs['itemListElement'], 'position'));
+        $this->assertSame(['Inicio', 'Servicios', 'Endodoncia'], array_column($breadcrumbs['itemListElement'], 'name'));
+        $this->assertSame(route('site.treatment', 'endodoncia'), $breadcrumbs['itemListElement'][2]['item']);
     }
 
     public function test_the_sitemap_lists_public_pages_and_robots_keeps_private_ones_out(): void

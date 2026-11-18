@@ -59,17 +59,17 @@ final class StructuredData
     /** @param  array<string, string>  $items  Nombre => URL, desde el inicio. */
     public function breadcrumbs(array $items): array
     {
-        $position = 0;
+        $steps = ['Inicio' => url('/')] + $items;
 
         return [
             '@context' => 'https://schema.org',
             '@type' => 'BreadcrumbList',
-            'itemListElement' => collect(['Inicio' => url('/')] + $items)->map(fn (string $url, string $name) => [
+            'itemListElement' => collect(array_keys($steps))->map(fn (string $name, int $index) => [
                 '@type' => 'ListItem',
-                'position' => ++$position,
+                'position' => $index + 1,
                 'name' => $name,
-                'item' => $url,
-            ])->values()->all(),
+                'item' => $steps[$name],
+            ])->all(),
         ];
     }
 }
