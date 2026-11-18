@@ -154,11 +154,11 @@ El estándar permite agregar los cursos que participan (por ejemplo `req`, `ads`
 1. ¿Se implementa la app móvil (CE0236) o solo web + API + servicio de IA?
 2. ¿Dónde se despliega: hosting compartido de la clínica o nube (AWS)? (La línea CE03 del mismo proyecto plantea Azure.)
 3. Nombre del estudiante, sección y grupo para portadas y topics.
-4. Confirmar que el repositorio que se presenta es `venga-implantes`.
+
+El repositorio de la EPE (`venga-implantes`) quedó confirmado por el estudiante el 18/11/2026.
 
 ## Lista de `[PENDIENTE]`
 
-- `[PENDIENTE – estudiante]` Confirmar el repositorio de la EPE.
 - `[PENDIENTE – estudiante]` Nombre, sección (`seccion-…`) y grupo (`grupo-n-nombre`).
 - `[PENDIENTE – estudiante]` URL del despliegue, si existe.
 - `[PENDIENTE – estudiante]` Decisión sobre app móvil y lugar de despliegue.

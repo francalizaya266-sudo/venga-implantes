@@ -11,7 +11,7 @@ Este documento reúne el análisis previo obligatorio (sección 0 del prompt CE0
 7. CE0233 y CE0234 ya tienen evidencia real; falta la documentación OpenAPI y la evidencia de despliegue.
 8. No hay servicio distribuido (CE0235) ni app móvil (CE0236).
 9. No hay contradicciones que impidan seguir: el frontend y el backend existen, la base está definida y el sistema compila y pasa sus pruebas.
-10. Decisión pendiente del estudiante: confirmar el repositorio, la app móvil, el lugar de despliegue y los datos de portada.
+10. El estudiante confirmó el 18/11/2026 que el repositorio de la EPE es `venga-implantes`. Quedan pendientes la app móvil, el lugar de despliegue y los datos de portada.
 
 Frente a la rúbrica, de las 18 evidencias de CE02 hay 1 cubierta en código (CE0233), 9 parciales, 6 que faltan (una de ellas, la app móvil, es opcional) y 2 que no aplican (consola y escritorio). El código está más avanzado que la documentación: la mayor parte del trabajo que sigue es documentar y medir lo que ya existe, y los cambios de código se concentran en la base de datos (E2), la documentación de la API y el servicio distribuido (E3), y la cobertura, el despliegue y el monitoreo (E4).
 
@@ -32,7 +32,7 @@ El estudiante indica que el sistema está hecho con **React (frontend) y PHP (ba
 
 En la computadora del estudiante, la carpeta de trabajo contiene las dos copias (`consultorio-dental` y `venga-implantes`, esta última con `backend/` y `frontend/`).
 
-**Conclusión:** el proyecto "React + PHP" es `venga-implantes`. Los entregables CE02 deben describir y evidenciar ese repositorio. `[PENDIENTE – estudiante: confirmar que venga-implantes es el repositorio que se presentará a la EPE]`.
+**Conclusión:** el proyecto "React + PHP" es `venga-implantes`. Los entregables CE02 describen y evidencian ese repositorio; el estudiante lo confirmó el 18/11/2026.
 
 ## Stack real
 
