@@ -109,8 +109,8 @@ Leyenda: **Cubierta** = la evidencia existe y es verificable; **Parcial** = hay 
 | CE0232 Desktop | No aplica | — | — | — |
 | CE0233 Web integrada con base de datos | Cubierta (código) | Sistema web completo: web del paciente, panel interno, MySQL, reglas del negocio y pruebas. | El documento técnico E3 y las capturas de funcionamiento. | FASE 3: documento + guion de capturas `[PENDIENTE – capturas]`. |
 | CE0234 Full-stack desplegable | Parcial | Frontend React, backend Laravel y API `/api/v1` (36 rutas, 69 pruebas de la API); paquete para el hosting en CI. | API documentada (OpenAPI) y evidencia de despliegue (URL). | FASE 3: OpenAPI de la API existente; URL `[PENDIENTE – estudiante]`. |
-| CE0235 Distribuido con servicios interoperables | Falta | Integración con WhatsApp (wa.me hoy, API de Meta preparada en `CloudApiChannel`). | Un servicio propio separado, con API, prueba de integración y de resiliencia. | FASE 3: servicio de IA de inasistencias (FastAPI + Docker), si se confirma. |
-| CE0236 Móvil | Falta | La web es mobile-first, pero no es una app. | App móvil que consuma la API. | Opcional: ver "Decisiones pendientes". |
+| CE0235 Distribuido con servicios interoperables | Falta | Integración con WhatsApp (wa.me hoy, API de Meta preparada en `CloudApiChannel`). | Un servicio propio separado, con API, prueba de integración y de resiliencia. | FASE 3: servicio de IA de inasistencias (FastAPI + Docker). |
+| CE0236 Móvil | Falta | La web es mobile-first, pero no es una app. | App móvil que consuma la API. | FASE 3: app móvil confirmada por el estudiante (ver "Decisiones del estudiante"). |
 
 ### E4 · CE024 Calidad de Software
 
@@ -149,17 +149,17 @@ Según `docs/anexos/estandar-topics-repositorios.md` de `upeuoficial/planb` (sol
 
 El estándar permite agregar los cursos que participan (por ejemplo `req`, `ads`, `bd1`, `bd2`, `lp1`, `lp2`, `is1`, `is2`, `pds`); el ejemplo oficial de EPE no los incluye. `[PENDIENTE – estudiante: confirmar si se agregan]`. Los topics se configuran en GitHub (Settings del repositorio → About → Topics) y se aplican cuando el estudiante confirme la sección y el grupo.
 
-## Decisiones pendientes (sección 7 del prompt)
+## Decisiones del estudiante (sección 7 del prompt)
 
-1. ¿Se implementa la app móvil (CE0236) o solo web + API + servicio de IA?
-2. ¿Dónde se despliega: hosting compartido de la clínica o nube (AWS)? (La línea CE03 del mismo proyecto plantea Azure.)
-3. Nombre del estudiante, sección y grupo para portadas y topics.
+Respondidas el 18/11/2026:
 
-El repositorio de la EPE (`venga-implantes`) quedó confirmado por el estudiante el 18/11/2026.
+1. **Repositorio de la EPE:** `venga-implantes`.
+2. **App móvil (CE0236):** sí se implementa, además de la web, la API y el servicio de IA.
+3. **Despliegue:** en Microsoft Azure (coherente con la línea CE03 del mismo equipo).
+4. **Integrantes (ciclo 10):** Fran Franklin Calizaya Apaza, Jhoel Hairton Apaza Quispe y Joselyn Yucra Mamani.
 
 ## Lista de `[PENDIENTE]`
 
-- `[PENDIENTE – estudiante]` Nombre, sección (`seccion-…`) y grupo (`grupo-n-nombre`).
-- `[PENDIENTE – estudiante]` URL del despliegue, si existe.
-- `[PENDIENTE – estudiante]` Decisión sobre app móvil y lugar de despliegue.
+- `[PENDIENTE – estudiante]` Sección (`seccion-…`) y número de grupo (`grupo-n-nombre`).
+- `[PENDIENTE – estudiante]` URL del despliegue en Azure, cuando exista.
 - `[PENDIENTE – estudiante]` Validación con el Dr. Vega y recepción (actas y firmas, en FASE 1).

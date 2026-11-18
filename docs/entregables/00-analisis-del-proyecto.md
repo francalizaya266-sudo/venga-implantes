@@ -11,7 +11,7 @@ Este documento reúne el análisis previo obligatorio (sección 0 del prompt CE0
 7. CE0233 y CE0234 ya tienen evidencia real; falta la documentación OpenAPI y la evidencia de despliegue.
 8. No hay servicio distribuido (CE0235) ni app móvil (CE0236).
 9. No hay contradicciones que impidan seguir: el frontend y el backend existen, la base está definida y el sistema compila y pasa sus pruebas.
-10. El estudiante confirmó el 18/11/2026 que el repositorio de la EPE es `venga-implantes`. Quedan pendientes la app móvil, el lugar de despliegue y los datos de portada.
+10. Decisiones del estudiante (18/11/2026): el repositorio de la EPE es `venga-implantes`, sí se hace la app móvil, el despliegue es en Microsoft Azure y el equipo lo forman Fran Franklin Calizaya Apaza, Jhoel Hairton Apaza Quispe y Joselyn Yucra Mamani (ciclo 10). Faltan la sección y el número de grupo.
 
 Frente a la rúbrica, de las 18 evidencias de CE02 hay 1 cubierta en código (CE0233), 9 parciales, 6 que faltan (una de ellas, la app móvil, es opcional) y 2 que no aplican (consola y escritorio). El código está más avanzado que la documentación: la mayor parte del trabajo que sigue es documentar y medir lo que ya existe, y los cambios de código se concentran en la base de datos (E2), la documentación de la API y el servicio distribuido (E3), y la cobertura, el despliegue y el monitoreo (E4).
 
@@ -192,7 +192,7 @@ No hay reporte de cobertura en ninguno de los dos lados (el workflow usa `covera
 - **Producción:** hosting compartido. La raíz pública apunta a `backend/public`, `composer install --no-dev`, `php artisan migrate --force`, `php artisan db:seed --class=CatalogSeeder --force` y un cron cada minuto con `schedule:run`. El paquete `consultorio-para-hosting` de GitHub Actions trae `backend/` con la web ya compilada.
 - **Tareas programadas** (`backend/routes/console.php`, 10 según `php artisan schedule:list`): recordatorios y citas sin confirmar (cada 15 min), cuotas (06:00 y cada 15 min), lista de espera (cada 5 min), envío de WhatsApp (cada 5 min), cola (cada minuto), `model:prune` (diario), duraciones aprendidas (02:30) y copia de seguridad (03:00).
 - **Verificación de salud:** ruta `/up` de Laravel (`backend/bootstrap/app.php`).
-- **URL de producción:** `[PENDIENTE – estudiante: URL del despliegue, si existe]`.
+- **URL de producción:** el despliegue será en Microsoft Azure. `[PENDIENTE – estudiante: URL cuando exista]`.
 
 **Cómo se midió:** clon de `main` en `b91fdee`; `composer install` desde `composer.lock`; `npm ci`; los comandos de la tabla de pruebas; conteos con `find`/`grep` sobre `backend/app`, `backend/database`, `backend/tests` y `frontend/src`; `php artisan route:list`. PHP 8.3.6 y Node 22.23.5.
 
@@ -217,8 +217,8 @@ No hay reporte de cobertura en ninguno de los dos lados (el workflow usa `covera
 
 | Fase | Ajuste |
 | --- | --- |
-| FASE 1 (E1) | C4 con tres contenedores (SPA React, API Laravel, panel Filament) más MySQL, cron y WhatsApp. ADR nuevo: separar la web del paciente en React con API `/api/v1` y mantener el panel en Filament. Prototipo navegable: el sistema con datos de demostración más las capturas ya guardadas en el proyecto. |
+| FASE 1 (E1) | C4 con tres contenedores (SPA React, API Laravel, panel Filament) más MySQL, cron y WhatsApp, la app móvil y el servicio de IA como contenedores planificados, y la vista de despliegue en Azure. ADR nuevo: separar la web del paciente en React con API `/api/v1` y mantener el panel en Filament. Prototipo navegable: el sistema con datos de demostración más las capturas ya guardadas en el proyecto. |
 | FASE 2 (E2) | Sin cambios de fondo: la base es la misma. Las vistas, funciones, procedimientos y el trigger se agregan solo para MySQL, como dice el prompt. |
-| FASE 3 (E3) | **No se crea una API nueva.** Se documenta la existente y se completa: OpenAPI, pruebas por ruta que falten, pruebas de componentes React. El servicio de IA (CE0235) y la app móvil (CE0236) quedan sujetos a las decisiones de la sección 7. |
+| FASE 3 (E3) | **No se crea una API nueva.** Se documenta la existente y se completa: OpenAPI, pruebas por ruta que falten, pruebas de componentes React. Se suman el servicio de IA (CE0235) y la app móvil (CE0236), confirmada por el estudiante; la app necesita autenticación por token (Sanctum), porque no comparte la cookie de sesión de la web. |
 | FASE 4 (E4) | Cobertura en los dos lados (pcov y `@vitest/coverage-v8`, que es una dependencia nueva y requiere aprobación), Larastan, despliegue y rollback. Los comandos de prueba son `php artisan test` en `backend/` y `npm test` en `frontend/`. |
 | FASE 5 | Sin cambios. |
