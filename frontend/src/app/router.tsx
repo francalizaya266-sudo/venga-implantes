@@ -1,5 +1,6 @@
 import { createBrowserRouter, type RouteObject } from 'react-router';
 import { Root } from '@/app/Root';
+import { BookingPage } from '@/pages/booking/BookingPage';
 import { CasesPage } from '@/pages/CasesPage';
 import { ContactPage } from '@/pages/ContactPage';
 import { ErrorPage } from '@/pages/ErrorPage';
@@ -29,6 +30,7 @@ export const pages: RouteObject[] = [
   { path: '/preguntas-frecuentes', element: <FaqPage /> },
   { path: '/contacto', element: <ContactPage /> },
   { path: '/privacidad', element: <PrivacyPage /> },
+  { path: '/reservar', element: <BookingPage /> },
   { path: '*', element: <ErrorPage status={404} /> },
 ];
 
