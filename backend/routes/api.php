@@ -1,5 +1,8 @@
 <?php
 
+use App\Http\Controllers\Api\V1\Account\AccountController;
+use App\Http\Controllers\Api\V1\Account\HealthController;
+use App\Http\Controllers\Api\V1\Account\LinkController;
 use App\Http\Controllers\Api\V1\Booking\BookingController;
 use App\Http\Controllers\Api\V1\Site\FaqController;
 use App\Http\Controllers\Api\V1\Site\HomeController;
@@ -45,4 +48,44 @@ Route::controller(BookingController::class)
         Route::post('appointments/{appointment}/origin', 'origin')
             ->middleware(['signed:relative', 'throttle:30,1'])
             ->name('origin');
+    });
+
+// Mi cuenta: entra con el celular recordado (sin contraseña).
+Route::prefix('account')
+    ->name('account.')
+    ->middleware('throttle:120,1')
+    ->group(function () {
+        Route::controller(AccountController::class)->group(function () {
+            Route::get('/', 'show')->name('show');
+            Route::post('access', 'requestAccess')->name('access');
+            Route::post('verification', 'requestVerification')->name('verification');
+            Route::post('logout', 'logout')->name('logout');
+            Route::post('appointments/{appointment}/confirm', 'confirm')->name('appointments.confirm');
+            Route::post('appointments/{appointment}/cancel', 'cancel')->name('appointments.cancel');
+            Route::get('appointments/{appointment}/change', 'change')->name('appointments.change');
+            Route::get('appointments/{appointment}/change/slots', 'changeSlots')->name('appointments.change.slots');
+            Route::post('appointments/{appointment}/change', 'saveChange')->name('appointments.change.save');
+            Route::post('patients/{patient}/next-session', 'requestSession')->name('patients.session');
+        });
+
+        Route::controller(HealthController::class)->group(function () {
+            Route::get('patients/{patient}/health', 'show')->name('patients.health');
+            Route::post('patients/{patient}/health', 'store')->name('patients.health.store');
+        });
+    });
+
+// Enlace personal que viaja por WhatsApp (de una cita o de acceso a Mi cuenta).
+Route::controller(LinkController::class)
+    ->prefix('links/{token}')
+    ->name('links.')
+    ->where(['token' => '[A-Za-z0-9]{32}'])
+    ->middleware('throttle:60,1')
+    ->group(function () {
+        Route::get('/', 'show')->name('show');
+        Route::post('confirm', 'confirm')->name('confirm');
+        Route::post('cancel', 'cancel')->name('cancel');
+        Route::post('enter', 'enter')->name('enter');
+        Route::get('change', 'change')->name('change');
+        Route::get('change/slots', 'changeSlots')->name('change.slots');
+        Route::post('change', 'saveChange')->name('change.save');
     });
