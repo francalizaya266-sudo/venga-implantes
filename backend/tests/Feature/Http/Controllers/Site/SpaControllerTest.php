@@ -217,4 +217,22 @@ class SpaControllerTest extends TestCase
         $response->assertNotFound()->assertSee('<div id="app" data-error="404"></div>', false);
         $this->assertSame(['/api/v1/site'], array_keys($this->preloaded($response)));
     }
+
+    public function test_the_pages_of_the_patient_and_the_api_count_their_requests_apart(): void
+    {
+        // Una pantalla le hace varias peticiones a la API: no le gastan al paciente sus visitas a la página.
+        foreach (range(1, 61) as $request) {
+            $this->getJson(route('api.v1.account.show'))->assertOk();
+        }
+
+        foreach (range(1, 60) as $visit) {
+            $this->get(route('site.account'))->assertOk();
+        }
+
+        // La visita 61 del minuto se frena, y la web lo explica con su encabezado y su pie.
+        $this->get(route('site.account'))
+            ->assertTooManyRequests()
+            ->assertSee('<title>Demasiados intentos seguidos · ', false)
+            ->assertSee('<div id="app" data-error="429"></div>', false);
+    }
 }

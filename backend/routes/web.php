@@ -35,7 +35,7 @@ Route::get('robots.txt', [SitemapController::class, 'robots'])->name('site.robot
 
 // Mi cuenta: entra con el celular recordado (sin contraseña).
 Route::prefix('mi-cuenta')
-    ->middleware('throttle:60,1')
+    ->middleware('throttle:patient-pages')
     ->group(function () {
         Route::get('/', SpaController::class)->name('site.account');
         Route::get('citas/{appointment}/cambiar', SpaController::class)->name('site.account.change');
@@ -45,7 +45,7 @@ Route::prefix('mi-cuenta')
 // Enlace personal que viaja por WhatsApp (de una cita o de acceso a Mi cuenta).
 Route::prefix('c/{token}')
     ->where(['token' => '[A-Za-z0-9]{32}'])
-    ->middleware('throttle:30,1')
+    ->middleware('throttle:patient-pages')
     ->group(function () {
         Route::get('/', SpaController::class)->name('patient.link');
         Route::get('cambiar', SpaController::class)->name('patient.link.change');

@@ -53,7 +53,7 @@ Route::controller(BookingController::class)
 // Mi cuenta: entra con el celular recordado (sin contraseña).
 Route::prefix('account')
     ->name('account.')
-    ->middleware('throttle:120,1')
+    ->middleware('throttle:patient-api')
     ->group(function () {
         Route::controller(AccountController::class)->group(function () {
             Route::get('/', 'show')->name('show');
@@ -79,7 +79,7 @@ Route::controller(LinkController::class)
     ->prefix('links/{token}')
     ->name('links.')
     ->where(['token' => '[A-Za-z0-9]{32}'])
-    ->middleware('throttle:60,1')
+    ->middleware('throttle:patient-api')
     ->group(function () {
         Route::get('/', 'show')->name('show');
         Route::post('confirm', 'confirm')->name('confirm');
