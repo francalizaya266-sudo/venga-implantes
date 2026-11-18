@@ -10,6 +10,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Foundation\DevCommands;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
@@ -49,5 +50,10 @@ class AppServiceProvider extends ServiceProvider
 
         // Lo que guarda una persona lo ven las demás en pocos segundos, sin recargar.
         TodayPulse::watch();
+
+        // "composer dev" levanta también el frontend (React), que vive en la carpeta de al lado.
+        if (is_file(base_path('../frontend/package.json'))) {
+            DevCommands::register('npm --prefix ../frontend run dev', 'vite');
+        }
     }
 }

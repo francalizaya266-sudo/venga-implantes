@@ -256,12 +256,11 @@ class PanelAccessTest extends TestCase
     {
         $this->seed(CatalogSeeder::class);
 
-        // El paciente con un enlace roto sigue en la web.
+        // El paciente con un enlace roto sigue en la web: el error lo pinta el frontend, con su menú y su pie.
         $this->get('/esto-no-existe')
             ->assertNotFound()
-            ->assertSee('No encontramos esta página')
-            ->assertSee('Ir al inicio')
-            ->assertSee('Reservar cita');
+            ->assertSee('<title>No encontramos esta página · ', false)
+            ->assertSee('<div id="app" data-error="404"></div>', false);
 
         // En el panel, sin el menú de la web y de vuelta al panel.
         $this->actingAs(User::factory()->reception()->create())

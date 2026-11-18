@@ -345,7 +345,7 @@ class PatientsAndSetupPanelTest extends TestCase
         $this->assertStringEndsWith('.png', $logo, 'El logo no se pasa a JPG: conserva el fondo transparente.');
         Storage::disk(PublicImages::DISK)->assertExists($logo);
 
-        $this->get(route('site.home'))->assertSee('class="logo"', false);
+        $this->getJson(route('api.v1.site'))->assertJsonPath('data.clinic.logo_url', PublicImages::url($logo));
 
         Livewire::test(WebSetup::class)
             ->fillForm(['web' => ['logo' => null]])
@@ -353,7 +353,7 @@ class PatientsAndSetupPanelTest extends TestCase
             ->assertHasNoFormErrors();
 
         $this->assertNull(Setting::get('web.logo'));
-        $this->get(route('site.home'))->assertDontSee('class="logo"', false)->assertSee('class="mark"', false);
+        $this->getJson(route('api.v1.site'))->assertJsonPath('data.clinic.logo_url', null);
     }
 
     public function test_the_admin_sets_the_home_photo_and_the_google_stars_in_the_web_setup(): void
@@ -399,7 +399,7 @@ class PatientsAndSetupPanelTest extends TestCase
             ->assertHasNoFormErrors();
 
         $this->assertSame('Más de 20 años cuidando sonrisas', Setting::get('web.tagline'));
-        $this->get(route('site.home'))->assertSee('<p class="eyebrow">Más de 20 años cuidando sonrisas</p>', false);
+        $this->getJson(route('api.v1.site'))->assertJsonPath('data.home.tagline', 'Más de 20 años cuidando sonrisas');
 
         // Es corta: no se deja pasar un párrafo.
         Livewire::test(WebSetup::class)
@@ -414,7 +414,7 @@ class PatientsAndSetupPanelTest extends TestCase
             ->assertHasNoFormErrors();
 
         $this->assertNull(Setting::get('web.tagline'));
-        $this->get(route('site.home'))->assertDontSee('class="eyebrow"', false);
+        $this->getJson(route('api.v1.site'))->assertJsonPath('data.home.tagline', null);
     }
 
     public function test_the_browser_lightens_the_home_photo_and_sends_it_as_jpeg(): void

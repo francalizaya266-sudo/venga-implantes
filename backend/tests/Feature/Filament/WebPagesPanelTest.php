@@ -47,14 +47,16 @@ class WebPagesPanelTest extends TestCase
             array_map(fn (string $field) => Setting::get('web.pages.servicios.'.$field), ['kicker', 'title', 'lead', 'closing_title', 'closing_text']),
         );
 
-        $this->get(route('site.treatments'))
+        $this->getJson(route('api.v1.site'))
             ->assertOk()
-            ->assertSeeInOrder(['<h1>Tratamientos <em>para</em> tu sonrisa</h1>', '<p class="lead">Elige el tuyo y reserva.</p>', '<strong>¿Empezamos?</strong>'], false)
-            ->assertDontSee(['class="kicker"', 'Reserva tu cita en línea y te confirmamos por WhatsApp.'], false);
-
-        // Lo que no se tocó queda como venía, y el cierre general llega al inicio.
-        $this->get(route('site.team'))->assertOk()->assertSee('<h1>Nuestro <em>equipo</em></h1>', false);
-        $this->get(route('site.home'))->assertOk()->assertSee('<strong>Te esperamos en Juliaca</strong>', false);
+            ->assertJsonPath('data.pages.servicios.kicker', null)
+            ->assertJsonPath('data.pages.servicios.title', ['Tratamientos ', 'para', ' tu sonrisa'])
+            ->assertJsonPath('data.pages.servicios.lead', 'Elige el tuyo y reserva.')
+            ->assertJsonPath('data.pages.servicios.closing.title', '¿Empezamos?')
+            ->assertJsonPath('data.pages.servicios.closing.text', null)
+            // Lo que no se tocó queda como venía, y el cierre general llega al inicio.
+            ->assertJsonPath('data.pages.equipo.title', ['Nuestro ', 'equipo', ''])
+            ->assertJsonPath('data.closing.title', 'Te esperamos en Juliaca');
     }
 
     public function test_a_title_is_required_and_the_texts_have_a_limit(): void
@@ -114,8 +116,10 @@ class WebPagesPanelTest extends TestCase
         $this->assertStringStartsWith('paginas/', $photo);
         Storage::disk(PublicImages::DISK)->assertExists($photo);
 
-        $this->get(route('site.contact'))->assertOk()->assertSee('<figure class="band-photo"><img src="'.PublicImages::url($photo).'"', false);
-        $this->get(route('site.team'))->assertOk()->assertDontSee('band-photo');
+        $this->getJson(route('api.v1.site'))
+            ->assertOk()
+            ->assertJsonPath('data.pages.contacto.photo_url', PublicImages::url($photo))
+            ->assertJsonPath('data.pages.equipo.photo_url', null);
 
         Livewire::test(WebPages::class)
             ->fillForm(['web' => ['pages' => ['contacto' => ['photo' => null]]]])
@@ -123,7 +127,7 @@ class WebPagesPanelTest extends TestCase
             ->assertHasNoFormErrors();
 
         $this->assertNull(Setting::get('web.pages.contacto.photo'));
-        $this->get(route('site.contact'))->assertOk()->assertDontSee('band-photo');
+        $this->getJson(route('api.v1.site'))->assertOk()->assertJsonPath('data.pages.contacto.photo_url', null);
     }
 
     public function test_each_page_has_its_tab_with_a_link_to_see_it(): void
