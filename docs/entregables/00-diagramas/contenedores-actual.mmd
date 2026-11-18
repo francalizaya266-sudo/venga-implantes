@@ -1,0 +1,23 @@
+flowchart TB
+    paciente([Paciente<br/>celular o computadora])
+    personal([Personal<br/>recepción, doctores, administrador])
+    subgraph hosting[Hosting compartido con PHP]
+        spa[Web del paciente<br/>React 19 + TypeScript<br/>compilada en backend/public/app]
+        api[API /api/v1<br/>Laravel 13]
+        panel[Panel /panel<br/>Filament 5 + Livewire]
+        servicios[Servicios de dominio<br/>app/Services]
+        cron[Cron cada minuto<br/>schedule:run]
+    end
+    db[(MySQL)]
+    wa[WhatsApp<br/>wa.me hoy / API de Meta después]
+    smtp[Correo SMTP]
+
+    paciente -->|HTTPS| spa
+    spa -->|fetch JSON + cookie de sesión| api
+    personal -->|HTTPS| panel
+    api --> servicios
+    panel --> servicios
+    cron --> servicios
+    servicios -->|Eloquent| db
+    servicios -->|avisos| wa
+    servicios -->|recuperar contraseña| smtp
