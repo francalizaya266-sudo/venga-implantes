@@ -1,0 +1,1623 @@
+/*
+ * Web del consultorio: páginas públicas, reservas, Mi cuenta y enlace de la cita.
+ * Hecho a mano, sin utilidades ni preprocesador: Vite solo lo empaqueta con el resto del frontend. Primero el celular.
+ * Las fuentes y las imágenes 3D viven en backend/public (las sirve Laravel tal cual): por eso van con ruta absoluta.
+ */
+
+/* Inter (licencia OFL), servida desde el propio sitio: solo el juego latino, que cubre tildes y ñ. */
+@font-face {
+    font-family: "Inter"; font-style: normal; font-weight: 100 900; font-display: swap;
+    src: url("/fonts/inter-latin.woff2") format("woff2-variations"), url("/fonts/inter-latin.woff2") format("woff2");
+}
+/* Poppins (licencia SIL Open Font 1.1): la letra de los títulos. Delgada, fuerte y fuerte en cursiva. */
+@font-face { font-family: "Poppins"; font-style: normal; font-weight: 400; font-display: swap; src: url("/fonts/poppins-latin-400.woff2") format("woff2"); }
+@font-face { font-family: "Poppins"; font-style: normal; font-weight: 700; font-display: swap; src: url("/fonts/poppins-latin-700.woff2") format("woff2"); }
+@font-face { font-family: "Poppins"; font-style: italic; font-weight: 700; font-display: swap; src: url("/fonts/poppins-latin-700-italic.woff2") format("woff2"); }
+
+:root {
+    --ground: #ffffff;
+    --surface: #eef3fa;
+    --surface-strong: #dbe6f4;
+    --ink: #0c1a2e;
+    --muted: #4a5a6e;
+    /* Azul del recetario de la clínica. */
+    --accent: #1e4f91;
+    --accent-ink: #ffffff;
+    /* Azul noche para las franjas que tienen que pesar: horario libre, pie. */
+    --navy: #0b1f3a;
+    --navy-soft: #a9bfdc;
+    /* Azul marino de los botones y de la portada; el celeste del título sobre lo oscuro; la niebla del fondo del inicio. */
+    --btn: #0e2f6b;
+    --btn-press: #0a2452;
+    --sky-ink: #86c8ff;
+    --sky-vivid: #66bbff;
+    --mist: #f3f7fd;
+    --sky-band: #ebf3ff;
+    --card-line: #e4ecf7;
+    --card-shadow: 0 1px 2px rgb(12 26 46 / .05), 0 14px 32px -18px rgb(14 47 107 / .3);
+    --line: #dfe6ef;
+    /* Curvas de movimiento: las de CSS por defecto se sienten flojas. */
+    --ease-out: cubic-bezier(.23, 1, .32, 1);
+    --ease-in-out: cubic-bezier(.77, 0, .175, 1);
+    /* Verde menta para lo que salió bien o está confirmado; ámbar, el de los destellos de las imágenes. */
+    --ok: #0a6b5c;
+    --ok-bg: #dcf5ef;
+    --mint: #0f9f88;
+    --amber: #f5a623;
+    --sky: #dbe9fd;
+    --warn: #8a4b00;
+    --warn-bg: #fdebcc;
+    --bad: #b42318;
+    --bad-bg: #fde4e1;
+    --field-line: #b7c3d3;
+    --gutter: 16px;
+    --measure: 720px;
+    /* En pantallas grandes el contenido crece con la pantalla (hasta 1680 px): no quedan franjas vacías a los lados. */
+    --wide: clamp(1180px, 90vw, 1680px);
+    --star: #b86e00;
+    --radius: 14px;
+    --font: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --display: "Poppins", var(--font);
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+    margin: 0;
+    font: 400 1.0625rem/1.55 var(--font);
+    color: var(--ink);
+    background: var(--ground);
+    -webkit-tap-highlight-color: transparent;
+    font-feature-settings: "cv11", "ss01";
+    text-rendering: optimizeLegibility;
+    /* En páginas cortas el pie va al fondo de la pantalla, no flotando a la mitad con una franja blanca debajo. */
+    min-height: 100vh; min-height: 100svh; display: flex; flex-direction: column;
+}
+/* El frontend se monta en #app: para el diseño es como si el encabezado, el contenido y el pie colgaran del body. */
+#app { display: contents; }
+
+a { color: var(--accent); text-underline-offset: .18em; }
+
+img { max-width: 100%; display: block; }
+
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+/* Sobre el azul oscuro, el marco del teclado va en blanco para que se vea. */
+:is(.hero-band, .quick, .feature, .next-free, .site-footer) :focus-visible { outline-color: #fff; }
+.hero-band .welcome :focus-visible { outline-color: var(--accent); }
+
+::selection { background: var(--surface-strong); }
+
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* Marco */
+
+.wrap { width: 100%; max-width: calc(var(--measure) + 2 * var(--gutter)); margin: 0 auto; padding: 0 var(--gutter); }
+.wrap.wide { max-width: calc(var(--wide) + 2 * var(--gutter)); }
+
+.skip { position: absolute; left: 8px; top: -60px; z-index: 40; background: var(--ink); color: #fff; padding: 10px 16px; border-radius: 999px; font-weight: 700; }
+.skip:focus { top: 8px; }
+
+.site-header { background: rgb(255 255 255 / .94); position: sticky; top: 0; z-index: 20; border-bottom: 1px solid var(--line); -webkit-backdrop-filter: saturate(1.4) blur(10px); backdrop-filter: saturate(1.4) blur(10px); }
+.site-header .wrap { display: flex; align-items: center; gap: 12px; min-height: 64px; max-width: calc(var(--wide) + 2 * var(--gutter)); position: relative; }
+/* La marca: el diente en línea, el nombre y debajo dónde atiende. */
+.wordmark { display: inline-flex; align-items: center; gap: 10px; font-weight: 800; font-size: 1.125rem; letter-spacing: -.02em; color: var(--ink); text-decoration: none; margin-right: auto; line-height: 1.15; }
+.mark { flex: none; display: grid; place-items: center; width: 40px; height: 40px; color: var(--btn); }
+.mark svg { width: 38px; height: 38px; stroke-width: 1.7; }
+.brand { display: grid; gap: 2px; white-space: nowrap; }
+.brand small { font-size: .75rem; font-weight: 500; letter-spacing: 0; line-height: 1.2; color: var(--muted); }
+/* En los celulares más angostos (320) el nombre baja a dos líneas y deja el sitio de "Menú". */
+@media (max-width: 379px) {
+    .wordmark .brand { white-space: normal; }
+    .wordmark .brand small { display: none; }
+}
+.wordmark .logo { display: block; height: 40px; width: auto; max-width: min(220px, 52vw); object-fit: contain; object-position: left center; }
+.site-nav { display: flex; align-items: center; gap: 2px; margin-right: auto; }
+.site-nav a { position: relative; display: inline-flex; align-items: center; gap: 6px; color: var(--ink); text-decoration: none; font-weight: 600; font-size: .9375rem; padding: 10px; border-radius: 999px; white-space: nowrap; transition: color .15s ease, background-color .15s ease; }
+.site-nav a svg { width: 17px; height: 17px; flex: none; }
+.site-header .btn { white-space: nowrap; gap: 0; }
+.site-header .btn svg { margin-right: 8px; }
+@media (max-width: 479px) { .site-header .long { display: none; } }
+@media (max-width: 359px) { .action-bar .long { display: none; } }
+/* La página en la que estás: en azul y con una raya debajo. */
+.site-nav > a[aria-current="page"] { color: var(--accent); }
+.site-nav > a[aria-current="page"]::after { content: ""; position: absolute; left: 10px; right: 10px; bottom: -4px; height: 2px; border-radius: 2px; background: var(--accent); }
+
+/* En el celular, las páginas van en "Menú"; desde 1080 px, a la vista. */
+.site-nav { display: none; }
+.menu > summary {
+    list-style: none; cursor: pointer; display: inline-flex; align-items: center; min-height: 40px; padding: 8px 16px;
+    border-radius: 999px; background: var(--surface); font-weight: 700; font-size: .9375rem;
+}
+.menu > summary::-webkit-details-marker { display: none; }
+.menu[open] > summary { background: var(--ink); color: #fff; }
+.menu-panel {
+    position: absolute; left: 0; right: 0; top: calc(100% + 1px); background: var(--ground); padding: 8px var(--gutter) 20px;
+    display: grid; gap: 2px; border-bottom: 1px solid var(--line); box-shadow: 0 18px 30px -18px rgb(12 26 46 / .25);
+}
+.menu-panel a { color: var(--ink); text-decoration: none; font-weight: 650; font-size: 1.25rem; letter-spacing: -.01em; padding: 12px 0; }
+.menu-panel a + a { border-top: 1px solid var(--line); }
+.menu-panel a[aria-current="page"] { color: var(--accent); }
+@media (min-width: 1080px) {
+    .site-nav { display: flex; }
+    .menu { display: none; }
+}
+/* Con una página extra a la vista (por ejemplo, Preguntas frecuentes) los enlaces no entran hasta 1280 px: mientras, queda "Menú". */
+@media (max-width: 1279px) {
+    .site-header.many .site-nav { display: none; }
+    .site-header.many .menu { display: block; }
+}
+/* "Más": cuando hay varias páginas extra (Antes y después, Opiniones, Preguntas frecuentes) van en una lista corta. */
+.more-nav { position: relative; }
+.more-nav > summary {
+    list-style: none; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; color: var(--ink);
+    font-weight: 600; font-size: .9375rem; padding: 10px; border-radius: 999px; white-space: nowrap;
+}
+.more-nav > summary::-webkit-details-marker { display: none; }
+.more-nav > summary::after {
+    content: ""; width: 7px; height: 7px; margin-top: -3px; border: solid currentColor; border-width: 0 2px 2px 0;
+    transform: rotate(45deg); transition: transform .15s ease;
+}
+.more-nav[open] > summary::after { transform: rotate(-135deg); margin-top: 3px; }
+.more-nav[open] > summary { background: var(--surface); }
+.more-nav > summary[aria-current="page"], .more-panel a[aria-current="page"] { color: var(--accent); }
+.more-panel {
+    position: absolute; right: 0; top: calc(100% + 10px); min-width: 230px; display: grid; gap: 2px; padding: 6px;
+    background: var(--ground); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 18px 30px -18px rgb(12 26 46 / .35);
+}
+.site-nav .more-panel a { border-radius: 10px; color: var(--ink); }
+
+main { padding: 24px 0 96px; flex: 1 0 auto; }
+/* El inicio empieza con la portada pegada al encabezado, sobre un fondo de niebla que se aclara al bajar. */
+main.with-hero { padding-top: 0; background: linear-gradient(180deg, var(--mist) 0, var(--mist) 45%, var(--ground) 100%) no-repeat top / 100% 2400px; }
+main.with-hero > .wrap:first-child .flash { margin: 16px 0; }
+
+/*
+   El pie, en el azul de la portada. Lo abre la invitación a reservar, en una franja de azul vivo que monta sobre su
+   borde; debajo, la marca, lo justo para ubicarse y las páginas; lo legal al final.
+*/
+.site-footer {
+    position: relative; color: #c9d6e8; padding: 0 0 48px; margin-top: 56px;
+    background: radial-gradient(circle 360px at calc(100% - 140px) calc(100% + 160px), rgb(64 140 240 / .5), transparent), linear-gradient(120deg, #06173a 0%, #0a2757 62%, #0e3c84 100%);
+}
+.site-footer .wrap { display: grid; gap: 28px; }
+.footer-cta {
+    --wave: 120px; --swell: 210px;
+    display: grid; grid-template-columns: 56px minmax(0, 1fr); align-items: center; gap: 16px; margin: -56px 0 4px; padding: 20px; border-radius: 24px; color: #fff;
+    background:
+        radial-gradient(circle var(--wave) at calc(100% + 10px) calc(100% + var(--wave) * .42), #5c9df5 calc(var(--wave) - 1px), transparent var(--wave)),
+        radial-gradient(circle var(--swell) at calc(100% - var(--swell) * .18) calc(100% + var(--swell) * .58), rgb(74 141 240 / .5) calc(var(--swell) - 1px), transparent var(--swell)),
+        linear-gradient(100deg, #0a2977 0%, #0c3a9f 46%, #1c62d6 100%);
+    box-shadow: 0 24px 40px -24px rgb(3 12 32 / .8);
+}
+.footer-cta img { width: 72px; max-width: none; height: auto; margin: -8px; filter: drop-shadow(0 8px 10px rgb(0 0 0 / .3)); }
+.site-footer .footer-cta p { margin: 0; color: #e3ecff; }
+.footer-cta strong { display: block; margin-bottom: 4px; text-wrap: balance; font: 700 clamp(1.1875rem, 2.6vw, 1.625rem)/1.2 var(--display); letter-spacing: -.02em; color: #fff; }
+.footer-cta .btn { grid-column: 1 / -1; background: #fff; color: var(--ink); }
+@media (min-width: 720px) {
+    .footer-cta { --wave: 150px; --swell: 260px; grid-template-columns: 84px minmax(0, 1fr) auto; gap: 24px; padding: 26px 40px; border-radius: 28px; }
+    .footer-cta img { width: 112px; margin: -14px; }
+    .footer-cta .btn { grid-column: auto; min-width: 200px; }
+}
+.footer-top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px 24px; }
+.site-footer .name { display: flex; align-items: center; gap: 12px; font-size: clamp(1.25rem, 3.4vw, 1.5rem); font-weight: 800; letter-spacing: -.025em; line-height: 1.1; color: #fff; margin: 0; }
+.site-footer .mark { width: 48px; height: 48px; color: #fff; }
+.site-footer .mark svg { width: 46px; height: 46px; }
+.site-footer .brand small { font-size: .875rem; color: #c9d6e8; }
+/* Lo legal va junto, a la izquierda: en la esquina derecha queda el botón flotante de WhatsApp. */
+.footer-bottom { display: flex; flex-wrap: wrap; gap: 4px 24px; padding-top: 20px; border-top: 1px solid rgb(255 255 255 / .14); font-size: .875rem; color: var(--navy-soft); }
+.footer-bottom a { color: #c9d6e8; }
+.site-footer a { color: #fff; }
+.site-footer p { margin: 0 0 8px; }
+.site-footer h2 { font-family: var(--font); font-size: .8125rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--navy-soft); margin: 0 0 12px; }
+.site-footer .status { font-weight: 700; color: #fff; }
+.site-footer a { text-decoration-color: rgb(255 255 255 / .35); }
+/* Las páginas van en fila y bajan de línea solas: el pie no se alarga con una lista. */
+.site-footer ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 10px 24px; }
+.site-footer ul a { text-decoration: none; }
+.site-footer .socials { display: flex; flex-wrap: wrap; gap: 10px; }
+.site-footer .socials a { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; background: rgb(255 255 255 / .1); transition: background-color .15s ease; }
+.site-footer .socials svg { width: 21px; height: 21px; }
+.footer-cols { display: grid; gap: 28px; padding-top: 28px; border-top: 1px solid rgb(255 255 255 / .14); }
+.footer-contact p:last-child { margin-bottom: 0; }
+@media (min-width: 720px) { .footer-cols { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 28px 64px; } }
+/* En pantallas anchas la marca va a la izquierda y lo demás a su lado: el pie no deja media franja vacía. */
+@media (min-width: 960px) {
+    .site-footer .wrap { grid-template-columns: auto minmax(0, 1fr); column-gap: 72px; }
+    .footer-cta, .footer-bottom { grid-column: 1 / -1; }
+    .footer-top { align-self: start; }
+    .footer-cols { padding-top: 0; border-top: 0; }
+}
+
+/* Pie corto donde la página ya dio la dirección, el horario y el WhatsApp: el nombre y las páginas, en una fila. */
+.site-footer.short { padding-bottom: 40px; }
+.site-footer.short .wrap { gap: 20px; }
+.site-footer.short .footer-cols { padding-top: 20px; }
+.site-footer.short .footer-cols { display: block; }
+.site-footer.short nav h2 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.site-footer .socials { margin: 16px 0 0; }
+@media (min-width: 960px) {
+    .site-footer.short .footer-top { align-self: center; }
+    .site-footer.short .footer-cols { padding-top: 0; align-self: center; justify-self: end; }
+    .site-footer.short ul, .site-footer.short .socials { justify-content: flex-end; }
+}
+
+/* Pie mínimo mientras se reserva: nombre, ayuda por WhatsApp y privacidad. */
+.site-footer.minimal { padding: 28px 0; margin-top: 24px; background: linear-gradient(120deg, #06173a 0%, #0a2757 62%, #0e3c84 100%); }
+.site-footer.minimal .wrap { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 24px; }
+.site-footer.minimal .name { font-size: 1.25rem; margin-right: auto; }
+.site-footer.minimal p { margin: 0; }
+/* Con la franja de ayuda (Reservar cita), la franja monta sobre el borde del pie, como en las demás páginas. */
+.site-footer.minimal.with-cta { padding-top: 0; margin-top: 80px; }
+.site-footer.minimal .footer-cta { flex: 1 0 100%; margin-bottom: 12px; }
+
+/* Tipografía */
+
+h1, h2, h3 { line-height: 1.1; letter-spacing: -.02em; margin: 0; }
+/* Los títulos van en Poppins, más redonda y abierta que la letra del texto: por eso no se aprietan tanto. */
+h1, h2 { font-family: var(--display); overflow-wrap: break-word; }
+h1 { font-size: clamp(1.9rem, 6.5vw, 2.75rem); font-weight: 750; text-wrap: balance; }
+h2 { font-size: 1.35rem; font-weight: 700; text-wrap: balance; }
+h3 { font-size: 1.1rem; font-weight: 700; letter-spacing: -.01em; }
+.lead { font-size: 1.125rem; margin: 12px 0 0; }
+.muted { color: var(--muted); }
+.small { font-size: .9375rem; }
+
+/* Botones */
+
+.btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    min-height: 52px; padding: 12px 24px; border: 0; border-radius: 999px;
+    font: 650 1.0625rem/1.2 var(--font); letter-spacing: -.005em; text-decoration: none; cursor: pointer;
+    background: var(--btn); color: var(--accent-ink);
+    transition: background-color .15s ease, transform .16s var(--ease-out);
+}
+.btn svg { flex: none; width: 1.25em; height: 1.25em; }
+.btn:active { transform: scale(.97); }
+.btn[disabled] { opacity: .55; cursor: progress; }
+.btn.block { width: 100%; }
+.btn.quiet { background: var(--surface); color: var(--ink); }
+.btn.danger { background: var(--bad-bg); color: var(--bad); }
+.btn.small { min-height: 40px; padding: 8px 16px; font-size: .9375rem; }
+.btn.whatsapp { background: #128c4b; }
+/* Sobre el azul oscuro: el botón principal en blanco y el secundario solo con su borde. */
+.btn.light { background: #fff; color: var(--btn); box-shadow: 0 0 0 4px rgb(255 255 255 / .14), 0 8px 24px -8px rgb(120 190 255 / .6); }
+.btn.ghost { background: transparent; color: #fff; box-shadow: inset 0 0 0 1.5px rgb(255 255 255 / .8); }
+
+.link-btn { background: none; border: 0; padding: 4px 0; font: inherit; font-weight: 700; color: var(--accent); cursor: pointer; text-decoration: underline; text-underline-offset: .18em; }
+
+/* Avisos */
+
+.flash { padding: 14px 16px; border-radius: var(--radius); margin: 0 0 20px; font-weight: 600; }
+.flash.ok { background: var(--ok-bg); color: var(--ok); }
+.flash.bad { background: var(--bad-bg); color: var(--bad); }
+.flash.info { background: var(--surface); color: var(--ink); }
+
+.badge { display: inline-block; font-size: .875rem; font-weight: 700; padding: 3px 12px; border-radius: 999px; background: var(--warn-bg); color: var(--warn); }
+.badge.ok { background: var(--ok-bg); color: var(--ok); }
+.badge.bad { background: var(--bad-bg); color: var(--bad); }
+.badge.quiet { background: var(--surface); color: var(--muted); }
+
+/* Bloques */
+
+.panel { background: var(--surface); border-radius: var(--radius); padding: 20px; }
+.stack > *, .stack-lg > * { margin-top: 0; margin-bottom: 0; }
+.stack > * + * { margin-top: 16px; }
+.stack-lg > * + * { margin-top: 32px; }
+.row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.spread { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.spread > .btn { flex: none; white-space: nowrap; }
+
+dl.facts { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; margin: 0; }
+dl.facts dt { color: var(--muted); }
+dl.facts dd { margin: 0; font-weight: 650; min-width: 0; overflow-wrap: anywhere; }
+
+/* Reserva: pasos */
+
+/*
+   Cada paso con su número y su nombre, unidos por una línea: se sabe en cuál va y cuántos faltan. El que ya pasó
+   lleva un visto. En el celular el nombre va bajo el número; en pantallas anchas, al lado.
+*/
+.steps { display: flex; margin: 0; padding: 0; list-style: none; counter-reset: paso; }
+.steps li { flex: 1; position: relative; display: grid; justify-items: center; align-content: start; gap: 6px; counter-increment: paso; font-size: .8125rem; font-weight: 600; line-height: 1.25; text-align: center; color: var(--muted); }
+.steps li::before {
+    content: counter(paso); position: relative; z-index: 1; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%;
+    background: var(--ground); box-shadow: inset 0 0 0 2px var(--surface-strong); font: 700 .9375rem/1 var(--display); color: var(--muted);
+}
+.steps li:not(:last-child)::after { content: ""; position: absolute; top: 16px; left: calc(50% + 24px); width: calc(100% - 48px); height: 2px; border-radius: 2px; background: var(--surface-strong); }
+.steps li[aria-current="step"] { color: var(--btn); font-weight: 700; }
+.steps li[aria-current="step"]::before { background: linear-gradient(160deg, #2a72e8, #0c3a9f); box-shadow: 0 8px 16px -8px rgb(12 58 159 / .7); color: #fff; }
+.steps li.done:not([aria-current])::before {
+    content: ""; box-shadow: none;
+    background: #1c62d6 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 12.6 4.4 4.4L19 7.4'/%3E%3C/svg%3E") center / 20px no-repeat;
+}
+.steps li.done:not([aria-current])::after { background: #1c62d6; }
+@media (min-width: 640px) {
+    .steps li { flex: 1 1 auto; display: flex; align-items: center; gap: 10px; font-size: 1rem; text-align: left; white-space: nowrap; }
+    .steps li:last-child { flex: none; }
+    .steps li::before { flex: none; width: 38px; height: 38px; font-size: 1rem; }
+    .steps li:not(:last-child)::after { position: static; flex: 1; width: auto; min-width: 20px; margin: 0 16px 0 6px; }
+}
+
+.choice-list { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.choice {
+    display: grid; grid-template-columns: 1fr auto; gap: 4px 16px; width: 100%;
+    padding: 16px 18px; border: 0; border-radius: var(--radius); text-align: left;
+    background: var(--surface); color: var(--ink); font: inherit; cursor: pointer;
+    transition: background-color .15s ease, transform .16s var(--ease-out);
+}
+.choice:active { transform: scale(.98); }
+.choice strong { font-size: 1.0625rem; }
+.choice .meta { grid-column: 1 / -1; color: var(--muted); font-size: .9375rem; }
+.choice .price { font-weight: 700; white-space: nowrap; }
+.choice.featured { background: var(--ground); box-shadow: inset 0 0 0 2px var(--accent); }
+.choice.featured strong { color: var(--accent); }
+a.choice { text-decoration: none; }
+.choice.urgent { background: var(--ok-bg); }
+.choice.urgent strong { color: var(--ok); }
+/* Al reservar, cada motivo lleva la imagen de su tratamiento, el precio bajo el nombre y cuánto dura. */
+.choice.with-art { grid-template-columns: 64px 1fr; align-content: start; gap: 2px 14px; padding: 14px 16px 14px 14px; }
+.choice.with-art > * { grid-column: 2; }
+.choice.with-art .art { grid-column: 1; grid-row: 1 / span 4; width: 64px; height: 64px; border-radius: 16px; display: grid; place-items: center; background: linear-gradient(160deg, #eef4fd, #dfeafb); }
+.choice.with-art .art img { width: 96%; height: auto; }
+.choice.with-art .price { color: var(--accent); white-space: normal; }
+.choice.with-art .meta { grid-column: 2; }
+.choice.with-art .minutes { justify-self: start; margin-top: 6px; padding: 2px 10px; border-radius: 999px; background: var(--surface); font-size: .8125rem; font-weight: 700; }
+.choice.with-art:not(.featured) { background: var(--ground); box-shadow: inset 0 0 0 1px var(--line); }
+.choice.with-art.urgent { background: var(--ok-bg); box-shadow: none; }
+.choice.with-art.urgent .art { background: var(--ground); color: #128c4b; }
+.choice.with-art.urgent .art svg { width: 34px; height: 34px; }
+
+.chips { display: flex; gap: 8px; overflow-x: auto; padding: 2px 2px 6px; margin: 0 -2px; scrollbar-width: none; }
+.chips::-webkit-scrollbar { display: none; }
+/* Donde ninguna opción puede quedar escondida a la derecha ("Otra persona"), bajan a otra línea. */
+.chips.wrap { flex-wrap: wrap; overflow: visible; }
+.chip {
+    flex: none; border: 0; border-radius: 999px; padding: 10px 16px; min-height: 44px;
+    background: var(--surface); color: var(--ink); font: 600 .9375rem/1.2 var(--font); cursor: pointer;
+}
+.chip[aria-pressed="true"] { background: var(--ink); color: #fff; }
+/* Todo lo que se toca responde al dedo: se achica apenas al presionar. */
+.chip, .day, .time { transition: background-color .15s ease, color .15s ease, transform .16s var(--ease-out); }
+.chip:active, .day:active, .time:active { transform: scale(.96); }
+
+.days { display: grid; grid-auto-flow: column; grid-auto-columns: 68px; gap: 8px; overflow-x: auto; padding: 2px 2px 8px; margin: 0 -2px; scroll-snap-type: x proximity; scrollbar-width: none; }
+.days::-webkit-scrollbar { display: none; }
+/* Con mouse no hay cómo deslizar la tira: en pantallas anchas los días van en filas, todos a la vista. */
+@media (min-width: 600px) {
+    .days { grid-auto-flow: row; grid-template-columns: repeat(6, 1fr); overflow: visible; }
+}
+.day {
+    scroll-snap-align: start; border: 0; border-radius: var(--radius); padding: 10px 4px; cursor: pointer;
+    background: var(--surface); color: var(--ink); font: inherit; text-align: center; line-height: 1.15;
+}
+.day span { display: block; font-size: .8125rem; color: var(--muted); }
+.day strong { display: block; font-size: 1.5rem; margin: 2px 0; }
+.day[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+.day[aria-pressed="true"] span { color: #d6e3f5; }
+
+.times { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; }
+.time {
+    border: 0; border-radius: 999px; min-height: 48px; padding: 8px; cursor: pointer;
+    background: var(--surface); color: var(--ink); font: 700 1rem/1.2 var(--font);
+}
+.time[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+.time:disabled { opacity: .45; cursor: not-allowed; }
+.times-note { margin: 0; font-weight: 650; color: var(--accent); }
+
+.summary { background: var(--surface); border-radius: var(--radius); padding: 16px 18px; }
+.summary .what { font-weight: 750; font-size: 1.125rem; }
+.summary .price-line { margin: 10px 0 0; padding-top: 10px; border-top: 1px solid var(--surface-strong); font-weight: 650; }
+.choice .price s { color: var(--muted); font-weight: 500; margin-right: 4px; }
+
+:where(.summary, .panel, .appointment, .flash) p { margin: 0; }
+
+/* Formularios */
+
+.field { display: grid; gap: 6px; }
+.field label, .field .label { font-weight: 650; }
+.field .hint { color: var(--muted); font-size: .9375rem; }
+.field .error { color: var(--bad); font-weight: 600; font-size: .9375rem; }
+.field .hint.ok { color: var(--ok); font-weight: 600; }
+.form-problems { margin: 0; padding: 12px 14px; border-radius: 12px; background: var(--bad-bg); color: var(--bad); font-weight: 600; }
+h1:focus, .step-title:focus { outline: none; }
+.input, select.input, textarea.input {
+    width: 100%; min-height: 52px; padding: 12px 14px; font: 400 1.0625rem/1.3 var(--font); color: var(--ink);
+    background: #fff; border: 2px solid var(--field-line); border-radius: 12px;
+}
+.input:focus { border-color: var(--accent); outline: none; }
+.input[aria-invalid="true"] { border-color: var(--bad); }
+.prefix { display: flex; align-items: stretch; }
+.prefix span { display: flex; align-items: center; padding: 0 12px; background: var(--surface); border-radius: 12px 0 0 12px; font-weight: 650; }
+.prefix .input { border-radius: 0 12px 12px 0; }
+.panel .prefix span { background: var(--surface-strong); }
+.stack > .choice-list { margin-top: 24px; }
+/* Reserva lista: el diente sonriente lo dice antes que el texto. */
+.done-art { width: 150px; height: auto; margin: -8px 0 -14px -12px; filter: drop-shadow(0 12px 12px rgb(11 31 58 / .14)); animation: pop .4s cubic-bezier(.34, 1.4, .64, 1) both; }
+.booked .summary { background: var(--ground); box-shadow: inset 0 0 0 1px var(--line); }
+/* "Qué sigue" con la cita ya reservada: confirmar, guardarla y cómo llegar. */
+.next-steps { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 16px; counter-reset: paso; }
+.next-steps li { counter-increment: paso; position: relative; padding-left: 46px; min-height: 34px; }
+.next-steps li::before { content: counter(paso); position: absolute; left: 0; top: 0; width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: var(--surface); color: var(--accent); font-weight: 800; }
+.next-steps strong { display: block; }
+.next-steps a { font-weight: 700; }
+.origin-ask .label { margin: 0; }
+.origin-ask .chip { background: var(--ground); }
+@keyframes pop { from { transform: scale(.85); opacity: 0; } to { transform: none; opacity: 1; } }
+fieldset.field { border: 0; margin: 0; padding: 0; min-width: 0; }
+fieldset.field legend { padding: 0; margin-bottom: 6px; }
+.date-parts { display: grid; grid-template-columns: 1fr 1.7fr 1.25fr; gap: 8px; }
+.date-parts label { display: block; }
+.grid-2 { display: grid; gap: 16px; }
+@media (min-width: 560px) { .grid-2 { grid-template-columns: 1fr 1fr; } }
+.check { display: grid; grid-template-columns: 24px 1fr; gap: 12px; align-items: start; cursor: pointer; }
+.check input { width: 22px; height: 22px; margin: 2px 0 0; accent-color: var(--accent); }
+.segmented { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 4px; background: var(--surface); border-radius: 999px; }
+.segmented label { display: flex; align-items: center; justify-content: center; min-height: 44px; border-radius: 999px; font-weight: 650; cursor: pointer; text-align: center; padding: 0 8px; }
+.segmented input { position: absolute; opacity: 0; pointer-events: none; }
+.segmented input:checked + span { color: #fff; }
+.segmented label:has(input:checked) { background: var(--ink); color: #fff; }
+.segmented label:has(input:focus-visible) { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+details.more > summary { cursor: pointer; font-weight: 700; color: var(--accent); list-style: none; }
+details.more > summary::-webkit-details-marker { display: none; }
+/* Una flechita dice que se abre: sin ella parecía un texto azul más. */
+details.more > summary::after { content: ""; display: inline-block; width: .45em; height: .45em; margin-left: .55em; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: translateY(-.22em) rotate(45deg); transition: transform .16s var(--ease-out); }
+details.more[open] > summary::after { transform: translateY(.06em) rotate(225deg); }
+
+/* Mi cuenta */
+
+/* La tarjeta de la cita: la misma en el enlace de WhatsApp, en Mi cuenta y en el inicio. */
+.appointment { background: var(--surface); border-radius: var(--radius); padding: 18px; display: grid; gap: 10px; align-content: start; }
+.appointment p { margin: 0; }
+.appointment .kicker { font-size: .8125rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); }
+.appointment .badge { flex: none; white-space: nowrap; }
+.appointment .when { font-size: 1.25rem; font-weight: 800; letter-spacing: -.01em; line-height: 1.2; }
+.appointment .note { font-size: .9375rem; padding: 10px 12px; border-radius: 12px; background: var(--ground); }
+/* La cita que la familia todavía no reconoce: en ámbar, como "Por confirmar", para que no pase como una más. */
+.appointment .note.guest { background: var(--warn-bg); color: var(--warn); }
+.appointment .note.guest strong { display: block; }
+.appointment .note.guest a { color: inherit; font-weight: 700; }
+.appointment .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 4px; }
+.appointment .actions form { margin: 0; }
+.appointment .btn.quiet { background: var(--ground); }
+.appointment details.more form { margin-top: 10px; }
+.appointment.solo { padding: 20px; }
+.appointment.solo .actions > * { flex: 1 1 100%; }
+.appointment.solo .actions .btn { width: 100%; min-height: 52px; font-size: 1rem; }
+.welcome .appointment { background: var(--ground); box-shadow: 0 1px 2px rgb(12 26 46 / .06); }
+.welcome .appointment .btn.quiet, .welcome .appointment .note:not(.guest) { background: var(--surface); }
+.welcome .appointment .health-ask { background: var(--surface); box-shadow: none; }
+
+.plan-card { background: var(--surface); border-radius: var(--radius); padding: 18px; display: grid; gap: 12px; }
+.plan-card h3 { font-size: 1.125rem; margin: 0; line-height: 1.25; }
+.plan-card p { margin: 0; }
+.plan-card .badge { flex: none; white-space: nowrap; }
+.plan-card dd .small { display: block; font-weight: 400; }
+.plan-card .meter { height: 8px; border-radius: 999px; background: var(--surface-strong); overflow: hidden; }
+.plan-card .meter span { display: block; height: 100%; border-radius: 999px; background: var(--accent); }
+
+/* Inicio para quien vuelve: lo suyo arriba (su cita, sus sesiones, su control), cada cosa con su botón. */
+.welcome { margin: 8px 0 48px; padding: 16px; border-radius: 24px; background: var(--surface); display: grid; gap: 16px; }
+.welcome-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.welcome-head h2 { margin: 0; font-size: clamp(1.5rem, 3.6vw, 1.875rem); font-weight: 750; letter-spacing: -.025em; line-height: 1.15; }
+.welcome-cards { display: grid; gap: 12px; }
+.welcome-card { background: var(--ground); border-radius: var(--radius); padding: 18px; display: grid; gap: 8px; align-content: start; box-shadow: 0 1px 2px rgb(12 26 46 / .06); }
+.welcome-card p { margin: 0; }
+.welcome-kicker { font-size: .8125rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); }
+.welcome-when { font-size: 1.25rem; font-weight: 800; letter-spacing: -.01em; line-height: 1.2; }
+.welcome-card .meter { height: 8px; border-radius: 999px; background: var(--surface-strong); overflow: hidden; }
+.welcome-card .meter span { display: block; height: 100%; border-radius: 999px; background: var(--accent); }
+.welcome-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 6px; }
+.welcome-actions form { margin: 0; }
+.welcome-card .welcome-done { color: var(--ok); font-weight: 600; font-size: .9375rem; }
+.welcome-empty, .welcome-more { margin: 0; }
+.welcome-empty { color: var(--muted); }
+.welcome-not-you { margin: 0; font-size: .9375rem; color: var(--muted); }
+@media (min-width: 720px) {
+    .welcome { padding: 28px; }
+    .welcome-cards { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+}
+.plan-items { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 8px; }
+.plan-items li { display: flex; justify-content: space-between; gap: 12px; }
+.plan-items li.done > span:first-child { text-decoration: line-through; color: var(--muted); }
+.plan-items li > span:last-child { flex: none; font-size: .9375rem; }
+.owed { color: var(--bad); }
+
+/* Web pública: inicio y páginas de contenido */
+
+/* La portada: una franja azul noche a todo el ancho, con olas de luz y el borde de abajo en curva. */
+.hero-band {
+    position: relative; isolation: isolate; overflow: hidden; color: #fff; padding: 20px 0 84px;
+    background:
+        radial-gradient(70% 90% at 82% 36%, rgb(52 138 255 / .62), transparent 68%),
+        radial-gradient(60% 70% at -8% 104%, rgb(40 126 248 / .6), transparent 70%),
+        linear-gradient(118deg, #071c4c 0%, #0a3078 52%, #114fb4 100%);
+}
+.hero-band::before {
+    content: ""; position: absolute; z-index: -1; inset: 0; opacity: .9;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 600' preserveAspectRatio='none'%3E%3Cpath fill='%233b8bf0' fill-opacity='.2' d='M0 250c120 30 190 130 320 190s300 40 420 100c60 30 90 50 120 60H0Z'/%3E%3Cpath fill='%2364b4ff' fill-opacity='.14' d='M0 360c90 10 170 80 280 120s250 30 360 120H0Z'/%3E%3Cpath fill='none' stroke='%2386c8ff' stroke-opacity='.35' stroke-width='1.5' d='M0 250c120 30 190 130 320 190s300 40 420 100'/%3E%3C/svg%3E") left bottom / 100% 100% no-repeat;
+}
+.hero-band::after {
+    content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 56px;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 80' preserveAspectRatio='none'%3E%3Cpath fill='%23f3f7fd' d='M0 80V30c160 34 330 46 540 26C780 34 930 4 1140 12c120 5 220 26 300 46v22Z'/%3E%3C/svg%3E") center / 100% 100% no-repeat;
+}
+.hero-band > .wrap { position: relative; z-index: 1; }
+/* Lo de quien vuelve va en su tarjeta clara, con el texto oscuro de siempre. */
+.hero-band .welcome { margin: 4px 0 28px; color: var(--ink); box-shadow: 0 24px 40px -24px rgb(3 12 32 / .7); }
+
+.hero { display: grid; gap: 12px; padding: 12px 0 0; }
+/* Sin las frases montadas sobre el borde (no hay reserva en línea), la portada no les guarda sitio. */
+.hero.plain { margin-bottom: -32px; }
+.hero h1 { font-size: clamp(1.875rem, 8vw, 3.25rem); font-weight: 700; line-height: 1.12; letter-spacing: -.025em; }
+/* Lo que sigue a la coma, en letra delgada. */
+.hero h1 span { font-weight: 400; }
+/* La segunda mitad del título, en celeste, en cursiva y en su propia línea, con un trazo de pincel debajo. */
+.hero h1 em { position: relative; display: block; width: fit-content; color: var(--sky-vivid); font-style: italic; }
+.hero h1 em::after {
+    content: ""; position: absolute; left: 28%; right: -2%; bottom: -.22em; height: .2em;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 16' preserveAspectRatio='none'%3E%3Cpath fill='%2366bbff' d='M2 14C50 5 128 1 198 3c-62 3-138 9-196 11Z'/%3E%3C/svg%3E") center / 100% 100% no-repeat;
+}
+.hero .lead { font-family: var(--display); font-size: clamp(1rem, 1.9vw, 1.1875rem); line-height: 1.6; color: #f1f6ff; max-width: 40ch; margin: 24px 0 26px; }
+/* Arriba de todo: si el consultorio está abierto ahora, en una pastilla. */
+.hero .open-now {
+    display: inline-flex; align-items: center; gap: 8px; margin: 0 0 14px; padding: 5px 12px 5px 10px; border-radius: 999px;
+    background: rgb(255 255 255 / .08); box-shadow: inset 0 0 0 1px rgb(255 255 255 / .16);
+    color: #e3eeff; font-weight: 600; font-size: .8125rem; line-height: 1.3;
+}
+.hero .open-now::before { content: ""; flex: none; width: 8px; height: 8px; border-radius: 50%; background: #9db4d6; box-shadow: 0 0 0 4px rgb(157 180 214 / .22); }
+.hero .open-now.open::before { background: #5ad19f; box-shadow: 0 0 0 4px rgb(90 209 159 / .25); }
+/* Pegada al título, la frase del consultorio en mayúsculas con su raya (se cambia en Página web › Puesta a punto). */
+.hero .eyebrow {
+    display: flex; align-items: center; gap: 14px; margin: 0 0 14px; color: var(--sky-vivid);
+    font: 400 .75rem/1.4 var(--display); letter-spacing: clamp(.14em, .55vw, .3em); text-transform: uppercase;
+}
+.hero .eyebrow::after { content: ""; flex: 0 1 72px; min-width: 20px; height: 1px; background: currentColor; opacity: .8; }
+/* En los celulares más angostos (320) la frase tiene que entrar en una línea. */
+@media (max-width: 379px) { .hero .eyebrow { font-size: .6875rem; letter-spacing: .1em; gap: 10px; } }
+.hero .rating { color: #fff; }
+.hero .rating-stars { color: rgb(255 255 255 / .26); }
+.hero .rating-stars::after { color: #ffc24d; }
+.hero a.rating > span:last-child { text-decoration-color: rgb(255 255 255 / .45); }
+/* El implante con su cinta de luz en espiral: la imagen de la marca. Son dos capas, una sobre otra: el implante, de bordes limpios, y la cinta, que es la única que lleva resplandor. */
+.hero-art { position: relative; display: grid; place-items: center; justify-self: center; width: min(78vw, 320px); aspect-ratio: 1; margin: -4px 0 -14px; pointer-events: none; }
+.hero-art::before {
+    content: ""; position: absolute; inset: 4%; border-radius: 50%;
+    background: radial-gradient(closest-side, rgb(84 176 255 / .55), rgb(46 132 248 / .2) 62%, transparent 76%);
+}
+.hero-art img { position: relative; grid-area: 1 / 1; width: 100%; height: auto; }
+.hero-art img + img { filter: drop-shadow(0 0 1.5px rgb(96 196 255)) drop-shadow(0 0 6px rgb(56 164 255 / .95)) drop-shadow(0 0 18px rgb(40 130 255 / .7)); }
+/* Con la foto real del consultorio: en el celular va bajo el texto y el implante le deja el sitio. */
+.hero-photo { margin: 0; }
+.hero-photo img { width: 100%; height: 100%; object-fit: cover; }
+.hero-band.with-photo { padding-top: 0; }
+.hero-band.with-photo .hero-photo { aspect-ratio: 16 / 9; -webkit-mask: linear-gradient(180deg, #000 62%, transparent); mask: linear-gradient(180deg, #000 62%, transparent); }
+.hero-band.with-photo .hero { padding-top: 0; margin-top: -8px; }
+.hero.with-photo .hero-art { display: none; }
+/* Quien vuelve ve primero lo suyo: en el celular la foto no se pone delante de su tarjeta. */
+.hero-band.with-photo:has(.welcome) { padding-top: 20px; }
+.hero-band.with-photo:has(.welcome) .hero-photo { display: none; }
+.hero-band.with-photo:has(.welcome) .hero { padding-top: 12px; margin-top: 0; }
+
+/* Lo que tranquiliza antes de reservar: una tarjeta blanca montada sobre el borde de la portada. */
+.trust {
+    position: relative; z-index: 2; list-style: none; margin: -52px 0 0; padding: 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 14px 12px;
+    background: var(--ground); border-radius: 24px; box-shadow: 0 1px 2px rgb(12 26 46 / .06), 0 20px 40px -20px rgb(14 47 107 / .45);
+    font-size: .9375rem; font-weight: 650; line-height: 1.25; color: var(--ink);
+}
+.trust li { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.trust svg { flex: none; width: 26px; height: 26px; color: var(--accent); }
+.trust span { text-wrap: balance; }
+@media (max-width: 359px) { .trust { grid-template-columns: 1fr; } }
+
+/* Acceso rápido y, al lado, los tratamientos. */
+.start { display: grid; gap: 36px; margin-top: 28px; }
+.quick {
+    position: relative; isolation: isolate; overflow: hidden; display: grid; gap: 6px; align-content: start; padding: 24px 20px; border-radius: 24px; color: #fff;
+    background: radial-gradient(90% 70% at 100% 0%, rgb(46 120 232 / .55), transparent 70%), linear-gradient(160deg, #0a2553 0%, #06173a 100%);
+    box-shadow: 0 24px 40px -24px rgb(6 23 58 / .7);
+}
+/* El diente de la marca, apenas visible, en la esquina. */
+.quick::after {
+    content: ""; position: absolute; z-index: -1; right: -26px; top: 6px; width: 150px; height: 150px; opacity: .13;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%239cc8ff'%3E%3Cpath d='M7.5 3C5 3 3.5 5 3.5 7.4c0 1.9.6 3.4 1.2 5 .7 1.8 1 3.6 1.3 5.6.2 1.7.8 3 1.8 3 1.3 0 1.6-1.6 2-3.5.3-1.4.8-2.5 2.2-2.5s1.9 1.1 2.2 2.5c.4 1.9.7 3.5 2 3.5 1 0 1.6-1.3 1.8-3 .3-2 .6-3.8 1.3-5.6.6-1.6 1.2-3.1 1.2-5C20.5 5 19 3 16.5 3c-1.8 0-2.7 1-4.5 1S9.3 3 7.5 3Z'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+.quick > h2 { display: flex; align-items: center; gap: 10px; font-size: 1.375rem; font-weight: 800; letter-spacing: -.02em; }
+.quick > h2 svg { flex: none; width: 26px; height: 26px; }
+.quick > p { margin: 0 0 10px; color: #c9d9f2; }
+.quick .next-free { margin: 0 0 10px; padding: 16px; border-radius: 18px; background: rgb(255 255 255 / .08); box-shadow: inset 0 0 0 1px rgb(255 255 255 / .14); overflow: visible; }
+.quick .next-free::before { display: none; }
+.quick .next-free .when { font-size: 1.5rem; margin: 6px 0 0; }
+.quick .next-free .for { margin: 2px 0 14px; }
+.quick .next-free .free-times { margin: 0; }
+/* "Ver otros días y horarios" solo en el celular: en pantallas grandes está el botón "Reservar cita" justo debajo. */
+.quick .next-free .more { display: none; margin-top: 14px; }
+.quick .free-times a { min-height: 46px; font-size: 1rem; }
+.quick-actions { display: grid; gap: 10px; }
+.quick-actions .btn { width: 100%; min-height: 50px; padding: 10px 18px; font-size: 1rem; }
+.quick-actions .btn svg:last-child:not(:first-child) { margin-left: 2px; }
+.quick-actions .btn.ghost { box-shadow: inset 0 0 0 1.5px rgb(255 255 255 / .5); }
+
+.services .section-head { margin-bottom: 20px; }
+/* "Conocer más" baja hasta aquí: el título no queda tapado por el encabezado fijo. */
+#tratamientos { scroll-margin-top: 104px; }
+/* Una tarjeta por tratamiento: su imagen sobre un resplandor celeste, el nombre, el precio "desde" y de qué se trata. */
+.services-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.services-grid a {
+    display: grid; justify-items: center; align-content: start; gap: 4px; height: 100%; padding: 12px 12px 16px; border-radius: 20px; text-align: center;
+    background: linear-gradient(180deg, #eef5ff 0, var(--ground) 58%); border: 1px solid var(--card-line); box-shadow: var(--card-shadow); color: var(--ink); text-decoration: none;
+    transition: border-color .15s ease, box-shadow .15s ease, transform .2s var(--ease-out);
+}
+.services-grid .art { display: grid; place-items: center; width: 112px; height: 112px; background: radial-gradient(closest-side, rgb(58 146 255 / .62), rgb(104 182 255 / .4) 42%, rgb(150 208 255 / .16) 68%, transparent 80%); }
+.services-grid .art img { width: 100%; height: auto; }
+/* La imagen de cada tratamiento lleva una luz azul que sigue su contorno: igual en el inicio, el tarifario, su página y la reserva. */
+:is(.services-grid .art, .price-list .icon, .treatment-art, .choice.with-art .art) img { filter: drop-shadow(0 2px 9px rgb(40 130 255 / .62)); }
+.services-grid .name { max-width: 100%; font-weight: 750; font-size: 1.0625rem; letter-spacing: -.02em; line-height: 1.2; text-wrap: balance; overflow-wrap: anywhere; }
+/* El precio va en una pastilla celeste: es lo que más se busca en la tarjeta. Sin precio publicado, queda como texto. */
+.services-grid .price { margin: 4px 0 2px; padding: 3px 12px; border-radius: 999px; background: #e3eeff; font-weight: 750; font-size: 1rem; color: #0d3f8f; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.services-grid .price.ask { margin: 0; padding: 0; background: none; font-weight: 700; font-size: .9375rem; color: var(--accent); white-space: normal; }
+.services-grid .desc { color: var(--muted); font-size: .875rem; line-height: 1.4; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; overflow: hidden; }
+/* En los celulares más angostos (320) un nombre largo, como "Blanqueamiento", tiene que entrar en su tarjeta. */
+@media (max-width: 379px) {
+    .services-grid a { padding: 12px 8px 14px; }
+    .services-grid .name { font-size: .9375rem; }
+    .services-grid .price { padding: 3px 9px; font-size: .875rem; }
+}
+/* De tres en tres se muestran dos filas completas; los demás están en "Ver los tratamientos". */
+@media (min-width: 560px) and (max-width: 719px) {
+    .services-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .services-grid li:nth-child(n + 7) { display: none; }
+}
+@media (min-width: 720px) {
+    .services .section-head { grid-template-columns: minmax(0, 1fr) auto; align-items: end; column-gap: 24px; }
+    .services .section-head > * { grid-column: 1; }
+    .services .section-head .arrow { grid-column: 2; grid-row: 2 / span 2; }
+    .services-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+}
+
+/* Estrellas de Google: cinco grises y encima las doradas, cortadas según el puntaje. */
+.rating { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin: -8px 0 24px; color: var(--ink); text-decoration: none; }
+a.rating > span:last-child { text-decoration: underline; text-decoration-color: var(--field-line); text-underline-offset: .18em; }
+.rating-stars { position: relative; display: inline-block; font-size: 1.25rem; line-height: 1; letter-spacing: .08em; color: var(--surface-strong); }
+.rating-stars::before { content: "★★★★★"; }
+.rating-stars::after { content: "★★★★★"; position: absolute; top: 0; left: 0; width: calc(var(--rating) * 20%); overflow: hidden; white-space: nowrap; color: var(--star); }
+.contact .status.open, .site-footer .status.open { color: var(--ok); font-weight: 700; }
+.site-footer .status.open { color: #9fe3d4; }
+
+.next-free {
+    position: relative; overflow: hidden; background: var(--navy); color: #fff; border-radius: 28px; padding: 24px;
+    display: grid; gap: 4px; align-content: start; isolation: isolate;
+}
+/* Un halo del azul de la marca detrás de la hora: da profundidad sin otra imagen. */
+.next-free::before {
+    content: ""; position: absolute; z-index: -1; width: 360px; height: 360px; right: -140px; top: -170px; border-radius: 50%;
+    background: radial-gradient(closest-side, rgb(64 128 214 / .55), transparent);
+}
+.next-free-head { display: grid; gap: 4px; }
+.next-free :is(h2, h3) { font-family: var(--font); display: inline-flex; align-items: center; gap: 8px; font-size: .8125rem; letter-spacing: .08em; text-transform: uppercase; color: var(--navy-soft); font-weight: 700; }
+.next-free :is(h2, h3)::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: #5ad19f; box-shadow: 0 0 0 4px rgb(90 209 159 / .2); }
+.next-free .when { font-size: clamp(1.75rem, 5vw, 2.5rem); font-weight: 750; letter-spacing: -.035em; line-height: 1.08; margin: 8px 0 0; }
+.next-free .for { margin: 4px 0 20px; color: var(--navy-soft); }
+.free-times { list-style: none; margin: 0 0 16px; padding: 0; display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.free-times a {
+    display: flex; align-items: center; justify-content: center; min-height: 52px; border-radius: 999px;
+    background: var(--ground); color: var(--ink); font-weight: 700; font-size: 1.0625rem; font-variant-numeric: tabular-nums; text-decoration: none;
+    transition: background-color .15s ease, transform .16s var(--ease-out);
+}
+.free-times a:active { transform: scale(.97); }
+.next-free .more { color: #fff; font-weight: 650; text-decoration-color: rgb(255 255 255 / .4); }
+
+/* En tabletas el implante sube al lado del texto. */
+@media (min-width: 640px) {
+    .hero-band { padding: 28px 0 96px; }
+    .hero.with-art { grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 24px; }
+    .hero.with-art .hero-art { width: clamp(220px, 34vw, 320px); margin: 0; }
+    .hero-band.with-photo .hero-photo { aspect-ratio: 5 / 2; }
+    .hero-band.with-photo:has(.welcome) { padding-top: 28px; }
+    .trust { padding: 18px 24px; }
+}
+@media (min-width: 900px) {
+    .hero-band { padding: 44px 0 112px; }
+    .hero-band::after { height: 80px; }
+    .hero, .hero.with-art { grid-template-columns: minmax(0, 1.08fr) minmax(0, .92fr); align-items: center; gap: 48px; padding: 0; }
+    /* El título entra en dos líneas al lado de la imagen. */
+    .hero h1 { font-size: clamp(2.25rem, 4.2vw, 3.25rem); }
+    .hero.with-art .hero-art { justify-self: center; width: min(100%, 440px); }
+    .hero-band .welcome { margin: 0 0 44px; }
+    .next-free { padding: 36px; }
+    /* La foto del consultorio llena el lado derecho de la portada y se funde con el azul hacia el texto. */
+    .hero-band.with-photo { padding-top: 44px; }
+    .hero-band.with-photo .hero-photo {
+        --to-text: linear-gradient(90deg, transparent 0, rgb(0 0 0 / .55) 20%, #000 46%);
+        position: absolute; z-index: -1; inset: 0 0 0 auto; width: 58%; aspect-ratio: auto; -webkit-mask: var(--to-text); mask: var(--to-text);
+    }
+    /* Sobre la foto, un velo azul que se va aclarando: el consultorio se ve a través del azul y el texto sigue leyéndose. */
+    .hero-band.with-photo .hero-photo::after {
+        content: ""; position: absolute; inset: 0;
+        background: linear-gradient(90deg, rgb(10 48 120 / .78) 0, rgb(14 66 150 / .5) 26%, rgb(24 92 190 / .16) 48%, transparent 62%);
+    }
+    .hero-band.with-photo .hero { margin-top: 0; }
+    /* Bajo la tarjeta de quien vuelve, la foto se queda junto al título y no crece con la franja. */
+    .hero-band.with-photo:has(.welcome) { padding-top: 44px; }
+    .hero-band.with-photo:has(.welcome) .hero-photo {
+        display: block; top: auto; height: 540px;
+        -webkit-mask: var(--to-text), linear-gradient(180deg, transparent 0, #000 24%); -webkit-mask-composite: source-in;
+        mask: var(--to-text), linear-gradient(180deg, transparent 0, #000 24%); mask-composite: intersect;
+    }
+    .hero-band.with-photo:has(.welcome) .hero { padding-top: 0; }
+    /* El implante flota donde la foto se funde, sin tapar a quien sale en ella: en pantallas anchas se arrima al texto. */
+    .hero.with-photo { gap: 24px; }
+    .hero.with-photo .hero-art { display: grid; justify-self: start; width: clamp(200px, 36vw - 150px, 340px); margin: 0 0 0 clamp(-165px, 141.7px - 21.3vw, -50px); }
+    /* Detrás, una sombra azul suave para que la corona blanca no se pierda si la foto es clara. */
+    .hero.with-photo .hero-art::before { inset: -6%; background: radial-gradient(closest-side, rgb(9 44 116 / .5), rgb(11 54 134 / .26) 56%, transparent 78%); }
+    /* Las frases, en una sola fila con forma de píldora. */
+    .trust { display: flex; max-width: 1020px; margin: -64px auto 0; padding: 20px 12px; border-radius: 999px; }
+    .trust li { flex: 1 1 0; justify-content: center; padding: 2px 20px; }
+    .trust li + li { border-left: 1px solid var(--line); }
+    .trust svg { width: 30px; height: 30px; }
+}
+@media (min-width: 640px) and (max-width: 899px) { .hero h1 { font-size: clamp(2.25rem, 5.4vw, 3rem); } }
+@media (min-width: 640px) and (max-width: 999px) {
+    .quick-actions { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
+    .quick-actions .btn { padding: 10px 12px; font-size: .9375rem; }
+    .quick .free-times { grid-template-columns: repeat(4, 1fr); }
+}
+@media (min-width: 1000px) {
+    .start { grid-template-columns: 344px minmax(0, 1fr); gap: 36px; align-items: start; margin-top: 40px; }
+    .quick { padding: 28px 24px; }
+    .services-grid .art { width: 128px; height: 128px; }
+}
+/* Con el acceso rápido al lado, hasta 1200 px entran tres tarjetas por fila. */
+@media (min-width: 1000px) and (max-width: 1199px) {
+    .services-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .services-grid li:nth-child(n + 7) { display: none; }
+}
+
+.section { margin-top: 72px; }
+.section > h2, .section-head h2, .cta-band.with-art h2 { font-size: clamp(1.625rem, 3.5vw, 2.125rem); font-weight: 800; letter-spacing: -.025em; line-height: 1.14; }
+.section-head { display: grid; gap: 10px; margin-bottom: 28px; }
+/* Una raya azul sobre cada título de sección. */
+.section-head::before { content: ""; width: 40px; height: 3px; border-radius: 3px; background: var(--accent); }
+.section-head p { margin: 0; color: var(--muted); max-width: 60ch; }
+/* La presentación del consultorio dentro de "Quién te atiende": se lee como texto, no como nota. */
+.section-head .prose p { color: var(--ink); font-size: 1.125rem; margin: 0; }
+.section-head .prose p + p { margin-top: 12px; }
+.section > h2 { margin-bottom: 24px; }
+.section > p:last-child { margin-top: 20px; }
+@media (min-width: 900px) { .section { margin-top: 88px; } }
+/* Franja celeste a todo el ancho de la pantalla, aunque el contenido siga en su columna: alterna con el blanco para que la página respire. */
+.section.band .btn.quiet { background: var(--ground); }
+.section.band { background: var(--sky-band); box-shadow: 0 0 0 100vmax var(--sky-band); clip-path: inset(0 -100vmax); padding: 56px 0; }
+.section.band .faqs summary::after { background: var(--ground); }
+@media (min-width: 900px) { .section.band { padding: 72px 0; } }
+/* Dos columnas en pantallas grandes: el título a la izquierda, el contenido a la derecha. */
+@media (min-width: 960px) {
+    .section.split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.75fr); column-gap: 72px; align-items: start; }
+    .section.split > * { grid-column: 2; }
+    .section.split > .section-head { grid-column: 1; grid-row: 1 / span 4; position: sticky; top: 104px; margin: 0; }
+    /* Las preguntas llenan su columna; la respuesta se queda del ancho que se lee bien. */
+    .section.split .faqs { max-width: none; }
+}
+/* Cuando una sección abre la página (contacto), no necesita el aire de separación. */
+.wrap > .section:first-child { margin-top: 8px; }
+
+/* Reserva en tres pasos: una franja celeste con el título a la izquierda y cada paso en su tarjeta numerada. */
+.how-band {
+    position: relative; overflow: hidden; display: grid; gap: 24px; padding: 28px 20px 24px; border-radius: 28px;
+    background: linear-gradient(104deg, #eef5ff 0%, #e2edff 52%, #b9d4fb 100%);
+}
+.how-band .section-head { margin: 0; justify-items: start; }
+.how-band .section-head .btn { margin-top: 6px; }
+.how { display: grid; gap: 18px; margin: 0; padding: 0; list-style: none; counter-reset: paso; }
+.how li {
+    position: relative; counter-increment: paso; display: grid; grid-template-columns: 76px 1fr; gap: 2px 14px; align-items: center;
+    padding: 14px 16px 14px 14px; border-radius: 20px; background: rgb(255 255 255 / .82); box-shadow: 0 1px 2px rgb(12 26 46 / .04), 0 12px 28px -18px rgb(14 47 107 / .35);
+}
+.how li::before {
+    content: counter(paso); position: absolute; left: 10px; top: -10px; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center;
+    background: var(--btn); color: #fff; font-weight: 800; font-size: .9375rem; line-height: 1; box-shadow: 0 0 0 3px #fff;
+}
+.how img { grid-row: 1 / span 2; width: 76px; height: auto; filter: drop-shadow(0 8px 8px rgb(11 31 58 / .14)); }
+.how strong { align-self: end; font-size: 1.125rem; letter-spacing: -.02em; line-height: 1.2; }
+.how span { align-self: start; color: var(--muted); font-size: .9375rem; line-height: 1.4; }
+.how-art { display: none; }
+@media (min-width: 720px) {
+    .how-band { padding: 36px 32px 32px; }
+    .how { grid-template-columns: repeat(3, 1fr); gap: 28px; }
+    .how li { grid-template-columns: 1fr; justify-items: center; align-content: start; gap: 6px; padding: 22px 14px 20px; text-align: center; }
+    .how li::before { left: 50%; top: -14px; margin-left: -14px; }
+    .how img { grid-row: auto; width: 96px; margin: 2px 0 2px; }
+    /* Entre paso y paso, una flechita. */
+    .how li + li::after {
+        content: ""; position: absolute; left: -19px; top: 50%; width: 9px; height: 9px; margin-top: -5px;
+        border: solid var(--btn); border-width: 2px 2px 0 0; transform: rotate(45deg);
+    }
+}
+@media (min-width: 1080px) {
+    .how-band { grid-template-columns: 250px minmax(0, 1fr) 210px; align-items: center; gap: 36px; padding: 40px 20px 40px 44px; }
+    .how-art { display: block; width: 250px; max-width: none; height: auto; margin: -24px 0 -24px -24px; filter: drop-shadow(0 22px 22px rgb(11 31 58 / .22)); }
+}
+
+/*
+   Nuestra especialidad: una franja en azul vivo, más claro hacia la derecha, con la imagen del tratamiento, que en
+   pantallas anchas sobresale por arriba. Detrás de la imagen, dos discos de luz; en la esquina, dos ondas claras.
+   Los cuatro adornos se achican juntos en el celular (--k).
+*/
+.feature {
+    --k: .7; --disc: 50% calc(100% - 134px);
+    --wave: calc(190px * var(--k)); --swell: calc(330px * var(--k)); --halo: calc(150px * var(--k)); --ring: calc(230px * var(--k));
+    position: relative; overflow: hidden; display: grid; gap: 8px; padding: 28px 24px 0; border-radius: 28px; color: #fff;
+    background:
+        radial-gradient(circle var(--wave) at calc(100% + 10px) calc(100% + var(--wave) * .42), #5c9df5 calc(var(--wave) - 1px), transparent var(--wave)),
+        radial-gradient(circle var(--swell) at calc(100% - var(--swell) * .18) calc(100% + var(--swell) * .58), rgb(74 141 240 / .5) calc(var(--swell) - 1px), transparent var(--swell)),
+        radial-gradient(circle var(--halo) at var(--disc), rgb(255 255 255 / .1) calc(var(--halo) - 1px), transparent var(--halo)),
+        radial-gradient(circle var(--ring) at var(--disc), rgb(255 255 255 / .07) calc(var(--ring) - 1px), transparent var(--ring)),
+        linear-gradient(100deg, #0a2977 0%, #0c3a9f 46%, #1c62d6 100%);
+}
+.feature > div { display: grid; gap: 8px; justify-items: start; }
+.feature p { margin: 0; }
+.feature .kicker { font-size: .8125rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #c3d8ff; }
+.feature h2 { font-size: clamp(1.75rem, 4.2vw, 2.5rem); font-weight: 750; letter-spacing: -.025em; line-height: 1.12; max-width: 15ch; }
+.feature h2 + p { margin: 6px 0 12px; color: #e3ecff; max-width: 44ch; }
+.feature .btn { background: #fff; color: var(--ink); }
+/* En los celulares más angostos (320) el botón entra en una línea sin su flecha. */
+@media (max-width: 379px) { .feature .btn svg { display: none; } }
+.feature img { justify-self: center; width: 240px; height: auto; margin: -4px 0 10px; filter: drop-shadow(0 12px 14px rgb(0 0 0 / .32)); }
+@media (min-width: 640px) {
+    /* La imagen sale por arriba; por abajo se recorta con la franja, para que su sombra no caiga fuera. */
+    .feature { --k: .86; --disc: calc(100% - 190px) 50%; grid-template-columns: 1.2fr 1fr; align-items: center; padding: 40px; overflow: visible; clip-path: inset(-240px 0 0 round 0 0 28px 28px); }
+    .feature img { width: 300px; margin: -92px 0 -68px; filter: drop-shadow(0 14px 16px rgb(0 0 0 / .32)); }
+}
+@media (min-width: 900px) {
+    .feature { --k: 1; --disc: calc(100% - 290px) 50%; padding: 56px; }
+    .feature img { width: 400px; margin: -148px 0 -84px; }
+}
+
+/*
+   Quién te atiende, en breve: una sola tarjeta con el retrato, el nombre y la colegiatura, y el paso a "Equipo".
+   En el celular, la presentación va debajo, a todo el ancho; en pantallas anchas, bajo el nombre, con el botón a la derecha.
+*/
+.meet {
+    display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 14px 16px; align-items: center; padding: 20px; border-radius: 24px;
+    background: linear-gradient(180deg, #f3f8ff 0, var(--ground) 70%); border: 1px solid var(--card-line); box-shadow: var(--card-shadow);
+}
+.meet .portrait { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 18px; background: var(--surface); align-self: start; }
+.meet .portrait.monogram { font-size: 1.625rem; }
+.meet p { margin: 0; }
+.meet .kicker { font-size: .8125rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+.meet h2 { margin: 2px 0 0; font-size: clamp(1.25rem, 3vw, 1.625rem); font-weight: 700; letter-spacing: -.025em; line-height: 1.18; }
+.meet .specialty { margin-top: 4px; font-weight: 600; }
+.meet .credentials { margin-top: 2px; color: var(--muted); font-size: .9375rem; font-variant-numeric: tabular-nums; }
+.meet .more { grid-column: 1 / -1; display: grid; gap: 4px; color: var(--muted); max-width: 62ch; }
+.meet .btn { grid-column: 1 / -1; justify-self: start; }
+@media (min-width: 560px) {
+    .meet { grid-template-columns: 88px minmax(0, 1fr); gap: 16px 20px; padding: 24px; }
+    .meet .portrait.monogram { font-size: 2rem; }
+}
+@media (min-width: 860px) {
+    .meet { grid-template-columns: 104px minmax(0, 1fr) auto; gap: 0 24px; padding: 24px 28px 24px 24px; }
+    .meet .portrait { grid-row: 1 / span 2; border-radius: 22px; align-self: center; }
+    .meet .portrait.monogram { font-size: 2.25rem; }
+    .meet .more { grid-column: 2; grid-row: 2; margin-top: 8px; }
+    .meet .btn { grid-column: 3; grid-row: 1 / span 2; justify-self: end; }
+}
+
+/*
+   El encabezado de las páginas de contenido: una franja celeste a todo el ancho, pegada al menú, con la frase corta
+   en su pastilla, el título en dos azules, el texto, el diente de cristal y la foto, que se funde con el celeste.
+   El borde de abajo es una onda blanca. Los textos y la foto se cambian en Página web › Textos de las páginas.
+*/
+main.with-band { padding-top: 0; }
+main.with-band > .wrap:first-child .flash { margin: 16px 0; }
+.page-band {
+    position: relative; isolation: isolate; overflow: hidden; margin-bottom: 24px; padding: 22px 0 54px;
+    background: radial-gradient(70% 130% at 100% 0%, rgb(150 196 255 / .6), transparent 70%), linear-gradient(100deg, #f1f7ff 0%, #e3eeff 48%, #cfe1ff 100%);
+}
+.page-band::after {
+    content: ""; position: absolute; z-index: 1; left: 0; right: 0; bottom: -1px; height: 40px;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 80' preserveAspectRatio='none'%3E%3Cpath fill='%23fff' d='M0 80V30c160 34 330 46 540 26C780 34 930 4 1140 12c120 5 220 26 300 46v22Z'/%3E%3C/svg%3E") center / 100% 100% no-repeat;
+}
+.page-band > .wrap { position: relative; z-index: 2; }
+.band-text { position: relative; }
+.page-band .kicker {
+    display: inline-flex; align-items: center; gap: 8px; margin: 0 0 12px; padding: 5px 14px 5px 5px; border-radius: 20px;
+    background: rgb(255 255 255 / .66); box-shadow: inset 0 0 0 1px rgb(255 255 255 / .9), 0 6px 16px -10px rgb(14 47 107 / .35);
+    font-weight: 600; font-size: .9375rem; line-height: 1.3; color: var(--btn);
+}
+.page-band .kicker span { flex: none; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: #1c62d6; color: #fff; }
+.page-band .kicker svg { width: 16px; height: 16px; }
+.page-band h1 { font-size: clamp(2.125rem, 8.4vw, 2.75rem); font-weight: 700; letter-spacing: -.03em; line-height: 1.08; color: #0a1f4f; }
+.page-band h1 em { font-style: normal; color: #1c62d6; }
+.page-band .lead { max-width: 58ch; margin-top: 14px; color: #3a4a64; }
+/* El diente de cristal: en el celular va detrás del texto, en la esquina; en pantallas anchas, entre el texto y la foto. */
+.band-art { position: absolute; z-index: -1; right: -18px; bottom: -64px; width: 132px; max-width: none; height: auto; opacity: .7; pointer-events: none; }
+/* Con foto, en el celular: la foto abre la franja y se va perdiendo en el celeste; el diente monta sobre su esquina. */
+.band-photo { margin: 0; aspect-ratio: 3 / 1; -webkit-mask: linear-gradient(180deg, #000 52%, transparent); mask: linear-gradient(180deg, #000 52%, transparent); }
+.band-photo img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 35%; }
+.page-band.with-photo { padding-top: 0; }
+.page-band.with-photo .band-art { z-index: 0; right: -2px; top: -92px; bottom: auto; width: 104px; opacity: 1; }
+/* Mientras se reserva, en el celular la franja va corta: la frase y el título, sin foto ni texto. */
+@media (max-width: 759px) {
+    .page-band.brief { margin-bottom: 20px; padding: 18px 0 46px; }
+    .page-band.brief :is(.band-photo, .lead) { display: none; }
+    .page-band.brief .band-art { z-index: -1; top: auto; right: -18px; bottom: -64px; width: 132px; opacity: .7; }
+}
+@media (min-width: 760px) {
+    .page-band, .page-band.with-photo { display: grid; align-items: center; min-height: clamp(280px, 18vw, 340px); margin-bottom: 32px; padding: 36px 0 84px; }
+    .page-band::after { height: 72px; }
+    .page-band h1 { font-size: clamp(2.75rem, 5vw, 4.25rem); }
+    .page-band .lead { font-size: 1.1875rem; }
+    .page-band .kicker { margin-bottom: 14px; font-size: 1rem; }
+    .band-text { max-width: 70%; }
+    .band-art, .page-band.with-photo .band-art { z-index: 0; top: 50%; right: 4%; bottom: auto; width: clamp(170px, 17vw, 270px); margin-top: calc(clamp(170px, 17vw, 270px) / -2 - 12px); opacity: 1; }
+    /* La foto llena el lado derecho y se funde hacia el texto; encima, un velo celeste que la aclara donde empieza. */
+    .band-photo {
+        --to-text: linear-gradient(90deg, transparent 0, rgb(0 0 0 / .5) 22%, #000 50%);
+        position: absolute; z-index: -1; inset: 0 0 0 auto; width: 50%; aspect-ratio: auto; -webkit-mask: var(--to-text); mask: var(--to-text);
+    }
+    .band-photo::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, rgb(227 238 255 / .72) 0, rgb(227 238 255 / .3) 34%, transparent 62%); }
+    .page-band.with-photo .band-text { max-width: 54%; }
+    .page-band.with-photo .band-art { right: auto; left: 56%; }
+}
+
+/* Lo que una página dice antes de su contenido, bajo el encabezado: la presentación del consultorio en Equipo. */
+.page-intro { margin: 0 0 32px; max-width: 68ch; font-size: 1.125rem; }
+.page-head { margin: 8px 0 32px; }
+.page-head h1 { font-size: clamp(2rem, 6.4vw, 3.25rem); font-weight: 750; letter-spacing: -.025em; line-height: 1.1; }
+.page-head .lead { max-width: 52ch; color: var(--muted); }
+
+.crumbs { margin-bottom: 12px; font-weight: 700; }
+.crumbs a { text-decoration: none; }
+.crumbs a::before { content: "← "; }
+
+.arrow { font-weight: 700; text-decoration: none; }
+.arrow::after { content: " →"; }
+
+.prose { max-width: 68ch; }
+.about .prose { font-size: clamp(1.25rem, 2.6vw, 1.625rem); line-height: 1.45; letter-spacing: -.015em; max-width: 40ch; }
+.about h2 { margin-bottom: 20px; }
+.prose > :first-child { margin-top: 0; }
+.prose p { margin: 0 0 14px; }
+.prose h2 { font-size: 1.5rem; margin: 32px 0 12px; }
+.prose h3 { margin: 24px 0 8px; }
+.prose ul, .prose ol { padding-left: 1.25em; margin: 0 0 14px; }
+.prose li + li { margin-top: 4px; }
+
+.cta-band { background: var(--surface); border-radius: 24px; padding: 32px 24px; display: grid; gap: 12px; justify-items: start; }
+.cta-band p { margin: 0 0 8px; max-width: 52ch; }
+/* Con imagen: el texto a la izquierda y la imagen a la derecha (en el celular, chica y arriba). */
+.cta-band.with-art > div { display: grid; gap: 12px; justify-items: start; }
+.cta-band.with-art img { grid-row: 1; width: 120px; height: auto; margin: -12px 0 -8px -8px; filter: drop-shadow(0 12px 12px rgb(11 31 58 / .14)); }
+@media (min-width: 720px) {
+    .cta-band.with-art { grid-template-columns: minmax(0, 1fr) auto; align-items: center; padding: 36px 40px; }
+    .cta-band.with-art img { grid-row: auto; width: 200px; margin: -28px 0; }
+}
+
+/* Tarifario */
+
+/*
+   Una tarjeta por servicio: su imagen en un recuadro celeste, el nombre, el precio "desde" en su pastilla, para qué
+   sirve, cuánto dura y "Saber más". Toda la tarjeta lleva a la página del servicio.
+*/
+.price-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
+.price-list a {
+    display: grid; grid-template-columns: 92px minmax(0, 1fr); grid-template-rows: repeat(4, auto) 1fr; justify-items: start; gap: 4px 14px; padding: 14px; height: 100%;
+    border-radius: 22px; background: var(--ground); border: 1px solid var(--card-line); box-shadow: var(--card-shadow); color: var(--ink); text-decoration: none;
+    transition: border-color .15s ease, box-shadow .15s ease, transform .2s var(--ease-out);
+}
+.price-list .icon {
+    grid-row: 1 / span 5; align-self: start; width: 92px; height: 92px; border-radius: 18px; display: grid; place-items: center;
+    background: radial-gradient(closest-side, rgb(120 180 255 / .42), transparent 82%), linear-gradient(160deg, #eef5ff, #d9e8fd);
+}
+.price-list .icon img { width: 96%; height: auto; }
+/* Cada dato en su renglón, y "Saber más" abajo: en una fila de tarjetas, los botones quedan a la misma altura. */
+.price-list .name, .price-list .price, .price-list .desc, .price-list .meta, .price-list .more { grid-column: 2; }
+.price-list .price { grid-row: 2; }
+.price-list .desc { grid-row: 3; }
+.price-list .meta { grid-row: 4; }
+.price-list .name { grid-row: 1; font-weight: 750; font-size: 1.125rem; letter-spacing: -.02em; line-height: 1.22; text-wrap: balance; }
+.price-list .price { margin: 2px 0; padding: 3px 12px; border-radius: 999px; background: #e3eeff; font-weight: 750; color: #0d3f8f; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.price-list .price.ask { padding: 0; background: none; font-weight: 700; font-size: .9375rem; color: var(--accent); white-space: normal; }
+.price-list .desc { color: var(--muted); font-size: .9375rem; line-height: 1.45; }
+.price-list .meta { color: var(--muted); font-size: .8125rem; }
+.price-list .more {
+    grid-row: 5; align-self: end; display: inline-flex; align-items: center; gap: 6px; margin-top: 8px; padding: 6px 14px; border-radius: 999px;
+    box-shadow: inset 0 0 0 1.5px var(--btn); color: var(--btn); font-weight: 700; font-size: .9375rem; line-height: 1.3;
+    transition: background-color .15s ease, color .15s ease;
+}
+.price-list .more svg { width: 16px; height: 16px; transition: transform .2s var(--ease-out); }
+@media (min-width: 720px) {
+    .price-list { grid-template-columns: 1fr 1fr; gap: 18px; }
+    .price-list a { grid-template-columns: 120px minmax(0, 1fr); gap: 4px 18px; padding: 16px; }
+    .price-list .icon { width: 120px; height: 120px; border-radius: 20px; }
+}
+@media (min-width: 1160px) { .price-list { grid-template-columns: repeat(3, 1fr); } }
+@media (min-width: 1760px) { .price-list { grid-template-columns: repeat(4, 1fr); } }
+
+/* Equipo */
+
+.team { display: grid; gap: 24px; }
+.doctor { display: grid; gap: 16px; align-content: start; }
+.doctor .portrait { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 20px; background: var(--surface); }
+:is(.doctor, .meet) .monogram {
+    display: grid; place-items: center; color: #fff; font-size: clamp(3rem, 12vw, 5rem); font-weight: 700; letter-spacing: -.05em;
+    background: radial-gradient(circle at 75% 20%, rgb(64 128 214 / .6), transparent 60%), var(--navy);
+}
+.doctor h3 { font-size: 1.5rem; font-weight: 700; letter-spacing: -.03em; }
+.doctor .specialty { margin: 4px 0 0; font-weight: 600; }
+.doctor .credentials { margin: 6px 0 14px; color: var(--muted); font-size: .9375rem; font-variant-numeric: tabular-nums; }
+.doctor .credentials:empty { display: none; }
+.doctor .bio { margin: 0 0 14px; color: var(--muted); }
+.doctor h4 { margin: 18px 0 6px; font-size: 1rem; }
+.doctor .education { margin: 0; padding-left: 1.1em; }
+.doctor .treatments { margin: 0 0 16px; }
+/* En las listas, foto chica al lado del nombre: la lista no se hace eterna. */
+.team:not(.full) .doctor { grid-template-columns: 96px 1fr; align-items: start; gap: 20px; }
+.team:not(.full) .monogram { font-size: 2.25rem; }
+@media (min-width: 640px) {
+    .team:not(.full) { grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 32px; }
+    .team:not(.full) .doctor { grid-template-columns: 140px 1fr; gap: 24px; }
+    .team:not(.full) .monogram { font-size: 3rem; }
+}
+/*
+   En la página Equipo, cada doctor va en su tarjeta: el retrato y, a su lado, el nombre, la especialidad en azul y
+   la colegiatura; debajo, su presentación con el botón para atenderse con él, y su formación y lo que atiende.
+   Con varios doctores las tarjetas van de dos en dos; con uno solo, la tarjeta usa el ancho en tres columnas.
+*/
+.team.full { gap: 20px; }
+.team.full .doctor {
+    grid-template-columns: 96px minmax(0, 1fr); align-items: center; gap: 16px; padding: 20px; border-radius: 24px;
+    background: linear-gradient(180deg, #f3f8ff 0, var(--ground) 220px); border: 1px solid var(--card-line); box-shadow: var(--card-shadow);
+}
+.team.full .doctor .portrait { border-radius: 22px; }
+.team.full .doctor .monogram { font-size: 2.25rem; }
+.team.full .doctor h3 { font-family: var(--display); font-size: clamp(1.25rem, 3.4vw, 1.625rem); letter-spacing: -.025em; line-height: 1.16; text-wrap: balance; }
+.team.full .doctor .specialty { color: #1c62d6; }
+.team.full .doctor .credentials { margin-bottom: 0; }
+/* Bajo la colegiatura, la rayita azul que separa quién es de lo que cuenta. */
+.team.full .doctor .who::after { content: ""; display: block; width: 36px; height: 3px; margin-top: 12px; border-radius: 3px; background: #1c62d6; }
+.team.full .doctor :is(.about, .more) { grid-column: 1 / -1; }
+.team.full .doctor .about { display: grid; gap: 16px; justify-items: start; }
+.team.full .doctor .about .prose { color: var(--muted); }
+.team.full .doctor .about .prose p:last-child { margin-bottom: 0; }
+.team.full .doctor .about .btn svg { margin-right: 8px; }
+.team.full .doctor .more { padding-top: 16px; border-top: 1px solid var(--card-line); }
+.team.full .doctor h4 { margin: 0 0 8px; font-size: .8125rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.team.full .doctor .education { padding: 0; list-style: none; display: grid; gap: 6px; }
+.team.full .doctor .education li { position: relative; padding-left: 18px; }
+.team.full .doctor .education li::before { content: ""; position: absolute; left: 2px; top: .62em; width: 6px; height: 6px; border-radius: 50%; background: #1c62d6; }
+.team.full .doctor .education + h4 { margin-top: 20px; }
+/* Lo que atiende, en pastillas que llevan a cada servicio. */
+.team.full .doctor .treatments { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; }
+.team.full .doctor .treatments a { padding: 5px 12px; border-radius: 999px; background: #e9f1ff; color: var(--btn); font-weight: 600; font-size: .9375rem; line-height: 1.3; text-decoration: none; transition: background-color .15s ease; }
+@media (min-width: 640px) {
+    .team.full .doctor { grid-template-columns: 180px minmax(0, 1fr); align-items: start; gap: 20px 28px; padding: 28px; }
+    .team.full .doctor .portrait { grid-row: 1 / span 3; }
+    .team.full .doctor .monogram { font-size: 3.5rem; }
+    .team.full .doctor :is(.about, .more) { grid-column: 2; }
+}
+@media (min-width: 1200px) {
+    .team.full { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; align-items: start; }
+    .team.full .doctor:only-child { grid-column: 1 / -1; grid-template-columns: 240px minmax(0, 1fr) minmax(0, 1fr); gap: 20px 40px; padding: 32px; }
+    .team.full .doctor:only-child .monogram { font-size: 4.5rem; }
+    .team.full .doctor:only-child .more { grid-column: 3; grid-row: 1 / span 3; padding: 0 0 0 40px; border-top: 0; border-left: 1px solid var(--card-line); }
+}
+
+/* Lo que distingue al equipo: cuatro puntos cortos en una franja celeste, bajo los doctores (se cambian en el panel). */
+.values {
+    list-style: none; margin: 24px 0 0; padding: 20px; display: grid; gap: 18px; border-radius: 24px;
+    background: linear-gradient(104deg, #eef5ff 0%, #e4eeff 60%, #d3e4ff 100%);
+}
+.values li { display: grid; grid-template-columns: 44px minmax(0, 1fr); align-items: center; gap: 2px 14px; }
+.values svg { grid-row: 1 / span 2; width: 40px; height: 40px; color: #1c62d6; stroke-width: 1.5; }
+.values strong { align-self: end; font-size: 1.0625rem; letter-spacing: -.015em; line-height: 1.25; }
+.values span { align-self: start; color: var(--muted); font-size: .9375rem; line-height: 1.4; }
+/* Un punto sin texto: su título va solo, centrado con el ícono. */
+.values strong:last-child { grid-row: 1 / span 2; align-self: center; }
+@media (min-width: 560px) { .values { grid-template-columns: 1fr 1fr; padding: 24px 28px; } }
+@media (min-width: 1080px) {
+    .values { grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 0; padding: 24px 12px; }
+    .values li { padding: 4px 24px; }
+    .values li + li { border-left: 1px solid rgb(14 47 107 / .16); }
+}
+
+/* Antes y después */
+
+.cases { display: grid; gap: 28px; }
+@media (min-width: 760px) { .cases { grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); } }
+.case { margin: 0; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.pair > div { position: relative; }
+.pair img { width: 100%; aspect-ratio: 4 / 5; object-fit: cover; border-radius: 14px; background: var(--surface); }
+.pair .tag { position: absolute; left: 8px; top: 8px; background: var(--ink); color: #fff; font-size: .8125rem; font-weight: 700; padding: 3px 10px; border-radius: 999px; }
+.case figcaption { margin-top: 10px; display: grid; gap: 2px; }
+.case figcaption a { font-weight: 600; }
+
+/* Opiniones */
+
+.quotes { display: grid; gap: 16px; }
+@media (min-width: 760px) { .quotes { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); } }
+.quote { margin: 0; background: var(--ground); border: 1px solid var(--card-line); border-radius: 20px; box-shadow: var(--card-shadow); padding: 24px; display: grid; gap: 12px; align-content: start; }
+.quote .stars { margin: 0; color: var(--star); font-size: 1.25rem; letter-spacing: .08em; }
+.quote .stars .off { color: var(--surface-strong); }
+.quote blockquote { margin: 0; font-size: 1.0625rem; font-style: italic; line-height: 1.5; }
+.quote figcaption { font-weight: 700; }
+.quote figcaption span { display: block; font-weight: 400; color: var(--muted); font-size: .9375rem; }
+
+/* Preguntas frecuentes */
+
+.faqs { display: grid; max-width: 820px; border-bottom: 1px solid var(--line); }
+.faqs details { border-top: 1px solid var(--line); }
+.faqs summary { list-style: none; cursor: pointer; padding: 22px 52px 22px 0; font-weight: 650; letter-spacing: -.01em; position: relative; transition: color .15s ease; }
+.faqs summary::-webkit-details-marker { display: none; }
+.faqs summary::after {
+    content: "+"; position: absolute; right: 0; top: 50%; width: 32px; height: 32px; margin-top: -16px; border-radius: 50%;
+    display: grid; place-items: center; background: var(--surface); font-size: 1.25rem; font-weight: 500; color: var(--accent);
+    transition: transform .2s var(--ease-out), background-color .15s ease;
+}
+.faqs details[open] summary::after { transform: rotate(45deg); }
+/* La respuesta y el menú del celular aparecen cayendo un poco desde donde se tocó, sin hacerse esperar. */
+.faqs details[open] > .prose { animation: drop-in .2s var(--ease-out); }
+.menu[open] > .menu-panel { transform-origin: top center; animation: drop-in .18s var(--ease-out); }
+@keyframes drop-in { from { opacity: 0; transform: translateY(-6px); } }
+.faqs .prose { padding: 0 52px 12px 0; color: var(--muted); }
+
+/*
+   La página de preguntas: el buscador arriba, los temas (las generales y cada servicio con preguntas) y cada
+   pregunta en su tarjeta. En el celular los temas son una fila de pastillas; en pantallas grandes, una tarjeta al lado.
+*/
+.faq-page { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; }
+.faq-page:not(.with-topics) { max-width: 920px; margin-inline: auto; }
+.faq-page [hidden] { display: none !important; }
+.faq-search {
+    display: none; align-items: center; gap: 12px; min-height: 56px; padding: 0 20px; border-radius: 999px;
+    background: var(--ground); border: 1px solid var(--card-line); box-shadow: var(--card-shadow); color: var(--accent);
+    transition: border-color .15s ease, box-shadow .15s ease;
+}
+.js .faq-search { display: flex; }
+.faq-search:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px rgb(28 98 214 / .2), var(--card-shadow); }
+.faq-search svg { flex: none; width: 22px; height: 22px; }
+.faq-search input { flex: 1; width: 100%; min-width: 0; padding: 14px 0; border: 0; background: none; font: inherit; color: var(--ink); outline: none; }
+.faq-search input::placeholder { color: var(--muted); }
+.faq-topics { min-width: 0; }
+.faq-topics h2 { display: none; }
+.faq-topics ul { list-style: none; display: flex; gap: 8px; overflow-x: auto; margin: 0 calc(var(--gutter) * -1); padding: 2px var(--gutter) 6px; scrollbar-width: none; }
+.faq-topics ul::-webkit-scrollbar { display: none; }
+.faq-topics a {
+    display: flex; align-items: center; gap: 8px; padding: 5px 16px 5px 5px; border-radius: 999px; white-space: nowrap;
+    background: var(--ground); border: 1px solid var(--card-line); color: var(--ink); font-weight: 650; font-size: .9375rem; text-decoration: none;
+    transition: background-color .15s ease, border-color .15s ease, color .15s ease;
+}
+.faq-topics a[aria-current] { background: #e3eeff; border-color: #b9d2f8; color: #0d3f8f; }
+.topic-icon { flex: none; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: #e3eeff; color: #1c62d6; }
+.faq-topics a[aria-current] .topic-icon { background: var(--ground); }
+.topic-icon:has(img) { background: linear-gradient(160deg, #d3e4ff, #a4c5fa); }
+.topic-icon svg { width: 19px; height: 19px; }
+.topic-icon img { width: 28px; height: 28px; }
+.faq-list { display: grid; gap: 28px; min-width: 0; align-content: start; }
+.faq-none { margin: 0; }
+.faq-group { display: grid; gap: 12px; scroll-margin-top: 96px; }
+.faq-group h2 { font-size: 1.25rem; letter-spacing: -.02em; }
+.faq-group h2 a { color: var(--ink); text-decoration: none; }
+.faq-list .faqs { gap: 12px; max-width: none; border-bottom: 0; }
+.faq-list .faqs details { border: 1px solid var(--card-line); border-radius: 18px; background: var(--ground); box-shadow: var(--card-shadow); }
+.faq-list .faqs summary { padding: 18px 64px 18px 20px; border-radius: 18px; font-family: var(--display); font-weight: 600; font-size: 1.0625rem; letter-spacing: -.02em; line-height: 1.3; }
+.faq-list .faqs summary::after {
+    content: ""; right: 16px; width: 34px; height: 34px; margin-top: -17px;
+    background: #eef4ff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231c62d6' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") center / 18px no-repeat;
+}
+.faq-list .faqs details[open] summary::after { transform: rotate(180deg); }
+.faq-list .faqs .prose { padding: 0 20px 18px; }
+@media (min-width: 900px) {
+    .faq-page { gap: 22px 26px; }
+    .faq-page.with-topics { grid-template-columns: 300px minmax(0, 1fr); align-items: start; }
+    .faq-search { grid-column: 1 / -1; }
+    .faq-topics { position: sticky; top: 96px; padding: 22px 14px 14px; border-radius: 24px; background: var(--ground); border: 1px solid var(--card-line); box-shadow: var(--card-shadow); }
+    .faq-topics h2 { display: block; margin: 0 8px 12px; padding-bottom: 12px; font-size: 1.25rem; letter-spacing: -.02em; background: linear-gradient(var(--accent), var(--accent)) left bottom / 56px 3px no-repeat; }
+    .faq-topics ul { flex-direction: column; gap: 2px; overflow: visible; margin: 0; padding: 0; }
+    .faq-topics a { padding: 7px 34px 7px 8px; border: 0; border-radius: 14px; background: none; white-space: normal; position: relative; }
+    .faq-topics a[aria-current]::after {
+        content: ""; position: absolute; right: 12px; top: 50%; width: 16px; height: 16px; margin-top: -8px;
+        background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231c62d6' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m9 6 6 6-6 6'/%3E%3C/svg%3E") center / contain no-repeat;
+    }
+    .faq-list .faqs summary { padding: 20px 68px 20px 24px; font-size: 1.125rem; }
+    .faq-list .faqs summary::after { right: 18px; }
+    .faq-list .faqs .prose { padding: 0 24px 20px; }
+}
+
+/*
+   Mi cuenta: a un lado, de quién es la cuenta y el paso a cada parte; al otro, cada parte en su tarjeta.
+   En el celular va todo en una columna: el saludo, las citas y lo demás, con "Salir" al final.
+*/
+.account { display: grid; grid-template-columns: minmax(0, 1fr); gap: 26px; }
+.account-side { display: contents; }
+.account-side .who { display: flex; align-items: center; gap: 14px; }
+.account-side .avatar {
+    flex: none; display: grid; place-items: center; width: 56px; height: 56px; border-radius: 50%;
+    background: linear-gradient(160deg, #2a72e8, #0c3a9f); color: #fff; font-family: var(--display); font-weight: 700; font-size: 1.25rem; letter-spacing: .01em;
+    box-shadow: 0 10px 20px -10px rgb(12 58 159 / .7);
+}
+.account-side .avatar svg { width: 28px; height: 28px; }
+.account-side h2 { font-size: 1.5rem; letter-spacing: -.025em; line-height: 1.15; }
+.account-side .who p { margin: 4px 0 0; color: var(--muted); }
+.account-side .who p span { white-space: nowrap; }
+.account-side nav { display: none; }
+.account-side .leave { order: 2; margin: 0; }
+.account-main { display: grid; gap: 32px; min-width: 0; }
+.account-card { display: grid; gap: 14px; align-content: start; min-width: 0; }
+.account-card > p { margin: 0; }
+.account-card h2 { display: flex; align-items: center; gap: 10px; font-size: 1.375rem; letter-spacing: -.02em; line-height: 1.2; scroll-margin-top: 96px; }
+.account-card h2 svg { flex: none; width: 26px; height: 26px; color: #1c62d6; }
+.account-card > .spread { align-items: center; }
+@media (max-width: 479px) { .account-card > .spread h2 svg { display: none; } }
+.appointments, .family { display: grid; gap: 12px; }
+.family { margin-top: 10px; }
+@media (min-width: 900px) {
+    .account { grid-template-columns: 300px minmax(0, 1fr); align-items: start; }
+    .account-side {
+        display: grid; gap: 18px; position: sticky; top: 96px; padding: 28px 16px 18px; border-radius: 24px;
+        background: linear-gradient(180deg, #f3f8ff 0, var(--ground) 200px); border: 1px solid var(--card-line); box-shadow: var(--card-shadow);
+    }
+    .account-side .who { flex-direction: column; gap: 14px; text-align: center; }
+    .account-side .avatar { width: 96px; height: 96px; font-size: 2rem; }
+    .account-side .avatar svg { width: 44px; height: 44px; }
+    .account-side nav { display: grid; gap: 2px; padding-top: 14px; border-top: 1px solid var(--card-line); }
+    .account-side nav a { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 14px; color: var(--ink); font-weight: 650; text-decoration: none; transition: background-color .15s ease, color .15s ease; }
+    .account-side nav svg { flex: none; width: 22px; height: 22px; color: #1c62d6; }
+    .account-side .leave { padding: 0 12px; }
+    .account-main { gap: 22px; }
+    .account-card { padding: 24px; border-radius: 24px; background: var(--ground); border: 1px solid var(--card-line); box-shadow: var(--card-shadow); }
+    .family { grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); }
+}
+@media (min-width: 1200px) {
+    .appointments { grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); align-items: start; }
+}
+
+/*
+   Reservar cita: la reserva va en una tarjeta que monta sobre la onda del encabezado. Arriba, los pasos; debajo, el
+   paso; y en pantallas anchas, a la derecha, el resumen de la cita, que acompaña al bajar. En el celular va sin
+   tarjeta, a todo el ancho, y el resumen sale en el último paso, sobre el formulario.
+*/
+.booking { position: relative; scroll-margin-top: 80px; }
+/* La línea de carga va pegada arriba y no ocupa lugar: al aparecer no empuja lo que se está tocando. */
+.booking > .loading-line { position: absolute; top: -12px; left: 0; right: 0; margin: 0; }
+.booking .step-title { font-size: clamp(1.625rem, 5vw, 2rem); font-weight: 750; letter-spacing: -.025em; }
+.booking h3 { font-family: var(--display); font-size: 1.25rem; font-weight: 700; letter-spacing: -.02em; }
+.booking .choice-list { grid-template-columns: repeat(auto-fill, minmax(min(100%, 360px), 1fr)); }
+.booking .choice-list li { display: grid; }
+.booking form { max-width: var(--measure); }
+.booking.is-done { max-width: var(--measure); margin-inline: auto; }
+.pick { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+.booking-summary { display: none; }
+@media (min-width: 640px) {
+    .booking { z-index: 3; padding: 26px 28px 32px; border-radius: 28px; background: var(--ground); border: 1px solid var(--card-line); box-shadow: var(--card-shadow); }
+    .booking > .loading-line { top: 0; left: 28px; right: 28px; border-radius: 0 0 3px 3px; }
+    .booking.is-done { padding: 32px 40px 40px; }
+}
+@media (min-width: 760px) {
+    .booking { margin-top: -76px; }
+}
+@media (min-width: 1000px) {
+    .booking:not(.is-done) { display: grid; grid-template-columns: minmax(0, 1fr) 320px; column-gap: 36px; align-items: start; padding: 28px 32px 36px; }
+    .booking > * { grid-column: 1; }
+    .booking > .steps { grid-column: 1 / -1; }
+    /* El resumen ocupa la columna derecha junto a todo lo que haya a la izquierda: avisos y paso. */
+    .booking > .booking-summary {
+        grid-column: 2; grid-row: 2 / span 4; position: sticky; top: 88px; display: grid; gap: 16px; padding: 22px; border-radius: 22px;
+        background: linear-gradient(180deg, #eaf2ff 0, #f5f9ff 100%); border: 1px solid var(--card-line);
+    }
+    .booking-summary h2 { display: flex; align-items: center; gap: 10px; font-size: 1.25rem; letter-spacing: -.02em; color: var(--btn); }
+    .booking-summary h2 svg { flex: none; width: 26px; height: 26px; color: #1c62d6; }
+    .booking-summary :is(.chosen, dl, .price-line, .assurances) { margin: 0; }
+    .booking-summary .chosen { display: grid; grid-template-columns: 72px minmax(0, 1fr); align-items: center; gap: 14px; padding: 12px; border-radius: 16px; background: var(--ground); box-shadow: 0 1px 2px rgb(12 26 46 / .05); }
+    .booking-summary .art { display: grid; place-items: center; width: 72px; height: 72px; border-radius: 16px; background: linear-gradient(160deg, #eef4fd, #dfeafb); }
+    .booking-summary .art img { width: 96%; height: auto; filter: drop-shadow(0 2px 9px rgb(40 130 255 / .62)); }
+    .booking-summary .chosen p { display: grid; gap: 2px; margin: 0; min-width: 0; }
+    .booking-summary .chosen span, .booking-summary dt { font-size: .875rem; font-weight: 600; color: var(--muted); }
+    .booking-summary .chosen strong { font: 700 1.125rem/1.25 var(--display); letter-spacing: -.015em; color: #1c62d6; overflow-wrap: anywhere; }
+    .booking-summary .chosen small { font-size: .875rem; color: var(--muted); }
+    .booking-summary dl { display: grid; gap: 12px; padding: 0 4px; }
+    .booking-summary dl div { display: grid; grid-template-columns: 22px minmax(0, 1fr); column-gap: 12px; }
+    .booking-summary dt { display: contents; }
+    .booking-summary dt svg { grid-row: span 2; width: 22px; height: 22px; margin-top: 2px; color: #1c62d6; }
+    .booking-summary dd { grid-column: 2; margin: 0; font-weight: 650; overflow-wrap: anywhere; }
+    .booking-summary .pending { font-weight: 500; color: var(--muted); }
+    .booking-summary .price-line { padding: 14px 4px 0; border-top: 1px solid var(--surface-strong); font-weight: 650; }
+    .booking-summary .assurances { display: grid; gap: 8px; padding: 14px 16px; border-radius: 16px; background: var(--ground); list-style: none; font-size: .9375rem; }
+    .booking-summary .assurances li { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 10px; align-items: start; }
+    .booking-summary .assurances svg { width: 20px; height: 20px; padding: 3px; border-radius: 50%; background: var(--ok-bg); color: var(--ok); stroke-width: 2.6; }
+    /* El resumen ya dice lo elegido: el del último paso queda para el celular. */
+    .booking section:not(.booked) > .summary { display: none; }
+}
+@media (min-width: 1200px) {
+    .booking:not(.is-done) { grid-template-columns: minmax(0, 1fr) 348px; column-gap: 44px; }
+}
+/* Con espacio de sobra, los días a un lado y los horarios al otro. */
+@media (min-width: 1400px) {
+    .pick { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px 40px; align-items: start; }
+    .pick > :is(.with-whom, .panel) { grid-column: 1 / -1; }
+}
+
+/* Contacto */
+
+/*
+   Dos tarjetas: la del consultorio (dirección, horario y cada forma de escribir o llamar con su botón) y la del mapa,
+   con "Cómo llegar" debajo. En el celular van una bajo la otra.
+*/
+.contact { display: grid; gap: 20px; }
+.contact-info, .map-block { border-radius: 24px; background: var(--ground); border: 1px solid var(--card-line); box-shadow: var(--card-shadow); }
+.contact-info { display: grid; gap: 18px; align-content: start; padding: 22px 20px; }
+.contact h1, .contact h2 { display: flex; align-items: center; gap: 14px; font-size: clamp(1.375rem, 3.4vw, 1.75rem); letter-spacing: -.025em; line-height: 1.15; }
+/* El título lleva su ícono en un círculo azul. */
+.contact .badge { flex: none; display: grid; place-items: center; width: 46px; height: 46px; border-radius: 50%; background: linear-gradient(160deg, #2a72e8, #0c3a9f); color: #fff; box-shadow: 0 8px 16px -8px rgb(12 58 159 / .7); }
+.contact .badge svg { width: 24px; height: 24px; }
+.contact .fact { display: grid; grid-template-columns: 46px minmax(0, 1fr); gap: 14px; align-items: start; }
+.contact .fact > svg { justify-self: center; width: 26px; height: 26px; margin-top: 1px; color: #1c62d6; }
+.contact .fact p { margin: 0; }
+.contact .address { font-size: 1.125rem; font-weight: 700; line-height: 1.35; }
+.contact .label { font-weight: 700; }
+.contact .status { margin: 2px 0 8px; font-weight: 600; color: var(--muted); }
+.contact .fact .small { margin-top: 8px; }
+.hours { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; margin: 0; }
+.hours dt { font-weight: 700; }
+.hours dd { margin: 0; }
+.hours dd span { display: block; }
+/* En el celular, dentro de la tarjeta, cada día va sobre sus horas: así no se parten. */
+@media (max-width: 479px) {
+    .contact .fact, .ways li { grid-template-columns: 32px minmax(0, 1fr); gap: 12px; }
+    .ways li { grid-template-columns: 32px minmax(0, 1fr) auto; }
+    .contact .hours { grid-template-columns: 1fr; gap: 0; }
+    .contact .hours dt + dd + dt { margin-top: 6px; }
+}
+.ways { list-style: none; margin: 0; padding: 16px 0 0; display: grid; gap: 14px; border-top: 1px solid var(--card-line); }
+.ways li { display: grid; grid-template-columns: 46px minmax(0, 1fr) auto; gap: 14px; align-items: center; }
+.ways p { margin: 0; display: grid; line-height: 1.35; }
+.ways p span { overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.way-icon { justify-self: center; display: grid; place-items: center; color: #1c62d6; }
+.way-icon svg { width: 26px; height: 26px; }
+.way-icon.whatsapp { color: #128c4b; }
+/* Botón chico en pastilla celeste: escribir, llamar, cómo llegar. */
+.pill {
+    display: inline-flex; align-items: center; justify-content: center; min-height: 40px; padding: 8px 16px; border-radius: 999px;
+    background: #e9f1ff; color: var(--btn); font-weight: 700; font-size: .9375rem; line-height: 1.2; text-decoration: none; white-space: nowrap;
+    transition: background-color .15s ease, transform .16s var(--ease-out);
+}
+.pill:active { transform: scale(.97); }
+.map-block { display: grid; overflow: hidden; }
+.map { width: 100%; background: var(--surface); aspect-ratio: 4 / 3; }
+.map iframe { width: 100%; height: 100%; border: 0; display: block; }
+.map-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; padding: 14px 20px; }
+.map-foot p { margin: 0; display: grid; line-height: 1.35; }
+.map-foot p span { color: var(--muted); font-size: .9375rem; }
+@media (min-width: 900px) {
+    .contact { grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr); gap: 24px; align-items: stretch; }
+    .contact-info { padding: 28px; }
+    /* El mapa llena el alto de la tarjeta de al lado, sin pasar de un alto cómodo. */
+    .map-block { grid-template-rows: minmax(0, 1fr) auto; }
+    .map { aspect-ratio: auto; height: 100%; min-height: 380px; }
+}
+
+/* Tratamiento */
+
+.treatment-head { display: grid; gap: 28px; }
+.treatment-art { display: grid; place-items: center; width: 96px; height: 96px; margin-bottom: 18px; border-radius: 24px; background: linear-gradient(160deg, #eef4fd, #dfeafb); }
+.treatment-art img { width: 96%; height: auto; }
+@media (min-width: 900px) { .treatment-art { width: 112px; height: 112px; border-radius: 28px; } }
+.treatment-head h1 { font-size: clamp(2rem, 6.4vw, 3.25rem); letter-spacing: -.025em; line-height: 1.1; }
+.treatment-head .row { margin-top: 24px; }
+.treatment-head .muted { max-width: 52ch; }
+.treatment-photo { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 24px; }
+@media (min-width: 900px) { .treatment-head.with-aside { grid-template-columns: 1.35fr 1fr; align-items: center; gap: 56px; } }
+.treatment-body { display: grid; gap: 28px; }
+@media (min-width: 900px) { .treatment-body.with-image { grid-template-columns: 1.35fr 1fr; align-items: start; gap: 56px; } }
+.facts-row { display: flex; flex-wrap: wrap; gap: 10px; margin: 24px 0 0; }
+.facts-row div { background: var(--surface); border-radius: var(--radius); padding: 12px 18px; }
+.facts-row dt { color: var(--muted); font-size: .875rem; }
+.facts-row dd { margin: 0; font-weight: 800; font-size: 1.125rem; }
+.facts-row dd s.was { color: var(--muted); font-weight: 600; font-size: 1rem; margin-right: 4px; }
+.promo-note { margin: 12px 0 0; padding: 10px 14px; border-radius: var(--radius); background: var(--ok-bg); color: var(--ok); font-weight: 650; }
+.promo-note a { color: inherit; }
+/* "Empieza con una evaluación": lo que hay que saber antes de tocar el botón. */
+.starts-with { margin-top: 20px; padding-left: 14px; border-left: 3px solid var(--accent); max-width: 52ch; }
+.starts-with strong { display: block; font-size: 1.125rem; letter-spacing: -.01em; }
+.starts-with p { margin: 2px 0 0; color: var(--muted); }
+.starts-with + .row { margin-top: 16px; }
+@media (max-width: 559px) {
+    /* En el celular, una sola ficha con un dato por fila. */
+    .facts-row { display: block; background: var(--surface); border-radius: var(--radius); padding: 4px 18px; }
+    .facts-row div { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; padding: 12px 0; border-radius: 0; background: none; }
+    .facts-row div + div { border-top: 1px solid var(--surface-strong); }
+    .facts-row dt { font-size: 1rem; }
+    .facts-row dd { text-align: right; }
+}
+
+/* Promociones */
+
+/* La promoción del inicio: clara, con su foto o con el diente sonriente. */
+.promo-band {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; margin-top: 28px; border-radius: 24px; overflow: hidden;
+    text-decoration: none; background: linear-gradient(100deg, #e7f1ff 0%, var(--ok-bg) 100%); color: var(--ink);
+}
+.promo-band.with-photo { grid-template-columns: 1fr; }
+.promo-photo { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; }
+.promo-text { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; justify-items: start; padding: 22px 0 22px 24px; }
+.promo-band.with-photo .promo-text { padding: 24px; }
+.promo-text .tag { padding: 4px 12px; border-radius: 999px; background: var(--accent); color: #fff; font-weight: 700; font-size: .8125rem; letter-spacing: .04em; text-transform: uppercase; }
+.promo-text strong { font-size: clamp(1.5rem, 4vw, 2rem); letter-spacing: -.02em; line-height: 1.1; }
+.promo-text .until, .promo-text .go { color: var(--accent); font-weight: 700; }
+.promo-text .go::after { content: " →"; }
+.promo-art { width: 124px; height: auto; margin: -6px 6px -14px 0; filter: drop-shadow(0 14px 14px rgb(11 31 58 / .16)); }
+@media (max-width: 379px) {
+    .promo-text { padding-left: 20px; }
+    .promo-text strong { font-size: 1.375rem; }
+    .promo-art { width: 88px; margin: 0 4px -8px 0; }
+}
+@media (min-width: 760px) {
+    .promo-band.with-photo { grid-template-columns: 1fr 1fr; }
+    .promo-band.with-photo .promo-photo { align-self: stretch; height: 100%; min-height: 220px; aspect-ratio: auto; }
+    .promo-text { padding: 26px 0 26px 36px; }
+    .promo-band.with-photo .promo-text { padding: 32px 36px; }
+    .promo-art { width: 190px; margin: -22px 40px -30px 0; }
+}
+
+.promos { display: grid; gap: 16px; }
+@media (min-width: 760px) { .promos { grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); } }
+.promo-card { display: grid; border-radius: 20px; overflow: hidden; background: var(--surface); color: var(--ink); text-decoration: none; align-content: start; }
+.promo-card img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; }
+.promo-card .body { display: grid; gap: 6px; padding: 20px; }
+.promo-card strong { font-size: 1.375rem; letter-spacing: -.02em; }
+.promo-card .discount, .discount-big { color: var(--accent); font-weight: 800; }
+.promo-card .until, .promo-page .until { color: var(--muted); font-weight: 600; }
+.promo-page { display: grid; gap: 28px; }
+.promo-page h1 { font-size: clamp(2rem, 6.4vw, 3.125rem); letter-spacing: -.025em; line-height: 1.1; }
+.promo-image { width: 100%; border-radius: 24px; aspect-ratio: 16 / 9; object-fit: cover; }
+.discount-big { font-size: clamp(1.75rem, 5vw, 2.5rem); letter-spacing: -.02em; }
+.promo-page .code { font-size: 1.125rem; }
+.promo-page .code strong { background: var(--surface); padding: 4px 12px; border-radius: 8px; letter-spacing: .06em; }
+.promo-package { background: var(--surface); border-radius: var(--radius); padding: 20px; display: grid; gap: 10px; }
+.promo-package h2 { font-size: 1.25rem; letter-spacing: -.01em; margin: 0; }
+.promo-package h3 { font-size: 1rem; margin: 6px 0 0; }
+.promo-package p { margin: 0; }
+.promo-package ul { margin: 0; padding-left: 1.2em; display: grid; gap: 4px; }
+.promo-package .prices { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; }
+.promo-package .prices s { color: var(--muted); }
+.promo-package .prices strong { font-size: 1.75rem; font-weight: 800; letter-spacing: -.02em; }
+.promo-package .prices .save { color: var(--ok); font-weight: 700; }
+@media (min-width: 900px) { .promo-page.with-image { grid-template-columns: 1fr 1fr; align-items: start; gap: 48px; } }
+
+a.chip { text-decoration: none; display: inline-flex; align-items: center; }
+.chip[aria-current="page"] { background: var(--ink); color: #fff; }
+
+/* Botón flotante de WhatsApp y barra de abajo en el celular: lo único que flota, por eso llevan sombra */
+
+.wa-float {
+    position: fixed; right: 16px; bottom: 16px; z-index: 30; width: 60px; height: 60px; border-radius: 50%;
+    display: grid; place-items: center; background: #128c4b; color: #fff;
+    box-shadow: 0 6px 20px rgb(12 26 46 / .25);
+}
+.wa-float svg { width: 32px; height: 32px; }
+
+/* En el celular, Reservar, WhatsApp y Llamar quedan siempre a mano (la barra reemplaza al botón redondo). */
+.action-bar { display: none; }
+@media (max-width: 719px) {
+    .action-bar {
+        position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
+        display: flex; gap: 8px;
+        padding: 10px var(--gutter) calc(10px + env(safe-area-inset-bottom));
+        background: var(--ground); box-shadow: 0 -6px 20px rgb(12 26 46 / .12);
+    }
+    /* Cada botón toma el ancho de su texto y el resto se reparte: "Reservar cita" va con las dos palabras, como en
+       el resto del sitio, y en los celulares más angostos queda en "Reservar". */
+    .action-bar .btn { flex: 1 1 auto; padding: 10px 8px; font-size: 1rem; gap: 0; white-space: nowrap; }
+    .action-bar ~ .wa-float { display: none; }
+    /* La barra de abajo ya tiene Reservar y WhatsApp: arriba no se repiten. */
+    /* Arriba, en vez del botón, los horarios libres: también son "reservar" y quedan a la vista sin bajar. */
+    body:has(.action-bar) .site-header .btn,
+    body:has(.action-bar) .hero .row,
+    body:has(.action-bar) .quick-actions .in-bar,
+    body:has(.action-bar) .how-band .section-head .btn { display: none; }
+    body:has(.action-bar) .quick .next-free .more { display: inline-block; }
+    body:has(.action-bar) .hero .lead { margin-bottom: 0; }
+    body:has(.action-bar) .hero .rating { margin: 14px 0 0; }
+    body:has(.action-bar) .site-footer { padding-bottom: calc(104px + env(safe-area-inset-bottom)); }
+}
+
+/* Hover solo con mouse: en pantallas táctiles el color se quedaba pegado tras tocar */
+
+@media (hover: hover) and (pointer: fine) {
+    .site-nav a:hover, .more-nav > summary:hover { color: var(--accent); }
+    .btn:hover { background: var(--btn-press); }
+    .btn.light:hover { background: #e6f0ff; }
+    .btn.ghost:hover { background: rgb(255 255 255 / .12); }
+    .services-grid a:hover { border-color: #9cc3f5; box-shadow: 0 1px 2px rgb(12 26 46 / .05), 0 20px 36px -18px rgb(14 47 107 / .45); transform: translateY(-2px); }
+    .services-grid a:hover .name { color: var(--accent); }
+    .site-footer .socials a:hover { background: rgb(255 255 255 / .22); }
+    .site-footer ul a:hover { text-decoration: underline; }
+    .btn.quiet:hover { background: var(--surface-strong); }
+    .btn.whatsapp:hover { background: #0f7a41; }
+    .btn.danger:hover { background: #fbd0cb; }
+    .choice:hover { background: var(--surface-strong); }
+    .choice.featured:hover, .choice.with-art:not(.urgent):hover { background: var(--surface); }
+    .choice.with-art.urgent:hover { background: #c9eee6; }
+    .day:not([aria-pressed="true"]):hover { background: var(--surface-strong); }
+    .time:not([aria-pressed="true"]):hover { background: var(--surface-strong); }
+    .wa-float:hover { background: #0f7a41; }
+    .menu > summary:hover { background: var(--surface-strong); }
+    .menu[open] > summary:hover { background: var(--ink); }
+    .menu-panel a:hover { color: var(--accent); }
+    .free-times a:hover { background: #d6e3f5; }
+    .promo-card:hover { background: var(--surface-strong); }
+    .price-list a:hover { border-color: #9cc3f5; box-shadow: 0 1px 2px rgb(12 26 46 / .05), 0 20px 36px -18px rgb(14 47 107 / .45); transform: translateY(-2px); }
+    .price-list a:hover .more { background: var(--btn); color: #fff; }
+    .price-list a:hover .more svg { transform: translateX(2px); }
+    :is(.feature, .footer-cta) .btn:hover { background: var(--surface-strong); }
+    .price-list a:hover .name { color: var(--accent); }
+    .account-side nav a:hover, .faq-topics a:hover { background: #e3eeff; color: #0d3f8f; }
+    .promo-card:hover strong { text-decoration: underline; text-underline-offset: .15em; text-decoration-thickness: 1px; }
+    .promo-band:hover strong { text-decoration: underline; text-underline-offset: .15em; }
+    .team.full .doctor .treatments a:hover { background: #d6e5ff; }
+    .pill:hover { background: #d6e5ff; }
+    .faqs summary:hover { color: var(--accent); }
+    .faqs summary:hover::after { background-color: var(--surface-strong); }
+    .chip:not([aria-current="page"]):not([aria-pressed="true"]):hover { background: var(--surface-strong); }
+}
+
+/* Mientras llegan los datos: el hueco de la página, para que el pie no salte, y la línea que avisa que algo se está enviando. */
+
+.page-loading { min-height: 70vh; }
+
+.loading-line { height: 3px; background: var(--accent); border-radius: 999px; animation: loading 1s ease-in-out infinite; transform-origin: left; }
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes pulse { 0%, 100% { opacity: .35; } 50% { opacity: 1; } }
+@keyframes loading { 0% { transform: scaleX(.1); } 50% { transform: scaleX(.8); } 100% { transform: scaleX(.1); } }
+
+/* Las secciones suben un poco al llegar a ellas (solo con JavaScript y si no se pidió menos movimiento). */
+@media (prefers-reduced-motion: no-preference) {
+    .js main .section { opacity: 0; transform: translateY(12px); transition: opacity .5s ease, transform .5s var(--ease-out); }
+    .js main .section.is-in { opacity: 1; transform: none; }
+}
+
+/* Menos movimiento no es cero: se quitan los desplazamientos y los cambios de tamaño, pero los
+   cambios de color y de opacidad se quedan porque ayudan a entender qué pasó. */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { transition-property: color, background-color, border-color, opacity !important; }
+    .btn:active, .choice:active, .chip:active, .day:active, .time:active, .free-times a:active { transform: none; }
+    .faqs details[open] summary::after { transform: none; content: "−"; }
+    .faq-list .faqs details[open] summary::after { transform: rotate(180deg); content: ""; }
+    .faqs details[open] > .prose, .menu[open] > .menu-panel { animation: fade .15s ease; }
+    .done-art { animation: fade .2s ease both; }
+    .services-grid a:hover { transform: none; }
+    .loading-line { animation: pulse 1.2s linear infinite; transform: none; }
+}
+
+@media (min-width: 720px) {
+    :root { --gutter: 32px; }
+    body { font-size: 1.125rem; }
+    main { padding-top: 40px; }
+}
+
+/* La página de un error, con el encabezado y el pie de siempre. La simple (panel, 500, 503) lleva sus estilos en su vista. */
+.error-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 24px; }
+.error-site { padding: 24px 0 48px; }
+
+/* Antes de la cita: la salud en dos minutos */
+
+.health { max-width: 36rem; }
+/* Entre pregunta y pregunta, aire (los fieldset traen margen 0 y le ganarían a .stack-lg). */
+.health .health-form > * + * { margin-top: 32px; }
+@media (min-width: 560px) { .health-conditions { grid-template-columns: 1fr 1fr; column-gap: 16px; } }
+.health-conditions { display: grid; gap: 4px; margin-top: 4px; }
+.health-conditions .check { min-height: 44px; align-items: center; }
+.health-conditions .check input { margin: 0; }
+.health-detail { margin-top: 8px; }
+/* "¿A qué?" aparece solo al elegir Sí (sin :has, queda siempre a la vista). */
+@supports selector(:has(*)) {
+    .health-question:not(:has(input[value="yes"]:checked)) .health-detail { display: none; }
+}
+.health-ask { display: grid; gap: 2px; padding: 12px 40px 12px 14px; border-radius: 12px; background: var(--ground); box-shadow: inset 0 0 0 1px var(--line); color: var(--ink); text-decoration: none; position: relative; transition: transform .16s var(--ease-out); }
+.health-ask::after { content: "→"; position: absolute; right: 14px; top: 50%; transform: translateY(-50%); font-weight: 700; color: var(--accent); }
+.health-ask strong { color: var(--accent); }
+.health-ask span { font-size: .9375rem; color: var(--muted); }
+.health-ask:active { transform: scale(.98); }
+.welcome-card .health-ask { background: var(--surface); box-shadow: none; }
