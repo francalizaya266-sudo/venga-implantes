@@ -1,11 +1,15 @@
 import { createBrowserRouter, type RouteObject } from 'react-router';
 import { Root } from '@/app/Root';
+import { AccountPage } from '@/pages/account/AccountPage';
+import { HealthPage } from '@/pages/account/HealthPage';
 import { BookingPage } from '@/pages/booking/BookingPage';
 import { CasesPage } from '@/pages/CasesPage';
+import { AccountChangePage, LinkChangePage } from '@/pages/change/ChangePage';
 import { ContactPage } from '@/pages/ContactPage';
 import { ErrorPage } from '@/pages/ErrorPage';
 import { FaqPage } from '@/pages/FaqPage';
 import { HomePage } from '@/pages/HomePage';
+import { LinkPage } from '@/pages/link/LinkPage';
 import { PrivacyPage } from '@/pages/PrivacyPage';
 import { PromotionPage } from '@/pages/PromotionPage';
 import { PromotionsPage } from '@/pages/PromotionsPage';
@@ -31,6 +35,11 @@ export const pages: RouteObject[] = [
   { path: '/contacto', element: <ContactPage /> },
   { path: '/privacidad', element: <PrivacyPage /> },
   { path: '/reservar', element: <BookingPage /> },
+  { path: '/mi-cuenta', element: <AccountPage /> },
+  { path: '/mi-cuenta/citas/:id/cambiar', element: <AccountChangePage /> },
+  { path: '/mi-cuenta/pacientes/:id/salud', element: <HealthPage /> },
+  { path: '/c/:token', element: <LinkPage /> },
+  { path: '/c/:token/cambiar', element: <LinkChangePage /> },
   { path: '*', element: <ErrorPage status={404} /> },
 ];
 
