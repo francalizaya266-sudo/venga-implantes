@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\V1\Booking\BookingController;
 use App\Http\Controllers\Api\V1\Site\FaqController;
 use App\Http\Controllers\Api\V1\Site\HomeController;
 use App\Http\Controllers\Api\V1\Site\PageController;
@@ -30,3 +31,18 @@ Route::get('reviews', ReviewController::class)->name('reviews');
 Route::get('faqs', FaqController::class)->name('faqs');
 Route::get('pages/contact', [PageController::class, 'contact'])->name('pages.contact');
 Route::get('pages/privacy', [PageController::class, 'privacy'])->name('pages.privacy');
+
+// Reservar cita.
+Route::controller(BookingController::class)
+    ->prefix('booking')
+    ->name('booking.')
+    ->group(function () {
+        Route::get('options', 'options')->name('options');
+        Route::get('days', 'days')->name('days');
+        Route::get('slots', 'slots')->name('slots');
+        Route::post('appointments', 'store')->name('store');
+        // "¿Cómo nos conociste?" al terminar de reservar. Firma relativa: solo la tiene quien acaba de reservar.
+        Route::post('appointments/{appointment}/origin', 'origin')
+            ->middleware(['signed:relative', 'throttle:30,1'])
+            ->name('origin');
+    });
