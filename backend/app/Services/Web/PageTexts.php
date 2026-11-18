@@ -46,10 +46,10 @@ final class PageTexts
     /** La página que lleva, bajo los doctores, la franja con lo que distingue al equipo. */
     public const WITH_VALUES = 'equipo';
 
-    /** @var list<string> El ícono de cada punto de esa franja (SiteIcon): tantos puntos como íconos. */
+    /** @var list<string> El ícono de cada punto de esa franja, por su nombre en el frontend: tantos puntos como íconos. */
     public const VALUE_ICONS = ['award', 'chat-check', 'shield-check', 'heart'];
 
-    /** @var array<string, string> El ícono que acompaña a la frase corta de cada página (SiteIcon). */
+    /** @var array<string, string> El ícono que acompaña a la frase corta de cada página, por su nombre en el frontend. */
     private const ICONS = [
         'servicios' => 'heart',
         'equipo' => 'users',

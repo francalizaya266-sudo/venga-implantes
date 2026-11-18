@@ -32,7 +32,7 @@ class SitemapController extends Controller
             ['loc' => route('site.booking'), 'lastmod' => null],
         ])->filter();
 
-        return response()->view('site.sitemap', ['urls' => $urls], 200, ['Content-Type' => 'application/xml; charset=UTF-8']);
+        return response()->view('sitemap', ['urls' => $urls], 200, ['Content-Type' => 'application/xml; charset=UTF-8']);
     }
 
     public function robots(): Response

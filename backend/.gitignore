@@ -13,9 +13,7 @@
 /.vscode
 /.zed
 /auth.json
-/node_modules
 /public/app
-/public/build
 /public/css/filament
 /public/fonts-manifest.dev.json
 /public/fonts/filament

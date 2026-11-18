@@ -3,17 +3,14 @@
 namespace App\Support;
 
 use App\Models\Treatment;
-use Illuminate\Support\HtmlString;
 
 /**
- * Imágenes 3D de la web (public/img/3d): la portada, los tres pasos y una por tipo de tratamiento.
- * La de cada tratamiento se elige sola por su nombre, igual que su ícono: no hay nada que configurar.
+ * Qué imagen 3D de la web (public/img/3d) le toca a cada tratamiento. Se elige sola por su nombre, igual que su
+ * ícono: no hay nada que configurar. La API la entrega por su nombre ("implante", "limpieza"…) y el frontend arma
+ * la dirección y los tamaños (frontend/src/lib/art.ts).
  */
 final class SiteArt
 {
-    /** Sube cuando se reemplaza alguna imagen: el celular las guarda un mes. */
-    private const VERSION = 3;
-
     /** @var array<string, string> Ícono del tratamiento (TreatmentIcon) → su imagen. */
     private const BY_ICON = [
         'tooth' => 'diente',
@@ -31,12 +28,6 @@ final class SiteArt
 
     /** @var list<string> Imágenes que dicen una especialidad (no lo de todos los días: evaluar, limpiar, curar). */
     private const SPECIALTIES = ['implante', 'brackets', 'endodoncia', 'corona', 'encia', 'ninos'];
-
-    /** Dirección de una imagen: "portada", "sonrisa", "implante"… */
-    public static function url(string $name): string
-    {
-        return asset('img/3d/'.$name.'.webp').'?v='.self::VERSION;
-    }
 
     /**
      * Qué imagen le toca a un tratamiento, por su nombre. Donde dos compartían ícono, cada uno tiene la suya:
@@ -68,58 +59,5 @@ final class SiteArt
         $image = self::key((string) $specialty);
 
         return in_array($image, self::SPECIALTIES, true) ? $image : null;
-    }
-
-    /**
-     * La imagen de un tratamiento lista para la página, al tamaño en que se muestra (en píxeles de CSS).
-     * Va en tres tamaños y cada pantalla baja el que le queda justo: así se ve nítida sin pesar de más.
-     * Es un adorno junto al nombre: va sin texto alternativo.
-     */
-    public static function treatment(Treatment $treatment, int $size, bool $lazy = true): HtmlString
-    {
-        $key = self::keyFor($treatment);
-
-        return new HtmlString(sprintf(
-            '<img src="%1$s" srcset="%1$s 192w, %2$s 320w, %3$s 640w" sizes="%4$dpx" width="%4$d" height="%4$d" alt=""%5$s decoding="async">',
-            e(self::url($key.'-192')),
-            e(self::url($key.'-320')),
-            e(self::url($key)),
-            $size,
-            $lazy ? ' loading="lazy"' : '',
-        ));
-    }
-
-    /**
-     * La imagen de la franja "Nuestra especialidad", que la muestra en grande: va en dos tamaños para que se vea
-     * nítida también en las pantallas de más detalle. Solo las imágenes de especialidad tienen el tamaño grande.
-     * Es un adorno junto al nombre: va sin texto alternativo.
-     */
-    public static function feature(Treatment $treatment): HtmlString
-    {
-        $key = self::keyFor($treatment);
-        $sizes = in_array($key, self::SPECIALTIES, true)
-            ? sprintf(' srcset="%s 640w, %s 960w" sizes="(min-width: 900px) 400px, (min-width: 640px) 300px, 240px"', e(self::url($key)), e(self::url($key.'-960')))
-            : '';
-
-        return new HtmlString(sprintf(
-            '<img src="%s"%s width="640" height="640" alt="" loading="lazy" decoding="async">',
-            e(self::url($key)),
-            $sizes,
-        ));
-    }
-
-    /**
-     * Una capa del implante de la portada ("implante-portada" o su cinta de luz, "implante-portada-luz"), en dos
-     * tamaños: el celular baja la chica. Con foto en la portada el implante solo se ve en pantallas anchas: ahí
-     * se pide cuando hace falta, y lo primero en cargar es la foto.
-     */
-    public static function coverLayer(string $name, bool $lazy): HtmlString
-    {
-        return new HtmlString(sprintf(
-            '<img src="%1$s" srcset="%1$s 640w, %2$s 1120w" sizes="(min-width: 900px) 440px, 320px" width="1120" height="1120" alt=""%3$s>',
-            e(self::url($name.'-640')),
-            e(self::url($name)),
-            $lazy ? ' loading="lazy"' : ' fetchpriority="high"',
-        ));
     }
 }
