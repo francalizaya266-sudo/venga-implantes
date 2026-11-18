@@ -1,27 +1,58 @@
 # Sistema web para consultorio dental
 
-Hecho para **Clínica Vega Implant** (Jr. Apurímac 648, Juliaca). Su nombre, dirección, WhatsApp y lema vienen ya puestos en `config/consultorio.php` y se cambian desde **Ajustes**.
+Hecho para **Clínica Vega Implant** (Jr. Apurímac 648, Juliaca). Su nombre, dirección, WhatsApp y lema vienen ya puestos en `backend/config/consultorio.php` y se cambian desde **Ajustes**.
 
 Reservas online verificadas por WhatsApp, agenda inteligente, historia clínica con odontograma y paneles para administrador, recepción y doctores. Pagos solo informativos (se cobra en el consultorio).
 
-**Stack:** Laravel 13 (PHP 8.3+) · MySQL · Filament 5 para los paneles · Blade + Livewire para la web pública. Pensado para hosting compartido con PHP: sin Node en producción y con un solo cron.
+**Stack:** Laravel 13 (PHP 8.3+) · MySQL · Filament 5 para los paneles · React 19 + TypeScript + Vite para la web pública, que habla con Laravel por una API. Pensado para hosting compartido con PHP: sin Node en producción (la web se sube ya compilada) y con un solo cron.
+
+## Backend y frontend
+
+| Carpeta | Qué es |
+| --- | --- |
+| `backend/` | Laravel. La API de la web (`/api/v1`), los paneles (`/panel`), las hojas para imprimir, los avisos por WhatsApp y toda la lógica del consultorio. También entrega el documento de cada página de la web con su título y sus datos ya escritos: es lo que leen Google y la vista previa de WhatsApp. |
+| `frontend/` | React. La web del paciente: inicio, tratamientos, promociones, equipo, reservar cita, Mi cuenta y el enlace personal de WhatsApp. Se compila con Vite dentro de `backend/public/app`, así que en el hosting solo corre PHP. |
+
+Todo vive en un solo dominio: la web usa las cookies y la sesión de Laravel (el celular recordado), sin tokens que guardar ni CORS que configurar.
 
 ## Puesta en marcha local
 
+Hace falta PHP 8.3+, Composer, MySQL y Node 22+ (Node solo en la computadora donde se desarrolla).
+
 ```bash
+cd backend
 composer install
 cp .env.example .env
 php artisan key:generate
 # crear la base de datos MySQL y completar DB_* en .env
 php artisan migrate --seed
-php artisan serve
+npm --prefix ../frontend install
+composer dev
 ```
+
+`composer dev` levanta Laravel en `http://localhost:8000` junto con el servidor de Vite: la web se actualiza sola al guardar un archivo de `frontend/`. Para verla como en el hosting, sin el servidor de Vite: `npm --prefix ../frontend run build` y `php artisan serve`.
 
 En local, `--seed` crea datos de demostración, con 11 meses de historia para que Resumen y Ganancias tengan qué mostrar (tarda unos segundos). Panel: `/panel` con `admin@consultorio.test` (el Dr. Vega: administrador y único doctor) o `recepcion@consultorio.test` (clave `password`).
 
-Pruebas: `php artisan test` (usan SQLite en memoria; también pasan sobre MySQL).
+### Pruebas
+
+| Dónde | Comando | Qué revisa |
+| --- | --- | --- |
+| `backend/` | `php artisan test` | La API, los paneles y las reglas del consultorio. Usan SQLite en memoria; también pasan sobre MySQL. |
+| `backend/` | `vendor/bin/pint --test` | El formato del código PHP. |
+| `frontend/` | `npm test` | Las páginas y piezas de la web, con Vitest y Testing Library, contra una API de mentira. |
+| `frontend/` | `npm run lint`, `npm run typecheck` y `npm run format:check` | ESLint, los tipos de TypeScript y el formato (Prettier). |
+
+GitHub Actions corre todo eso en cada pull request y en cada cambio de `main` (`.github/workflows/tests.yml`).
 
 ## Publicación en hosting compartido
+
+El hosting no necesita Node: la web se compila antes de subirla. Hay dos formas de tener el sistema listo para subir:
+
+- **Descargar el paquete.** En cada cambio de `main`, GitHub Actions deja el paquete `consultorio-para-hosting` (pestaña **Actions** → la última ejecución de **Pruebas** → **Artifacts**). Trae la carpeta `backend/` con la web ya compilada.
+- **Compilar en la computadora.** `npm --prefix frontend ci` y `npm --prefix frontend run build`, y subir la carpeta `backend/` completa. La web compilada queda en `backend/public/app`, que no está en git: hay que subirla también.
+
+De aquí en adelante, las carpetas y los comandos son dentro de `backend/`.
 
 1. La raíz pública del dominio apunta a la carpeta `public/`.
 2. `.env` con `APP_ENV=production`, `APP_DEBUG=false`, los datos de MySQL y `APP_URL` con `https://`.
@@ -46,6 +77,8 @@ Pruebas: `php artisan test` (usan SQLite en memoria; también pasan sobre MySQL)
 
 ## Cómo está organizado
 
+### `backend/`
+
 | Carpeta | Qué hay |
 | --- | --- |
 | `app/Models` | Modelos. Los datos clínicos, citas y pagos registran cada cambio (`Concerns/Auditable`) y no se borran. |
@@ -58,10 +91,36 @@ Pruebas: `php artisan test` (usan SQLite en memoria; también pasan sobre MySQL)
 | `app/Services/Clinical` | Historia clínica: atención, odontograma, plan de tratamiento, recetas, radiografías y fotos (comprimidas) y consentimientos firmados en pantalla. |
 | `app/Services/Reports` | Ganancias (cobrado y realizado, por día, doctor, tratamiento y medio de pago) y los números del Resumen. Las mismas tablas alimentan el panel, la hoja para imprimir o guardar en PDF y el Excel (`app/Support/Spreadsheet`, sin librerías extra). |
 | `app/Services/Backup` | Copia de seguridad de la base de datos en `.sql.gz`, sin depender de `mysqldump`, y su restauración. |
-| `app/Livewire/Site`, `resources/views/site` | Web del paciente: reservar en 3 pasos (`/reservar`), Mi cuenta (`/mi-cuenta`) y cambiar el horario desde el enlace. |
-| `app/Http/Controllers/Site`, `app/Services/Web` | Páginas públicas: inicio con el próximo horario libre, tratamientos con precio "desde", equipo con COP, promociones, antes y después, opiniones, preguntas frecuentes y contacto. Datos para Google (schema.org `Dentist`, `FAQPage`), `sitemap.xml` y `robots.txt`. El contenido se edita en el panel, grupo **Web** (solo administrador). |
-| `public/css/sitio.css` | Estilos de la web, escritos a mano: el hosting no necesita Node ni compilar nada. |
+| `app/Http/Controllers/Api/V1`, `app/Http/Resources/V1`, `routes/api.php` | La API de la web: el contenido de cada página (inicio con el próximo horario libre, tratamientos con precio "desde", equipo con COP, promociones, antes y después, opiniones, preguntas frecuentes), reservar en 3 pasos, Mi cuenta y el enlace personal de WhatsApp. El contenido se edita en el panel, grupo **Web** (solo administrador). |
+| `app/Http/Controllers/Site`, `app/Services/Web`, `routes/web.php` | El documento de cada página de la web (`SpaController`, `SpaDocument`): carga el frontend y lleva escritos el título, la descripción, los datos para Google (schema.org `Dentist`, `FAQPage`) y los datos de la página, para que se pinte sin esperar. También `sitemap.xml`, `robots.txt` y el archivo para guardar la cita en el calendario. |
 | `config/consultorio.php` | Valores por defecto (plazos, topes, tiempos). Se pueden cambiar desde el panel (tabla `settings`). |
+
+### `frontend/src/`
+
+| Carpeta | Qué hay |
+| --- | --- |
+| `api/` | El cliente de la API (`client.ts`), las consultas con caché (`queries.ts`), las acciones del paciente como confirmar o cancelar (`actions.ts`) y la forma de cada respuesta (`types.ts`). |
+| `app/` | Las direcciones de la web (`router.tsx`), que son las mismas de `backend/routes/web.php`, y lo que envuelve a todas las páginas. |
+| `pages/` | Las páginas: inicio, tratamientos, promociones, equipo, antes y después, opiniones, preguntas frecuentes, contacto y privacidad; reservar cita (`booking/`), Mi cuenta (`account/`), el enlace de WhatsApp (`link/`) y cambiar el horario (`change/`). |
+| `components/` | Las piezas que comparten: el marco de la página (`layout/`), las de contenido como la tarjeta de una cita o los horarios libres (`site/`) y las básicas (`ui/`). |
+| `lib/` | Direcciones, avisos, el título y los datos para Google de cada página, y los enlaces de WhatsApp. |
+| `styles/site.css` | Los estilos de la web, escritos a mano. |
+| `test/` | Lo que comparten las pruebas: la API de mentira y datos de ejemplo. Cada prueba va junto a lo que prueba (`*.test.tsx`). |
+
+## La API de la web
+
+La web le pide todo a Laravel en `/api/v1`, dentro del mismo dominio. `php artisan route:list --path=api` muestra la lista completa.
+
+| Grupo | Para qué |
+| --- | --- |
+| `GET site`, `home`, `treatments`, `promotions`, `team`, `cases`, `reviews`, `faqs`, `pages/…` | Los datos del consultorio y el contenido de cada página. |
+| `booking/…` | Reservar: los tratamientos, los días y horarios libres, y crear la cita. |
+| `account/…` | Mi cuenta desde el celular recordado: citas, confirmar, cancelar, cambiar el horario, la salud antes de la cita. |
+| `links/{token}/…` | El enlace personal que llega por WhatsApp: ver la cita, confirmarla, cambiarla, cancelarla o entrar a Mi cuenta. |
+
+- Las páginas responden `{ "data": …, "meta": … }`: lo que la pantalla muestra, con los textos ya listos, y el título, la descripción y los datos para Google.
+- Las acciones (`POST`) responden con lo que se le dice al paciente (`message`) o con lo que la pantalla muestra después (`data`), y llevan el encabezado `X-XSRF-TOKEN` con el valor de la cookie `XSRF-TOKEN`.
+- Los errores llegan con su estado: `422` con `errors` por campo, `409` con un `code` cuando algo cambió mientras tanto (`slot_taken`: el horario se ocupó), `403` y `404` cuando la página no es para ese celular o no existe, y `429` cuando hay demasiados intentos seguidos.
 
 ## Reglas del negocio que implementa
 
