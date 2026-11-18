@@ -6,7 +6,8 @@ on:
   pull_request:
 
 jobs:
-  tests:
+  backend:
+    name: Backend (Laravel)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -34,3 +35,67 @@ jobs:
 
       - name: Pruebas
         run: php artisan test
+
+  frontend:
+    name: Frontend (React)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Formato (Prettier)
+        run: npm run format:check
+
+      - name: ESLint
+        run: npm run lint
+
+      - name: Pruebas
+        run: npm test
+
+      # Revisa los tipos y compila: lo que no compila no llega al hosting.
+      - name: Compilar
+        run: npm run build
+
+  # El sistema listo para subir al hosting compartido, que no tiene Node: backend/ con la web ya compilada.
+  paquete:
+    name: Paquete para el hosting
+    if: github.event_name == 'push'
+    needs: [backend, frontend]
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Compilar la web
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: consultorio-para-hosting
+          path: |
+            backend
+            !backend/tests
+          # Laravel necesita sus archivos ocultos (public/.htaccess, .env.example).
+          include-hidden-files: true
+          if-no-files-found: error
