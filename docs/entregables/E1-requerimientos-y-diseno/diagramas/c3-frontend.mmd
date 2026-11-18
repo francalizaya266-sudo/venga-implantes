@@ -1,0 +1,14 @@
+%%{init: {"flowchart": {"nodeSpacing": 22, "rankSpacing": 36, "padding": 8}}}%%
+flowchart TB
+  entrada["<b>spa.blade.php</b> con los datos de la página<br/>→ <b>main.tsx</b>: QueryClient precargado<br/>→ <b>app/router.tsx</b>: 17 rutas y no encontrado"]
+  pub["<b>pages/</b> públicas<br/>Inicio, Tratamientos,<br/>Equipo, Promociones,<br/>Preguntas, Contacto…"]
+  book["<b>pages/booking/</b><br/>BookingWizard:<br/>StepService, StepTime,<br/>StepDetails, Booked"]
+  acc["<b>pages/account,<br/>change, link</b><br/>Mi cuenta, Salud,<br/>Cambiar, Enlace"]
+  comps["<b>components/</b> layout,<br/>site (SlotPicker,<br/>AppointmentCard), ui<br/><b>lib/</b> meta.ts, paths.ts,<br/>whatsapp.ts"]
+  q["<b>api/queries.ts</b><br/>una consulta por página<br/><b>api/actions.ts</b><br/>reservar, confirmar,<br/>cancelar, cambiar"]
+  cli["<b>api/client.ts + types.ts</b><br/>fetch con X-XSRF-TOKEN,<br/>reintentos, errores<br/>en español"]
+  api[["API Laravel /api/v1<br/>JSON {data, meta}"]]
+  entrada --> pub & book & acc
+  pub & book & acc --> comps
+  pub & book & acc --> q
+  q --> cli --> api

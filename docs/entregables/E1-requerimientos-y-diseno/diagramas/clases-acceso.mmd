@@ -1,0 +1,50 @@
+classDiagram
+  direction TB
+  class Account {
+    +phone: string E.164
+    +phone_verified_at
+    +privacy_accepted_at
+    +accepts_promotions: bool
+    +blocked_at
+    +isBlocked() bool
+  }
+  class Patient {
+    +first_name, last_name
+    +document_type: DocumentType
+    +birth_date
+    +relationship: PatientRelationship
+    +guardian_name
+    +balance() float
+    +hasActiveTreatment() bool
+  }
+  class RememberedDevice {
+    +token_hash
+    +expires_at
+  }
+  class MagicLink {
+    +purpose: MagicLinkPurpose
+    +token_hash
+    +expires_at
+  }
+  class WhatsappMessage {
+    +template_key: MessageTemplateKey
+    +status: MessageStatus
+    +channel: MessageChannel
+    +due_at, sent_at
+  }
+  class Appointment {
+    +starts_at, ends_at
+    +buffer_minutes
+    +status: AppointmentStatus
+    +booked_via: BookingChannel
+    +fixed_date: bool
+    +is_overbooked: bool
+    +series_id
+    +logEvent(event, actor)
+  }
+  Account "1" --> "1..*" Patient : agrupa la familia
+  Account "1" --> "*" RememberedDevice
+  Account "1" --> "*" MagicLink
+  Account "1" --> "*" WhatsappMessage
+  Patient "1" --> "*" Appointment
+  Appointment "0..1" --> "*" MagicLink

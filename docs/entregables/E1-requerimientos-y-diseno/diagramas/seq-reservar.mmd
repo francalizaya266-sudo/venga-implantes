@@ -1,0 +1,31 @@
+%%{init: {"sequence": {"actorMargin": 30, "width": 110, "height": 52, "messageMargin": 10, "boxMargin": 4, "noteMargin": 4, "mirrorActors": false}}}%%
+sequenceDiagram
+  autonumber
+  actor P as Paciente
+  participant W as Web React
+  participant C as Booking<br/>Controller
+  participant S as Appointment<br/>Service
+  participant AV as Availability<br/>Service
+  participant DB as MySQL
+  participant O as Avisos
+  P->>W: servicio, día y hora
+  W->>C: GET booking/slots
+  C-->>W: horarios libres
+  P->>W: sus datos y la privacidad
+  W->>C: POST booking/appointments
+  Note over C: StoreBookingRequest valida en español
+  alt el horario ya no está
+    C-->>W: 409 slot_taken
+    W-->>P: elegir otro horario
+  else sigue libre
+    C->>S: bookFromWeb()
+    Note over S: anticipación, horizonte, en tratamiento, límites
+    S->>DB: BEGIN y bloquea la agenda
+    S->>AV: isFree()
+    AV-->>S: libre
+    S->>DB: cuenta, paciente, cita "Pendiente"
+    S->>O: confirmación con enlace y alerta
+    S->>DB: COMMIT
+    C-->>W: 201 y calendario (.ics)
+    W-->>P: "Reserva hecha"
+  end

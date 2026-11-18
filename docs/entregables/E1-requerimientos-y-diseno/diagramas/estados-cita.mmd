@@ -1,0 +1,25 @@
+stateDiagram-v2
+  [*] --> Pendiente: reserva web
+  [*] --> Confirmada: la agenda el personal
+  Pendiente --> Confirmada: enlace o recepción
+  Confirmada --> Pendiente: deshacer
+  Pendiente --> EnSala: llegó
+  Confirmada --> EnSala: llegó
+  EnSala --> Pendiente: deshacer
+  EnSala --> EnAtencion: Atender
+  EnAtencion --> EnSala: descartar atención
+  EnAtencion --> Atendida: Terminar atención
+  EnSala --> Atendida: recepción la cierra
+  Confirmada --> Atendida: cerrada tras su hora
+  Pendiente --> NoAsistio: no vino
+  Confirmada --> NoAsistio: no vino
+  NoAsistio --> Pendiente: deshacer
+  Pendiente --> Cancelada: paciente o consultorio
+  Confirmada --> Cancelada: paciente o consultorio
+  Cancelada --> Pendiente: deshacer
+  Atendida --> [*]
+  NoAsistio --> [*]
+  Cancelada --> [*]
+  EnSala: En sala
+  EnAtencion: En atención
+  NoAsistio: No asistió

@@ -1,0 +1,15 @@
+flowchart TB
+  subgraph s1["Antes&nbsp;de&nbsp;la&nbsp;atención&nbsp;·&nbsp;recepción"]
+    direction LR
+    h1["<b>Hoy</b><br/>por confirmar, sala<br/>de espera, cobrado"] --> ag["<b>Agenda</b><br/>nueva cita, mover,<br/>sobrecupo, serie"] --> av["<b>Avisos</b><br/>WhatsApp con el<br/>mensaje listo"] --> lle["<b>Llegó</b><br/>o atender sin cita"]
+  end
+  subgraph s2["Atención&nbsp;·&nbsp;doctor"]
+    direction LR
+    h2["<b>Hoy</b><br/>su paciente esperando<br/>y sus alertas"] --> at["<b>Atender</b><br/>motivo, odontograma,<br/>diagnóstico, receta"] --> pre["<b>Presupuesto</b><br/>desde el odontograma<br/>y firma"] --> ter["<b>Terminar atención</b><br/>materiales y<br/>próxima sesión"]
+  end
+  subgraph s3["Después&nbsp;de&nbsp;la&nbsp;atención&nbsp;·&nbsp;recepción&nbsp;y&nbsp;administrador"]
+    direction LR
+    cob["<b>Caja</b><br/>cobrar en un paso<br/>y constancia"] --> cie["<b>Cierre del día</b><br/>por medio de pago<br/>y por persona"] --> rep["<b>Reportes</b><br/>ingresos, actividad,<br/>dinero en espera"]
+  end
+  s1 -- "aviso en la pantalla del doctor" --> s2
+  s2 -- "pide a recepción cobrar" --> s3

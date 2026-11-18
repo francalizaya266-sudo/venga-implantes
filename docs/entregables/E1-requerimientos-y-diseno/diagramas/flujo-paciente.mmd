@@ -1,0 +1,20 @@
+flowchart TB
+  subgraph pub["Web&nbsp;pública"]
+    direction LR
+    inicio["<b>Inicio</b><br/>/"] --> trat["<b>Tratamientos y<br/>promociones</b><br/>/tratamientos/:slug"] --> info["Equipo, casos,<br/>opiniones, preguntas,<br/>contacto, privacidad"]
+  end
+  subgraph reserva["Reservar&nbsp;cita&nbsp;·&nbsp;/reservar"]
+    direction LR
+    r1["Paso 1<br/>servicio"] --> r2["Paso 2<br/>día y hora"] --> r3["Paso 3<br/>tus datos"] --> r4["<b>Reserva hecha</b><br/>calendario (.ics)"]
+  end
+  subgraph link["Enlace&nbsp;personal&nbsp;·&nbsp;/c/:token"]
+    direction LR
+    enlace["<b>Ver la cita</b><br/>llega por WhatsApp"] --> conf["Confirmar o cancelar<br/>(hasta 12 h antes)"] --> camb["Cambiar: directo con<br/>más de 24 h; si no,<br/>proponer 3 horarios"]
+  end
+  subgraph mi["Mi&nbsp;cuenta&nbsp;·&nbsp;/mi-cuenta"]
+    direction LR
+    cuenta["<b>Citas de la familia</b><br/>celular recordado"] --> salud["Salud del paciente<br/>antes de la cita"] --> verif["Con enlace: historial,<br/>planes, pagos, cuotas"]
+  end
+  pub --> reserva
+  reserva -- "WhatsApp con el enlace personal" --> link
+  link -- "el celular queda recordado" --> mi

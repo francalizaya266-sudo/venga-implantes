@@ -1,0 +1,22 @@
+stateDiagram-v2
+  direction TB
+  [*] --> Borrador: el doctor lo arma<br/>desde el odontograma
+  Borrador --> Presentado: se presenta
+  Borrador --> Aceptado: firma, o se agenda<br/>una sesión
+  Presentado --> Aceptado: firma con su<br/>forma de pago
+  Aceptado --> EnTratamiento: primera<br/>sesión hecha
+  Borrador --> EnTratamiento: se empezó<br/>a trabajar
+  Presentado --> EnTratamiento: se empezó<br/>a trabajar
+  EnTratamiento --> Aceptado: se deshace<br/>la única sesión
+  EnTratamiento --> Terminado: todo hecho
+  Terminado --> EnTratamiento: se reabre<br/>una atención
+  Borrador --> Cancelado: no lo acepta
+  Presentado --> Cancelado: no lo acepta
+  Aceptado --> Cancelado: se deja
+  EnTratamiento --> Cancelado: se deja
+  Terminado --> [*]
+  Cancelado --> [*]
+  Borrador: Borrador
+  Presentado: Presentado
+  Aceptado: Aceptado (precios fijos)
+  EnTratamiento: En tratamiento

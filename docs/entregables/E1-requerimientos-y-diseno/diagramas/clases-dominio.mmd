@@ -1,0 +1,53 @@
+%%{init: {"class": {"hideEmptyMembersBox": true}}}%%
+classDiagram
+  direction TB
+  class Account
+  class Patient
+  class Appointment
+  class Doctor
+  class User
+  class Treatment
+  class DoctorSchedule
+  class ScheduleBlock
+  class RescheduleRequest
+  class WaitlistEntry
+  class MagicLink
+  class RememberedDevice
+  class WhatsappMessage
+  class Consultation
+  class MedicalBackground
+  class Odontogram
+  class OdontogramEntry
+  class Prescription
+  class Consent
+  class TreatmentPlan
+  class TreatmentPlanItem
+  class TreatmentPlanInstallment
+  class Charge
+  class Payment
+  Account "1" --> "1..*" Patient : familia
+  Account "1" --> "*" RememberedDevice
+  Account "1" --> "*" MagicLink
+  Account "1" --> "*" WhatsappMessage
+  User "1" --> "0..1" Doctor
+  Doctor "*" -- "*" Treatment : realiza
+  Doctor "1" --> "*" DoctorSchedule
+  Doctor "0..1" --> "*" ScheduleBlock
+  Patient "1" --> "*" Appointment
+  Doctor "1" --> "*" Appointment
+  Treatment "1" --> "*" Appointment
+  Appointment "1" --> "*" RescheduleRequest
+  Patient "1" --> "*" WaitlistEntry
+  Patient "1" --> "0..1" MedicalBackground
+  Appointment "0..1" --> "0..1" Consultation
+  Consultation "1" --> "0..1" Odontogram
+  Odontogram "1" --> "*" OdontogramEntry
+  Consultation "1" --> "*" Prescription
+  Patient "1" --> "*" Consent
+  Patient "1" --> "*" TreatmentPlan
+  TreatmentPlan "1" --> "1..*" TreatmentPlanItem
+  TreatmentPlan "1" --> "*" TreatmentPlanInstallment
+  TreatmentPlanItem "1" --> "*" Appointment : sesiones
+  Patient "1" --> "*" Charge
+  Patient "1" --> "*" Payment
+  TreatmentPlanInstallment "1" --> "0..1" Charge

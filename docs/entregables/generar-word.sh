@@ -14,16 +14,21 @@ if [ ! -f plantilla/plantilla-upeu.docx ]; then
 fi
 
 # generar <archivo de salida> <metadatos .yaml> <fuentes .md…>
+# INDICE=2 deja el índice en dos niveles y SEGUIDAS=1 no empieza página en cada sección desde la 2.
 generar() {
   local salida="word/$1" metadatos="$2"
   shift 2
+  # Las imágenes se buscan junto al primer .md (cada entregable tiene sus diagramas en su carpeta).
+  local carpeta
+  carpeta=$(dirname "$1")
   pandoc "$@" \
     --metadata-file="$metadatos" \
     --reference-doc=plantilla/plantilla-upeu.docx \
     --lua-filter=plantilla/word.lua \
-    --toc --toc-depth=3 --number-sections \
-    --resource-path=. \
+    --toc --toc-depth="${INDICE:-3}" --number-sections \
+    --resource-path=".:$carpeta" \
     -o "$salida"
+  python3 plantilla/ajustar-docx.py "$salida" ${SEGUIDAS:+--secciones-seguidas}
   python3 plantilla/actualizar-indice.py "$salida"
   local pdf="${salida%.docx}.pdf"
   local paginas
@@ -36,3 +41,11 @@ generar() {
 # FASE 0: análisis previo y diagnóstico frente a la rúbrica.
 generar CE02-00-Analisis-y-Diagnostico.docx 00-metadatos.yaml \
   00-analisis-del-proyecto.md 00-estado-actual.md
+
+# FASE 1: E1, requerimientos y diseño del sistema (CE021: CE0211–CE0214).
+INDICE=2 SEGUIDAS=1 generar CE021-S1-E1-Requerimientos-y-Diseno-del-Sistema.docx E1-requerimientos-y-diseno/E1-metadatos.yaml \
+  E1-requerimientos-y-diseno/E1-documento.md
+
+# Anexos del E1: matriz de trazabilidad (horizontal), validación con usuarios, clases detalladas y Gherkin.
+INDICE=2 generar CE021-S1-E1-Requerimientos-y-Diseno-del-Sistema-Anexos.docx \
+  E1-requerimientos-y-diseno/anexos/E1-anexos-metadatos.yaml E1-requerimientos-y-diseno/anexos/E1-anexos.md
