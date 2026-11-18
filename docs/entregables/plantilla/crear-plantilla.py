@@ -6,8 +6,8 @@ Uso (desde docs/entregables):
 
 A4, márgenes de 2,5 cm, Arial 11 con interlineado 1,5, títulos numerados por pandoc (1, 1.1, 1.1.1),
 salto de página antes de cada sección principal, encabezado con el nombre del sistema, número de página
-en el pie (la portada no lleva), tablas con bordes y encabezado sombreado, leyendas de figuras y tablas,
-y el estilo "Pendiente" en amarillo para los [PENDIENTE].
+en el pie (la portada no lleva), tablas con bordes y encabezado sombreado y texto de 9 puntos, leyendas de
+figuras y tablas, y el estilo "Pendiente" en amarillo para los [PENDIENTE].
 """
 
 import sys
@@ -162,6 +162,10 @@ def main(entrada, salida):
     compacto = estilo(doc, 'Compact')
     fuente(compacto, size=10)
     parrafo(compacto, after=2, line=1.15)
+    # Texto de las celdas: plantilla/ajustar-docx.py lo aplica después de pandoc, que usa "Compact" en las tablas.
+    texto_tabla = estilo(doc, 'Texto de tabla', base='Compact')
+    fuente(texto_tabla, size=9)
+    parrafo(texto_tabla, after=1, line=1.0)
 
     for nivel, (size, before, after) in {1: (16, 0, 12), 2: (13, 14, 6), 3: (12, 10, 4), 4: (11, 8, 4)}.items():
         s = estilo(doc, f'Heading {nivel}')
