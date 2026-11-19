@@ -51,10 +51,10 @@ INDICE=2 generar CE021-S1-E1-Requerimientos-y-Diseno-del-Sistema-Anexos.docx \
   E1-requerimientos-y-diseno/anexos/E1-anexos-metadatos.yaml E1-requerimientos-y-diseno/anexos/E1-anexos.md
 
 # FASE 2: E2, plataforma de datos del sistema (CE022: CE0221–CE0224).
-INDICE=2 SEGUIDAS=1 generar CE022-S1-E2-Plataforma-de-Datos-del-Sistema.docx E2-plataforma-de-datos/E2-metadatos.yaml \
+INDICE=2 SEGUIDAS=1 generar CE022-S2-E2-Plataforma-de-Datos-del-Sistema.docx E2-plataforma-de-datos/E2-metadatos.yaml \
   E2-plataforma-de-datos/E2-documento.md
 
 # Anexos del E2: diccionario de datos, modelo lógico por dominio, scripts, evidencias y manual de administración.
-INDICE=2 generar CE022-S1-E2-Plataforma-de-Datos-del-Sistema-Anexos.docx \
+INDICE=2 generar CE022-S2-E2-Plataforma-de-Datos-del-Sistema-Anexos.docx \
   E2-plataforma-de-datos/anexos/E2-anexos-metadatos.yaml E2-plataforma-de-datos/anexos/E2-diccionario.md \
   E2-plataforma-de-datos/anexos/E2-anexos.md

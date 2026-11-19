@@ -315,3 +315,26 @@ bash docs/entregables/generar-word.sh                                   # Word y
 ```
 
 Las imágenes `.png` de los diagramas se exportan de cada `.mmd` con Mermaid 11.12 y su layout ELK (`@mermaid-js/layout-elk` 0.2); en GitHub, los `.mmd` se ven directamente.
+
+[[PAGINA]]
+
+# Anexo F. Evidencia de la sustentación
+
+Este anexo guarda la evidencia de que el entregable se sustentó ante el docente, como pide la rúbrica del área (CE022). Se llena el día de la sustentación `[PENDIENTE – estudiante: llenar el día de la sustentación]`.
+
+*Tabla F1. Registro de la sustentación del E2.*
+
+| Campo | Registro |
+| --- | --- |
+| Fecha y hora | `[PENDIENTE – estudiante]` |
+| Docente evaluador | `[PENDIENTE – estudiante]` |
+| Modalidad (presencial o virtual) | `[PENDIENTE – estudiante]` |
+| Integrantes que sustentaron y parte que expuso cada uno | `[PENDIENTE – estudiante]` |
+| Demostración en vivo (consultas, procedimiento, respaldo y restauración) | `[PENDIENTE – estudiante]` |
+| Enlace a la grabación o a las diapositivas | `[PENDIENTE – estudiante]` |
+| Preguntas del docente y respuesta resumida | `[PENDIENTE – estudiante]` |
+| Observaciones y compromisos de corrección | `[PENDIENTE – estudiante]` |
+
+**Capturas de la sesión.** `[PENDIENTE – estudiante: una captura de la sustentación con los integrantes visibles y otra de la demostración de la base de datos]`
+
+**Firma del docente.** `[PENDIENTE – firma]`

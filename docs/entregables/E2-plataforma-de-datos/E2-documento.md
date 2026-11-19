@@ -413,12 +413,13 @@ La base guarda datos de salud, que la Ley N.º 29733 considera sensibles: antece
 
 # Anexos
 
-Los anexos van en un Word aparte, `CE022-S1-E2-Plataforma-de-Datos-del-Sistema-Anexos.docx`:
+Los anexos van en un Word aparte, `CE022-S2-E2-Plataforma-de-Datos-del-Sistema-Anexos.docx`:
 
 - **A.** El diccionario de datos de las 70 tablas.
 - **B.** El modelo lógico de los demás dominios, en ocho figuras.
 - **C.** Los scripts completos: funciones, vistas, procedimientos, triggers, `seguridad.sql`, `monitoreo.sql` y `consultas.sql`. `ddl.sql` y `dml.sql` van como archivos aparte, por su tamaño.
 - **D.** Las evidencias de cada medición, copiadas de sus archivos, y las capturas pendientes.
 - **E.** La documentación técnica de administración: instalar, desplegar, respaldar, restaurar, monitorear y cambiar claves.
+- **F.** La evidencia de la sustentación ante el docente `[PENDIENTE – estudiante]`.
 
 Todos los archivos están en `docs/entregables/E2-plataforma-de-datos` y `backend/database/sql` del repositorio.
