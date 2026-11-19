@@ -1,14 +1,35 @@
 name: Desplegar en Azure
 
-# Publica la versión de main en vm-app. Se corre a mano (Actions → Desplegar en Azure → Run workflow) cuando
-# producción está encendida. Entra a Azure sin claves: GitHub firma un token (OIDC) que solo acepta la identidad
-# id-github-despliegue, y solo para la rama main (infra/azure/prod/main.bicep).
+# Publica la versión de main en vm-app, o vuelve a una anterior. Entra a Azure sin claves: GitHub firma un token
+# (OIDC) que solo acepta la identidad id-github-despliegue, y solo para la rama main (infra/azure/prod/main.bicep).
+#
+# Cuándo corre:
+# - Solo, cuando "Pruebas" termina en verde sobre un cambio que llegó a main y la variable DESPLIEGUE_AUTOMATICO
+#   vale "true". Producción está apagada fuera de las demostraciones (presupuesto de Azure for Students): con la
+#   variable vacía el pipeline se detiene en las pruebas y no intenta publicar en una VM apagada.
+# - A mano (Actions → Desplegar en Azure → Run workflow): "publicar" sube la versión de main; "volver" regresa a
+#   la versión anterior (o a la que se escriba) con infra/scripts/volver-version.sh.
 #
 # Variables del repositorio (Settings → Secrets and variables → Actions → Variables), salen de las salidas de
 # "desplegar.sh produccion red": AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID, AZURE_RG, AZURE_STORAGE.
+# Además SITE_URL (la dirección pública) y DESPLIEGUE_AUTOMATICO.
 
 on:
+  workflow_run:
+    workflows: [Pruebas]
+    types: [completed]
+    branches: [main]
   workflow_dispatch:
+    inputs:
+      accion:
+        description: publicar la versión de main o volver a una anterior
+        type: choice
+        options: [publicar, volver]
+        default: publicar
+      version:
+        description: solo para "volver"; vacío = la anterior a la activa (por ejemplo 20261119083000)
+        type: string
+        required: false
 
 permissions:
   id-token: write
@@ -22,10 +43,17 @@ jobs:
   desplegar:
     name: Publicar en vm-app
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
+    # Automático: solo si las pruebas pasaron sobre un push a main. A mano: solo desde main.
+    if: >-
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success'
+       && github.event.workflow_run.event == 'push' && vars.DESPLIEGUE_AUTOMATICO == 'true')
+      || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.accion == 'publicar')
 
     steps:
+      # La versión que pasó las pruebas, aunque main haya avanzado mientras tanto.
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - uses: actions/setup-node@v4
         with:
@@ -41,7 +69,8 @@ jobs:
 
       - name: Armar el paquete
         run: |
-          VERSION="$(date +%Y%m%d-%H%M%S)-${GITHUB_SHA::7}"
+          SHA="$(git rev-parse --short=7 HEAD)"
+          VERSION="$(date +%Y%m%d-%H%M%S)-$SHA"
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
           (cd backend && zip -qr "../paquete-$VERSION.zip" . -x 'tests/*' 'vendor/*' 'node_modules/*' '.env')
           tar -czf "infra-$VERSION.tgz" infra
@@ -68,10 +97,46 @@ jobs:
           # run-command responde bien aunque el script falle: se revisa que haya llegado al final.
           grep -q "Listo: /var/www/vega/releases/" salida.txt
 
+      # Con la web inalcanzable, cada intento espera a lo más 20 s: en el primer despliegue real (19/11/2026) curl
+      # esperó 134 s por intento y el job tardó 14 minutos en fallar.
       - name: Comprobar la web
         run: |
           DOMINIO="${{ vars.SITE_URL }}"
           if [ -n "$DOMINIO" ]; then
-            curl -fsS --retry 5 --retry-delay 5 "$DOMINIO/up" > /dev/null
+            curl -fsS --connect-timeout 10 --max-time 20 --retry 5 --retry-delay 10 --retry-all-errors "$DOMINIO/up" > /dev/null
+            echo "La web responde en $DOMINIO"
+          fi
+
+  volver:
+    name: Volver a una versión anterior
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.accion == 'volver'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Mover current en vm-app
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          # Sin --parameters, el script elige la versión anterior a la activa.
+          PARAMETROS=()
+          if [ -n "$VERSION" ]; then PARAMETROS=(--parameters "$VERSION"); fi
+          az vm run-command invoke -g "${{ vars.AZURE_RG }}" -n vm-app --command-id RunShellScript \
+            --scripts @infra/scripts/volver-version.sh "${PARAMETROS[@]}" \
+            --query 'value[].message' -o tsv | tee salida.txt
+          grep -q "Listo: /var/www/vega/releases/" salida.txt
+
+      - name: Comprobar la web
+        run: |
+          DOMINIO="${{ vars.SITE_URL }}"
+          if [ -n "$DOMINIO" ]; then
+            curl -fsS --connect-timeout 10 --max-time 20 --retry 5 --retry-delay 10 --retry-all-errors "$DOMINIO/up" > /dev/null
             echo "La web responde en $DOMINIO"
           fi

@@ -95,12 +95,17 @@ Cada orden también se puede correr sola, por ejemplo `bash infra/desplegar.sh v
    | `AZURE_RG` | `rg-vega-prod` |
    | `AZURE_STORAGE` | `storageAccount` |
    | `SITE_URL` | `https://tu-dominio` (opcional: comprueba `/up` al terminar) |
+   | `DESPLIEGUE_AUTOMATICO` | `true` para publicar solo cada vez que "Pruebas" pasa en `main` (vacía: solo a mano) |
+   | `VIGILAR_PRODUCCION` | `true` para pedir `/up` cada 15 minutos y recibir un correo si falla (vacía mientras la VM está apagada) |
 
    No son secretos: GitHub entra a Azure con un token firmado que solo acepta la identidad `id-github-despliegue`,
    y solo desde `main`. Cada publicación queda registrada en Actions (evidencia de control de cambios).
 3. **Configuración de la app en vm-app**: `/etc/vega/app.env` a partir de `infra/env/produccion.env` y
    `/etc/vega/vega.env` con `KEY_VAULT`, `STORAGE_ACCOUNT` y `DB_HOST` (ver "Entrar a las VM").
-4. **Publicar**: GitHub → **Actions → Desplegar en Azure → Run workflow**.
+4. **Publicar**: GitHub → **Actions → Desplegar en Azure → Run workflow** (acción `publicar`). Con
+   `DESPLIEGUE_AUTOMATICO=true`, cada merge a `main` se publica solo cuando sus pruebas pasan.
+   **Volver atrás**: el mismo workflow con la acción `volver` deja activa la versión anterior (o la que se indique)
+   en segundos, sin tocar la base de datos (`infra/scripts/volver-version.sh`; `--lista` muestra las cinco guardadas).
 5. **Usuarios de MySQL otra vez**, ya migrada la base (da a reportes las vistas): `bash infra/desplegar.sh basedatos`.
 6. **Datos de prueba** (la rúbrica no admite datos reales), en vm-app. `DemoSeeder` necesita antes el catálogo y usa
    Faker, que es dependencia de desarrollo: se instala un momento y se vuelve a quitar.
@@ -185,7 +190,11 @@ proxy SOCKS5 `127.0.0.1:1080` (resolviendo el DNS por el proxy) y abre `https://
 3. Tablero de Wazuh: `ssh -L 8443:10.10.50.10:443 vega-fw-sede` y abre `https://localhost:8443`.
 4. Sentry en Laravel (en un pull request): `composer require sentry/sentry-laravel`,
    `\Sentry\Laravel\Integration::handles($exceptions);` en `bootstrap/app.php` y el secreto `sentry-dsn`.
-5. UptimeRobot: monitores a `https://tu-dominio/up` y `https://tu-dominio/api/v1/site`.
+5. Vigilancia de `/up`: el workflow **Vigilar producción** la pide cada 15 minutos desde fuera de Azure (variable
+   `VIGILAR_PRODUCCION`); si falla, GitHub manda un correo. UptimeRobot puede hacer lo mismo con
+   `https://tu-dominio/up` y `https://tu-dominio/api/v1/site`.
+6. Registros en JSON: con `LOG_STACK=json` en `/etc/vega/app.env`, Laravel escribe `storage/logs/eventos-*.log`
+   con el identificador de cada petición, su ruta y el usuario; `instalar-agentes.sh` los agrega a Wazuh.
 
 ## Pruebas
 
