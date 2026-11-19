@@ -10,9 +10,9 @@ Este reporte sale de la misma ejecución que la sección 1.4 del documento: la s
 | --- | ---: | ---: | ---: |
 | `app/Filament/Resources` | 8 533 | 8 151 | 95,5 |
 | `app/Filament/Pages` | 1 686 | 1 671 | 99,1 |
-| `app/Filament/Actions` | 1 476 | 1 447 | 98,0 |
+| `app/Filament/Actions` | 1 477 | 1 448 | 98,0 |
 | `app/Services/Clinical` | 1 371 | 1 319 | 96,2 |
-| `app/Models` | 1 196 | 1 133 | 94,7 |
+| `app/Models` | 1 196 | 1 143 | 95,6 |
 | `app/Filament/Widgets` | 1 125 | 1 112 | 98,8 |
 | `app/Filament/Support` | 1 115 | 1 097 | 98,4 |
 | `app/Http/Controllers` | 1 053 | 1 045 | 99,2 |
@@ -48,11 +48,31 @@ Resumen de PHPUnit (`pruebas/cobertura-backend-resumen.txt`):
 
 <!-- archivo: ../pruebas/cobertura-backend-resumen.txt -->
 
+## Cobertura de la web por carpeta {-}
+
+Se mide con `@vitest/coverage-v8` desde el 19/11/2026 (`npm run test:coverage` en `frontend/`). La CI corre lo mismo en el job "Frontend": falla si las líneas, las sentencias o las funciones bajan de 85 %, o las ramas de 70 % (`frontend/vite.config.ts`), y guarda el reporte HTML 30 días como artefacto `cobertura-web`.
+
+*Tabla A2. Cobertura de la web por carpeta de `frontend/src` (19/11/2026).*
+
+| Carpeta | Líneas | Cubiertas | % | Ramas | Cubiertas | % |
+| --- | --: | --: | --: | --: | --: | --: |
+| `src/pages` | 451 | 402 | 89,1 | 815 | 646 | 79,3 |
+| `src/components` | 160 | 139 | 86,9 | 332 | 221 | 66,6 |
+| `src/api` | 120 | 120 | 100,0 | 97 | 91 | 93,8 |
+| `src/lib` | 101 | 100 | 99,0 | 44 | 41 | 93,2 |
+| `src/app` | 9 | 8 | 88,9 | 7 | 7 | 100,0 |
+| `src/main.tsx` | 9 | 0 | 0,0 | 4 | 0 | 0,0 |
+| **Total** | **850** | **769** | **90,5** | **1 299** | **1 006** | **77,4** |
+
+`main.tsx` solo monta la aplicación en el navegador y no tiene pruebas propias. Las ramas de `src/components` son las menos cubiertas y quedan en el registro de deuda (tabla D4). Resumen de Vitest (`pruebas/cobertura-web-resumen.txt`):
+
+<!-- archivo: ../pruebas/cobertura-web-resumen.txt -->
+
 ## Casos de prueba de los flujos críticos {-}
 
 Las tablas A2 a A8 tienen todos los casos de los archivos principales de cada flujo crítico (tabla 2 del documento). Cada nombre describe la regla que comprueba. Están en inglés porque así se escribe el código del repositorio. Los demás archivos y casos se listan con `php artisan test --list-tests` en `backend/`.
 
-*Tabla A2. Casos del flujo "Reservar en la web".*
+*Tabla A3. Casos del flujo "Reservar en la web".*
 
 | Archivo | Caso |
 | --- | --- |
@@ -108,7 +128,7 @@ Las tablas A2 a A8 tienen todos los casos de los archivos principales de cada fl
 |  | `test_moving_an_overbooking_takes_it_to_a_free_time_and_clears_the_mark` |
 |  | `test_a_cancelled_overbooking_comes_back_with_undo_unless_the_time_was_blocked_meanwhile` |
 
-*Tabla A3. Casos del flujo "Confirmar o cambiar desde el enlace".*
+*Tabla A4. Casos del flujo "Confirmar o cambiar desde el enlace".*
 
 | Archivo | Caso |
 | --- | --- |
@@ -143,7 +163,7 @@ Las tablas A2 a A8 tienen todos los casos de los archivos principales de cada fl
 |  | `test_another_time_already_agreed_with_the_patient_stays_confirmed_without_a_notice` |
 |  | `test_another_time_cannot_be_offered_on_a_request_already_resolved` |
 
-*Tabla A4. Casos del flujo "Atender".*
+*Tabla A5. Casos del flujo "Atender".*
 
 | Archivo | Caso |
 | --- | --- |
@@ -158,7 +178,7 @@ Las tablas A2 a A8 tienen todos los casos de los archivos principales de cada fl
 |  | `test_marking_a_finding_treated_leaves_what_the_treatment_leaves` |
 |  | `test_the_odontogram_validates_teeth_surfaces_spans_and_colors` |
 
-*Tabla A5. Casos del flujo "Cobrar y cerrar caja".*
+*Tabla A6. Casos del flujo "Cobrar y cerrar caja".*
 
 | Archivo | Caso |
 | --- | --- |
@@ -184,7 +204,7 @@ Las tablas A2 a A8 tienen todos los casos de los archivos principales de cada fl
 |  | `test_doctors_do_not_see_the_cash` |
 |  | `test_collected_today_leads_to_the_closing_when_nobody_left_owing` |
 
-*Tabla A6. Casos del flujo "Permisos".*
+*Tabla A7. Casos del flujo "Permisos".*
 
 | Archivo | Caso |
 | --- | --- |
@@ -198,7 +218,7 @@ Las tablas A2 a A8 tienen todos los casos de los archivos principales de cada fl
 |  | `test_pages_tell_the_browser_how_to_protect_them` |
 |  | `test_a_doctor_profile_page_lists_its_treatments` |
 
-*Tabla A7. Casos del flujo "Copias y restauración".*
+*Tabla A8. Casos del flujo "Copias y restauración".*
 
 | Archivo | Caso |
 | --- | --- |
@@ -217,7 +237,7 @@ Las tablas A2 a A8 tienen todos los casos de los archivos principales de cada fl
 |  | `test_radiographs_photos_and_signatures_are_downloaded_apart_and_only_the_new_ones` |
 |  | `test_after_a_week_without_downloading_the_page_and_the_home_remind_it` |
 
-*Tabla A8. Casos del flujo "Salud del sistema".*
+*Tabla A9. Casos del flujo "Salud del sistema".*
 
 | Archivo | Caso |
 | --- | --- |
@@ -228,9 +248,9 @@ Las tablas A2 a A8 tienen todos los casos de los archivos principales de cada fl
 
 ## Ejecuciones de la CI {-}
 
-La tabla A9 lista todas las ejecuciones de GitHub Actions en `venga-implantes` hasta el 19/11/2026, con hora de Lima. Cada una se puede abrir en https://github.com/francalizaya266-sudo/venga-implantes/actions. Los motivos de las seis fallas están en la tabla 5 del documento.
+La tabla A10 lista todas las ejecuciones de GitHub Actions en `venga-implantes` hasta el 19/11/2026 a las 7:55, con hora de Lima. Cada una se puede abrir en https://github.com/francalizaya266-sudo/venga-implantes/actions. Los motivos de las fallas están en la tabla 5 del documento.
 
-*Tabla A9. Ejecuciones de GitHub Actions.*
+*Tabla A10. Ejecuciones de GitHub Actions.*
 
 | N.º | Inicio (Lima) | Workflow | Evento | Rama | Commit | Resultado | Duración |
 | --: | --- | --- | --- | --- | --- | --- | --: |
@@ -280,8 +300,20 @@ La tabla A9 lista todas las ejecuciones de GitHub Actions en `venga-implantes` h
 | 44 | 19/11 06:06 | Pruebas | PR | `infra/ajustes-despliegue` | `2c1e51b` | En verde | 5 min 08 s |
 | 45 | 19/11 06:11 | Pruebas | push | `main` | `35b41e3` | En verde | 5 min 22 s |
 | 46 | 19/11 06:31 | Pruebas | push | `main` | `e3ccd05` | En verde | 7 min 40 s |
+| 47 | 19/11 07:09 | Pruebas | PR | `infra/https-y-operacion` | `ff90de6` | En verde | 7 min 16 s |
+| 48 | 19/11 07:20 | Pruebas | PR | `claude/…2tzlbx` | `efa8cbb` | Falló | 6 min 47 s |
+| 49 | 19/11 07:21 | Pruebas | PR | `infra/https-y-operacion` | `a72be2a` | En verde | 7 min 30 s |
+| 50 | 19/11 07:26 | Pruebas | PR | `claude/…2tzlbx` | `eaccb4c` | En verde | 7 min 06 s |
+| 51 | 19/11 07:35 | Pruebas | push | `main` | `0805fe8` | En verde | 9 min 27 s |
+| 52 | 19/11 07:40 | Pruebas | PR | `claude/…2tzlbx` | `4993b7b` | Falló | 9 min 01 s |
+| 53 | 19/11 07:45 | Desplegar en Azure | tras la CI | `main` | `0805fe8` | Omitida | 0 min 01 s |
+| 54 | 19/11 07:46 | Pruebas | PR | `claude/…2tzlbx` | `b83443d` | Falló | 9 min 21 s |
+| 55 | 19/11 07:48 | Pruebas | PR | `claude/…2tzlbx` | `1ef7cc9` | Falló | 7 min 12 s |
+| 56 | 19/11 07:51 | Pruebas | PR | `claude/…2tzlbx` | `a2f8c8a` | Falló | 8 min 21 s |
+| 57 | 19/11 07:52 | Pruebas | PR | `claude/…2tzlbx` | `21f2782` | Falló | 7 min 32 s |
+| 58 | 19/11 07:54 | Pruebas | PR | `claude/…2tzlbx` | `9daddc1` | En verde | 9 min 27 s |
 
-`[PENDIENTE – estudiante: al terminar la CI del PR del E4, agregar su ejecución en verde con el artefacto cobertura-backend descargable]`
+La ejecución 50 es la del PR del E4 en verde, y la 51, su merge a `main`. Las dos guardan el artefacto `cobertura-backend` (unos 16 MB, con el reporte HTML), que se descarga desde la página de cada ejecución hasta el 19/12/2026. Las ejecuciones 52 y 54 a 58 son las del PR #20: la primera corrida de Larastan y los ajustes de su línea base hasta que coincidió con la CI. La 53, el despliegue que sigue al merge, se omitió porque el despliegue automático está apagado (`DESPLIEGUE_AUTOMATICO` vacía).
 
 # Anexo B. Evidencias del pipeline y de la operación
 
@@ -658,7 +690,7 @@ Calificación por práctica específica (SCAMPI C): TI totalmente, MI mayormente
 | PMC SP 2.1 a 2.3 Analizar problemas y acciones correctivas | Fallas de la CI y del despliegue con causa y corrección (tabla 5) | MI |
 | MA SP 1.1 Objetivos de medición | Metas de la matriz (tabla 15), fijadas en el E4 | PI |
 | MA SP 1.2 Especificar las medidas | Métricas con fórmula: cobertura, complejidad, tiempos | MI |
-| MA SP 1.3 Recolección y almacenamiento | CI (cobertura en cada cambio), scripts de `calidad/` y `agil/` | MI |
+| MA SP 1.3 Recolección y almacenamiento | CI (cobertura y avisos de Larastan en cada cambio), scripts de `calidad/` y `agil/` | MI |
 | MA SP 1.4 Procedimientos de análisis | Umbrales de code smells y mínimo de cobertura | MI |
 | MA SP 2.1 a 2.4 Obtener, analizar, guardar y comunicar | Medidas del E3 y del E4 guardadas en el repositorio; no se midió de forma periódica antes del E4 | PI |
 
@@ -667,7 +699,7 @@ Calificación por práctica específica (SCAMPI C): TI totalmente, MI mayormente
 | Práctica | Evidencia | Calif. |
 | --- | --- | :-: |
 | PPQA SP 1.1 Evaluar objetivamente los procesos | La CI aplica las mismas reglas a todos; el proceso no se auditaba antes del E4 | PI |
-| PPQA SP 1.2 Evaluar objetivamente los productos | Pruebas, formato, cobertura e inspecciones (#41, #74, #77) | TI |
+| PPQA SP 1.2 Evaluar objetivamente los productos | Pruebas, formato, cobertura, análisis estático e inspecciones (#41, #74, #77) | TI |
 | PPQA SP 2.1 Comunicar y resolver no conformidades | Cada falla de la CI bloquea el merge hasta corregirse | TI |
 | PPQA SP 2.2 Mantener registros | Historial de Actions y de PR | MI |
 | CM SP 1.1 Identificar los elementos de configuración | Código, base (migraciones y SQL), infraestructura, workflows y documentos en git | TI |
@@ -714,9 +746,31 @@ El esfuerzo es una estimación del equipo (S: horas, M: un día, L: varios días
 | 9 | 45 métodos de borrado de políticas sin prueba | `app/Policies` | S | Plan de mejora, acción 7 |
 | 10 | Dos listas del panel sin prueba | `PatientsRelationManager`, `BatchesRelationManager` | S | Pagar en el próximo sprint |
 | 11 | 12 verificaciones negativas con una sola palabra | `tests/Feature/Filament` | S | Plan de mejora, acción 9 |
-| 12 | La web no mide cobertura | `frontend/` | S | Plan de mejora, acción 5 (dependencia nueva) |
-| 13 | Sin análisis estático de PHP | `backend/` | M | Plan de mejora, acción 4 (dependencia nueva) |
+| 12 | Ramas de los componentes de la web al 66,6 % (77,4 % en toda la web) | `frontend/src/components` | M | Pagar al tocar cada componente y subir el mínimo de ramas de 70 % a 75 % |
+| 13 | 2 174 avisos de Larastan en la línea base (tabla D6) | `backend/phpstan-baseline.php` | L | Plan de mejora, acción 11 |
 | 14 | Acciones de GitHub con Node 20 | `.github/workflows` | S | Plan de mejora, acción 10 |
+
+## Análisis estático con Larastan {-}
+
+Larastan 3.15 (PHPStan 2.3 para Laravel) revisa `backend/app` en nivel 5 en el job "Análisis estático (Larastan)" de cada PR (`backend/phpstan.neon`). La primera corrida, el 19/11/2026, dio 2 178 avisos en 220 archivos. Cuatro venían de tres fallas reales, corregidas con su prueba (tabla D5). Los otros 2 174 quedan en `backend/phpstan-baseline.php` (tabla D6): la CI falla con cualquier aviso nuevo, y también cuando uno de la lista desaparece sin quitarlo, para que la lista solo baje.
+
+*Tabla D5. Fallas reales que encontró Larastan.*
+
+| Aviso | Dónde | Qué pasaba | Corrección |
+| --- | --- | --- | --- |
+| `prunable()` declara devolver `App\Models\Builder`, que no existe | `Models/MagicLink.php` | La limpieza diaria (`model:prune`) terminaba con un error de tipo al llegar a los enlaces de WhatsApp, y los vencidos hace más de 30 días nunca se borraban | Se importa el `Builder` de Eloquent. `MagicLinkPruningTest` fallaba antes del cambio y ahora pasa |
+| `persistent()` recibe una condición, pero no acepta argumentos | `RegisterPaymentAction`, `LabOrderResource` | Los avisos "Pago registrado" y "Trabajo recibido" quedaban siempre en pantalla, porque Filament ignoraba la condición | Se quita la condición y queda lo que la clínica ya usa. La prueba de cobro lo verifica también sin nada que agendar |
+
+*Tabla D6. Avisos de la línea base por causa (`calidad/clasificar-larastan.py`).*
+
+| Causa | Avisos | Archivos | Ejemplo | Origen y qué hacer |
+| --- | --: | --: | --- | --- |
+| Relaciones sin tipo genérico | 1 163 | 167 | `Access to an undefined property Model::$patient` | Las relaciones se declaran `BelongsTo` sin `<Patient, $this>` y el analizador ve un `Model` cualquiera. Agregar el tipo (plan de mejora, acción 11) |
+| Casts leídos como texto | 728 | 130 | `Cannot call method format() on string` | Toma como texto las fechas, enums y arreglos de `casts()` y deduce condiciones "siempre falsas". Revisar por qué no lee `casts()` |
+| Accessors y columnas calculadas | 81 | 43 | `Patient::$full_name` | No reconoce los accessors `Attribute` ni columnas como `pivot` o `low_count` |
+| Scopes con `#[Scope]` | 60 | 36 | `Builder::active()` | No reconoce el atributo `#[Scope]` de Laravel 12 en adelante |
+| Otros | 142 | 48 | Formas de arreglos, closures de Filament | Revisar al tocar cada archivo |
+| **Total** | **2 174** | **220** | | |
 
 ## Métricas de código {-}
 

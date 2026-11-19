@@ -4,13 +4,13 @@
 
 **Estado de la calidad.**
 
-1. **Pruebas.** 1 096 casos en el backend (10 548 verificaciones) y 141 en la web, todos en verde. Cubren los ocho flujos críticos, desde la reserva sin cruces hasta las copias de seguridad. La cobertura de líneas del backend es de **96,1 %**: la CI la mide en cada cambio, exige 90 % como mínimo y guarda el reporte (sección 1).
-2. **Pipeline.** Cada PR pasa por cuatro trabajos: backend, MySQL 8, web y paquete. Lo que llega a `main` con la CI en verde se publica solo en Azure, sin claves y con identidad OIDC. El mismo workflow vuelve a la versión anterior en segundos (sección 2).
+1. **Pruebas.** 1 097 casos en el backend (10 555 verificaciones) y 141 en la web, todos en verde. Cubren los ocho flujos críticos, desde la reserva sin cruces hasta las copias de seguridad. La cobertura de líneas es de **96,1 %** en el backend y de **90,5 %** en la web: la CI la mide en cada cambio, exige 90 % y 85 % como mínimo y guarda los reportes (sección 1).
+2. **Pipeline.** Cada PR pasa por cuatro trabajos: backend, análisis estático con Larastan, MySQL 8 y web. Lo que llega a `main` con la CI en verde se publica solo en Azure, sin claves y con identidad OIDC. El mismo workflow vuelve a la versión anterior en segundos (sección 2).
 3. **Operación.** `/up` comprueba la aplicación y la base de datos. Desde fuera de Azure se vigila cada 15 minutos con aviso por correo, y Azure Monitor alerta por CPU y por VM caída. Los registros salen en JSON con el identificador de cada petición y van a Wazuh. Los respaldos tienen tres niveles: la copia diaria de la base, la copia horaria hacia la sede y las copias de 7 días de MySQL.
 
 **Estado de la gestión.** El proyecto se llevó con un Scrum adaptado de sprints semanales, comparado con OpenUP en la sección 3.4. Los cuatro sprints se reconstruyeron con las fechas reales de los 115 PR fusionados, entre el 22/10 y el 19/11/2026. Cada PR dice qué cambia y cómo se probó, y solo se fusiona con la CI en verde. El Project Charter, el backlog y los sprints están en la sección 3 y en el anexo C.
 
-**Aseguramiento y auditoría.** La matriz ISO/IEC 25010 tiene 15 métricas con meta y valor medido. Hay seis instrumentos de aseguramiento, entre ellos una plantilla de PR nueva con nueve puntos de revisión. Se midieron 2 935 métodos: la complejidad ciclomática media es de 2,87, y 102 métodos pasan de 10. Se hicieron cinco refactorizaciones reales, una de ellas en este entregable, que baja la reserva web de complejidad 31 a 15. La autoevaluación CMMI (SCAMPI C, no oficial) ubica al proceso en el **nivel 1 con prácticas de nivel 2 y 3 en marcha**: la ingeniería y la gestión de configuración son fuertes, y la planificación y la medición, débiles. El plan de mejora tiene diez acciones con responsable y fecha (sección 4).
+**Aseguramiento y auditoría.** La matriz ISO/IEC 25010 tiene 16 métricas con meta y valor medido. Hay seis instrumentos de aseguramiento, entre ellos una plantilla de PR nueva con nueve puntos de revisión. Se midieron 2 935 métodos: la complejidad ciclomática media es de 2,87, y 102 métodos pasan de 10. Se hicieron cinco refactorizaciones reales, una de ellas en este entregable, que baja la reserva web de complejidad 31 a 15. Larastan, nuevo en la CI, encontró tres fallas que nadie había notado, ya corregidas con su prueba. La autoevaluación CMMI (SCAMPI C, no oficial) ubica al proceso en el **nivel 1 con prácticas de nivel 2 y 3 en marcha**: la ingeniería y la gestión de configuración son fuertes, y la planificación y la medición, débiles. El plan de mejora tiene once acciones con responsable y fecha, y dos ya están cumplidas (sección 4).
 
 **Lo que falta para cerrar.** La primera publicación en verde y las capturas de producción, que dependen de encender Azure (sección 2.3). También faltan las retrospectivas validadas por el equipo, la confirmación de roles y responsables, y la sustentación.
 
@@ -28,13 +28,13 @@ Las pruebas siguen la pirámide: muchas pruebas rápidas sobre los servicios y l
 | Servicios de dominio | PHPUnit · `tests/Feature/Services` | 31 | 214 | Cada regla del negocio con la base: agenda sin cruces, cobros, planes, inventario, copias. |
 | API y contrato | PHPUnit · `tests/Feature/Http` | 12 | 105 | Las 36 rutas de `/api/v1`, cada respuesta comparada con `docs/api/openapi.json`. |
 | Panel del personal | PHPUnit + Livewire · `tests/Feature/Filament` | 85 | 598 | Pantallas por rol, formularios, acciones y permisos (84 pruebas de permisos en 50 archivos). |
-| Tareas y modelos | PHPUnit · `Feature/Console`, `Feature/Models` | 11 | 26 | Las 10 tareas programadas, auditoría de cambios y borrado lógico. |
+| Tareas y modelos | PHPUnit · `Feature/Console`, `Feature/Models` | 12 | 27 | Las 10 tareas programadas, la limpieza diaria, auditoría de cambios y borrado lógico. |
 | Operación | PHPUnit · `tests/Feature/ObservabilityTest` | 1 | 4 | `/up` con la base caída, el identificador de cada petición y el registro JSON (nuevo, sección 2.4). |
 | Base de datos real | PHPUnit, grupo `mysql`, en MySQL 8 | 1 | 13 | Vistas, funciones, procedimientos y triggers del E2, y la suite completa otra vez sobre MySQL 8. |
 | Web del paciente | Vitest 5.1 + Testing Library · `frontend/src` | 19 | 141 | Páginas y componentes con la API simulada: reservar, confirmar, cambiar, Mi cuenta. |
-| Estática | Pint, Prettier, ESLint, TypeScript | | | Formato y tipos; la CI falla ante cualquier diferencia. |
+| Estática | Pint, Prettier, ESLint, TypeScript, Larastan | | | Formato y tipos; la CI falla ante cualquier diferencia o aviso nuevo. |
 
-En el backend hay 990 métodos de prueba. Los 13 del grupo `mysql` solo corren en el job de MySQL 8, y los demás corren como 1 096 casos, porque los que usan `#[DataProvider]` se repiten una vez por cada caso de datos. Las pruebas se nombran como una regla de la clínica: por ejemplo, `test_rejects_web_booking_inside_the_minimum_lead_time`.
+En el backend hay 991 métodos de prueba. Los 13 del grupo `mysql` solo corren en el job de MySQL 8, y los demás corren como 1 097 casos, porque los que usan `#[DataProvider]` se repiten una vez por cada caso de datos. Las pruebas se nombran como una regla de la clínica: por ejemplo, `test_rejects_web_booking_inside_the_minimum_lead_time`.
 
 ## Casos sobre los flujos críticos
 
@@ -61,14 +61,15 @@ La tabla 3 resume la última ejecución local, hecha sobre la rama de este entre
 
 | Suite | Casos | Resultado | Tiempo |
 | --- | --: | --- | --: |
-| Backend con cobertura (PHPUnit, SQLite en memoria) | 1 096 | Todos pasan (10 548 verificaciones) | 400 s |
-| Web (Vitest, 19 archivos) | 141 | Todos pasan | 10 s |
+| Backend con cobertura (PHPUnit, SQLite en memoria) | 1 097 | Todos pasan (10 555 verificaciones) | 386 s |
+| Web con cobertura (Vitest, 19 archivos) | 141 | Todos pasan | 10 s |
 | Backend sobre MySQL 8 (grupo `mysql` y suite completa) | 1 109 | Pasan en la CI, en el job de MySQL 8 | 3 a 5 min |
 | Pint, Prettier, ESLint y TypeScript | | Sin observaciones | |
+| Larastan, nivel 5 sobre `app/` (en la CI) | | Sin avisos nuevos; 2 174 en la línea base (sección 4.3) | 14 s |
 
 ## Cobertura
 
-La cobertura del backend se mide con pcov en el job "Backend" de la CI. El job falla si baja de **90 % de las líneas** y guarda el reporte HTML 30 días como artefacto `cobertura-backend` (`.github/workflows/tests.yml`). Hoy cubre el **96,06 %** de las líneas (23 343 de 24 301) y el 85,73 % de los métodos. La meta queda por debajo de lo medido a propósito: deja margen para lo que se revisa a mano en pantalla y avisa cuando un cambio grande llega sin pruebas. La figura 1 la muestra por capa.
+La cobertura del backend se mide con pcov en el job "Backend" de la CI. El job falla si baja de **90 % de las líneas** y guarda el reporte HTML 30 días como artefacto `cobertura-backend` (`.github/workflows/tests.yml`). Hoy cubre el **96,10 %** de las líneas (23 354 de 24 302) y el 85,83 % de los métodos. La meta queda por debajo de lo medido a propósito: deja margen para lo que se revisa a mano en pantalla y avisa cuando un cambio grande llega sin pruebas. La figura 1 la muestra por capa.
 
 <!-- figura: diagramas/cobertura-por-capa.png 16cm -->
 
@@ -82,7 +83,7 @@ Lo que queda bajo el 90 % tiene motivo y está en el registro de deuda (anexo D)
 - **Consola (86,3 %) y `Services/Database` (42,6 %).** Son código que solo corre en MySQL o en producción. Este último lo prueba el job de MySQL 8, que no mide cobertura.
 - **Sin cobertura.** Dos listas del panel que se usan pero no se prueban: los pacientes de una cuenta y los lotes de un material.
 
-La web no mide cobertura: hace falta `@vitest/coverage-v8`, una dependencia nueva que espera la aprobación del equipo `[PENDIENTE – estudiante: aprobar o descartar]`. Mientras tanto, sus pruebas cubren las siete páginas de reservar, confirmar, cambiar y Mi cuenta (tabla 2).
+La web se mide desde este entregable con `@vitest/coverage-v8` en el job "Frontend": cubre el **90,47 %** de las líneas (769 de 850), el 90,88 % de las funciones y el 77,44 % de las ramas. El job falla si las líneas, sentencias o funciones bajan de 85 %, o las ramas de 70 %, y guarda el reporte 30 días como artefacto `cobertura-web`. Las ramas de los componentes (66,6 %) quedan como deuda (anexo A, tabla A2).
 
 ## Pruebas que encontraron fallas
 
@@ -90,8 +91,8 @@ Una prueba vale por las fallas que evita. En este proyecto, estas fallas reales 
 
 - **Contrato de la API (E3).** Al comparar cada respuesta con OpenAPI aparecieron siete diferencias entre lo que la web esperaba y lo que la API mandaba. Se corrigieron antes de publicar.
 - **MySQL 8 (E2).** La suite sobre MySQL encontró un `DISTINCT` con `ORDER BY` que SQLite acepta y MySQL rechaza en `TreatmentPlanService::linkCampaign`.
-- **Prueba inestable (este entregable).** El merge del PR #5 falló en la CI porque una lista de espera debía no mostrar a "Jorge", y el generador de nombres a veces llamaba así al doctor. Se cambió la verificación por apellidos que el generador no produce (`AgendaFindAndListTest`). Quedan 12 verificaciones negativas con una sola palabra que podrían fallar igual, y están en el registro de deuda.
-- **Configuración de producción (E3).** Cuatro corridas de la CI del PR del E3 fallaron porque una prueba dependía de `APP_DEBUG`. Se corrigió en el commit `8c20db0`, y la prueba de observabilidad de este entregable fija ese valor.
+- **Prueba inestable (este entregable).** El merge del PR #5 falló porque el generador de nombres a veces llamaba "Jorge" al doctor, el nombre que una lista de espera no debía mostrar. Ahora se verifica por apellidos que el generador no produce (`AgendaFindAndListTest`); otras 12 verificaciones de una sola palabra quedan como deuda.
+- **Configuración de producción (E3).** Cuatro corridas de la CI del PR del E3 fallaron porque una prueba dependía de `APP_DEBUG`; se corrigió en `8c20db0`.
 
 # Integración, despliegue y operación continua
 
@@ -99,7 +100,7 @@ Una prueba vale por las fallas que evita. En este proyecto, estas fallas reales 
 
 El pipeline tiene dos partes (figura 2). La **integración continua** corre en cada PR y en cada merge a `main`. El **despliegue** publica en Azure solo lo que pasó la CI en `main`, y la operación vigila el resultado.
 
-<!-- figura: diagramas/pipeline.png 11cm -->
+<!-- figura: diagramas/pipeline.png 10.5cm -->
 
 ![](diagramas/pipeline.png)
 
@@ -109,7 +110,7 @@ El pipeline tiene dos partes (figura 2). La **integración continua** corre en c
 
 | Workflow | Cuándo corre | Qué hace | Si falla |
 | --- | --- | --- | --- |
-| "Pruebas" (`tests.yml`) | Cada PR y cada push a `main` | Backend: Pint, pruebas y cobertura ≥ 90 %. MySQL 8: objetos del E2, suite, `seguridad.sql`, copia y restauración. Web: Prettier, ESLint, pruebas y compilación | El PR no se fusiona |
+| "Pruebas" (`tests.yml`) | Cada PR y cada push a `main` | Los cuatro trabajos de la figura 2: formato, Larastan, pruebas con cobertura (≥ 90 % y ≥ 85 %), MySQL 8 con copia y restauración, y compilación de la web | El PR no se fusiona |
 | "Desplegar en Azure", `publicar` (`desplegar-azure.yml`) | Solo, tras "Pruebas" en verde en `main` (con `DESPLIEGUE_AUTOMATICO=true`), o a mano | Sube el paquete a Blob y corre `deploy-app.sh` en `vm-app` (migra y cambia `current`); luego pide `/up` | La versión anterior sigue activa |
 | "Desplegar en Azure", `volver` | A mano | Corre `volver-version.sh` en `vm-app` y pide `/up` | Se muestra el error en Actions |
 | "Vigilar producción" (`vigilar-produccion.yml`) | Cada 15 min (con `VIGILAR_PRODUCCION=true`) | Pide `/up` desde fuera de Azure y anota código y tiempo | GitHub manda un correo |
@@ -126,15 +127,15 @@ Las decisiones de configuración que hacen al pipeline seguro y repetible son es
 
 ## Evidencias de integración y despliegue
 
-Hasta el 19/11/2026 a las 6:39 (hora de Lima) hubo 46 ejecuciones en GitHub Actions (tabla 5). Cada falla tuvo una causa encontrada y corregida.
+Hasta el 19/11/2026 a las 7:55 (hora de Lima) hubo 58 ejecuciones en GitHub Actions (tabla 5). Cada falla tuvo una causa encontrada y corregida.
 
 *Tabla 5. Ejecuciones de GitHub Actions en `venga-implantes` (18/11 a 19/11/2026).*
 
 | Workflow | Ejecuciones | En verde | Fallidas | Duración mediana | Causa de las fallas |
 | --- | --: | --: | --: | --: | --- |
-| Pruebas, en PR | 28 | 24 | 4 | 4 min 46 s | Una prueba que dependía de `APP_DEBUG` (PR del E3), corregida en `8c20db0` |
-| Pruebas, en `main` | 17 | 16 | 1 | 4 min 42 s | La prueba inestable de la sección 1.5, corregida en este entregable |
-| Desplegar en Azure | 1 | 0 | 1 | 16 min | El NSG descartaba la respuesta de la web; corregido en el PR #17 |
+| Pruebas, en PR | 38 | 28 | 10 | 5 min 48 s | Cuatro por una prueba que dependía de `APP_DEBUG` (`8c20db0`), una por la prueba de `/up` en MySQL (`eaccb4c`) y cinco por la primera corrida de Larastan y su línea base (PR #20) |
+| Pruebas, en `main` | 18 | 17 | 1 | 4 min 45 s | La prueba inestable de la sección 1.5, corregida en este entregable |
+| Desplegar en Azure | 2 | 0 | 1 | 16 min | El NSG descartaba la respuesta de la web; corregido en el PR #17. La otra se omitió: el despliegue automático está apagado |
 
 La primera publicación real (ejecución `44505713594`, 19/11/2026) llegó hasta el final del despliegue. Entró a Azure por OIDC, subió el paquete `20261119-102836-e3cf66c` a Blob y `deploy-app.sh` instaló las dependencias, migró la base, validó Nginx y dejó la versión activa. Solo falló la comprobación final, porque `/up` no respondía desde internet. El PR #17 de Jhoel agregó la regla de salida que faltaba en el NSG del firewall. Según su commit `2c1e51b`, desde ese cambio la web responde 200 en `/`, `/tratamientos`, `/reservar` y la API, y `/panel` da 403 desde internet.
 
@@ -302,7 +303,7 @@ La adaptación tiene un costo, que la auditoría de la sección 4.4 confirma. Si
 
 | Instrumento | Tipo | Cuándo | Qué revisa | Evidencia |
 | --- | --- | --- | --- | --- |
-| Puertas de la CI | Verificación automática | Cada PR y cada merge | Formato, 1 237 pruebas, cobertura ≥ 90 %, MySQL 8 y compilación | `tests.yml`, tabla 5 |
+| Puertas de la CI | Verificación automática | Cada PR y cada merge | Formato, Larastan, 1 238 pruebas, cobertura (≥ 90 % y ≥ 85 %), MySQL 8 y compilación | `tests.yml`, tabla 5 |
 | Plantilla de PR con checklist | Revisión entre pares | Cada PR | Hace lo que dice, pruebas, permisos, datos, errores, seguridad, contrato de la API, código ≤ 60 líneas y complejidad ≤ 10, documentos | `.github/pull_request_template.md` (nueva), anexo D |
 | Revisión antes de fusionar | Revisión | Cada PR | Que la descripción coincida con el diff y la CI esté en verde | 115 PR fusionados por un integrante |
 | Inspecciones del sistema | Inspección por módulo | Al cerrar una etapa | Fallas de uso y de datos, con su lista de hallazgos | PR #41, #74 (ocho correcciones), #77 (21 fallas) |
@@ -320,18 +321,19 @@ La matriz de calidad (tabla 15, en la página siguiente) toma las característic
 | Característica (subcaracterística) | Métrica | Meta | Medido el 19/11/2026 (evidencia) | Riesgo que cubre |
 | --- | --- | --- | --- | --- |
 | Adecuación funcional (completitud) | RF implementados y con prueba | 100 % de los *Must* | 87 de 87 RF (matriz de trazabilidad del E1) | Falta una función pedida |
-| Adecuación funcional (corrección) | Pruebas en verde | 100 % | 1 096 + 141, sin fallas (CI) | Una regla mal implementada |
+| Adecuación funcional (corrección) | Pruebas en verde | 100 % | 1 097 + 141, sin fallas (CI) | Una regla mal implementada |
 | Eficiencia (comportamiento temporal) | Mediana de las rutas de lectura de la API | < 500 ms | 27 a 118 ms (medición del E3) | El paciente abandona la reserva |
 | Eficiencia (comportamiento temporal) | LCP de la web en un celular con 4G lenta | ≤ 2,5 s | 1,65 a 1,92 s (Lighthouse, E3) | El paciente abandona la reserva |
 | Eficiencia (uso de recursos) | CPU de `vm-app` | < 80 % sostenido | `[PENDIENTE – estudiante]` (alerta de CPU) | La VM se satura |
 | Compatibilidad (interoperabilidad) | Rutas de la API que cumplen OpenAPI | 36 de 36 | 36 de 36 (contrato en `TestCase`) | La web y la API se desalinean |
 | Usabilidad (accesibilidad) | Contraste del texto | ≥ 4,5:1 | Botón de WhatsApp de 4,30 a 4,87:1 (E3) | Pacientes mayores no leen |
-| Fiabilidad (madurez) | Ejecuciones de la CI en `main` en verde | ≥ 95 % | 16 de 17, 94 % (Actions) | Merges que rompen `main` |
+| Fiabilidad (madurez) | Ejecuciones de la CI en `main` en verde | ≥ 95 % | 17 de 18, 94 % (Actions) | Merges que rompen `main` |
 | Fiabilidad (disponibilidad) | `/up` en 200 en la vigilancia | ≥ 99 % | `[PENDIENTE – estudiante]` (Vigilar producción) | Caída sin aviso |
 | Fiabilidad (recuperabilidad) | Restauración y pérdida de datos | < 1 min; ≤ 1 h | 3,2 s y RPO de 1 h (E2, `copy-to-dr.sh`) | Perder citas o pagos |
 | Seguridad (confidencialidad) | Pantallas clínicas con política y prueba de rol | 100 % | 35 políticas, 84 pruebas (`PanelAccessTest`) | Recepción ve la historia clínica |
 | Seguridad (responsabilidad) | Cambios con usuario, fecha y valor anterior | 100 % de lo sensible | 40 modelos auditables (`AuditableTest`) | No saber quién cambió un cobro |
-| Mantenibilidad (capacidad de prueba) | Cobertura de líneas del backend | ≥ 90 % | 96,06 % (mínimo de la CI) | Cambios grandes sin pruebas |
+| Mantenibilidad (capacidad de prueba) | Cobertura de líneas del backend y de la web | ≥ 90 % y ≥ 85 % | 96,10 % y 90,47 % (mínimos de la CI) | Cambios grandes sin pruebas |
+| Mantenibilidad (analizabilidad) | Avisos nuevos de Larastan, nivel 5 | 0 | 0, con 2 174 en la línea base (CI) | Errores de tipo que llegan a producción |
 | Mantenibilidad (modificabilidad) | Métodos con complejidad ≤ 10 | ≥ 95 % | 96,5 %, 2 833 de 2 935 (`medir-codigo.php`) | Código difícil de cambiar |
 | Portabilidad (instalabilidad) | Entorno creado desde el código | Solo pasos escritos | 40 min automáticos y 15 min escritos (`infra/README.md`) | Depender de una persona |
 
@@ -368,6 +370,8 @@ La matriz de calidad (tabla 15, en la página siguiente) toma las característic
 | Este entregable | Método largo y complejo: `BookingController::store`, 85 líneas y complejidad 31 | Se extraen `bookingData()` y `confirmation()` y se quita un parámetro sin uso | `store` queda en 52 líneas y complejidad 15; las 90 pruebas de la API siguen en verde |
 | Este entregable | Prueba inestable | Verificación por apellidos que el generador no produce | `AgendaFindAndListTest` estable |
 
+**Análisis estático.** Desde este entregable, Larastan (PHPStan para Laravel) revisa `backend/app` en nivel 5 en cada PR. Su primera corrida dio 2 178 avisos en 220 archivos, y cuatro venían de tres fallas reales. La más seria: `MagicLink::prunable()` declaraba un `Builder` sin importarlo, así que la limpieza diaria (`model:prune`) se caía y los enlaces de WhatsApp vencidos nunca se borraban. Las otras dos le pasaban a `persistent()` una condición que Filament ignora. Se corrigieron con su prueba (anexo D, tabla D5). Los 2 174 avisos restantes vienen de tipos que el analizador no deduce: más de la mitad son relaciones sin tipo genérico, que ve como un `Model` cualquiera. Quedan en `phpstan-baseline.php` como deuda: la CI falla con cualquier aviso nuevo y la lista solo puede bajar (tabla D6).
+
 La deuda que queda tiene un registro (anexo D) con 14 partidas, su costo estimado y su decisión: pagar en el plan de mejora, pagar cuando se toque el código, o aceptar con motivo.
 
 ## Auditoría técnica y madurez del proceso
@@ -381,14 +385,14 @@ La deuda que queda tiene un registro (anexo D) con 14 partidas, su costo estimad
 | Gestión de requerimientos (REQM) | 2 | 87 RF con identificador, matriz de trazabilidad verificada por script y cambios de alcance registrados como ADR | TI |
 | Planificación del proyecto (PP) | 2 | Backlog priorizado y Charter; sin estimaciones ni plan por sprint escrito antes de empezar | PI |
 | Monitoreo y control del proyecto (PMC) | 2 | Avance visible en PR y CI; no se compara con un plan | PI |
-| Medición y análisis (MA) | 2 | La CI mide pruebas y cobertura en cada cambio; no había un plan de medición antes del E4 | PI |
+| Medición y análisis (MA) | 2 | La CI mide pruebas, cobertura y avisos de Larastan en cada cambio; no había un plan de medición antes del E4 | PI |
 | Aseguramiento de la calidad (PPQA) | 2 | Puertas de la CI, plantilla de PR e inspecciones; sin un revisor distinto de quien integra | MI |
 | Gestión de configuración (CM) | 2 | Todo en git (código, base, infraestructura y documentos), cambios por PR, versiones numeradas y cinco guardadas en producción | TI |
 | Gestión de acuerdos con proveedores (SAM) | 2 | No hay proveedores contratados; los servicios externos se tratan en ADR-14 | No aplica |
 | Desarrollo de requerimientos (RD) | 3 | SRS, HU con Gherkin y prototipo; falta la validación firmada con la clínica | MI |
 | Solución técnica (TS) | 3 | C4, 14 ADR, diagramas de clases, secuencia y estados | TI |
 | Integración del producto (PI) | 3 | CI con cuatro trabajos, contrato OpenAPI y despliegue automatizado; la primera publicación aún no termina en verde | MI |
-| Verificación (VER) | 3 | 1 237 pruebas, revisión de PR e inspecciones | TI |
+| Verificación (VER) | 3 | 1 238 pruebas, análisis estático, revisión de PR e inspecciones | TI |
 | Validación (VAL) | 3 | Guion de validación por rol listo; sin actas de la clínica | PI |
 | Gestión de riesgos (RSKM) | 3 | Riesgos registrados al cierre y respuestas en los ADR; sin revisión periódica | PI |
 | Análisis y resolución de decisiones (DAR) | 3 | 14 ADR con alternativas y criterios | MI |
@@ -408,10 +412,11 @@ Cada acción ataca un hallazgo de la auditoría o de la matriz, y tiene una mét
 | 1 | PP y PMC parciales | Estimar el backlog en puntos y escribir el objetivo de cada sprint al empezarlo | Fran | Sprint siguiente | Cada sprint tiene un plan y una velocidad en puntos |
 | 2 | Retrospectivas sin registro | Retrospectiva de 30 min al cerrar cada sprint, con acta en el repositorio | Todo el equipo | Cada viernes | Cuatro actas seguidas |
 | 3 | VAL y RD sin actas | Validar con el Dr. Vega y la recepcionista con el guion del E1 | Joselyn `[PENDIENTE]` | Antes de la sustentación | Actas firmadas en el anexo B del E1 |
-| 4 | Sin análisis estático de PHP | Larastan en la CI, con línea base de la deuda actual | Fran | Al aprobarlo | Nivel acordado sin errores nuevos |
-| 5 | La web no mide cobertura | `@vitest/coverage-v8` en la CI con un mínimo | Fran | Al aprobarlo | Reporte de cobertura de la web en cada PR |
+| 4 | Sin análisis estático de PHP | Larastan en la CI, con línea base de la deuda actual | Fran | Cumplida el 19/11 (PR #20) | Nivel 5 sin avisos nuevos; tres fallas reales corregidas |
+| 5 | La web no mide cobertura | `@vitest/coverage-v8` en la CI con un mínimo | Fran | Cumplida el 19/11 (PR #20) | 90,5 % de las líneas; la CI exige 85 % |
 | 6 | Producción sin evidencia de operación | Publicar, volver y vigilar en Azure; activar las variables | Jhoel | Al encender producción | Dos ejecuciones en verde y una semana de vigilancia |
 | 7 | Políticas al 62,5 % | Pruebas de que `delete`, `restore` y `forceDelete` niegan | Fran | Dos semanas | Políticas ≥ 90 % |
 | 8 | Métodos con complejidad > 20 | Partir `ConsultationForm::addPackageAction` y `FindingsDictation::read` | Fran | Cuando se toquen | Ningún método nuevo > 10 sin motivo escrito |
 | 9 | 12 verificaciones negativas frágiles | Usar textos únicos en esas pruebas | Fran | Una semana | Cero fallas inestables en `main` |
 | 10 | Acciones de GitHub con Node 20 en retiro | Actualizar `checkout`, `setup-node` y `azure/login` | Jhoel | Antes de que GitHub las retire | Sin avisos de Node 20 en los workflows |
+| 11 | 2 174 avisos de Larastan en la línea base | Tipo genérico en las relaciones y revisar por qué el analizador no lee los casts, accessors ni scopes | Fran | Dos sprints | Línea base con menos de 1 000 avisos |
