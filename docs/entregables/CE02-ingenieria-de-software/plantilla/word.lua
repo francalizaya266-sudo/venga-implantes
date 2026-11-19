@@ -7,7 +7,8 @@ Filtro de pandoc para los entregables en Word.
    <!-- figura: ruta/al/diagrama.png --> (o <!-- figura: ruta.png 12cm --> para otro ancho; por defecto,
    16 cm). En GitHub se sigue viendo el diagrama Mermaid. Si lo que sigue es una imagen sola (la que se ve en
    GitHub), también se reemplaza. Toda imagen sola en su párrafo va centrada.
-3. Un párrafo en cursiva que empieza con "Figura N." o "Tabla N." toma el estilo de leyenda.
+3. Un párrafo en cursiva que empieza con "Figura N." o "Tabla N." toma el estilo de leyenda, y ese rótulo
+   ("Tabla 3.") va en negrita y azul (estilo de carácter "Rotulo de leyenda").
 4. "Resumen ejecutivo" y los anexos sin número no se numeran.
 5. El ancho de cada columna de una tabla sale de su contenido: ninguna es más angosta que su palabra más
    larga (hasta 30 letras) y el espacio que sobra va a las columnas con más texto. Entre los párrafos
@@ -75,7 +76,17 @@ local function leer_archivo(ruta)
 end
 
 local function leyenda(bloque, estilo)
-  return pandoc.Div({ pandoc.Para(bloque.content[1].content) }, { ['custom-style'] = estilo })
+  local contenido = bloque.content[1].content
+  local primero, espacio, numero = contenido[1], contenido[2], contenido[3]
+  if espacio and espacio.t == 'Space' and numero and numero.t == 'Str' and numero.text:find('^[%w%-]+%.$') then
+    local rotulo = pandoc.Span({ primero, espacio, numero }, { ['custom-style'] = 'Rotulo de leyenda' })
+    local resto = pandoc.List({ rotulo })
+    for k = 4, #contenido do
+      resto:insert(contenido[k])
+    end
+    contenido = resto
+  end
+  return pandoc.Div({ pandoc.Para(contenido) }, { ['custom-style'] = estilo })
 end
 
 function Blocks(bloques)

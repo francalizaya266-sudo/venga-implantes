@@ -6,3 +6,10 @@ author:
 date: "19/11/2026"
 toc-title: "Índice"
 lang: es-PE
+# Portada y encabezado de este Word (plantilla/ajustar-docx.py; lo común está en plantilla/portada.yaml).
+portada:
+  tipo: "Entregable 1"
+  titulo: "Requerimientos y Diseño del Sistema"
+  evidencias: "CE021 · Evidencias CE0211 a CE0214"
+  encabezado: "E1 · Requerimientos y diseño"
+  despliegue: false
