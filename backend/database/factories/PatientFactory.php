@@ -28,7 +28,7 @@ class PatientFactory extends Factory
             'last_name' => fake()->lastName().' '.fake()->lastName(),
             'document_type' => DocumentType::Dni,
             'document_number' => fake()->unique()->numerify('########'),
-            'birth_date' => fake()->dateTimeBetween('-70 years', '-18 years'),
+            'birth_date' => fake()->dateTimeBetween(now()->subYears(70), now()->subYears(18)),
             'sex' => fake()->randomElement(Sex::cases()),
             'email' => fake()->optional()->safeEmail(),
             'district' => fake()->randomElement(['Miraflores', 'San Isidro', 'Surco', 'San Borja', 'Lince', 'Jesús María']),
@@ -41,7 +41,7 @@ class PatientFactory extends Factory
         return $this->state(fn () => [
             'account_id' => $account->getKey(),
             'relationship' => $relationship,
-            'birth_date' => fake()->dateTimeBetween('-12 years', '-3 years'),
+            'birth_date' => fake()->dateTimeBetween(now()->subYears(12), now()->subYears(3)),
             'document_number' => null,
             'document_type' => null,
         ]);

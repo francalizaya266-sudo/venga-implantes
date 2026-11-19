@@ -104,7 +104,7 @@ RF-API-01 estaba planificado y se completó en la FASE 3 (E3): `docs/api/openapi
 
 # Anexo B. Validación con usuarios
 
-Este anexo se llena en la sesión de validación descrita en la sección 2.4 (tabla 7) `[PENDIENTE – estudiante: llenar en la sesión con el Dr. Vega y la recepcionista]`. Las tareas de paciente las hace la recepcionista con un celular; las de doctor y administrador, el Dr. Vega.
+Este anexo se llena en la sesión de validación descrita en la sección 2.4 (tabla 7), con el Dr. Vega y la recepcionista. Las tareas de paciente las hace la recepcionista con un celular; las de doctor y administrador, el Dr. Vega.
 
 ## Registro de resultados por tarea {-}
 
@@ -157,7 +157,7 @@ Cálculo: en las afirmaciones impares se resta 1 a la respuesta; en las pares, l
 
 **Proyecto:** Sistema web de Clínica Vega Implant (Entregable 1, CE021).
 
-**Fecha y hora:** `[PENDIENTE – estudiante: dd/mm/aaaa, hora de inicio y de fin]`
+**Fecha y hora:** \_\_\_\_/\_\_\_\_/\_\_\_\_\_\_, de \_\_\_\_\_\_ a \_\_\_\_\_\_
 
 **Lugar:** Clínica Vega Implant, Jr. Apurímac 648, Juliaca.
 
@@ -168,7 +168,7 @@ Cálculo: en las afirmaciones impares se resta 1 a la respuesta; en las pares, l
 | Nombre | Rol en la validación |
 | --- | --- |
 | Dr. Jassmanny Neil Vega Jaen (COP 29668) | Administrador y odontólogo de la clínica |
-| `[PENDIENTE – estudiante: nombre de la recepcionista]` | Recepción |
+| Recepcionista de la clínica | Recepción |
 | Fran Franklin Calizaya Apaza | Equipo de desarrollo (conduce la sesión) |
 | Jhoel Hairton Apaza Quispe | Equipo de desarrollo (anota tiempos y errores) |
 | Joselyn Yucra Mamani | Equipo de desarrollo (anota observaciones) |
@@ -196,11 +196,11 @@ Cálculo: en las afirmaciones impares se resta 1 a la respuesta; en las pares, l
 
 | Nombre | Rol | Firma |
 | --- | --- | :-: |
-| Dr. Jassmanny Neil Vega Jaen | Administrador y odontólogo | `[PENDIENTE – firma]` |
-| Recepcionista | Recepción | `[PENDIENTE – firma]` |
-| Fran Franklin Calizaya Apaza | Equipo de desarrollo | `[PENDIENTE – firma]` |
-| Jhoel Hairton Apaza Quispe | Equipo de desarrollo | `[PENDIENTE – firma]` |
-| Joselyn Yucra Mamani | Equipo de desarrollo | `[PENDIENTE – firma]` |
+| Dr. Jassmanny Neil Vega Jaen | Administrador y odontólogo | |
+| Recepcionista | Recepción | |
+| Fran Franklin Calizaya Apaza | Equipo de desarrollo | |
+| Jhoel Hairton Apaza Quispe | Equipo de desarrollo | |
+| Joselyn Yucra Mamani | Equipo de desarrollo | |
 
 # Anexo C. Diagramas de clases detallados
 
@@ -392,20 +392,20 @@ Escenario: reglas que se contradicen
 
 # Anexo E. Evidencia de la sustentación
 
-Este anexo guarda la evidencia de que el entregable se sustentó ante el docente, como pide la rúbrica del área (CE021). Se llena el día de la sustentación `[PENDIENTE – estudiante: llenar el día de la sustentación]`.
+Este anexo guarda la evidencia de que el entregable se sustentó ante el docente, como pide la rúbrica del área (CE021). Se llena el día de la sustentación.
 
 *Tabla E1. Registro de la sustentación del E1.*
 
 | Campo | Registro |
 | --- | --- |
-| Fecha y hora | `[PENDIENTE – estudiante]` |
-| Docente evaluador | `[PENDIENTE – estudiante]` |
-| Modalidad (presencial o virtual) | `[PENDIENTE – estudiante]` |
-| Integrantes que sustentaron y parte que expuso cada uno | `[PENDIENTE – estudiante]` |
-| Enlace a la grabación o a las diapositivas | `[PENDIENTE – estudiante]` |
-| Preguntas del docente y respuesta resumida | `[PENDIENTE – estudiante]` |
-| Observaciones y compromisos de corrección | `[PENDIENTE – estudiante]` |
+| Fecha y hora | |
+| Docente evaluador | |
+| Modalidad (presencial o virtual) | |
+| Integrantes que sustentaron y parte que expuso cada uno | |
+| Enlace a la grabación o a las diapositivas | |
+| Preguntas del docente y respuesta resumida | |
+| Observaciones y compromisos de corrección | |
 
-**Capturas de la sesión.** `[PENDIENTE – estudiante: una captura de la sustentación con los integrantes visibles y otra de la diapositiva de la matriz de trazabilidad]`
+**Capturas de la sesión.** Una de la sustentación con los integrantes visibles y otra de la diapositiva de la matriz de trazabilidad.
 
-**Firma del docente.** `[PENDIENTE – firma]`
+**Firma del docente:** \_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_

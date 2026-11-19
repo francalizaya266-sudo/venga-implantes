@@ -8,7 +8,7 @@
 
 **Solución propuesta.** Un monolito modular: cada regla vive una sola vez en los servicios de `app/Services`, y la web, el panel y el cron la usan por igual. El paciente reserva en tres pasos entre horarios que dejan el tiempo de esterilización, y confirma, cambia o cancela con un enlace personal que llega por WhatsApp. Nada se borra: lo que mueve dinero se anula con motivo y todo cambio queda auditado. Los pagos son informativos y lo clínico solo lo ve quien atiende. El sistema se integra con WhatsApp (primero con `wa.me` y luego con la API de Meta), con RENIEC por medio de Decolecta, con los feriados de Nager.Date y con el correo SMTP.
 
-**Validación y diseño.** El prototipo navegable es el propio sistema con datos de demostración. La validación con el Dr. Vega y la recepcionista sigue un guion de 12 tareas y el cuestionario SUS `[PENDIENTE – estudiante: resultados de la sesión]`. El diseño se documenta con C4 (contexto, contenedores con su despliegue en Azure y componentes), 14 decisiones de arquitectura, casos de uso, clases, secuencias y estados. La matriz del anexo A une cada requerimiento con su archivo y su prueba automatizada, y un guion la comprueba contra el código.
+**Validación y diseño.** El prototipo navegable es el propio sistema con datos de demostración. La validación con el Dr. Vega y la recepcionista sigue un guion de 12 tareas y el cuestionario SUS, con sus formatos en el anexo B. El diseño se documenta con C4 (contexto, contenedores con su despliegue en Azure y componentes), 14 decisiones de arquitectura, casos de uso, clases, secuencias y estados. La matriz del anexo A une cada requerimiento con su archivo y su prueba automatizada, y un guion la comprueba contra el código.
 
 # Especificación de requerimientos
 
@@ -146,7 +146,7 @@ Los 87 requerimientos están implementados y probados, así que la tabla no repi
 | RNF-LEY-01 | Ley N.º 29733: la historia clínica la ven el doctor que atiende al paciente y el administrador si es odontólogo; recepción ve el procedimiento sin la pieza; la privacidad y las promociones se aceptan por separado. | `PatientPolicy::viewClinical`; `TreatmentPlanPageTest::test_reception_reads_a_budget_without_the_tooth_or_its_clinical_title` |
 | RNF-LEY-02 | Todo cambio queda en el historial con usuario, fecha y valor anterior (40 modelos auditables); las contraseñas nunca se guardan ahí. | `AuditableTest`; `ChangeHistoryTest::test_changes_to_users_are_kept_and_the_password_never_is` |
 | RNF-REN-01 | Dos reservas al mismo tiempo no toman el mismo horario: la agenda del doctor se bloquea dentro de la transacción. | `AppointmentService::lockAgenda`; `BookingControllerTest::test_a_time_taken_meanwhile_sends_the_patient_back_to_choose_another` |
-| RNF-REN-02 | Meta propuesta: la web pública con Lighthouse de rendimiento 90 o más en celular y las rutas principales de la API bajo 500 ms con los datos del seeder. | Medido en el E3 (sección 3.5 y `E3-sistema-funcional/evidencias`): la API responde con una mediana de 27 a 118 ms; la web en celular, a través del Nginx de producción, muestra su contenido principal en 1,65 a 1,92 s. Puntaje de Lighthouse en producción `[PENDIENTE – estudiante]` |
+| RNF-REN-02 | Meta propuesta: la web pública con Lighthouse de rendimiento 90 o más en celular y las rutas principales de la API bajo 500 ms con los datos del seeder. | Medido en el E3 (sección 3.5 y `E3-sistema-funcional/evidencias`): la API responde con una mediana de 27 a 118 ms; la web en celular, a través del Nginx de producción, muestra su contenido principal en 1,65 a 1,92 s. El puntaje de Lighthouse se mide sobre la URL de producción (E3, anexo D) |
 | RNF-USA-01 | La web del paciente se usa en el celular (barra fija de reservar, WhatsApp y llamar) y el panel en tablet y celular (barra inferior por rol). | Capturas de la sección 2; `PatientsAndSetupPanelTest::test_the_phone_bar_shows_what_each_role_uses_most` |
 | RNF-USA-02 | Todo en español (Perú): validaciones, errores y correos; fechas dd/mm/aaaa, hora de Lima y soles. | `PanelAccessTest::test_validation_messages_are_in_spanish`; `PasswordRecoveryTest::test_the_mail_is_written_in_spanish` |
 | RNF-USA-03 | Accesibilidad: enlace "Saltar al contenido" y los iconos decorativos se ocultan a lectores de pantalla; meta WCAG 2.1 AA. | `TreatmentIconTest::test_the_svg_takes_the_text_color_and_is_hidden_from_screen_readers`; revisión automática de cinco páginas en el E3 (`medir-web.cjs`), sin observaciones después de corregir el contraste del botón de WhatsApp |
@@ -243,7 +243,7 @@ Escenario: el horario se ocupó mientras escribía
 
 El prototipo es de alta fidelidad: el propio sistema con datos de demostración. El seeder crea 262 pacientes ficticios, 861 citas con 11 meses de historia, pagos, un plan aceptado y el catálogo de tratamientos. Así se valida con pantallas reales y no con dibujos que después cambian. Se levanta con los pasos del `README.md` (`composer install`, `php artisan migrate --seed`, `npm --prefix ../frontend run build` y `php artisan serve`) y se navega en `http://localhost:8000` (web del paciente) y `/panel` (personal) con las cuentas de demostración que indica el mismo README. Las capturas de esta sección se tomaron así el 18/11/2026, en un celular de 390 × 844 y en una pantalla de 1280 × 800; las de la figura 10, el 19/11/2026.
 
-URL pública del prototipo para que los usuarios lo prueben sin instalar nada: `[PENDIENTE – estudiante: URL del despliegue en Azure, cuando exista]`.
+Los usuarios prueban el prototipo sin instalar nada en la URL pública del despliegue en Azure (E3, anexo D).
 
 ## Flujo de navegación por rol
 
@@ -367,7 +367,7 @@ La validación se hace con el Dr. Vega (administrador y doctor) y con la recepci
 | 11 | Administrador | Cambiar la anticipación mínima de reserva | La web deja de ofrecer los horarios más cercanos | CFG-03 |
 | 12 | Recepción | Registrar a un paciente nuevo con la lupa del DNI y darle una cita con los botones de día | Los nombres salen de RENIEC y la cita queda en menos de 1 min | PAC-06, AGE-13 |
 
-El registro de resultados por tarea y por participante, el cuestionario SUS y el acta van en el anexo B `[PENDIENTE – estudiante: llenarlos en la sesión]`. Los cambios que pidan los usuarios se registran como historias nuevas en el backlog de la FASE 4.
+El registro de resultados por tarea y por participante, el cuestionario SUS y el acta van en el anexo B y se llenan en la sesión. Los cambios que pidan los usuarios se registran como historias nuevas en el backlog de la FASE 4.
 
 # Diseño arquitectónico
 
@@ -966,4 +966,4 @@ stateDiagram-v2
 
 # Anexos
 
-Van en un Word aparte (`…-Anexos.docx`): **A**, la matriz RF → historia → caso de uso → componente → archivo → prueba, comprobada con `verificar-trazabilidad.py`; **B**, la validación y el acta `[PENDIENTE – firma]`; **C**, las clases detalladas; **D**, el Gherkin de las 12 historias y CU-02 y CU-14; **E**, la sustentación `[PENDIENTE – estudiante]`.
+Van en un Word aparte (`…-Anexos.docx`): **A**, la matriz RF → historia → caso de uso → componente → archivo → prueba, comprobada con `verificar-trazabilidad.py`; **B**, la validación y el acta; **C**, las clases detalladas; **D**, el Gherkin de las 12 historias y CU-02 y CU-14; **E**, la sustentación.

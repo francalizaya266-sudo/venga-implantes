@@ -149,7 +149,7 @@ Las capturas se tomaron el 19/11/2026 con `evidencias/capturas-e3.cjs` sobre el 
 
 Las demás pantallas, capturadas del mismo sistema, están en el E1: web del paciente (figuras 3 y 4), "Hoy" y agenda (5), atención clínica (6), presupuesto (7), caja y cierre (8), recepción en el celular y reportes (9) y la ventana "Nueva cita" (10).
 
-**Video de la demostración.** `[PENDIENTE – estudiante: grabar el mismo recorrido en la URL de producción, de 3 a 5 minutos, y anotar aquí su enlace]`
+**Video de la demostración.** El mismo recorrido en la URL de producción, de 3 a 5 minutos. Enlace: \_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_
 
 # Anexo D. Evidencia de despliegue y ejecución
 
@@ -266,34 +266,34 @@ A través de esa configuración, el JavaScript de la web llega comprimido (`Cont
 
 ## Producción en Azure {-}
 
-*Tabla D5. Evidencias de producción pendientes.*
+*Tabla D5. Evidencias de producción.*
 
 | N.º | Qué capturar | Dónde |
 | --: | --- | --- |
-| 1 | `[PENDIENTE – estudiante: URL pública de la web y del panel]` | Navegador |
-| 2 | `[PENDIENTE – estudiante: grupo de recursos de producción con sus recursos]` | Portal de Azure |
-| 3 | `[PENDIENTE – estudiante: ejecución del workflow "Desplegar en Azure" en verde, con "Listo: /var/www/vega/releases/…"]` | GitHub, Actions |
-| 4 | `[PENDIENTE – estudiante: respuesta de /up y la reserva de la figura 3 hecha en producción]` | Navegador |
-| 5 | `[PENDIENTE – estudiante: Lighthouse en modo celular sobre la URL de producción]` | Chrome, DevTools |
-| 6 | `[PENDIENTE – estudiante: php artisan schedule:list en vm-app]` | Consola de vm-app |
+| 1 | URL pública de la web y del panel | Navegador |
+| 2 | Grupo de recursos de producción con sus recursos | Portal de Azure |
+| 3 | Ejecución del workflow "Desplegar en Azure" en verde, con "Listo: /var/www/vega/releases/…" | GitHub, Actions |
+| 4 | Respuesta de /up y la reserva de la figura 3 hecha en producción | Navegador |
+| 5 | Lighthouse en modo celular sobre la URL de producción | Chrome, DevTools |
+| 6 | `php artisan schedule:list` en vm-app | Consola de vm-app |
 
 # Anexo E. Evidencia de la sustentación
 
-Este anexo guarda la evidencia de que el entregable se sustentó ante el docente, como pide la plantilla del E3. Se llena el día de la sustentación `[PENDIENTE – estudiante: llenar el día de la sustentación]`.
+Este anexo guarda la evidencia de que el entregable se sustentó ante el docente, como pide la plantilla del E3. Se llena el día de la sustentación.
 
 *Tabla E1. Registro de la sustentación del E3.*
 
 | Campo | Registro |
 | --- | --- |
-| Fecha y hora | `[PENDIENTE – estudiante]` |
-| Docente evaluador | `[PENDIENTE – estudiante]` |
-| Modalidad (presencial o virtual) | `[PENDIENTE – estudiante]` |
-| Integrantes que sustentaron y parte que expuso cada uno | `[PENDIENTE – estudiante]` |
-| Demostración en vivo (reserva en la web y la misma cita en el panel) | `[PENDIENTE – estudiante]` |
-| Enlace a la grabación o a las diapositivas | `[PENDIENTE – estudiante]` |
-| Preguntas del docente y respuesta resumida | `[PENDIENTE – estudiante]` |
-| Observaciones y compromisos de corrección | `[PENDIENTE – estudiante]` |
+| Fecha y hora | |
+| Docente evaluador | |
+| Modalidad (presencial o virtual) | |
+| Integrantes que sustentaron y parte que expuso cada uno | |
+| Demostración en vivo (reserva en la web y la misma cita en el panel) | |
+| Enlace a la grabación o a las diapositivas | |
+| Preguntas del docente y respuesta resumida | |
+| Observaciones y compromisos de corrección | |
 
-**Capturas de la sesión.** `[PENDIENTE – estudiante: una captura de la sustentación con los integrantes visibles y otra de la demostración]`
+**Capturas de la sesión.** Una de la sustentación con los integrantes visibles y otra de la demostración.
 
-**Firma del docente.** `[PENDIENTE – firma]`
+**Firma del docente:** \_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_

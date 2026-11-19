@@ -178,21 +178,21 @@ Extracto de `explain-antes.txt` y `explain-despues.txt`: el árbol de `EXPLAIN A
 
 ## Capturas que faltan {-}
 
-Lo que solo puede mostrarse desde el servidor de Azure o desde una herramienta con sesión del equipo queda pendiente (tabla D2). Cada captura va en la sección del documento que indica la tabla.
+Lo que solo puede mostrarse desde el servidor de Azure o desde una herramienta con sesión del equipo se lista en la tabla D2. Cada captura va en la sección del documento que indica la tabla.
 
-*Tabla D2. Capturas y validaciones pendientes del E2.*
+*Tabla D2. Capturas de Azure y validaciones con la clínica del E2.*
 
 | N.º | Qué capturar o hacer | Dónde | Sección |
 | --: | --- | --- | --- |
-| 1 | `[PENDIENTE – estudiante: versión y "Información general" del servidor MySQL]` | Portal de Azure, servidor flexible | 2.1 |
-| 2 | `[PENDIENTE – estudiante: tablas de la base y diagrama del dominio Caja]` | MySQL Workbench o phpMyAdmin conectado a Azure | 2.3 |
+| 1 | Versión y "Información general" del servidor MySQL | Portal de Azure, servidor flexible | 2.1 |
+| 2 | Tablas de la base y diagrama del dominio Caja | MySQL Workbench o phpMyAdmin conectado a Azure | 2.3 |
 | 3 | Hecho con el registro de la CI. El job "Base de datos (MySQL 8)" de la ejecución `44532382044` (merge del PR #20 a `main`, 19/11/2026 a las 8:24) terminó en verde: "Restauración: 1864 ms", 259 sentencias, los 10 registros del trigger conservados y "Todo como se esperaba." en los permisos | GitHub, pestaña Actions | 3.7 y 4.3 |
-| 4 | `[PENDIENTE – estudiante: log_bin_trust_function_creators en ON]` | Azure, Parámetros del servidor | 4.1 |
-| 5 | `[PENDIENTE – estudiante: salida de seguridad.sql en Azure, incluido el permiso SHOW_ROUTINE]` | Consola de MySQL contra Azure | 4.1 |
-| 6 | `[PENDIENTE – estudiante: retención de copias y restauración a un momento dado]` | Azure, Copia de seguridad y restauración | 4.3 |
-| 7 | `[PENDIENTE – estudiante: slow_query_log activo y métrica de almacenamiento]` | Azure, Parámetros del servidor y Supervisión | 4.4 |
-| 8 | `[PENDIENTE – estudiante: TLS obligatorio y acceso privado]` | Azure, Redes y Seguridad del servidor | 4.5 |
-| 9 | `[PENDIENTE – estudiante: observaciones del Dr. Vega y de recepción sobre el diccionario de Caja y Pacientes]` | Reunión con la clínica | 1.1 |
+| 4 | `log_bin_trust_function_creators` en ON | Azure, Parámetros del servidor | 4.1 |
+| 5 | Salida de `seguridad.sql` en Azure, incluido el permiso `SHOW_ROUTINE` | Consola de MySQL contra Azure | 4.1 |
+| 6 | Retención de copias y restauración a un momento dado | Azure, Copia de seguridad y restauración | 4.3 |
+| 7 | `slow_query_log` activo y métrica de almacenamiento | Azure, Parámetros del servidor y Supervisión | 4.4 |
+| 8 | TLS obligatorio y acceso privado | Azure, Redes y Seguridad del servidor | 4.5 |
+| 9 | Observaciones del Dr. Vega y de recepción sobre el diccionario de Caja y Pacientes | Reunión con la clínica | 1.1 |
 | 10 | Constancia de inscripción del banco de datos de pacientes: no hay, porque la clínica aún no lo inscribe (19/11/2026) | Autoridad Nacional de Protección de Datos Personales | 4.5 |
 
 # Anexo E. Documentación técnica de administración
@@ -320,21 +320,21 @@ Las imágenes `.png` de los diagramas se exportan de cada `.mmd` con Mermaid 11.
 
 # Anexo F. Evidencia de la sustentación
 
-Este anexo guarda la evidencia de que el entregable se sustentó ante el docente, como pide la rúbrica del área (CE022). Se llena el día de la sustentación `[PENDIENTE – estudiante: llenar el día de la sustentación]`.
+Este anexo guarda la evidencia de que el entregable se sustentó ante el docente, como pide la rúbrica del área (CE022). Se llena el día de la sustentación.
 
 *Tabla F1. Registro de la sustentación del E2.*
 
 | Campo | Registro |
 | --- | --- |
-| Fecha y hora | `[PENDIENTE – estudiante]` |
-| Docente evaluador | `[PENDIENTE – estudiante]` |
-| Modalidad (presencial o virtual) | `[PENDIENTE – estudiante]` |
-| Integrantes que sustentaron y parte que expuso cada uno | `[PENDIENTE – estudiante]` |
-| Demostración en vivo (consultas, procedimiento, respaldo y restauración) | `[PENDIENTE – estudiante]` |
-| Enlace a la grabación o a las diapositivas | `[PENDIENTE – estudiante]` |
-| Preguntas del docente y respuesta resumida | `[PENDIENTE – estudiante]` |
-| Observaciones y compromisos de corrección | `[PENDIENTE – estudiante]` |
+| Fecha y hora | |
+| Docente evaluador | |
+| Modalidad (presencial o virtual) | |
+| Integrantes que sustentaron y parte que expuso cada uno | |
+| Demostración en vivo (consultas, procedimiento, respaldo y restauración) | |
+| Enlace a la grabación o a las diapositivas | |
+| Preguntas del docente y respuesta resumida | |
+| Observaciones y compromisos de corrección | |
 
-**Capturas de la sesión.** `[PENDIENTE – estudiante: una captura de la sustentación con los integrantes visibles y otra de la demostración de la base de datos]`
+**Capturas de la sesión.** Una de la sustentación con los integrantes visibles y otra de la demostración de la base de datos.
 
-**Firma del docente.** `[PENDIENTE – firma]`
+**Firma del docente:** \_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_

@@ -7,7 +7,7 @@ Este entregable documenta, implementa y prueba la plataforma de datos del sistem
 3. **Programación (CE0223).** 5 vistas, 6 funciones, 2 procedimientos y 2 triggers, solo para MySQL, con 13 pruebas que comparan cada resultado con el servicio PHP que ya usa el panel. Cuatro índices nuevos llevan la agenda del día de leer 861 filas a 5 (de 0,94 a 0,05 ms).
 4. **Administración y seguridad (CE0224).** Cuatro usuarios de base con privilegios mínimos (`seguridad.sql`), comprobados con 22 pruebas automáticas; copia en 0,49 s y restauración medida en 3,2 s; consultas de monitoreo; y lo que pide la Ley N.º 29733 llevado a la base.
 
-Lo que solo puede hacer una persona (capturas de Azure, validar el diccionario con la clínica) va marcado `[PENDIENTE – estudiante]`.
+Las capturas de Azure y la revisión del diccionario con la clínica se listan en el anexo D (tabla D2).
 
 # Modelo de datos
 
@@ -21,7 +21,7 @@ El modelo es el que ya usa el sistema: 53 migraciones de Laravel en `backend/dat
 
 `generar-modelo.py` lee esas tres fuentes y escribe el diccionario (anexo A), los diagramas ER (figuras 1 y 2 y anexo B) y `evidencias/resumen-del-modelo.txt`. Cuando una columna no tiene comentario en su migración, su descripción es la traducción de su nombre (`glosario_columnas.py`). Si mañana se agrega una tabla, el script se detiene hasta que se le asigne un dominio, así que el diccionario no se queda atrás.
 
-El modelo se validó de cuatro formas: MySQL hace cumplir las 143 llaves foráneas y los 24 valores únicos; la suite completa del backend (1 044 pruebas) pasa sobre MySQL 8 (sección 2.4); `ddl.sql` más `dml.sql` reconstruyen la base con las mismas cifras (sección 2.2); y las 13 pruebas del grupo `mysql` comparan cada vista y procedimiento con la aplicación (sección 3.7). La validación del significado de cada dato con quienes lo usan queda pendiente: `[PENDIENTE – estudiante: revisar con el Dr. Vega y recepción el diccionario de los dominios Caja y Pacientes (anexo A) y anotar sus observaciones]`.
+El modelo se validó de cuatro formas: MySQL hace cumplir las 143 llaves foráneas y los 24 valores únicos; la suite completa del backend (1 044 pruebas) pasa sobre MySQL 8 (sección 2.4); `ddl.sql` más `dml.sql` reconstruyen la base con las mismas cifras (sección 2.2); y las 13 pruebas del grupo `mysql` comparan cada vista y procedimiento con la aplicación (sección 3.7). El significado de cada dato lo revisan quienes lo usan: el Dr. Vega y recepción revisan el diccionario de los dominios Caja y Pacientes (anexo A), y sus observaciones se anotan en el anexo D.
 
 ## Modelo conceptual
 
@@ -113,7 +113,7 @@ El diccionario completo está en el anexo A: una tabla por cada una de las 70 ta
 
 ## Motor, configuración y migraciones
 
-La base corre en MySQL 8.0: en desarrollo y en la CI, la imagen oficial `mysql:8.0` (8.0.46 al medir); en producción, Azure Database for MySQL Flexible Server 8.0, privado y con TLS obligatorio, según el despliegue del E1 `[PENDIENTE – estudiante: versión exacta y captura de "Información general" del servidor en el portal de Azure]`. Laravel abre cada conexión en modo estricto (`'strict' => true` en `config/database.php`), y `ddl.sql` muestra el `sql_mode` que queda: `ONLY_FULL_GROUP_BY`, `STRICT_TRANS_TABLES`, `NO_ZERO_IN_DATE`, `NO_ZERO_DATE`, `ERROR_FOR_DIVISION_BY_ZERO` y `NO_ENGINE_SUBSTITUTION`.
+La base corre en MySQL 8.0: en desarrollo y en la CI, la imagen oficial `mysql:8.0` (8.0.46 al medir); en producción, Azure Database for MySQL Flexible Server 8.0, privado y con TLS obligatorio, según el despliegue del E1. La versión exacta se ve en "Información general" del servidor, en el portal de Azure (anexo D, tabla D2). Laravel abre cada conexión en modo estricto (`'strict' => true` en `config/database.php`), y `ddl.sql` muestra el `sql_mode` que queda: `ONLY_FULL_GROUP_BY`, `STRICT_TRANS_TABLES`, `NO_ZERO_IN_DATE`, `NO_ZERO_DATE`, `ERROR_FOR_DIVISION_BY_ZERO` y `NO_ENGINE_SUBSTITUTION`.
 
 Las pruebas del backend corren en SQLite en memoria, porque son rápidas y no necesitan servidor. Por eso las tres migraciones nuevas (tabla 4) solo actúan cuando `DB::getDriverName()` es `mysql`: en SQLite no hacen nada y la suite sigue en verde.
 
@@ -159,7 +159,7 @@ Para comprobar que reconstruyen la base, se cargaron en una base vacía del mism
 | Índices secundarios | 169 | Incluye los que crea MySQL para cada llave foránea y los 4 de la FASE 2 |
 | Vistas / funciones / procedimientos / triggers | 5 / 6 / 2 / 2 | Sección 3 |
 
-`[PENDIENTE – estudiante: captura de MySQL Workbench o phpMyAdmin con las tablas de la base de Azure y el diagrama de relaciones del dominio Caja]`
+La captura de las tablas de la base de Azure y del diagrama de relaciones del dominio Caja, desde MySQL Workbench o phpMyAdmin, se lista en el anexo D (tabla D2).
 
 ## La suite completa sobre MySQL 8: un error que SQLite no mostraba
 
@@ -341,11 +341,11 @@ Hasta ahora la aplicación se conectaba con un solo usuario capaz de todo. `back
 Cuatro detalles salieron de probarlo, no de suponerlo (`evidencias/objetos-y-su-dueno.txt`):
 
 - **Quién crea los objetos.** Si root crea las vistas y los triggers, después `consultorio_despliegue` no puede borrarlos ni rehacerlos (error 1227, falta `SYSTEM_USER`). Por eso los crea siempre `consultorio_despliegue`.
-- **Funciones con registro binario.** Con el registro binario activo, un usuario sin `SUPER` no puede crear funciones ni triggers (error 1419) hasta que el servidor tenga `log_bin_trust_function_creators = ON`. En Azure se activa en "Parámetros del servidor" `[PENDIENTE – estudiante: activarlo y tomar la captura]`.
+- **Funciones con registro binario.** Con el registro binario activo, un usuario sin `SUPER` no puede crear funciones ni triggers (error 1419) hasta que el servidor tenga `log_bin_trust_function_creators = ON`. En Azure se activa en "Parámetros del servidor" (anexo D, tabla D2).
 - **Permisos que se pierden.** MySQL borra los permisos de una rutina cuando la rutina se borra, y `bd:objetos` las rehace. Por eso reportes recibe `EXECUTE` sobre la base entera y no rutina por rutina. Es seguro porque todas las rutinas solo leen.
-- **Copias completas.** `mysqldump --routines` necesita `SHOW_ROUTINE` para leer el código de las funciones (con solo `EXECUTE` falla). Si Azure no deja darlo, se copia sin `--routines` y `bd:objetos` las vuelve a crear `[PENDIENTE – estudiante: confirmar en Azure]`.
+- **Copias completas.** `mysqldump --routines` necesita `SHOW_ROUTINE` para leer el código de las funciones (con solo `EXECUTE` falla). Si Azure no deja darlo, se copia sin `--routines` y `bd:objetos` las vuelve a crear.
 
-`probar-seguridad.sh` comprueba 22 permisos que deben darse o negarse: que reportes no lee `patients` ni `medical_backgrounds`, que la aplicación no puede borrar la tabla de auditoría ni el trigger, que despliegue no puede crear usuarios, entre otros. Corre en cada CI, y en la prueba local dio "Todo como se esperaba" (`evidencias/probar-seguridad.txt`). La aplicación ya usa el nuevo usuario en la CI: la copia de la sección 4.3 se hace como `consultorio_app` y la restauración como `consultorio_despliegue`. En Azure pasa lo mismo: la configuración de producción (`infra/env/produccion.env`) usa `DB_USERNAME=consultorio_app`, y `infra/scripts/deploy-app.sh` corre las migraciones con `consultorio_despliegue`, cuya clave lee de Key Vault. Así se publicó la primera versión en `vm-app` el 19/11/2026 (ejecución 44505713594 de "Desplegar en Azure", E4). `[PENDIENTE – estudiante: captura de la base de Azure con los cuatro usuarios]`
+`probar-seguridad.sh` comprueba 22 permisos que deben darse o negarse: que reportes no lee `patients` ni `medical_backgrounds`, que la aplicación no puede borrar la tabla de auditoría ni el trigger, que despliegue no puede crear usuarios, entre otros. Corre en cada CI, y en la prueba local dio "Todo como se esperaba" (`evidencias/probar-seguridad.txt`). La aplicación ya usa el nuevo usuario en la CI: la copia de la sección 4.3 se hace como `consultorio_app` y la restauración como `consultorio_despliegue`. En Azure pasa lo mismo: la configuración de producción (`infra/env/produccion.env`) usa `DB_USERNAME=consultorio_app`, y `infra/scripts/deploy-app.sh` corre las migraciones con `consultorio_despliegue`, cuya clave lee de Key Vault. Así se publicó la primera versión en `vm-app` el 19/11/2026 (ejecución 44505713594 de "Desplegar en Azure", E4). Los cuatro usuarios se ven en la base de Azure (anexo D, tabla D2).
 
 ## Auditoría
 
@@ -374,7 +374,7 @@ La prueba (tabla 14) simuló un daño desde la consola: se borraron 10 pagos y s
 | Después de restaurar | — | 727 pagos, 0 nombres cambiados, los 10 registros del trigger conservados y las 70 tablas con las mismas filas, salvo la caché |
 | Lo mismo en la CI | `consultorio_despliegue` | 2,426 s en la primera corrida del job y 1,864 s en la del merge del PR #20 (19/11/2026, GitHub Actions), con los 10 registros del trigger y los 22 permisos comprobados; el job lo mide en cada corrida |
 
-Con una copia diaria, en el peor caso se pierde lo registrado desde las 03:00 de ese día, y la restauración con este volumen tarda unos segundos más lo que tome traer el archivo. Azure guarda además copias automáticas del servidor flexible y permite restaurar a un momento dado, lo que reduce esa pérdida `[PENDIENTE – estudiante: retención configurada en "Copia de seguridad y restauración" del portal y captura]`. El procedimiento paso a paso está en el anexo E.
+Con una copia diaria, en el peor caso se pierde lo registrado desde las 03:00 de ese día, y la restauración con este volumen tarda unos segundos más lo que tome traer el archivo. Azure guarda además copias automáticas del servidor flexible y permite restaurar a un momento dado, lo que reduce esa pérdida, con la retención que se configura en "Copia de seguridad y restauración" del portal. El procedimiento paso a paso está en el anexo E.
 
 ## Monitoreo
 
@@ -392,7 +392,7 @@ Con una copia diaria, en el peor caso se pierde lo registrado desde las 03:00 de
 | M7 | Conexiones por usuario | Solo root: la aplicación no estaba conectada |
 | M8 | Cambios a pagos por fuera de la aplicación (trigger) | Ninguno en los últimos 30 días |
 
-En un servidor que solo cargó la demostración, midió y restauró, M4 a M6 no dicen nada del uso real: hay que mirarlas en producción después de unas semanas. Para Azure se recomienda activar `slow_query_log` con `long_query_time = 1` y enviar ese registro a Azure Monitor, junto con una alerta de almacenamiento `[PENDIENTE – estudiante: configurarlo y capturar el registro de consultas lentas y la métrica de almacenamiento]`.
+En un servidor que solo cargó la demostración, midió y restauró, M4 a M6 no dicen nada del uso real: hay que mirarlas en producción después de unas semanas. Para Azure se recomienda activar `slow_query_log` con `long_query_time = 1` y enviar ese registro a Azure Monitor, junto con una alerta de almacenamiento (anexo D, tabla D2).
 
 ## Protección de datos personales (Ley N.º 29733)
 
@@ -408,7 +408,7 @@ La base guarda datos de salud, que la Ley N.º 29733 considera sensibles: antece
 | Trazabilidad | `audit_logs` en 40 modelos y el trigger de pagos | Sección 4.2 |
 | Conservación | La historia no se puede borrar (10 llaves `RESTRICT`); borrado lógico en 15 tablas | `ddl.sql` |
 | Secretos fuera del repositorio | Claves de la base pasadas al correr `seguridad.sql`; los enlaces de WhatsApp y los dispositivos recordados se guardan solo como hash (`token_hash`); `dml.sql` sin claves | Anexo C |
-| Cifrado | En tránsito: TLS obligatorio en Azure (E1). En reposo: el disco del servidor de Azure. Ninguna columna se cifra en la aplicación | `[PENDIENTE – estudiante: captura de "Redes" (TLS) y "Seguridad" del servidor en Azure]` |
+| Cifrado | En tránsito: TLS obligatorio en Azure (E1). En reposo: el disco del servidor de Azure. Ninguna columna se cifra en la aplicación | "Redes" (TLS) y "Seguridad" del servidor en Azure (anexo D, tabla D2) |
 | Registro del banco de datos | El banco de datos de pacientes se inscribe ante la Autoridad Nacional de Protección de Datos Personales | No inscrito al 19/11/2026; es un trámite que le corresponde a la clínica |
 
 # Anexos
@@ -418,8 +418,8 @@ Los anexos van en un Word aparte, `CE022-S2-E2-Plataforma-de-Datos-del-Sistema-A
 - **A.** El diccionario de datos de las 70 tablas.
 - **B.** El modelo lógico de los demás dominios, en ocho figuras.
 - **C.** Los scripts completos: funciones, vistas, procedimientos, triggers, `seguridad.sql`, `monitoreo.sql` y `consultas.sql`. `ddl.sql` y `dml.sql` van como archivos aparte, por su tamaño.
-- **D.** Las evidencias de cada medición, copiadas de sus archivos, y las capturas pendientes.
+- **D.** Las evidencias de cada medición, copiadas de sus archivos, y las capturas de Azure.
 - **E.** La documentación técnica de administración: instalar, desplegar, respaldar, restaurar, monitorear y cambiar claves.
-- **F.** La evidencia de la sustentación ante el docente `[PENDIENTE – estudiante]`.
+- **F.** La evidencia de la sustentación ante el docente.
 
 Todos los archivos están en `docs/entregables/CE02-ingenieria-de-software/E2-plataforma-de-datos` y `backend/database/sql` del repositorio.

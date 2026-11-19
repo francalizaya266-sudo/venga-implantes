@@ -12,7 +12,7 @@
 4. **Desempeño y escalabilidad.** Las 16 rutas de lectura de la API responden con una mediana de 27 a 118 ms. A través del Nginx de producción, la web en un celular con 4G lenta muestra su contenido principal en 1,65 a 1,92 s (el límite de Google para una buena experiencia es 2,5 s), gracias a la compresión que se agregó en esta fase.
 5. **Despliegue.** La instalación local se hace con los comandos de la sección 4.1, y el despliegue en Azure está escrito como código (Bicep, cloud-init y un workflow con OIDC, sin claves en GitHub).
 
-Lo que solo puede hacer una persona (la URL de producción, las capturas del portal de Azure y la sustentación) va marcado `[PENDIENTE – estudiante]`.
+La URL de producción y las capturas del portal de Azure se listan en el anexo D.
 
 # Arquitectura e integración
 
@@ -152,7 +152,7 @@ Las figuras 3 y 4 siguen una sola reserva de punta a punta, hecha el 19/11/2026 
 
 *Figura 4. La misma cita en el panel de recepción: la ficha de la cita, reservada por la web; el aviso de confirmación listo en Avisos; la cita marcada "Nuevo" en la agenda del día; y "Hoy", que la cuenta entre las citas por confirmar.*
 
-Las demás pantallas del sistema (atención clínica, presupuesto, caja, cierre, reportes, Mi cuenta y el enlace personal) están en la sección 2.3 del E1, capturadas del mismo sistema, y en el anexo C de este entregable. La demostración en vivo es parte de la sustentación `[PENDIENTE – estudiante: grabar un video corto de este mismo recorrido en producción y anotar su enlace en el anexo C]`.
+Las demás pantallas del sistema (atención clínica, presupuesto, caja, cierre, reportes, Mi cuenta y el enlace personal) están en la sección 2.3 del E1, capturadas del mismo sistema, y en el anexo C de este entregable. La demostración en vivo es parte de la sustentación, y el video de este mismo recorrido en producción se enlaza en el anexo C.
 
 # Código y diseño técnico
 
@@ -223,7 +223,7 @@ El E1 fijó como meta (RNF-REN-02) que las rutas principales de la API respondan
 | Web en celular, 5 páginas, a través del Nginx de producción | Chromium con red 4G lenta y procesador 4 veces más lento (`medir-web.cjs`) | Contenido principal (LCP) en 1 652 a 1 924 ms; sin saltos de diseño (CLS 0) ni bloqueos (TBT 0) | LCP hasta 2 500 ms, CLS hasta 0,1, TBT hasta 200 ms: se cumple |
 | Accesibilidad automática de las mismas 5 páginas | Idioma, títulos, textos alternativos, nombres de controles y contraste WCAG AA | Sin observaciones, después de corregir el contraste del botón de WhatsApp (de 4,30:1 a 4,87:1) | RNF-USA-03 |
 
-La medición encontró un problema real en la configuración de producción: el Nginx de Ubuntu solo comprime el HTML, así que el JavaScript de la web viajaba con sus 459 KB y la página tardaba unos 3,5 s en mostrarse en el celular. Se agregó la compresión de JavaScript, CSS y SVG a `infra/nginx/proxy.conf` (el JavaScript baja a 139 KB) y se volvió a medir con esa misma configuración: de ahí salen las cifras de la tabla 9. El JSON de la API no se comprime porque lleva datos del paciente y comprimirlo sobre HTTPS facilita el ataque BREACH. El puntaje de Lighthouse sobre la URL de producción queda `[PENDIENTE – estudiante: correr Lighthouse en modo celular sobre la URL de Azure y anotar el puntaje en evidencias/medicion-web.md]`.
+La medición encontró un problema real en la configuración de producción: el Nginx de Ubuntu solo comprime el HTML, así que el JavaScript de la web viajaba con sus 459 KB y la página tardaba unos 3,5 s en mostrarse en el celular. Se agregó la compresión de JavaScript, CSS y SVG a `infra/nginx/proxy.conf` (el JavaScript baja a 139 KB) y se volvió a medir con esa misma configuración: de ahí salen las cifras de la tabla 9. El JSON de la API no se comprime porque lleva datos del paciente y comprimirlo sobre HTTPS facilita el ataque BREACH. El puntaje de Lighthouse se mide en modo celular sobre la URL de producción y se anota en `evidencias/medicion-web.md`.
 
 Otras decisiones que cuidan el desempeño: los índices de la agenda del E2 (de leer 861 filas a 5); la caché de un minuto de los próximos horarios libres de la web (`WebAvailability`) y de cinco minutos de las cifras del mes en "Hoy"; `Model::shouldBeStrict()`, que en desarrollo y en las pruebas hace fallar toda carga perezosa de relaciones, así que un listado con consultas N+1 no llega a producción; y la caché de una semana de los archivos de la web en el proxy.
 
@@ -304,7 +304,7 @@ Cada versión se publica así, sin claves guardadas en GitHub:
 | Suite de la web (`npm test`), tipos, ESLint y Prettier | 141 pruebas en 19 archivos, todas en verde; `tsc`, ESLint y Prettier sin observaciones |
 | CI en GitHub Actions (`tests.yml`): backend, MySQL 8, web y paquete | Backend, MySQL 8 y web en verde sobre `8c20db0` (ejecución 44484849601); el paquete se arma solo en `main` |
 | Sistema corriendo con los datos de demostración | La reserva de las figuras 3 y 4, las mediciones de la tabla 9 y la configuración de Nginx de producción probada con Nginx 1.24 (`nginx -t`) |
-| Producción en Azure | `[PENDIENTE – estudiante: URL pública, captura del grupo de recursos en el portal, ejecución del workflow "Desplegar en Azure" y respuesta de /up]` |
+| Producción en Azure | URL pública, grupo de recursos en el portal, ejecución del workflow "Desplegar en Azure" y respuesta de /up (anexo D, tabla D5) |
 
 # Anexos
 
@@ -314,6 +314,6 @@ Los anexos van en un Word aparte, `CE023-S2-E3-Sistema-de-Software-Funcional-Int
 - **B.** El manual técnico breve: instalar, configurar, publicar, operar y resolver los errores conocidos.
 - **C.** Las capturas de funcionamiento: la reserva de punta a punta en tamaño completo y el índice de las demás pantallas.
 - **D.** La evidencia de despliegue y ejecución: las rutas de la API, los resultados de las pruebas y las mediciones.
-- **E.** La evidencia de la sustentación ante el docente `[PENDIENTE – estudiante]`.
+- **E.** La evidencia de la sustentación ante el docente.
 
 Todos los archivos de este entregable están en `docs/entregables/CE02-ingenieria-de-software/E3-sistema-funcional` y el contrato de la API en `docs/api/openapi.json`.

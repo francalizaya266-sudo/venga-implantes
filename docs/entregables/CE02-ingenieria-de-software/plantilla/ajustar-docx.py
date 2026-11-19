@@ -10,7 +10,7 @@ Uso: python3 plantilla/ajustar-docx.py word/archivo.docx metadatos.yaml [--secci
    solo dice [[VERTICAL]] cierra la horizontal. Sirve para una tabla ancha, como la matriz de trazabilidad.
    La portada sigue sin encabezado ni número y las secciones siguientes los conservan.
 3. Un párrafo que solo dice [[PAGINA]] hace empezar en una página nueva lo que sigue (por ejemplo, un acta), y la
-   fila de una tabla con [PENDIENTE – firma] deja espacio para firmar a mano.
+   fila de una tabla de firmas (con una columna "Firma") deja espacio para firmar a mano.
 4. El título "Anexos" del documento principal (que solo dice dónde están los anexos) no empieza página nueva.
 5. El párrafo que sigue a una tabla lleva 6 puntos de aire antes, y un bloque de código no se separa del párrafo
    que lo presenta. Uno corto (hasta 35 líneas, como un escenario Gherkin) tampoco se parte; uno largo (un script
@@ -85,7 +85,7 @@ def poner(padre, nombre, **atributos):
 
 MARCAS = ('[[HORIZONTAL]]', '[[VERTICAL]]')
 PAGINA = '[[PAGINA]]'
-FIRMA = '[PENDIENTE – firma]'
+FIRMA = 'Firma'
 CORTE = '\u200b'
 
 
@@ -211,15 +211,15 @@ def saltos_de_pagina(doc):
 
 
 def espacio_para_firmar(doc):
-    """La fila de una tabla que pide una firma deja 1,5 cm para firmar a mano, con la marca abajo."""
+    """Cada fila de una tabla de firmas (con una columna "Firma") deja 1,5 cm para firmar a mano."""
     for tabla in doc.tables:
-        for fila in tabla.rows:
-            if any(celda.text.strip() == FIRMA for celda in fila.cells):
-                fila.height = Cm(1.5)
-                fila.height_rule = WD_ROW_HEIGHT_RULE.AT_LEAST
-                for celda in fila.cells:
-                    if celda.text.strip() == FIRMA:
-                        celda.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.BOTTOM
+        if not tabla.rows or FIRMA not in [celda.text.strip() for celda in tabla.rows[0].cells]:
+            continue
+        for fila in list(tabla.rows)[1:]:
+            fila.height = Cm(1.5)
+            fila.height_rule = WD_ROW_HEIGHT_RULE.AT_LEAST
+            for celda in fila.cells:
+                celda.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.BOTTOM
 
 
 def girar(sect_pr, horizontal):

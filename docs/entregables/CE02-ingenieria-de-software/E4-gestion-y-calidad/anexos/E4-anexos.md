@@ -370,17 +370,17 @@ La vigilancia de `/up` cada 15 minutos:
 
 Estas evidencias se toman con producción encendida. Ninguna debe mostrar claves, la IP pública ni datos que no sean del seeder.
 
-*Tabla B3. Evidencias de operación pendientes.*
+*Tabla B3. Evidencias de operación.*
 
 | N.º | Qué capturar | Dónde |
 | --: | --- | --- |
-| 1 | `[PENDIENTE – estudiante (Jhoel): "Desplegar en Azure" con la acción publicar, en verde, con "Listo: /var/www/vega/releases/…" y /up en 200]` | GitHub, Actions |
-| 2 | `[PENDIENTE – estudiante (Jhoel): "Desplegar en Azure" con la acción volver, en verde]` | GitHub, Actions |
-| 3 | `[PENDIENTE – estudiante (Jhoel): resumen de una ejecución de "Vigilar producción" con el código y el tiempo de /up]` | GitHub, Actions |
-| 4 | `[PENDIENTE – estudiante (Jhoel): las alertas alerta-cpu-vm-app y alerta-vm-caida y el grupo de acciones]` | Portal de Azure, Monitor |
-| 5 | `[PENDIENTE – estudiante (Jhoel): métricas de CPU de vm-app de un día de uso]` | Portal de Azure, Monitor |
-| 6 | `[PENDIENTE – estudiante (Jhoel): tablero de Wazuh con eventos de vm-app, uno del canal json]` | Wazuh |
-| 7 | `[PENDIENTE – estudiante: artefacto cobertura-backend abierto (index.html)]` | GitHub, Actions |
+| 1 | "Desplegar en Azure" con la acción publicar, en verde, con "Listo: /var/www/vega/releases/…" y /up en 200 | GitHub, Actions |
+| 2 | "Desplegar en Azure" con la acción volver, en verde | GitHub, Actions |
+| 3 | Resumen de una ejecución de "Vigilar producción" con el código y el tiempo de /up | GitHub, Actions |
+| 4 | Las alertas alerta-cpu-vm-app y alerta-vm-caida y el grupo de acciones | Portal de Azure, Monitor |
+| 5 | Métricas de CPU de vm-app de un día de uso | Portal de Azure, Monitor |
+| 6 | Tablero de Wazuh con eventos de vm-app, uno del canal json | Wazuh |
+| 7 | Artefacto cobertura-backend abierto (index.html) | GitHub, Actions |
 
 # Anexo C. Artefactos ágiles
 
@@ -411,13 +411,13 @@ Estas evidencias se toman con producción encendida. Ninguna debe mostrar claves
 | O2. Agenda sin cruces | Reservas simultáneas no toman el mismo horario (RNF-REN-01) | Probado (`test_a_time_taken_meanwhile_sends_the_patient_back_to_choose_another`) |
 | O3. Todo en un lugar | Historia, presupuestos y cobros en el panel (HU-07 a HU-11) | Funciona; 598 casos del panel |
 | O4. Datos de salud protegidos | Cada rol ve solo lo suyo | 35 políticas y 84 pruebas de permisos |
-| O5. Operación continua | Publicación automática, vuelta atrás y vigilancia | Implementado; evidencia en producción pendiente (anexo B) |
+| O5. Operación continua | Publicación automática, vuelta atrás y vigilancia | Implementado; la evidencia en producción va en el anexo B |
 
 *Tabla C3. Interesados.*
 
 | Interesado | Interés | Participación |
 | --- | --- | --- |
-| Dr. Vega (administrador) | Un sistema que ordene la clínica y proteja los datos | Patrocinador; valida y acepta `[PENDIENTE – estudiante: actas]` |
+| Dr. Vega (administrador) | Un sistema que ordene la clínica y proteja los datos | Patrocinador; valida y acepta (actas en el anexo B del E1) |
 | Recepción | Agendar, avisar y cobrar rápido | Usuaria; valida con el guion del E1 |
 | Doctores | Su agenda y la historia de sus pacientes | Usuarios; validan la atención |
 | Pacientes | Reservar y confirmar sin llamar | Usuarios finales de la web |
@@ -433,7 +433,7 @@ Estas evidencias se toman con producción encendida. Ninguna debe mostrar claves
 | Capacidad operativa | E3 Sistema funcional integrado | PR VI-14 | 19/11/2026 |
 | Despliegue | Infraestructura en Azure | PR VI-13, VI-15, VI-16 y VI-17 | 19/11/2026 |
 | Entrega | E4 Gestión y calidad | PR VI-19, VI-20 y VI-21 | 19/11/2026 |
-| Cierre | Sustentación y aceptación de la clínica | Anexo E | `[PENDIENTE – estudiante]` |
+| Cierre | Sustentación y aceptación de la clínica | Anexo E | Al sustentar |
 
 *Tabla C5. Registro de riesgos completo.*
 
@@ -460,7 +460,14 @@ Estas evidencias se toman con producción encendida. Ninguna debe mostrar claves
 | Calidad | Pruebas y cobertura; revisión y métricas; auditoría y mejora | `backend/tests/`, `frontend/src/**/*.test.tsx`, `E4-gestion-y-calidad/` |
 | Despliegue y operación | Azure como código; pipeline; monitoreo y respaldo | `infra/`, `.github/workflows/` |
 
-*Aprobación del Charter.* `[PENDIENTE – firma del Dr. Vega y de los tres integrantes]`
+*Aprobación del Charter.*
+
+| Nombre | Rol | Firma |
+| --- | --- | :-: |
+| Dr. Jassmanny Neil Vega Jaen | Patrocinador | |
+| Fran Franklin Calizaya Apaza | Equipo de desarrollo | |
+| Jhoel Hairton Apaza Quispe | Equipo de desarrollo | |
+| Joselyn Yucra Mamani | Equipo de desarrollo | |
 
 ## Historias de usuario {-}
 
@@ -664,7 +671,7 @@ Calificación por práctica específica (SCAMPI C): TI totalmente, MI mayormente
 | Práctica | Evidencia | Calif. |
 | --- | --- | :-: |
 | REQM SP 1.1 Entender los requerimientos | SRS del E1 con 87 RF, 17 RNF y 24 RN, con su fuente | TI |
-| REQM SP 1.2 Obtener el compromiso con los requerimientos | Prioridad MoSCoW acordada por el equipo; firma de la clínica pendiente | MI |
+| REQM SP 1.2 Obtener el compromiso con los requerimientos | Prioridad MoSCoW acordada por el equipo; falta la firma de la clínica | MI |
 | REQM SP 1.3 Gestionar los cambios | Cambios de alcance como ADR (ADR-12, ADR-13, ADR-14) y en los PR | TI |
 | REQM SP 1.4 Trazabilidad bidireccional | Matriz RF → HU → código → prueba (anexo A del E1) y `verificar-trazabilidad.py` | TI |
 | REQM SP 1.5 Alinear el trabajo con los requerimientos | Cada PR cita lo que cambia; la matriz se verifica por script | TI |
@@ -704,7 +711,7 @@ Calificación por práctica específica (SCAMPI C): TI totalmente, MI mayormente
 | PPQA SP 2.2 Mantener registros | Historial de Actions y de PR | MI |
 | CM SP 1.1 Identificar los elementos de configuración | Código, base (migraciones y SQL), infraestructura, workflows y documentos en git | TI |
 | CM SP 1.2 Sistema de gestión de configuración | GitHub con ramas y PR | TI |
-| CM SP 1.3 Crear líneas base | `main` y versiones numeradas en producción (cinco guardadas); etiquetas de entrega pendientes | MI |
+| CM SP 1.3 Crear líneas base | `main` y versiones numeradas en producción (cinco guardadas); sin etiquetas de entrega | MI |
 | CM SP 2.1 Seguir los pedidos de cambio | Cada cambio en un PR con su descripción | TI |
 | CM SP 2.2 Controlar los elementos | Solo se fusiona con la CI en verde; solo `main` se publica | TI |
 | CM SP 3.1 Registros de configuración | Historial de git y de despliegues | TI |
@@ -719,13 +726,13 @@ Calificación por práctica específica (SCAMPI C): TI totalmente, MI mayormente
 | PM.1 Planificación del proyecto | Charter, EDT y backlog al cierre; sin plan ni estimación previos | Parcial |
 | PM.2 Ejecución del plan | Sprints, PR, CI y registros de avance | Cumple |
 | PM.3 Evaluación y control | Fallas analizadas y corregidas; sin comparación con un plan | Parcial |
-| PM.4 Cierre del proyecto | Pendiente: aceptación de la clínica y sustentación | Pendiente |
+| PM.4 Cierre del proyecto | Se cierra con la aceptación de la clínica y la sustentación | Al sustentar |
 | SI.1 Inicio de la implementación | Repositorio, entorno local y CI | Cumple |
-| SI.2 Análisis de requerimientos | SRS, HU y prototipo; validación firmada pendiente | Parcial |
+| SI.2 Análisis de requerimientos | SRS, HU y prototipo; falta la validación firmada | Parcial |
 | SI.3 Arquitectura y diseño detallado | C4, ADR, clases, secuencia y estados (E1) | Cumple |
 | SI.4 Construcción | Código con pruebas por componente | Cumple |
 | SI.5 Integración y pruebas | CI, contrato OpenAPI y suite en MySQL 8 | Cumple |
-| SI.6 Entrega del producto | Manual técnico (E3) y despliegue automatizado; publicación en verde pendiente | Parcial |
+| SI.6 Entrega del producto | Manual técnico (E3) y despliegue automatizado; falta la publicación en verde | Parcial |
 
 ## Registro de deuda técnica {-}
 
@@ -780,22 +787,22 @@ Salida de `calidad/medir-codigo.php` el 19/11/2026, que es la fuente de las tabl
 
 # Anexo E. Evidencia de la sustentación
 
-Este anexo guarda la evidencia de que el entregable se sustentó ante el docente, como pide la plantilla del E4. Se llena el día de la sustentación `[PENDIENTE – estudiante: llenar el día de la sustentación]`.
+Este anexo guarda la evidencia de que el entregable se sustentó ante el docente, como pide la plantilla del E4. Se llena el día de la sustentación.
 
 *Tabla E1. Registro de la sustentación del E4.*
 
 | Campo | Registro |
 | --- | --- |
-| Fecha y hora | `[PENDIENTE – estudiante]` |
-| Docente evaluador | `[PENDIENTE – estudiante]` |
-| Integrantes que sustentaron y parte que expuso cada uno | `[PENDIENTE – estudiante]` |
-| Demostración en vivo (CI de un PR, publicación y vuelta atrás, vigilancia de `/up`) | `[PENDIENTE – estudiante]` |
-| Preguntas del docente y respuesta resumida | `[PENDIENTE – estudiante]` |
-| Observaciones y compromisos de corrección | `[PENDIENTE – estudiante]` |
+| Fecha y hora | |
+| Docente evaluador | |
+| Integrantes que sustentaron y parte que expuso cada uno | |
+| Demostración en vivo (CI de un PR, publicación y vuelta atrás, vigilancia de `/up`) | |
+| Preguntas del docente y respuesta resumida | |
+| Observaciones y compromisos de corrección | |
 
 **Preguntas que conviene preparar.** ¿Por qué la meta de cobertura es 90 % y no 100 %? ¿Por qué Scrum adaptado y no OpenUP puro? ¿Por qué el proceso queda en nivel 1 si la ingeniería es fuerte? ¿Cómo se revisó el código escrito con el asistente de IA? ¿Qué pasa si una versión nueva rompe producción?
 
-**Capturas de la sesión.** `[PENDIENTE – estudiante: una captura de la sustentación con los integrantes visibles y otra de la demostración]`
+**Capturas de la sesión.** Una de la sustentación con los integrantes visibles y otra de la demostración.
 
-**Firma del docente.** `[PENDIENTE – firma]`
+**Firma del docente:** \_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_
 

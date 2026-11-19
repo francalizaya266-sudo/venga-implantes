@@ -18,7 +18,7 @@ Frente a la rúbrica, de las 18 evidencias de CE02 hay 1 cubierta en código (CE
 
 # Análisis previo del proyecto
 
-> Documento de trabajo. Todas las cifras salen de comandos ejecutados el 18/11/2026 sobre el commit `b91fdee` de `main` (ver "Cómo se midió" al final del apartado "Cómo se ejecuta y se despliega"). Lo que no se pudo medir queda como `[PENDIENTE]`.
+> Documento de trabajo. Todas las cifras salen de comandos ejecutados el 18/11/2026 sobre el commit `b91fdee` de `main` (ver "Cómo se midió" al final del apartado "Cómo se ejecuta y se despliega"). Lo que no se pudo medir se indica en su lugar.
 
 ## Dónde está el proyecto
 
@@ -193,7 +193,7 @@ No hay reporte de cobertura en ninguno de los dos lados (el workflow usa `covera
 - **Producción:** hosting compartido. La raíz pública apunta a `backend/public`, `composer install --no-dev`, `php artisan migrate --force`, `php artisan db:seed --class=CatalogSeeder --force` y un cron cada minuto con `schedule:run`. El paquete `consultorio-para-hosting` de GitHub Actions trae `backend/` con la web ya compilada.
 - **Tareas programadas** (`backend/routes/console.php`, 10 según `php artisan schedule:list`): recordatorios y citas sin confirmar (cada 15 min), cuotas (06:00 y cada 15 min), lista de espera (cada 5 min), envío de WhatsApp (cada 5 min), cola (cada minuto), `model:prune` (diario), duraciones aprendidas (02:30) y copia de seguridad (03:00).
 - **Verificación de salud:** ruta `/up` de Laravel (`backend/bootstrap/app.php`).
-- **URL de producción:** el despliegue será en Microsoft Azure. `[PENDIENTE – estudiante: URL cuando exista]`.
+- **URL de producción:** el despliegue será en Microsoft Azure, y la URL se agrega al encender producción.
 
 **Cómo se midió:** clon de `main` en `b91fdee`; `composer install` desde `composer.lock`; `npm ci`; los comandos de la tabla de pruebas; conteos con `find`/`grep` sobre `backend/app`, `backend/database`, `backend/tests` y `frontend/src`; `php artisan route:list`. PHP 8.3.6 y Node 22.23.5.
 
