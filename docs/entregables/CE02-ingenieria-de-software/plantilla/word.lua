@@ -147,8 +147,22 @@ local function largo(palabra)
   return total
 end
 
+-- Una tabla de firmas (su última columna se llama "Firma") deja esa columna ancha para firmar a mano.
+local function es_tabla_de_firmas(tabla)
+  local encabezado = tabla.head.rows[1]
+  return encabezado ~= nil and #encabezado.cells == #tabla.colspecs
+    and pandoc.utils.stringify(encabezado.cells[#encabezado.cells].contents) == 'Firma'
+end
+
 local function ajustar_tabla(tabla, letras_por_linea)
   local columnas = #tabla.colspecs
+  if es_tabla_de_firmas(tabla) and columnas == 3 then
+    local anchos = { 0.40, 0.28, 0.32 }
+    for j = 1, columnas do
+      tabla.colspecs[j] = { tabla.colspecs[j][1], anchos[j] }
+    end
+    return tabla
+  end
   local minimo, texto, celdas = {}, {}, {}
   for j = 1, columnas do
     minimo[j], texto[j], celdas[j] = 4, 0, 0

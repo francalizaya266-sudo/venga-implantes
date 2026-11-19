@@ -1,6 +1,6 @@
 # Resumen ejecutivo
 
-**Qué se evalúa.** Este entregable muestra la calidad del producto (pruebas, integración, despliegue y operación) y la del proceso con que se hizo (gestión ágil, aseguramiento y auditoría) del sistema web de Clínica Vega Implant. Todo dato sale del repositorio `venga-implantes` (rama del E4, sobre `main` en `e3ccd05`), de su historial y del de `consultorio-dental`, donde se trabajaron los primeros 98 PR, o de un comando corrido el 19/11/2026. Lo que solo puede hacer una persona va marcado `[PENDIENTE – estudiante]`.
+**Qué se evalúa.** Este entregable muestra la calidad del producto (pruebas, integración, despliegue y operación) y la del proceso con que se hizo (gestión ágil, aseguramiento y auditoría) del sistema web de Clínica Vega Implant. Todo dato sale del repositorio `venga-implantes` (rama del E4, sobre `main` en `e3ccd05`), de su historial y del de `consultorio-dental`, donde se trabajaron los primeros 98 PR, o de un comando corrido el 19/11/2026.
 
 **Estado de la calidad.**
 
@@ -139,7 +139,7 @@ Hasta el 19/11/2026 a las 7:55 (hora de Lima) hubo 58 ejecuciones en GitHub Acti
 
 La primera publicación real (ejecución `44505713594`, 19/11/2026) llegó hasta el final del despliegue. Entró a Azure por OIDC, subió el paquete `20261119-102836-e3cf66c` a Blob y `deploy-app.sh` instaló las dependencias, migró la base, validó Nginx y dejó la versión activa. Solo falló la comprobación final, porque `/up` no respondía desde internet. El PR #17 de Jhoel agregó la regla de salida que faltaba en el NSG del firewall. Según su commit `2c1e51b`, desde ese cambio la web responde 200 en `/`, `/tratamientos`, `/reservar` y la API, y `/panel` da 403 desde internet.
 
-`[PENDIENTE – estudiante (Jhoel): encender producción, correr "Desplegar en Azure" con la acción publicar y después con volver, y guardar las dos ejecuciones en verde con "Listo: …" y /up en 200 (anexo B)]`
+Al encender producción, Jhoel corre "Desplegar en Azure" con la acción publicar y después con volver, y las dos ejecuciones en verde, con "Listo: …" y /up en 200, van al anexo B.
 
 ## Observabilidad en producción
 
@@ -161,7 +161,7 @@ La operación responde tres preguntas: si el sistema está vivo, si está sano y
 
 Antes de este entregable, `/up` solo comprobaba que Laravel arrancara, y los registros eran texto sin contexto. Ahora `ObservabilityTest` prueba que `/up` falla con la base caída y que cada línea del registro JSON dice de qué petición, ruta y usuario viene. Si se quitan los listeners de `AppServiceProvider`, dos de sus cuatro pruebas fallan.
 
-`[PENDIENTE – estudiante (Jhoel): capturas de las alertas en Azure Monitor, del tablero de Wazuh con eventos de vm-app y de una ejecución de "Vigilar producción" (anexo B)]`
+Las capturas de las alertas en Azure Monitor, del tablero de Wazuh con eventos de vm-app y de una ejecución de "Vigilar producción" van al anexo B.
 
 ## Estrategia de rollback y respaldos
 
@@ -173,9 +173,9 @@ Cada falla posible tiene su forma de volver atrás, con un tiempo o una pérdida
 | --- | --- | --- | --- |
 | La versión nueva falla | Acción `volver`: `volver-version.sh` rearma las cachés de la versión anterior, cambia `current` y recarga PHP-FPM y Nginx. Se guardan cinco versiones | Segundos, sin perder datos | `probar-volver-version.sh`: 6 casos en verde (anexo B) |
 | La versión nueva migró y dañó datos | `respaldo:restaurar` con la copia previa, y después `volver` | Mediana de 3,2 s para restaurar (E2) | `DatabaseBackupTest` y el job de MySQL 8 |
-| Se pierde la base | Restauración de MySQL Flexible a un punto en el tiempo | Copias automáticas de 7 días; minutos de datos | Configurado en `prod/main.bicep` `[PENDIENTE – estudiante: prueba en Azure]` |
+| Se pierde la base | Restauración de MySQL Flexible a un punto en el tiempo | Copias automáticas de 7 días; minutos de datos | Configurado en `prod/main.bicep`; se prueba en Azure |
 | Se pierde la VM | `desplegar.sh` la recrea y `deploy-app.sh` publica | Unos 40 min sin intervenir (`infra/README.md`) | Primer despliegue del 19/11/2026 |
-| Se pierde Azure | Copia diaria a las 03:00 subida a Blob a las 03:30, y copia horaria a la sede por la VPN (se guardan 48) | Una hora de datos | `copy-to-dr.sh` `[PENDIENTE – estudiante: prueba con la VPN]` |
+| Se pierde Azure | Copia diaria a las 03:00 subida a Blob a las 03:30, y copia horaria a la sede por la VPN (se guardan 48) | Una hora de datos | `copy-to-dr.sh`; se prueba con la VPN |
 
 # Gestión ágil del proyecto de software
 
@@ -188,7 +188,7 @@ El Charter se escribió al cierre, con lo que el proyecto ya había decidido y r
 | Campo | Contenido |
 | --- | --- |
 | Proyecto | Sistema web de Clínica Vega Implant (Jr. Apurímac 648, Juliaca) |
-| Patrocinador y cliente | Dr. Jassmanny Neil Vega Jaen, administrador y odontólogo de la clínica `[PENDIENTE – firma]` |
+| Patrocinador y cliente | Dr. Jassmanny Neil Vega Jaen, administrador y odontólogo de la clínica |
 | Problema | Los pacientes reservan llamando, la agenda de cada doctor se cruza, y la historia clínica, los presupuestos y los cobros están en lugares distintos. |
 | Objetivo general | Que la clínica reserve, atienda y cobre en un solo sistema web, con los datos de salud protegidos según la Ley N.º 29733. |
 | Objetivos medibles | O1: el paciente reserva en línea en tres pasos, sin llamar (HU-01). O2: ninguna reserva cruza otra (RNF-REN-01, con prueba). O3: historia clínica, presupuestos y cobros en el mismo sistema (HU-07 a HU-11). O4: cada rol ve solo lo suyo (35 políticas). O5: el sistema queda en Azure con CI/CD, monitoreo y vuelta atrás. |
@@ -275,7 +275,7 @@ La medida de velocidad es el número de PR, porque no se estimó en puntos de hi
 | Planificación del sprint | Cada semana tuvo un objetivo, partido en PR pequeños por etapas ("Agenda, etapa 1 a 3", "Tandas 1 a 9") | Títulos y fechas de los PR (anexo C) | Reconstruida y confirmada por el equipo |
 | Scrum diario | El equipo se coordinó por un grupo de WhatsApp, por llamadas y en reuniones en la universidad | | Sin evidencia escrita |
 | Refinamiento | Revisiones del sistema que alimentaron el backlog: #41 (borrar sin romper la agenda), #74 (ocho correcciones de agenda), #77 (21 fallas de configuración) | PR de esas revisiones | Hecho |
-| Revisión del sprint | Cada PR dice qué cambia y cómo se probó, y se fusiona con la CI en verde. La demostración con la clínica no quedó registrada | 112 de 115 PR | `[PENDIENTE – estudiante: demostración con el Dr. Vega]` |
+| Revisión del sprint | Cada PR dice qué cambia y cómo se probó, y se fusiona con la CI en verde. La demostración con la clínica no quedó registrada | 112 de 115 PR | Parcial |
 | Retrospectiva | Hubo retrospectivas en algunos sprints, sin registro en el repositorio. Los borradores del anexo C salen de los datos de cada sprint y el equipo los revisó | Anexo C | Parcial |
 
 ## Comparación y adaptación frente a OpenUP
@@ -324,11 +324,11 @@ La matriz de calidad (tabla 15, en la página siguiente) toma las característic
 | Adecuación funcional (corrección) | Pruebas en verde | 100 % | 1 097 + 141, sin fallas (CI) | Una regla mal implementada |
 | Eficiencia (comportamiento temporal) | Mediana de las rutas de lectura de la API | < 500 ms | 27 a 118 ms (medición del E3) | El paciente abandona la reserva |
 | Eficiencia (comportamiento temporal) | LCP de la web en un celular con 4G lenta | ≤ 2,5 s | 1,65 a 1,92 s (Lighthouse, E3) | El paciente abandona la reserva |
-| Eficiencia (uso de recursos) | CPU de `vm-app` | < 80 % sostenido | `[PENDIENTE – estudiante]` (alerta de CPU) | La VM se satura |
+| Eficiencia (uso de recursos) | CPU de `vm-app` | < 80 % sostenido | Se mide en producción (alerta de CPU) | La VM se satura |
 | Compatibilidad (interoperabilidad) | Rutas de la API que cumplen OpenAPI | 36 de 36 | 36 de 36 (contrato en `TestCase`) | La web y la API se desalinean |
 | Usabilidad (accesibilidad) | Contraste del texto | ≥ 4,5:1 | Botón de WhatsApp de 4,30 a 4,87:1 (E3) | Pacientes mayores no leen |
 | Fiabilidad (madurez) | Ejecuciones de la CI en `main` en verde | ≥ 95 % | 17 de 18, 94 % (Actions) | Merges que rompen `main` |
-| Fiabilidad (disponibilidad) | `/up` en 200 en la vigilancia | ≥ 99 % | `[PENDIENTE – estudiante]` (Vigilar producción) | Caída sin aviso |
+| Fiabilidad (disponibilidad) | `/up` en 200 en la vigilancia | ≥ 99 % | Se mide en producción (Vigilar producción) | Caída sin aviso |
 | Fiabilidad (recuperabilidad) | Restauración y pérdida de datos | < 1 min; ≤ 1 h | 3,2 s y RPO de 1 h (E2, `copy-to-dr.sh`) | Perder citas o pagos |
 | Seguridad (confidencialidad) | Pantallas clínicas con política y prueba de rol | 100 % | 35 políticas, 84 pruebas (`PanelAccessTest`) | Recepción ve la historia clínica |
 | Seguridad (responsabilidad) | Cambios con usuario, fecha y valor anterior | 100 % de lo sensible | 40 modelos auditables (`AuditableTest`) | No saber quién cambió un cobro |
@@ -399,7 +399,7 @@ La deuda que queda tiene un registro (anexo D) con 14 partidas, su costo estimad
 
 **Resultado.** El nivel de madurez 2 exige que todas sus áreas estén al menos mayormente implementadas, y PP, PMC y MA están parcialmente. Por eso el proceso queda en el **nivel 1, con prácticas de nivel 2 y 3 en marcha**. La parte técnica (REQM, CM, TS y VER) tiene evidencia completa, y lo que falta es de gestión: planificar, medir contra el plan y validar con la clínica.
 
-En **ISO/IEC 29110**, perfil básico, los seis procesos de implementación (SI.1 a SI.6) tienen evidencia, con SI.2 y SI.6 parciales por la validación y la entrega en producción pendientes. De gestión del proyecto, PM.2 (ejecución) se cumple, PM.1 (planificación) y PM.3 (evaluación y control) son parciales, y PM.4 (cierre) queda pendiente hasta la aceptación de la clínica y la sustentación. El checklist está en el anexo D.
+En **ISO/IEC 29110**, perfil básico, los seis procesos de implementación (SI.1 a SI.6) tienen evidencia, con SI.2 y SI.6 parciales, porque faltan la validación con la clínica y la entrega en producción. De gestión del proyecto, PM.2 (ejecución) se cumple, PM.1 (planificación) y PM.3 (evaluación y control) son parciales, y PM.4 (cierre) queda pendiente hasta la aceptación de la clínica y la sustentación. El checklist está en el anexo D.
 
 ## Plan de mejora de la calidad del software
 

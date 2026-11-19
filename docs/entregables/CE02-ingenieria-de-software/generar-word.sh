@@ -34,7 +34,7 @@ generar() {
   local paginas
   paginas=$(pdfinfo "$pdf" | awk '/^Pages:/ {print $2}')
   local pendientes
-  pendientes=$(pdftotext "$pdf" - | grep -o 'PENDIENTE' | wc -l)
+  pendientes=$(pdftotext "$pdf" - | grep -o 'PENDIENTE' | wc -l || true)
   printf '%s: %s páginas, %s [PENDIENTE]\n' "$salida" "$paginas" "$pendientes"
 }
 
