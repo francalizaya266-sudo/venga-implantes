@@ -1,9 +1,9 @@
 // Sede de la clínica simulada: la red vnet-clinica con sus subredes (cada una equivale a una VLAN
-// del diseño), las tablas de rutas que obligan a pasar por OPNsense, los NSG y las VM de laboratorio.
+// del diseño), las tablas de rutas que obligan a pasar por el firewall (vm-fw), los NSG y las VM de laboratorio.
 // Se despliega en el grupo de recursos rg-vega-clinica, en dos pasadas:
 //
-//   1) deployVms=false  -> solo la red. Luego se instala OPNsense (ver infra/opnsense/README.md).
-//   2) deployVms=true   -> las VM, que ya salen a internet a través de OPNsense.
+// Todo sale en una sola pasada: el firewall Linux (infra/firewall/sede.nft) se configura solo con cloud-init y las
+// demás VM esperan a que dé salida a internet y DNS antes de instalarse. Con deployVms=false solo red y firewall.
 //
 //   az deployment group create -g rg-vega-clinica -f infra/azure/clinica/main.bicep -p infra/azure/clinica/clinica.bicepparam
 
@@ -16,20 +16,23 @@ param adminUsername string = 'vegaadmin'
 @description('Llave pública SSH del equipo.')
 param sshPublicKey string
 
-@description('IP de administración separadas por coma (x.x.x.x/32): tu navegador y Cloud Shell. Las únicas que abren el panel de OPNsense y el SSH del jump host.')
+@description('IP de administración separadas por coma (x.x.x.x/32): tu navegador y Cloud Shell. Las únicas que llegan al SSH del firewall y del jump host.')
 param adminSourceIps string
 
 @description('Red de producción en Azure (vnet-vega).')
 param prodAddressSpace string = '10.20.0.0/16'
 
-@description('IP de la tarjeta LAN de OPNsense: el siguiente salto de todas las subredes.')
+@description('IP de la tarjeta LAN del firewall: el siguiente salto de todas las subredes.')
 param firewallLanIp string = '10.10.1.4'
 
 @description('IP del servidor Wazuh, al que el honeypot sí puede enviar sus logs.')
 param wazuhIp string = '10.10.50.10'
 
-@description('false en la primera pasada (solo red); true cuando OPNsense ya está funcionando.')
-param deployVms bool = false
+@description('true crea también las VM de laboratorio; false solo la red y el firewall.')
+param deployVms bool = true
+
+@description('Dominio de la web: el DNS de la sede lo resuelve al proxy de producción, para llegar al panel por la VPN.')
+param siteDomain string
 
 @description('Hora de apagado diario de las VM de laboratorio (HHmm, hora de Lima).')
 param autoShutdownTime string = '2000'
@@ -75,9 +78,9 @@ resource nsgWan 'Microsoft.Network/networkSecurityGroups@2024-05-01' = {
           sourceAddressPrefixes: adminIps
           sourcePortRange: '*'
           destinationAddressPrefix: '*'
-          // 443: panel de OPNsense. 2222: reenvío al SSH del jump host.
+          // 2200: SSH del firewall. 2222: reenvío al SSH del jump host.
           destinationPortRanges: [
-            '443'
+            '2200'
             '2222'
           ]
         }
@@ -92,7 +95,7 @@ resource nsgWan 'Microsoft.Network/networkSecurityGroups@2024-05-01' = {
           sourceAddressPrefix: 'Internet'
           sourcePortRange: '*'
           destinationAddressPrefix: '*'
-          // OPNsense los reenvía al honeypot: cada intento queda registrado en Wazuh.
+          // El firewall los reenvía al honeypot: cada intento queda registrado en Wazuh.
           destinationPortRanges: [
             '22'
             '3306'
@@ -103,7 +106,7 @@ resource nsgWan 'Microsoft.Network/networkSecurityGroups@2024-05-01' = {
   }
 }
 
-// Las subredes internas: el filtrado fino lo hace OPNsense. Lo que llega de producción por la VPN conserva su
+// Las subredes internas: el filtrado fino lo hace el firewall. Lo que llega de producción por la VPN conserva su
 // IP de origen (10.20.x.x), que Azure no considera parte de esta red: hay que permitirlo aquí.
 resource nsgInterno 'Microsoft.Network/networkSecurityGroups@2024-05-01' = {
   name: 'nsg-interno'
@@ -129,7 +132,7 @@ resource nsgInterno 'Microsoft.Network/networkSecurityGroups@2024-05-01' = {
         }
       }
       {
-        // Syslog del OPNsense de producción hacia Wazuh.
+        // Syslog de producción hacia Wazuh.
         name: 'Permitir-Produccion-Syslog'
         properties: {
           priority: 105
@@ -143,7 +146,7 @@ resource nsgInterno 'Microsoft.Network/networkSecurityGroups@2024-05-01' = {
         }
       }
       {
-        // OPNsense de la sede entrega por su tarjeta LAN lo que vuelve de producción.
+        // El firewall de la sede entrega por su tarjeta LAN lo que vuelve de producción.
         name: 'Permitir-Produccion-Respuestas'
         properties: {
           priority: 110
@@ -210,7 +213,7 @@ resource nsgDmz 'Microsoft.Network/networkSecurityGroups@2024-05-01' = {
   }
 }
 
-// ---------- Tabla de rutas: todo sale por OPNsense ----------
+// ---------- Tabla de rutas: todo sale por el firewall ----------
 
 resource rtFirewall 'Microsoft.Network/routeTables@2024-05-01' = {
   name: 'rt-via-firewall'
@@ -283,16 +286,16 @@ resource vnet 'Microsoft.Network/virtualNetworks@2024-05-01' = {
         addressSpace
       ]
     }
-    // En la segunda pasada, las VM usan el DNS de OPNsense (Unbound), que resuelve el dominio a la IP
-    // privada de vm-app. En la primera no: OPNsense todavía no existe y necesita el DNS de Azure para instalarse.
-    dhcpOptions: deployVms ? {
+    // Las VM usan el DNS del firewall (Unbound), que resuelve el dominio al proxy de producción por la VPN.
+    // El firewall mismo usa el DNS de Azure: su DNS no depende de sí mismo.
+    dhcpOptions: {
       dnsServers: [
         firewallLanIp
       ]
-    } : null
+    }
     subnets: concat([
       {
-        // Tarjeta WAN de OPNsense, con la IP pública.
+        // Tarjeta WAN del firewall, con la IP pública.
         name: 'snet-wan'
         properties: {
           addressPrefix: '10.10.0.0/24'
@@ -302,7 +305,7 @@ resource vnet 'Microsoft.Network/virtualNetworks@2024-05-01' = {
         }
       }
       {
-        // Tarjeta LAN de OPNsense. Sin tabla de rutas para no crear un bucle.
+        // Tarjeta LAN del firewall. Sin tabla de rutas para no crear un bucle.
         name: 'snet-lan'
         properties: {
           addressPrefix: '10.10.1.0/24'
@@ -372,6 +375,28 @@ var vms = [
   }
 ]
 
+// ---------- Firewall (vm-fw) ----------
+
+module firewall '../modules/firewall-vm.bicep' = {
+  name: 'vm-fw'
+  params: {
+    role: 'sede'
+    location: location
+    wanSubnetId: '${vnet.id}/subnets/snet-wan'
+    lanSubnetId: '${vnet.id}/subnets/snet-lan'
+    wanIp: '10.10.0.4'
+    lanIp: firewallLanIp
+    lanGateway: '10.10.1.1'
+    internalPrefixes: map(internalSubnets, s => s.prefix)
+    nftRules: loadTextContent('../../firewall/sede.nft')
+    siteDomain: siteDomain
+    adminUsername: adminUsername
+    sshPublicKey: sshPublicKey
+    autoShutdownTime: autoShutdownTime
+    tags: tags
+  }
+}
+
 module labVms '../modules/linux-vm.bicep' = [for vm in vms: if (deployVms) {
   name: vm.name
   params: {
@@ -388,8 +413,12 @@ module labVms '../modules/linux-vm.bicep' = [for vm in vms: if (deployVms) {
     autoShutdownTime: autoShutdownTime
     tags: tags
   }
+  dependsOn: [
+    firewall
+  ]
 }]
 
+output firewallPublicIp string = firewall.outputs.publicIp
 output vnetName string = vnet.name
 output wanSubnetId string = '${vnet.id}/subnets/snet-wan'
 output lanSubnetId string = '${vnet.id}/subnets/snet-lan'

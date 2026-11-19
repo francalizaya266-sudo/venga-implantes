@@ -3,8 +3,8 @@
 #
 # Uso (en vm-proxy):  sudo DOMINIO=vegaimplant.tech CORREO=equipo@... bash configurar-proxy.sh
 #
-# Antes: el registro A del dominio debe apuntar a la IP pública de OPNsense de producción, y OPNsense debe
-# reenviar el 80 y el 443 a 10.20.3.4 (infra/opnsense/README.md).
+# Antes: el registro A del dominio debe apuntar a la IP pública del firewall de producción (vm-fw), que ya
+# reenvía el 80 y el 443 a 10.20.3.4 (infra/firewall/produccion.nft).
 set -euo pipefail
 
 : "${DOMINIO:?Indica DOMINIO, por ejemplo vegaimplant.tech}"

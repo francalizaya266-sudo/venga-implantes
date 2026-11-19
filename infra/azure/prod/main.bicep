@@ -1,10 +1,11 @@
-// Producción, como la vista de despliegue del E1 (figura 13): desde internet solo se llega a OPNsense; OPNsense
+// Producción, como la vista de despliegue del E1 (figura 13): desde internet solo se llega al firewall (vm-fw); el firewall
 // (con Suricata) pasa el tráfico al proxy de la DMZ (nginx + ModSecurity + Let's Encrypt), y el proxy a vm-app.
 // MySQL Flexible no tiene acceso público y exige TLS. Los secretos van en Key Vault; los registros, en Azure Monitor.
 // Se despliega en el grupo de recursos rg-vega-prod, en dos pasadas:
 //
-//   1) DEPLOY_VMS=false -> red, MySQL, Key Vault, Blob y monitoreo. Luego se instala OPNsense (infra/opnsense).
-//   2) DEPLOY_VMS=true  -> vm-proxy y vm-app, que salen a internet a través de OPNsense.
+// Todo sale en una sola pasada: el firewall Linux (infra/firewall/produccion.nft) se configura solo con cloud-init,
+// y vm-proxy y vm-app esperan a que dé salida a internet antes de instalarse. Con DEPLOY_VMS=false solo se crean
+// la red, MySQL, Key Vault, Blob y el firewall.
 //
 //   az deployment group create -g rg-vega-prod -f infra/azure/prod/main.bicep -p infra/azure/prod/prod.bicepparam
 
@@ -18,7 +19,7 @@ param adminUsername string = 'vegaadmin'
 @description('Llave pública SSH del equipo.')
 param sshPublicKey string
 
-@description('IP de administración separadas por coma (x.x.x.x/32): tu navegador y Cloud Shell. Son las únicas que llegan al panel de OPNsense y, mientras instalas, al SSH de las VM. Vacío cierra esos accesos.')
+@description('IP de administración separadas por coma (x.x.x.x/32): tu navegador y Cloud Shell. Son las únicas que llegan al SSH del firewall y, mientras instalas, al de las VM. Vacío cierra esos accesos.')
 param adminSourceIps string = ''
 
 @description('Deja entrar por SSH a vm-app y vm-proxy desde las IP de administración, antes de que exista la VPN. false al terminar la fase 4.')
@@ -38,17 +39,17 @@ param mysqlAdminPassword string
 @description('Correo que recibe las alertas de Azure Monitor.')
 param alertEmail string
 
-@description('Red de la sede de la clínica, conectada por la VPN de OPNsense.')
+@description('Red de la sede de la clínica, conectada por la VPN entre los dos firewalls.')
 param clinicAddressSpace string = '10.10.0.0/16'
 
 @description('Subred de administración de la sede (jump host).')
 param clinicMgmtPrefix string = '10.10.10.0/24'
 
-@description('IP de la tarjeta LAN de OPNsense: siguiente salto de la DMZ y de la subred de la aplicación.')
+@description('IP de la tarjeta LAN del firewall: siguiente salto de la DMZ y de la subred de la aplicación.')
 param firewallLanIp string = '10.20.1.4'
 
-@description('false en la primera pasada; true cuando OPNsense ya está funcionando.')
-param deployVms bool = false
+@description('true crea también vm-proxy y vm-app; false solo la red, los servicios y el firewall.')
+param deployVms bool = true
 
 @description('B2ats_v2: 2 vCPU y 1 GiB (más 2 GiB de swap). Si queda corta, Standard_B2als_v2 (4 GiB).')
 param appVmSize string = 'Standard_B2ats_v2'
@@ -145,22 +146,22 @@ func ruleFrom(name string, priority int, sources array, ports array) object => {
 var adminIps = filter(map(split(adminSourceIps, ','), ip => trim(ip)), ip => !empty(ip))
 
 var adminWanRules = empty(adminIps) ? [] : [
-  // 8443: panel de OPNsense. 2222 y 2223: SSH a vm-app y vm-proxy mientras no existe la VPN.
-  ruleFrom('Permitir-Admin', 120, adminIps, ['8443', '2222', '2223'])
+  // 2200: SSH del firewall. 2222 y 2223: SSH a vm-app y vm-proxy mientras no existe la VPN.
+  ruleFrom('Permitir-Admin', 120, adminIps, ['2200', '2222', '2223'])
 ]
 
 var adminSshRules = (!allowSetupSsh || empty(adminIps)) ? [] : [
   ruleFrom('Permitir-SSH-Instalacion', 130, adminIps, ['22'])
 ]
 
-// La única puerta de internet: la IP pública de OPNsense.
+// La única puerta de internet: la IP pública del firewall.
 resource nsgWan 'Microsoft.Network/networkSecurityGroups@2024-05-01' = {
   name: 'nsg-wan'
   location: location
   tags: tags
   properties: {
     securityRules: concat([
-      // OPNsense los reenvía al proxy. El 80 solo redirige a HTTPS y renueva el certificado.
+      // El firewall los reenvía al proxy. El 80 solo redirige a HTTPS y renueva el certificado.
       rule('Permitir-Web', 100, 'Inbound', 'Allow', 'Tcp', 'Internet', ['80', '443'])
       rule('Permitir-IPsec', 110, 'Inbound', 'Allow', 'Udp', 'Internet', ['500', '4500'])
     ], adminWanRules)
@@ -173,13 +174,13 @@ resource nsgLan 'Microsoft.Network/networkSecurityGroups@2024-05-01' = {
   tags: tags
   properties: {
     securityRules: [
-      // Lo que vuelve de la sede por la VPN sale de OPNsense por esta tarjeta.
+      // Lo que vuelve de la sede por la VPN sale del firewall por esta tarjeta.
       rule('Permitir-Sede', 100, 'Inbound', 'Allow', '*', clinicAddressSpace, ['*'])
     ]
   }
 }
 
-// OPNsense hace NAT de destino sin cambiar el origen: el proxy ve la IP real del paciente.
+// El firewall hace NAT de destino sin cambiar el origen: el proxy ve la IP real del paciente.
 resource nsgDmz 'Microsoft.Network/networkSecurityGroups@2024-05-01' = {
   name: 'nsg-dmz'
   location: location
@@ -208,7 +209,7 @@ resource nsgApp 'Microsoft.Network/networkSecurityGroups@2024-05-01' = {
   }
 }
 
-// ---------- Rutas: la DMZ y la aplicación salen por OPNsense ----------
+// ---------- Rutas: la DMZ y la aplicación salen por el firewall ----------
 
 resource rtFirewall 'Microsoft.Network/routeTables@2024-05-01' = {
   name: 'rt-via-firewall'
@@ -268,7 +269,7 @@ resource vnet 'Microsoft.Network/virtualNetworks@2024-05-01' = {
     }
     subnets: [
       {
-        // Tarjeta WAN de OPNsense, con la IP pública.
+        // Tarjeta WAN del firewall, con la IP pública.
         name: 'snet-wan'
         properties: {
           addressPrefix: '10.20.0.0/24'
@@ -278,7 +279,7 @@ resource vnet 'Microsoft.Network/virtualNetworks@2024-05-01' = {
         }
       }
       {
-        // Tarjeta LAN de OPNsense. Sin tabla de rutas para no crear un bucle.
+        // Tarjeta LAN del firewall. Sin tabla de rutas para no crear un bucle.
         name: 'snet-lan'
         properties: {
           addressPrefix: '10.20.1.0/24'
@@ -527,6 +528,29 @@ module githubUploadsPackages '../modules/role.bicep' = if (!empty(githubRepo)) {
 
 // ---------- VM (segunda pasada) ----------
 
+// ---------- Firewall (vm-fw) ----------
+
+module firewall '../modules/firewall-vm.bicep' = {
+  name: 'vm-fw'
+  params: {
+    role: 'produccion'
+    location: location
+    wanSubnetId: '${vnet.id}/subnets/snet-wan'
+    lanSubnetId: '${vnet.id}/subnets/snet-lan'
+    wanIp: '10.20.0.4'
+    lanIp: firewallLanIp
+    lanGateway: '10.20.1.1'
+    internalPrefixes: [
+      dmzPrefix
+      appPrefix
+    ]
+    nftRules: loadTextContent('../../firewall/produccion.nft')
+    adminUsername: adminUsername
+    sshPublicKey: sshPublicKey
+    tags: tags
+  }
+}
+
 module proxy '../modules/linux-vm.bicep' = if (deployVms) {
   name: 'vm-proxy'
   params: {
@@ -543,6 +567,9 @@ module proxy '../modules/linux-vm.bicep' = if (deployVms) {
     autoShutdownTime: autoShutdownTime
     tags: tags
   }
+  dependsOn: [
+    firewall
+  ]
 }
 
 module app '../modules/linux-vm.bicep' = if (deployVms) {
@@ -562,6 +589,9 @@ module app '../modules/linux-vm.bicep' = if (deployVms) {
     autoShutdownTime: autoShutdownTime
     tags: tags
   }
+  dependsOn: [
+    firewall
+  ]
 }
 
 // vm-app lee sus secretos y escribe sus copias con su identidad administrada: no hay claves en el servidor.
@@ -666,6 +696,7 @@ resource downAlert 'Microsoft.Insights/metricAlerts@2018-03-01' = if (deployVms)
   ]
 }
 
+output firewallPublicIp string = firewall.outputs.publicIp
 output mysqlHost string = mysql.properties.fullyQualifiedDomainName
 output keyVault string = vault.name
 output storageAccount string = storage.name

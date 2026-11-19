@@ -1,8 +1,11 @@
 #cloud-config
 # vm-proxy (DMZ): nginx con ModSecurity y las reglas OWASP CRS (WAF), HTTPS con Let's Encrypt y caché de
-# /app/assets. Recibe lo que OPNsense le reenvía desde internet y lo pasa a vm-app (10.20.4.4).
+# /app/assets. Recibe lo que el firewall le reenvía desde internet y lo pasa a vm-app (10.20.4.4).
 # ModSecurity empieza en modo detección: se pasa a bloqueo en la fase de pruebas (infra/README.md).
 timezone: America/Lima
+# Sale a internet por el firewall (vm-fw), que nace a la vez: espera hasta 15 minutos a que dé salida y DNS.
+bootcmd:
+  - [sh, -c, 'for i in $(seq 1 90); do curl -s --max-time 5 -o /dev/null http://azure.archive.ubuntu.com/ubuntu/ && exit 0; sleep 10; done; exit 0']
 package_update: true
 package_upgrade: true
 
