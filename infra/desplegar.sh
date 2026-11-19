@@ -9,7 +9,9 @@
 #   todo          produccion + secretos + sede + vpn + basedatos, en ese orden (unos 40 minutos).
 #   produccion    Producción completa: red, firewall, proxy, app, MySQL, Key Vault, Blob, alertas.
 #   secretos      Crea en Key Vault las claves que falten (app, los 4 usuarios de MySQL y la VPN).
-#   sede          Sede de la clínica completa: red, firewall y las VM de laboratorio.
+#   sede [vm]     Sede de la clínica: red, firewall, Wazuh y una VM de laboratorio: recepcion (por defecto) u
+#                 honeypot. La cuota de estudiante (6 vCPU por región) da para 3 VM a la vez: cambiar de una a
+#                 otra borra la anterior y crea la nueva (unos 10 minutos).
 #   vpn           Configura la VPN IPsec entre los dos firewalls.
 #   basedatos     Crea los usuarios de MySQL de database/sql/seguridad.sql (se repite después de migrar).
 #   reglas        Aplica en los dos firewalls las reglas de infra/firewall/*.nft.
@@ -31,6 +33,8 @@ ENTORNO="$AZ_DIR/entorno.env"
 source "$ENTORNO"
 
 : "${REGION:?}" "${SUB_PROD:?}" "${SUB_SEDE:?}" "${RG_PROD:?}" "${RG_SEDE:?}"
+# La sede va en otra región: cada región tiene su propia cuota de 6 vCPU.
+REGION_SEDE="${REGION_SEDE:-$REGION}"
 LLAVE="$HOME/.ssh/vega"
 RED_PROD=10.20.0.0/16
 RED_SEDE=10.10.0.0/16
@@ -142,13 +146,28 @@ orden_produccion() {
 }
 
 orden_sede() {
+  local lab="${1:-recepcion}" otra
+  case "$lab" in
+    recepcion) otra=vm-honeypot ;;
+    honeypot) otra=vm-recepcion ;;
+    ninguna) otra="" ;;
+    *) echo "Uso: desplegar.sh sede [recepcion|honeypot|ninguna]" >&2; exit 1 ;;
+  esac
   usar "$SUB_SEDE"
   comunes
+  export LAB_VM="$lab"
   [ -n "$SITE_DOMAIN" ] || { echo "Falta DOMINIO en $ENTORNO." >&2; exit 1; }
-  paso "Sede de la clínica en $RG_SEDE (unos 15 minutos)"
+  # Solo caben 3 VM: la VM de laboratorio anterior se borra antes de crear la nueva (su disco y su tarjeta también).
+  for vm in vm-honeypot vm-recepcion; do
+    if { [ "$vm" = "$otra" ] || [ "$lab" = ninguna ]; } && az vm show -g "$RG_SEDE" -n "$vm" -o none 2>/dev/null; then
+      paso "Borrando $vm para dejar lugar en la cuota"
+      az vm delete -g "$RG_SEDE" -n "$vm" --yes -o none
+    fi
+  done
+  paso "Sede de la clínica en $RG_SEDE con la VM de laboratorio: $lab (unos 15 minutos)"
   az deployment group create -g "$RG_SEDE" -n "vega-sede-$(date +%Y%m%d%H%M%S)" \
     -f "$AZ_DIR/clinica/main.bicep" -p "$AZ_DIR/clinica/clinica.bicepparam" -o none
-  echo "  Listo. Las VM de la sede se apagan solas a las 20:00."
+  echo "  Listo. Al terminar la sesión: bash infra/desplegar.sh apagar"
 }
 
 orden_secretos() {
@@ -215,7 +234,7 @@ case "$orden" in
       usar "$sub"
       paso "Servicios de Azure en \"$sub\" (las suscripciones de estudiante no los traen registrados)"
       for proveedor in "${PROVEEDORES[@]}"; do
-        az provider register -n "$proveedor" --wait=false -o none
+        az provider register -n "$proveedor" -o none
       done
       for proveedor in "${PROVEEDORES[@]}"; do
         until [ "$(az provider show -n "$proveedor" --query registrationState -o tsv)" = "Registered" ]; do
@@ -224,13 +243,27 @@ case "$orden" in
         done
       done
       echo "  Todos registrados."
-      paso "Cuota de vCPU en $REGION (cada VM de la serie B v2 usa 2)"
-      az vm list-usage -l "$REGION" --query "[?contains(name.value,'BSv2') || contains(name.value,'BASv2') || name.value=='cores'].{cuota:localName, usados:currentValue, limite:limit}" -o table
     done
+    paso "Cuota de vCPU (cada VM de la serie B v2 usa 2; producción usa 6 y la sede 6)"
+    usar "$SUB_PROD"
+    echo "  Producción, $REGION: $(az vm list-usage -l "$REGION" --query "[?name.value=='cores'] | [0].[currentValue, limit]" -o tsv | paste -sd/) vCPU en uso"
+    usar "$SUB_SEDE"
+    echo "  Sede, $REGION_SEDE: $(az vm list-usage -l "$REGION_SEDE" --query "[?name.value=='cores'] | [0].[currentValue, limit]" -o tsv | paste -sd/) vCPU en uso"
     paso "Grupos de recursos"
     usar "$SUB_PROD"; az group create -n "$RG_PROD" -l "$REGION" -o none
-    usar "$SUB_SEDE"; az group create -n "$RG_SEDE" -l "$REGION" -o none
-    echo "  $RG_PROD y $RG_SEDE listos."
+    usar "$SUB_SEDE"
+    actual="$(az group show -n "$RG_SEDE" --query location -o tsv 2>/dev/null || true)"
+    if [ -n "$actual" ] && [ "$actual" != "$REGION_SEDE" ]; then
+      if [ -z "$(az resource list -g "$RG_SEDE" --query "[0].id" -o tsv)" ]; then
+        echo "  $RG_SEDE estaba vacío en $actual: se vuelve a crear en $REGION_SEDE"
+        az group delete -n "$RG_SEDE" --yes
+      else
+        echo "  $RG_SEDE ya tiene recursos en $actual: bórralo o cambia REGION_SEDE." >&2
+        exit 1
+      fi
+    fi
+    az group create -n "$RG_SEDE" -l "$REGION_SEDE" -o none
+    echo "  $RG_PROD ($REGION) y $RG_SEDE ($REGION_SEDE) listos."
     ;;
 
   todo)
@@ -246,7 +279,7 @@ case "$orden" in
 
   produccion) orden_produccion ;;
   secretos) orden_secretos ;;
-  sede) orden_sede ;;
+  sede) orden_sede "${2:-recepcion}" ;;
   vpn) orden_vpn ;;
   basedatos) orden_basedatos ;;
   reglas) orden_reglas ;;

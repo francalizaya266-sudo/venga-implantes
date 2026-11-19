@@ -9,8 +9,6 @@
 
 param location string = resourceGroup().location
 
-param prefix string = 'vega'
-
 param adminUsername string = 'vegaadmin'
 
 @description('Llave pública SSH del equipo.')
@@ -34,8 +32,16 @@ param deployVms bool = true
 @description('Dominio de la web: el DNS de la sede lo resuelve al proxy de producción, para llegar al panel por la VPN.')
 param siteDomain string
 
+@description('VM de laboratorio que se crea junto al firewall y Wazuh. La cuota de estudiante es de 6 vCPU por región y cada VM usa 2: entran 3 a la vez. recepcion para probar la VPN y el panel; honeypot para las pruebas de seguridad.')
+@allowed([
+  'recepcion'
+  'honeypot'
+  'ninguna'
+])
+param labVm string = 'recepcion'
+
 @description('Hora de apagado diario de las VM de laboratorio (HHmm, hora de Lima).')
-param autoShutdownTime string = '2000'
+param autoShutdownTime string = ''
 
 var addressSpace = '10.10.0.0/16'
 var adminIps = filter(map(split(adminSourceIps, ','), ip => trim(ip)), ip => !empty(ip))
@@ -78,10 +84,9 @@ resource nsgWan 'Microsoft.Network/networkSecurityGroups@2024-05-01' = {
           sourceAddressPrefixes: adminIps
           sourcePortRange: '*'
           destinationAddressPrefix: '*'
-          // 2200: SSH del firewall. 2222: reenvío al SSH del jump host.
+          // 2200: SSH del firewall, que también hace de jump host.
           destinationPortRanges: [
             '2200'
-            '2222'
           ]
         }
       }
@@ -124,7 +129,7 @@ resource nsgInterno 'Microsoft.Network/networkSecurityGroups@2024-05-01' = {
           sourceAddressPrefix: prodAddressSpace
           sourcePortRange: '*'
           destinationAddressPrefix: '10.10.50.0/24'
-          // 1514-1515: agentes de Wazuh. 22: copia horaria hacia vm-respaldo.
+          // 1514-1515: agentes de Wazuh. 22: copia horaria hacia vm-wazuh.
           destinationPortRanges: [
             '22'
             '1514-1515'
@@ -143,6 +148,21 @@ resource nsgInterno 'Microsoft.Network/networkSecurityGroups@2024-05-01' = {
           sourcePortRange: '*'
           destinationAddressPrefix: wazuhIp
           destinationPortRange: '514'
+        }
+      }
+      {
+        // Las subredes salen a internet por el firewall: sus paquetes llegan a su tarjeta LAN con destino internet,
+        // y la regla por defecto de Azure (AllowVnetInBound) solo admite destinos internos.
+        name: 'Permitir-Salida-Por-Firewall'
+        properties: {
+          priority: 120
+          direction: 'Inbound'
+          access: 'Allow'
+          protocol: '*'
+          sourceAddressPrefix: addressSpace
+          sourcePortRange: '*'
+          destinationAddressPrefix: '*'
+          destinationPortRange: '*'
         }
       }
       {
@@ -331,25 +351,20 @@ resource vnet 'Microsoft.Network/virtualNetworks@2024-05-01' = {
 
 // ---------- VM de laboratorio (segunda pasada) ----------
 
-var vms = [
-  {
-    name: 'vm-wazuh'
-    subnet: 'snet-servidores'
-    ip: wazuhIp
-    // Wazuh necesita 4 GiB.
-    size: 'Standard_B2als_v2'
-    disk: 64
-    cloudInit: loadTextContent('../../cloud-init/wazuh.yaml')
-  }
-  {
-    name: 'vm-respaldo'
-    subnet: 'snet-servidores'
-    ip: '10.10.50.20'
-    size: 'Standard_B2ats_v2'
-    disk: 64
-    cloudInit: loadTextContent('../../cloud-init/respaldo.yaml')
-  }
-  {
+// Con 6 vCPU por región caben 3 VM: el firewall (que también hace de jump host), Wazuh (que también recibe la
+// copia horaria de la base de datos) y una VM de laboratorio a la vez, según la prueba (labVm).
+var wazuhVm = {
+  name: 'vm-wazuh'
+  subnet: 'snet-servidores'
+  ip: wazuhIp
+  // Wazuh necesita 4 GiB.
+  size: 'Standard_B2als_v2'
+  disk: 64
+  cloudInit: loadTextContent('../../cloud-init/wazuh.yaml')
+}
+
+var labVms = {
+  honeypot: {
     name: 'vm-honeypot'
     subnet: 'snet-dmz'
     ip: '10.10.60.10'
@@ -357,15 +372,7 @@ var vms = [
     disk: 30
     cloudInit: loadTextContent('../../cloud-init/honeypot.yaml')
   }
-  {
-    name: 'vm-jump'
-    subnet: 'snet-mgmt'
-    ip: '10.10.10.20'
-    size: 'Standard_B2ats_v2'
-    disk: 30
-    cloudInit: loadTextContent('../../cloud-init/base.yaml')
-  }
-  {
+  recepcion: {
     name: 'vm-recepcion'
     subnet: 'snet-personal'
     ip: '10.10.30.10'
@@ -373,7 +380,9 @@ var vms = [
     disk: 30
     cloudInit: loadTextContent('../../cloud-init/base.yaml')
   }
-]
+}
+
+var vms = concat([wazuhVm], labVm == 'ninguna' ? [] : [labVms[labVm]])
 
 // ---------- Firewall (vm-fw) ----------
 
@@ -397,7 +406,7 @@ module firewall '../modules/firewall-vm.bicep' = {
   }
 }
 
-module labVms '../modules/linux-vm.bicep' = [for vm in vms: if (deployVms) {
+module serverVms '../modules/linux-vm.bicep' = [for vm in vms: if (deployVms) {
   name: vm.name
   params: {
     name: vm.name

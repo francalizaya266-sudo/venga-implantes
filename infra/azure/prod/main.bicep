@@ -42,8 +42,8 @@ param alertEmail string
 @description('Red de la sede de la clínica, conectada por la VPN entre los dos firewalls.')
 param clinicAddressSpace string = '10.10.0.0/16'
 
-@description('Subred de administración de la sede (jump host).')
-param clinicMgmtPrefix string = '10.10.10.0/24'
+@description('Desde dónde se administra producción por la VPN: el firewall de la sede, que hace de jump host.')
+param clinicMgmtPrefix string = '10.10.0.0/23'
 
 @description('IP de la tarjeta LAN del firewall: siguiente salto de la DMZ y de la subred de la aplicación.')
 param firewallLanIp string = '10.20.1.4'
@@ -114,9 +114,10 @@ resource actionGroup 'Microsoft.Insights/actionGroups@2023-01-01' = {
 
 // ---------- NSG ----------
 
+// Azure acepta '*' solo como puerto único (destinationPortRange), no dentro de una lista.
 func rule(name string, priority int, direction string, access string, protocol string, source string, ports array) object => {
   name: name
-  properties: {
+  properties: union({
     priority: priority
     direction: direction
     access: access
@@ -124,8 +125,7 @@ func rule(name string, priority int, direction string, access string, protocol s
     sourceAddressPrefix: source
     sourcePortRange: '*'
     destinationAddressPrefix: '*'
-    destinationPortRanges: ports
-  }
+  }, contains(ports, '*') ? { destinationPortRange: '*' } : { destinationPortRanges: ports })
 }
 
 // Varias IP de origen: Azure solo las acepta como lista, sin etiquetas como "Internet".
@@ -176,6 +176,9 @@ resource nsgLan 'Microsoft.Network/networkSecurityGroups@2024-05-01' = {
     securityRules: [
       // Lo que vuelve de la sede por la VPN sale del firewall por esta tarjeta.
       rule('Permitir-Sede', 100, 'Inbound', 'Allow', '*', clinicAddressSpace, ['*'])
+      // La DMZ y la app salen a internet por el firewall: sus paquetes llegan a esta tarjeta con destino internet,
+      // y la regla por defecto de Azure (AllowVnetInBound) solo admite destinos internos.
+      rule('Permitir-Salida-Por-Firewall', 110, 'Inbound', 'Allow', '*', addressSpace, ['*'])
     ]
   }
 }
@@ -600,7 +603,7 @@ module appReadsSecrets '../modules/role.bicep' = if (deployVms) {
   params: {
     kind: 'keyvault'
     resourceName: vault.name
-    principalId: app.outputs.principalId
+    principalId: app!.outputs.principalId
     roleId: roles.keyVaultSecretsUser
   }
 }
@@ -610,7 +613,7 @@ module appWritesBackups '../modules/role.bicep' = if (deployVms) {
   params: {
     kind: 'storage'
     resourceName: storage.name
-    principalId: app.outputs.principalId
+    principalId: app!.outputs.principalId
     roleId: roles.blobDataContributor
   }
 }

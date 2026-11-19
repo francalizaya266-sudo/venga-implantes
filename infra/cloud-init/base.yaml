@@ -1,5 +1,5 @@
 #cloud-config
-# vm-jump y vm-recepcion: herramientas para administrar y para probar la red.
+# vm-recepcion: la PC de recepción de la sede, con herramientas para probar la red y el panel.
 timezone: America/Lima
 # Sale a internet por el firewall (vm-fw), que nace a la vez: espera hasta 15 minutos a que dé salida y DNS.
 bootcmd:

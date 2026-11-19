@@ -98,7 +98,7 @@ cat > /etc/cron.d/vega <<'CRON'
 * * * * * www-data php /var/www/vega/current/artisan schedule:run >> /dev/null 2>&1
 # Copia a Blob después de la copia diaria del sistema.
 30 3 * * * root /opt/vega/backup-to-blob.sh >> /var/log/vega-backup.log 2>&1
-# Copia horaria de la base de datos a la sede de la clínica (solo funciona con la VPN y vm-respaldo encendidas).
+# Copia horaria de la base de datos a la sede de la clínica (solo funciona con la VPN y vm-wazuh encendidas).
 15 * * * * root /opt/vega/copy-to-dr.sh >> /var/log/vega-dr.log 2>&1
 CRON
 chmod 644 /etc/cron.d/vega
