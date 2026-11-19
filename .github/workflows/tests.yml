@@ -74,6 +74,35 @@ jobs:
           path: backend/cobertura
           retention-days: 30
 
+  # Larastan (PHPStan para Laravel) revisa los tipos de app/ sin ejecutar nada: encuentra métodos o propiedades que
+  # no existen y argumentos del tipo equivocado antes de que lleguen a producción (E4, CE0244).
+  analisis:
+    name: Análisis estático (Larastan)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, intl, pdo_sqlite, zip, gd, exif
+          coverage: none
+
+      - name: Instalar dependencias
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Preparar entorno
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      - name: Larastan
+        run: vendor/bin/phpstan analyse --no-progress --memory-limit=1G --error-format=raw
+
   # Las vistas, funciones, procedimientos y triggers de database/sql/mysql solo existen en MySQL: aquí se prueban
   # con un MySQL 8 de verdad, junto con toda la suite, los usuarios de seguridad.sql y una copia restaurada con el
   # tiempo medido.
