@@ -17,6 +17,9 @@ Uso: python3 plantilla/ajustar-docx.py word/archivo.docx [--secciones-seguidas]
    completo de un anexo) empieza en la misma página y sigue en las siguientes, sin dejar una hoja en blanco.
 6. Con --secciones-seguidas, después de la primera, cada sección principal sigue en la misma página, separada
    por espacio, para que un entregable con límite de páginas no pierda medias hojas en blanco.
+7. Una tabla corta (hasta 8 filas) no se parte: pasa entera a la página siguiente junto con su título. Una larga
+   puede partirse, pero no deja el encabezado solo al pie de una hoja ni una última fila (como "Total") sola en
+   la siguiente: sus dos primeras y sus dos últimas filas van juntas.
 """
 
 import copy
@@ -76,6 +79,28 @@ def aire_tras_tablas(doc):
                 espacio = ppr.makeelement(qn('w:spacing'), {})
                 ppr.append(espacio)
             espacio.set(qn('w:before'), str(int(Pt(6).pt * 20)))
+
+
+FILAS_DE_UNA_TABLA_ENTERA = 8
+FILAS_JUNTAS_EN_LOS_BORDES = 2
+
+
+def tablas_sin_filas_sueltas(doc):
+    """Word mantiene juntas dos filas cuando los párrafos de la primera llevan "conservar con el siguiente"."""
+    for tabla in doc.element.body.iter(qn('w:tbl')):
+        filas = tabla.findall(qn('w:tr'))
+        if len(filas) <= FILAS_DE_UNA_TABLA_ENTERA:
+            juntas = filas[:-1]
+        else:
+            juntas = filas[:FILAS_JUNTAS_EN_LOS_BORDES - 1] + filas[-FILAS_JUNTAS_EN_LOS_BORDES:-1]
+        for fila in juntas:
+            for parrafo in fila.iter(qn('w:p')):
+                ppr = parrafo.get_or_add_pPr()
+                if ppr.find(qn('w:keepNext')) is None:
+                    # w:keepNext va antes que el resto de las propiedades del párrafo, salvo el estilo.
+                    estilo = ppr.find(qn('w:pStyle'))
+                    posicion = 1 if estilo is not None else 0
+                    ppr.insert(posicion, ppr.makeelement(qn('w:keepNext'), {}))
 
 
 LINEAS_DE_UN_BLOQUE_ENTERO = 35
@@ -167,6 +192,7 @@ def secciones_seguidas(doc):
 def main(ruta, seguidas=False):
     doc = Document(ruta)
     estilo_de_tablas(doc)
+    tablas_sin_filas_sueltas(doc)
     aire_tras_tablas(doc)
     bloques_de_codigo_enteros(doc)
     saltos_de_pagina(doc)
