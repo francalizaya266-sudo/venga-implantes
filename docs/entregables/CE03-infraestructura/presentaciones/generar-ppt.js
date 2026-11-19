@@ -252,6 +252,77 @@ function parte(pres, seccion, numero, titulo, subtitulo, iniciales, notas) {
   slide.addNotes(notas);
 }
 
+// Diagrama de arquitectura dibujado con formas de PowerPoint (editable): producción a la izquierda, la sede a la
+// derecha, la VPN entre los dos firewalls y el recorrido de una petición desde internet hasta MySQL.
+function diagramaArquitectura(pres, s) {
+  const C = pres.SchemeColor;
+  const LINEA = "C9D3E6";
+  const caja = (x, y, w, h, titulo, detalle, oscuro = false) => {
+    s.addShape(pres.shapes.ROUNDED_RECTANGLE, { x, y, w, h, rectRadius: 0.06, fill: { color: oscuro ? C.text2 : C.background1 },
+      line: { color: oscuro ? C.text2 : C.accent3, width: 1 }, objectName: "Componente " + titulo });
+    s.addText([{ text: titulo, options: { bold: true, fontSize: 13, color: oscuro ? C.background1 : C.text2, breakLine: true } },
+      { text: detalle, options: { fontSize: 10.5, color: oscuro ? C.background2 : GRIS } }],
+    { x: x + 0.08, y: y + 0.05, w: w - 0.16, h: h - 0.1, align: "center", valign: "middle", margin: 0, isTextBox: true, paraSpaceAfter: 2 });
+  };
+  const zona = (x, y, w, h, titulo) => {
+    s.addShape(pres.shapes.ROUNDED_RECTANGLE, { x, y, w, h, rectRadius: 0.08, fill: { color: C.background2 }, line: { color: LINEA, width: 1 }, objectName: "Zona " + titulo });
+    s.addText(titulo, { x: x + 0.2, y: y + 0.08, w: w - 0.4, h: 0.32, fontSize: 11, bold: true, color: C.accent3, charSpacing: 1, margin: 0, isTextBox: true });
+  };
+  // flecha de (x1, y1) a (x2, y2): solo horizontal o vertical
+  const flecha = (x1, y1, x2, y2, opciones = {}) => {
+    const w = Math.abs(x2 - x1), h = Math.abs(y2 - y1);
+    s.addShape(pres.shapes.LINE, { x: Math.min(x1, x2), y: Math.min(y1, y2), w, h, flipH: x2 < x1, flipV: y2 < y1,
+      line: Object.assign({ color: C.text2, width: 1.5, endArrowType: "triangle" }, opciones) });
+  };
+  const rotulo = (texto, x, y, w, alinear = "center") => s.addText(texto, { x, y, w, h: 0.28, fontSize: 10, color: C.text2, bold: true, align: alinear, margin: 0, isTextBox: true });
+
+  // Internet
+  s.addShape(pres.shapes.ROUNDED_RECTANGLE, { x: 3.75, y: 1.3, w: 2.75, h: 0.5, rectRadius: 0.25, fill: { color: C.accent2 }, line: { color: C.accent2 }, objectName: "Internet" });
+  s.addText("Internet · pacientes y personal", { x: 3.75, y: 1.3, w: 2.75, h: 0.5, fontSize: 12, bold: true, color: C.text2, align: "center", valign: "middle", margin: 0, isTextBox: true });
+
+  // Producción
+  zona(0.6, 1.95, 5.95, 4.5, "PRODUCCIÓN · AZURE CHILE CENTRAL · 10.20.0.0/16");
+  caja(0.8, 2.5, 1.6, 1.15, "Key Vault", "10 secretos · RBAC");
+  caja(2.6, 2.5, 1.75, 1.15, "Blob Storage", "copias diarias · versiones");
+  caja(4.55, 2.5, 1.8, 1.15, "vm-fw", "nftables · strongSwan · Suricata", true);
+  caja(0.8, 4.05, 1.6, 1.15, "MySQL Flexible", "privado · TLS 1.3");
+  caja(2.6, 4.05, 1.75, 1.15, "vm-app", "nginx · PHP 8.3 · Laravel");
+  caja(4.55, 4.05, 1.8, 1.15, "vm-proxy (DMZ)", "nginx · WAF · Let's Encrypt");
+  s.addShape(pres.shapes.ROUNDED_RECTANGLE, { x: 0.8, y: 5.65, w: 5.55, h: 0.55, rectRadius: 0.06, fill: { color: C.background1 }, line: { color: LINEA, width: 1 }, objectName: "Monitoreo" });
+  s.addText("Azure Monitor · Log Analytics · alertas por correo · presupuesto", { x: 0.8, y: 5.65, w: 5.55, h: 0.55, fontSize: 11, color: C.text2, align: "center", valign: "middle", margin: 0, isTextBox: true });
+
+  flecha(5.45, 1.8, 5.45, 2.5);
+  rotulo("HTTPS 443", 5.55, 2.03, 1.0, "left");
+  flecha(5.45, 3.65, 5.45, 4.05);
+  rotulo("DNAT", 5.55, 3.7, 0.8, "left");
+  flecha(4.55, 4.62, 4.35, 4.62);
+  flecha(2.6, 4.62, 2.4, 4.62);
+  rotulo("HTTP 80 · TLS 3306", 2.3, 5.25, 2.4);
+  flecha(3.47, 4.05, 3.47, 3.65, { dashType: "dash", width: 1.25 });
+  s.addText("identidad administrada", { x: 3.58, y: 3.68, w: 0.95, h: 0.36, fontSize: 9, color: GRIS, align: "left", valign: "middle", margin: 0, isTextBox: true });
+
+  // Sede
+  zona(7.6, 1.95, 5.13, 4.5, "SEDE DE LA CLÍNICA · NORTH CENTRAL US · 10.10.0.0/16");
+  caja(7.8, 2.5, 1.8, 3.7, "vm-fw sede", "nftables\nstrongSwan\nSuricata\nUnbound (DNS)\njump host", true);
+  const segmentos = [
+    ["Administración", "VLAN 10 · 10.10.10.0/24"],
+    ["Personal · vm-recepcion", "VLAN 30 · 10.10.30.0/24"],
+    ["Servidores · vm-wazuh", "VLAN 50 · SIEM y respaldo"],
+    ["DMZ · vm-honeypot", "VLAN 60 · OpenCanary"],
+  ];
+  segmentos.forEach(([t, d], i) => {
+    const y = 2.5 + i * 0.95;
+    caja(9.95, y, 2.6, 0.8, t, d);
+    flecha(9.6, y + 0.4, 9.95, y + 0.4, { width: 1.25, endArrowType: "none" });
+  });
+
+  // VPN (al final, para que sus dos puntas queden encima de los firewalls)
+  s.addShape(pres.shapes.LINE, { x: 6.35, y: 3.07, w: 1.42, h: 0, line: { color: C.accent2, width: 5, beginArrowType: "triangle", endArrowType: "triangle" }, objectName: "VPN IPsec" });
+  s.addText([{ text: "VPN IPsec", options: { bold: true, breakLine: true } }, { text: "AES-256" }],
+    { x: 6.55, y: 2.35, w: 1.05, h: 0.6, fontSize: 10.5, color: C.text2, align: "center", valign: "bottom", margin: 0, isTextBox: true });
+  s.addText("registros, copias y panel", { x: 6.6, y: 3.25, w: 0.95, h: 0.75, fontSize: 9, color: GRIS, align: "center", valign: "top", margin: 0, isTextBox: true });
+}
+
 async function cuadricula(pres, s, items, columnas = 2) {
   const w = columnas === 2 ? 5.95 : 3.9, paso = columnas === 2 ? 6.15 : 4.1, h = columnas === 2 ? 2.35 : 2.4, salto = columnas === 2 ? 2.6 : 2.65;
   for (let i = 0; i < items.length; i++) {
@@ -280,7 +351,7 @@ async function deckGeneral() {
   portada(pres, "Infraestructura Tecnológica del sistema de Clínica Vega Implant", "CE03 · Diseño, SGSI, red y centro de datos en Azure",
     "Presentamos lo que hicimos en la línea de Infraestructura: el diseño de la red y del centro de datos, el SGSI, y la red y el centro de datos funcionando en Azure, con cifras reales del 19/11.");
   await agenda(pres, [
-    ["JY", ["Equivalencia tecnológica", "S2-E1 · SGSI", "Evidencias y cierre"], 7],
+    ["JY", ["Equivalencia y arquitectura", "S2-E1 · SGSI", "Evidencias y cierre"], 9],
     ["JA", ["S1-E1 · Diseño de red", "S2-E2 · Red implementada"], 8],
     ["FC", ["S1-E2 · Diseño de centro de datos", "S2-E3 · Centro de datos implementado"], 8],
   ], "Jhoel expone lo de red, Fran lo de centro de datos y Joselyn el SGSI y el cierre. El círculo amarillo dice quién habla y la etiqueta del pie, de qué entregable es. Unos 25 minutos en total.");
@@ -300,6 +371,11 @@ async function deckGeneral() {
   ], { y: 1.55, anchos: [5.6, 6.5], tam: 14 });
 
   // ---------------------------------------------------------------------------------------- S1-E1
+  s = contenido(pres, "Contexto", "Arquitectura de la solución", "JY",
+    "La solución completa en una imagen. A la izquierda, producción en Azure Chile Central: desde internet solo se llega al firewall, que pasa la web al proxy de la DMZ; el proxy habla con la aplicación y la aplicación con MySQL, que es privado. Los secretos están en Key Vault y las copias en Blob. A la derecha, la sede de la clínica en otra región, con su firewall y cuatro segmentos. Las dos redes se unen por una VPN IPsec por la que viajan los registros al SIEM, la copia horaria de la base y el panel del personal.",
+    "CE03 · Infraestructura Tecnológica");
+  diagramaArquitectura(pres, s);
+
   parte(pres, "S1-E1 Diseño de red", "01", "Análisis y Diseño de Red", "Semestre 1 · Entregable 1 · CE0311", "JA",
     "Empieza la parte de red: el diseño de las dos redes, la VPN, el perímetro y la detección.");
 
