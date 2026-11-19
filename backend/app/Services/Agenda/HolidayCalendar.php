@@ -74,7 +74,11 @@ final class HolidayCalendar
                 ->connectTimeout(3)
                 ->timeout(5)
                 ->get(sprintf(self::NAGER_DATE_URL, $year));
-        } catch (ConnectionException) {
+        } catch (ConnectionException $e) {
+            // Queda la lista del sistema, pero el motivo va al registro de errores (por ejemplo, un PHP sin los
+            // certificados para HTTPS).
+            report($e);
+
             return null;
         }
 

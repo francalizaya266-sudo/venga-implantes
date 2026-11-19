@@ -4,7 +4,9 @@ namespace Tests\Feature\Services\Agenda;
 
 use App\Services\Agenda\HolidayCalendar;
 use App\Support\PeruvianHolidays;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
@@ -52,8 +54,9 @@ class HolidayCalendarTest extends TestCase
 
     public function test_when_nager_date_does_not_answer_it_is_the_system_list_and_it_tries_again_in_a_few_minutes(): void
     {
+        Exceptions::fake();
         Http::fake(['date.nager.at/*' => Http::sequence()
-            ->pushFailedConnection()
+            ->pushFailedConnection('cURL error 60: SSL certificate problem')
             ->push('Server Error', 500)
             ->push([])
             ->push([['date' => '2027-10-31', 'localName' => 'Día de la Canción Criolla', 'global' => true]]),
@@ -70,5 +73,7 @@ class HolidayCalendarTest extends TestCase
 
         $this->assertTrue(app(HolidayCalendar::class)->includesNagerDate(2027));
         Http::assertSentCount(4);
+        // Por qué no hubo conexión queda en el registro de errores.
+        Exceptions::assertReported(fn (ConnectionException $e) => str_contains($e->getMessage(), 'cURL error 60'));
     }
 }

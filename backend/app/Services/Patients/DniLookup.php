@@ -34,7 +34,11 @@ final class DniLookup
                 ->acceptJson()
                 ->timeout(5)
                 ->get(config('consultorio.dni_lookup.url'), ['numero' => $dni]);
-        } catch (ConnectionException) {
+        } catch (ConnectionException $e) {
+            // Sin conexión, sin respuesta a tiempo o un PHP sin los certificados para HTTPS (cURL error 60): el
+            // motivo queda en el registro de errores, porque en pantalla solo se dice que no respondió.
+            report($e);
+
             throw DniLookupException::unavailable();
         }
 

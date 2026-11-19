@@ -8,7 +8,9 @@ use App\Filament\Resources\Patients\Pages\CreatePatient;
 use App\Models\User;
 use Filament\Actions\Testing\TestAction;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Support\Facades\Http;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -84,6 +86,19 @@ class DniLookupTest extends TestCase
         $form->callAction(TestAction::make('lookupDni')->schemaComponent('document_number'))
             ->assertNotified('RENIEC no tiene el DNI 07654321.')
             ->assertSchemaStateSet(['first_name' => 'Rosa', 'last_name' => null]);
+    }
+
+    public function test_when_it_cannot_connect_the_reason_goes_to_the_error_log(): void
+    {
+        Exceptions::fake();
+        Http::fake([self::URL => Http::failedConnection('cURL error 60: SSL certificate problem: unable to get local issuer certificate')]);
+
+        Livewire::test(CreatePatient::class)
+            ->fillForm(['document_number' => '07654321'])
+            ->callAction(TestAction::make('lookupDni')->schemaComponent('document_number'))
+            ->assertNotified('La consulta de DNI no respondió. Escribe los nombres a mano o inténtalo en un rato.');
+
+        Exceptions::assertReported(fn (ConnectionException $e) => str_contains($e->getMessage(), 'cURL error 60'));
     }
 
     public function test_an_incomplete_dni_is_not_looked_up(): void
