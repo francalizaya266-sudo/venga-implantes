@@ -14,7 +14,7 @@
 
 ## Propósito, alcance y fuentes
 
-**Problema.** Clínica Vega Implant (Jr. Apurímac 648, Juliaca) necesita que sus pacientes reserven en línea y confirmen por WhatsApp, que la agenda de cada doctor no tenga cruces ni huecos inútiles, que la historia clínica con odontograma, los presupuestos firmados y los cobros queden en un solo lugar, y que los datos de salud se protejan según la Ley N.º 29733. `[PENDIENTE – estudiante: describir en dos líneas cómo se trabajaba antes del sistema (agenda, avisos y cobros), validado con el Dr. Vega]`
+**Problema.** Clínica Vega Implant (Jr. Apurímac 648, Juliaca) necesita que sus pacientes reserven en línea y confirmen por WhatsApp, que la agenda de cada doctor no tenga cruces ni huecos inútiles, que la historia clínica con odontograma, los presupuestos firmados y los cobros queden en un solo lugar, y que los datos de salud se protejan según la Ley N.º 29733. Antes del sistema todo se llevaba en papel: la agenda era un cuaderno, a los pacientes no se les recordaba la cita (por eso se olvidaban o llegaban tarde) y los cobros se anotaban en el mismo cuaderno, según lo confirmó el Dr. Vega.
 
 **Alcance.** Este documento especifica, valida y diseña el sistema que existe en el repositorio `venga-implantes`: una aplicación Laravel 13 con la web del paciente en React 19 y el panel del personal en Filament. Cubre 87 requerimientos funcionales en 13 módulos (todos implementados; RF-API-01 se completó en el E3), 17 no funcionales, 24 reglas de negocio y 12 historias de usuario. La app móvil y el servicio de IA de inasistencias de la versión del 18/11/2026 salieron del alcance el 19/11/2026: sus seis requerimientos, dos historias y dos casos de uso ya no están, y sus decisiones quedan como descartadas (ADR-12 y ADR-13).
 
@@ -612,7 +612,7 @@ Cada decisión sigue el formato de Michael Nygard: contexto, opciones, decisión
 - **Contexto:** los pacientes confirman por WhatsApp; los servicios no oficiales arriesgan el bloqueo del número de la clínica.
 - **Opciones:** (a) bibliotecas no oficiales; (b) solo `wa.me`; (c) `wa.me` ahora y la API oficial de Meta después.
 - **Decisión:** (c). Los avisos se guardan en una bandeja (`WhatsAppOutbox`); con `WHATSAPP_DRIVER=click_to_chat` el personal los abre con el mensaje escrito y con `cloud_api` el comando `whatsapp:enviar` los manda cada 5 minutos.
-- **Consecuencias:** se pasa de etapa sin cambiar las reglas. La etapa 2 necesita una cuenta de WhatsApp Business verificada y plantillas aprobadas por Meta `[PENDIENTE – estudiante: trámite con el Dr. Vega]`. Evidencia: `WhatsAppOutboxTest`, `SendDueWhatsAppMessagesTest`.
+- **Consecuencias:** se pasa de etapa sin cambiar las reglas. La etapa 2 necesita una cuenta de WhatsApp Business verificada y plantillas aprobadas por Meta. Al 19/11/2026 la clínica no tiene esa cuenta, así que el sistema trabaja en la etapa 1 (`click_to_chat`, el valor por defecto en `config/consultorio.php`). Evidencia: `WhatsAppOutboxTest`, `SendDueWhatsAppMessagesTest`.
 
 ### ADR-08. Nada se borra: se anula con motivo y queda auditado
 

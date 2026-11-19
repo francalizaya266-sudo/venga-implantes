@@ -167,7 +167,7 @@ Cálculo: en las afirmaciones impares se resta 1 a la respuesta; en las pares, l
 
 | Nombre | Rol en la validación |
 | --- | --- |
-| Dr. Vega `[PENDIENTE – estudiante: nombre completo y número de colegiatura]` | Administrador y odontólogo de la clínica |
+| Dr. Jassmanny Neil Vega Jaen (COP 29668) | Administrador y odontólogo de la clínica |
 | `[PENDIENTE – estudiante: nombre de la recepcionista]` | Recepción |
 | Fran Franklin Calizaya Apaza | Equipo de desarrollo (conduce la sesión) |
 | Jhoel Hairton Apaza Quispe | Equipo de desarrollo (anota tiempos y errores) |
@@ -196,7 +196,7 @@ Cálculo: en las afirmaciones impares se resta 1 a la respuesta; en las pares, l
 
 | Nombre | Rol | Firma |
 | --- | --- | :-: |
-| Dr. Vega | Administrador y odontólogo | `[PENDIENTE – firma]` |
+| Dr. Jassmanny Neil Vega Jaen | Administrador y odontólogo | `[PENDIENTE – firma]` |
 | Recepcionista | Recepción | `[PENDIENTE – firma]` |
 | Fran Franklin Calizaya Apaza | Equipo de desarrollo | `[PENDIENTE – firma]` |
 | Jhoel Hairton Apaza Quispe | Equipo de desarrollo | `[PENDIENTE – firma]` |

@@ -409,7 +409,7 @@ La base guarda datos de salud, que la Ley N.º 29733 considera sensibles: antece
 | Conservación | La historia no se puede borrar (10 llaves `RESTRICT`); borrado lógico en 15 tablas | `ddl.sql` |
 | Secretos fuera del repositorio | Claves de la base pasadas al correr `seguridad.sql`; los enlaces de WhatsApp y los dispositivos recordados se guardan solo como hash (`token_hash`); `dml.sql` sin claves | Anexo C |
 | Cifrado | En tránsito: TLS obligatorio en Azure (E1). En reposo: el disco del servidor de Azure. Ninguna columna se cifra en la aplicación | `[PENDIENTE – estudiante: captura de "Redes" (TLS) y "Seguridad" del servidor en Azure]` |
-| Registro del banco de datos | El banco de datos de pacientes se inscribe ante la Autoridad Nacional de Protección de Datos Personales | `[PENDIENTE – estudiante: trámite con el Dr. Vega]` |
+| Registro del banco de datos | El banco de datos de pacientes se inscribe ante la Autoridad Nacional de Protección de Datos Personales | No inscrito al 19/11/2026; es un trámite que le corresponde a la clínica |
 
 # Anexos
 

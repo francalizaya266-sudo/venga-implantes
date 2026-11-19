@@ -6,8 +6,8 @@
 | --- | --- |
 | Dirección | https://github.com/francalizaya266-sudo/venga-implantes (público) |
 | Rama principal | `main`: lo que está aprobado y lo único que se publica en Azure (`desplegar-azure.yml` solo corre desde `main`) |
-| Rama del E3 | `claude/project-thread-2tzlbx`, en revisión en el pull request #14 |
-| Versión entregada | `[PENDIENTE – estudiante: al unir el PR #14, crear la etiqueta e3-entrega sobre ese commit de main]` |
+| Rama del E3 | `claude/project-thread-2tzlbx`, fusionada en `main` con el pull request #14 |
+| Versión entregada | Commit `35b41e3` de `main`: el merge del PR #14 (19/11/2026, 6:11, hora de Lima). Se puede ver con `git checkout 35b41e3` |
 | Contrato de la API | `docs/api/openapi.json` |
 | Documentos y evidencias del E3 | `docs/entregables/CE02-ingenieria-de-software/E3-sistema-funcional` |
 
