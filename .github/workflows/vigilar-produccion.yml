@@ -1,0 +1,45 @@
+name: Vigilar producción
+
+# Cada 15 minutos pide /up a la web pública, desde fuera de Azure. /up responde 200 solo si Laravel arranca y la base
+# de datos contesta (AppServiceProvider); Azure Monitor ya avisa si la VM se cae o se satura, pero no ve una web
+# que responde 500 o una base que no contesta.
+#
+# Si /up falla después de tres intentos, el job falla y GitHub manda el correo de "workflow fallido" a quien activó
+# el horario (la persona que fusionó este archivo en main). Cada ejecución deja el código y el tiempo de respuesta
+# en su resumen: el historial de Actions es el registro de disponibilidad.
+#
+# Variables del repositorio: SITE_URL y VIGILAR_PRODUCCION = "true". Producción se apaga fuera de las
+# demostraciones; con la variable vacía no se vigila, para no mandar correos por una VM apagada a propósito.
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  up:
+    name: La web responde
+    runs-on: ubuntu-latest
+    if: vars.VIGILAR_PRODUCCION == 'true' && vars.SITE_URL != ''
+    timeout-minutes: 5
+
+    steps:
+      - name: Pedir /up
+        env:
+          SITE_URL: ${{ vars.SITE_URL }}
+        run: |
+          set +e
+          inicio=$(date +%s%N)
+          codigo=$(curl -sS -o respuesta.txt -w '%{http_code}' -H 'Accept: application/json' --max-time 15 \
+            --retry 2 --retry-delay 20 --retry-all-errors "$SITE_URL/up")
+          ms=$(( ($(date +%s%N) - inicio) / 1000000 ))
+          set -e
+          {
+            echo "| Hora (UTC) | Dirección | Código | Tiempo | Respuesta |"
+            echo "| --- | --- | ---: | ---: | --- |"
+            echo "| $(date -u '+%Y-%m-%d %H:%M') | $SITE_URL/up | $codigo | $ms ms | $(head -c 80 respuesta.txt 2>/dev/null) |"
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "/up respondió $codigo en $ms ms"
+          test "$codigo" = 200

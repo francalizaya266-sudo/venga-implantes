@@ -16,11 +16,11 @@
 
 **Problema.** Clínica Vega Implant (Jr. Apurímac 648, Juliaca) necesita que sus pacientes reserven en línea y confirmen por WhatsApp, que la agenda de cada doctor no tenga cruces ni huecos inútiles, que la historia clínica con odontograma, los presupuestos firmados y los cobros queden en un solo lugar, y que los datos de salud se protejan según la Ley N.º 29733. `[PENDIENTE – estudiante: describir en dos líneas cómo se trabajaba antes del sistema (agenda, avisos y cobros), validado con el Dr. Vega]`
 
-**Alcance.** Este documento especifica, valida y diseña el sistema que existe en el repositorio `venga-implantes`: una aplicación Laravel 13 con la web del paciente en React 19 y el panel del personal en Filament. Cubre 87 requerimientos funcionales en 13 módulos (todos implementados; RF-API-01 se completó en el E3), 17 no funcionales, 24 reglas de negocio y 12 historias de usuario. La versión del 18/11/2026 incluía además una app móvil para pacientes y un servicio de IA que estimaba el riesgo de inasistencia; el 19/11/2026 el equipo decidió no construirlos. Por eso sus seis requerimientos, sus dos historias y sus dos casos de uso ya no están en esta versión, y sus decisiones de arquitectura (ADR-12 y ADR-13) quedan registradas como descartadas.
+**Alcance.** Este documento especifica, valida y diseña el sistema que existe en el repositorio `venga-implantes`: una aplicación Laravel 13 con la web del paciente en React 19 y el panel del personal en Filament. Cubre 87 requerimientos funcionales en 13 módulos (todos implementados; RF-API-01 se completó en el E3), 17 no funcionales, 24 reglas de negocio y 12 historias de usuario. La app móvil y el servicio de IA de inasistencias de la versión del 18/11/2026 salieron del alcance el 19/11/2026: sus seis requerimientos, dos historias y dos casos de uso ya no están, y sus decisiones quedan como descartadas (ADR-12 y ADR-13).
 
 Esta especificación sigue la estructura de IEEE 830 y los atributos de ISO/IEC/IEEE 29148: cada requerimiento tiene un identificador único, una prioridad MoSCoW, un estado (implementado o planificado) y al menos una forma de verificarlo. Las fuentes son, en este orden: el código del repositorio `venga-implantes` (rama `main` del 19/11/2026, commit `ac47050`), los nombres de sus 969 métodos de prueba, el documento de contexto del cliente con las decisiones tomadas el 23/10/2026 y las decisiones del equipo del 18/11/2026 (despliegue en Azure) y del 19/11/2026 (sin app móvil ni servicio de IA). Nada se tomó de suposiciones: lo que no está en esas fuentes figura como pendiente.
 
-Prioridades MoSCoW: **M** (debe tenerlo), **S** (debería), **C** (podría) y **W** (no en esta versión). Estado: **I** implementado y probado; **P** planificado (el único, RF-API-01, se completó en el E3).
+Prioridades MoSCoW: **M** (debe tenerlo), **S** (debería), **C** (podría) y **W** (no en esta versión).
 
 ## Interesados y usuarios
 
@@ -40,97 +40,97 @@ Los módulos son: WEB (web pública), RES (reserva en línea), CTA (Mi cuenta y 
 
 *Tabla 2. Requerimientos funcionales.*
 
-| ID | El sistema debe… | Prior. | Est. |
-| --- | --- | :-: | :-: |
-| RF-WEB-01 | Mostrar los datos de la clínica y su horario, calculado de los horarios de los doctores activos, y decir si está abierta ahora. | M | I |
-| RF-WEB-02 | Publicar una página por tratamiento con duración y precio "desde"; los tratamientos ocultos o inactivos no tienen página. | M | I |
-| RF-WEB-03 | Mostrar el equipo con su colegiatura, opiniones, preguntas frecuentes por tema y casos de antes y después solo con consentimiento escrito del paciente. | S | I |
-| RF-WEB-04 | Publicar promociones y campañas con su precio y aplicar el código promocional al reservar. | C | I |
-| RF-WEB-05 | Entregar cada página con título, descripción y datos estructurados para Google, y un mapa del sitio que deja fuera lo privado. | S | I |
-| RF-WEB-06 | Permitir al administrador editar los textos y fotos de cada página de la web desde el panel. | S | I |
-| RF-RES-01 | Reservar en tres pasos (servicio, día y hora, datos), ofreciendo solo los tratamientos que se reservan en línea. | M | I |
-| RF-RES-02 | Ofrecer solo horarios donde cabe el tratamiento completo más el tiempo de esterilización, primero los que no dejan huecos. | M | I |
-| RF-RES-03 | Permitir elegir doctor o tomar el primero disponible. | S | I |
-| RF-RES-04 | Reservar al instante en estado Pendiente, crear la cuenta del celular y el paciente, preparar la confirmación por WhatsApp y alertar a recepción. | M | I |
-| RF-RES-05 | Reservar para un familiar desde un celular recordado sin volver a escribir el número. | S | I |
-| RF-RES-06 | Entregar la cita como archivo de calendario (.ics) con dirección firmada. | C | I |
-| RF-RES-07 | Preguntar una sola vez cómo nos conoció el paciente, después de reservar. | C | I |
-| RF-CTA-01 | Abrir el enlace personal de la cita para verla, confirmarla o cancelarla. | M | I |
-| RF-CTA-02 | Cambiar la cita en el acto con más de 24 h de anticipación, o proponer hasta tres horarios si falta menos. | M | I |
-| RF-CTA-03 | Mostrar en Mi cuenta las próximas citas de la familia en un celular recordado, y el historial, planes y pagos solo tras una verificación reforzada. | M | I |
-| RF-CTA-04 | Pedir un enlace de acceso que queda listo para que recepción lo envíe, sin revelar números. | M | I |
-| RF-CTA-05 | Registrar los antecedentes de salud de cada paciente antes de su primera cita. | S | I |
-| RF-CTA-06 | Pedir la siguiente sesión del plan desde Mi cuenta, avisando a recepción una sola vez. | C | I |
-| RF-CTA-07 | Salir y olvidar el celular recordado. | S | I |
-| RF-CTA-08 | Recordar el celular que reserva la primera cita con un número que el consultorio no tenía, para que entre a Mi cuenta sin esperar el enlace; queda sin verificar hasta que toque un enlace de su número. | S | I |
-| RF-AGE-01 | Mostrar la agenda por día, semana, mes y lista; recepción ve a todos los doctores y cada doctor solo la suya. | M | I |
-| RF-AGE-02 | Crear citas desde el panel, confirmadas y con su aviso preparado, registrando al paciente nuevo en la misma ventana. | M | I |
-| RF-AGE-03 | Mover una cita (también arrastrándola) y cambiar su tratamiento o duración, rechazando los cruces y diciendo con qué cita o bloqueo choca. | M | I |
-| RF-AGE-04 | Llevar la cita por sus estados (confirmar, llegó, en atención, atendida, no asistió, cancelada) y deshacer el último paso dentro de un día. | M | I |
-| RF-AGE-05 | Registrar bloqueos de horario (almuerzo, curso, vacaciones) y cargar de una vez los feriados nacionales del año, sumando a la lista del sistema los que publica Nager.Date. | M | I |
-| RF-AGE-06 | Registrar el horario semanal de cada doctor, con rangos válidos solo por temporada. | M | I |
-| RF-AGE-07 | Buscar el próximo hueco y llevar una lista de espera que ofrece el horario liberado por WhatsApp y lo aparta mientras el paciente responde. | S | I |
-| RF-AGE-08 | Permitir sobrecupos marcados a propósito y series de citas repetidas con un solo aviso. | S | I |
-| RF-AGE-09 | Recibir a quien llega sin cita en el primer hueco del día. | S | I |
-| RF-AGE-10 | Aprobar, rechazar u ofrecer otro horario ante una solicitud de cambio del paciente. | M | I |
-| RF-AGE-11 | Aprender cuánto tarda de verdad cada doctor en cada tratamiento y reservar ese tiempo. | C | I |
-| RF-AGE-12 | Imprimir la hoja del día por doctor para marcar a mano. | C | I |
-| RF-AGE-13 | En la cita nueva del panel, ofrecer a un toque los tratamientos más pedidos, poner al doctor que atendió al paciente la última vez, mostrar los próximos siete días con cuántos horarios libres tiene cada uno y separar las horas en mañana y tarde. | S | I |
-| RF-PAC-01 | Registrar pacientes evitando duplicados por documento, nombre y celular, validando el documento según su tipo. | M | I |
-| RF-PAC-02 | Agrupar a la familia bajo un celular con un titular y su parentesco; los menores llevan un apoderado que firma por ellos. | M | I |
-| RF-PAC-03 | Mostrar la ficha del paciente con una línea de tiempo, su saldo y el siguiente paso; la alerta médica solo a quien lo atiende. | M | I |
-| RF-PAC-04 | Listar seguimientos: inasistencias sin nueva cita, controles vencidos, presupuestos sin aceptar, cumpleaños y pedido de reseña en Google. | S | I |
-| RF-PAC-05 | Bloquear y desbloquear las reservas web de un celular. | S | I |
-| RF-PAC-06 | Traer de RENIEC, por medio de Decolecta, los nombres y apellidos de un DNI al registrar un paciente; sin clave configurada la opción no aparece y, si el servicio no responde, se escriben a mano. | C | I |
-| RF-CLI-01 | Abrir la atención desde la cita con la plantilla del tratamiento y el odontograma anterior; solo la abre el doctor de la cita. | M | I |
-| RF-CLI-02 | Registrar antecedentes médicos y mostrar las alergias junto al nombre del paciente. | M | I |
-| RF-CLI-03 | Llevar el odontograma por superficies, con hallazgos escritos o dictados y sugerencias de diagnóstico y procedimiento. | M | I |
-| RF-CLI-04 | Emitir recetas que avisan por alergia, edad, embarazo y enfermedad, con dosis pediátrica por peso. | M | I |
-| RF-CLI-05 | Firmar en pantalla consentimientos informados (también el apoderado), imprimirlos y revocarlos sin borrarlos. | M | I |
-| RF-CLI-06 | Adjuntar radiografías y fotos comprimidas, servidas solo a quien puede ver la historia clínica. | M | I |
-| RF-CLI-07 | Terminar la atención revisando lo que suele olvidarse y permitir reabrirla hasta 24 h después. | M | I |
-| RF-CLI-08 | Imprimir la historia clínica completa con su odontograma, dejando registro de quién la imprimió. | S | I |
-| RF-CLI-09 | Seguir los trabajos de laboratorio desde que salen hasta que se pagan. | C | I |
-| RF-PRE-01 | Armar el presupuesto desde el odontograma, con la pieza, el motivo y la fecha hasta la que vale el precio. | M | I |
-| RF-PRE-02 | Aceptar el plan con firma y forma de pago: por sesión, al contado con descuento o en cuotas mensuales. | M | I |
-| RF-PRE-03 | Fijar los precios al firmar; lo que se agrega después se firma aparte. | M | I |
-| RF-PRE-04 | Armar paquetes de tratamientos y paquetes 2x1 para otra persona. | S | I |
-| RF-PRE-05 | Hacer seguimiento de cada presupuesto: en qué está, mensaje de WhatsApp y próxima cita. | S | I |
-| RF-PRE-06 | Avanzar el plan con cada sesión atendida y retrocederlo si se reabre la atención. | M | I |
-| RF-CAJ-01 | Cobrar una cita atendida en un solo paso, con descuento no mayor al precio y vuelto calculado en efectivo. | M | I |
-| RF-CAJ-02 | Llevar el saldo de cada paciente con cargos manuales y pagos adelantados como crédito. | M | I |
-| RF-CAJ-03 | Dar una constancia de pago con lo pagado y lo que falta. | M | I |
-| RF-CAJ-04 | Cargar cada cuota el día que vence y listar las cuotas atrasadas y las de la semana. | M | I |
-| RF-CAJ-05 | Cerrar la caja del día por medio de pago y por persona, bloqueando los pagos de ese día para recepción. | M | I |
-| RF-CAJ-06 | Anular pagos y cargos con su motivo, sin borrarlos. | M | I |
-| RF-CAJ-07 | Registrar gastos; el efectivo pagado sale de la caja. | S | I |
-| RF-CAJ-08 | Avisar a recepción para que cobre cuando el paciente debe algo al terminar la atención; la administradora que también atiende elige cobrar ella o pasar el cobro a recepción. | M | I |
-| RF-INV-01 | Llevar los materiales por lote y vencimiento, empezando con una lista sugerida y un conteo. | S | I |
-| RF-INV-02 | Descontar la receta de materiales del tratamiento al cerrar la atención, primero lo que vence primero. | S | I |
-| RF-INV-03 | Registrar el lote y la serie de cada implante en el paciente. | S | I |
-| RF-INV-04 | Pedir por WhatsApp lo que falta, recibir el pedido por lotes y alertar stock mínimo y vencimientos. | S | I |
-| RF-INV-05 | Calcular la bandeja del día y cuándo se acaba cada material según las citas. | C | I |
-| RF-AVI-01 | Preparar 22 tipos de avisos de WhatsApp (confirmación, recordatorio, cambios, cuotas, cumpleaños…) con textos editables. | M | I |
-| RF-AVI-02 | Etapa 1: abrir WhatsApp con el mensaje escrito (wa.me) y marcarlo como enviado. | M | I |
-| RF-AVI-03 | Etapa 2: enviar los avisos solos por la API oficial de Meta cuando se active. | S | I |
-| RF-AVI-04 | Pasar a "llamar" las citas del día siguiente que siguen sin confirmar a la hora configurada. | M | I |
-| RF-AVI-05 | Anunciar campañas solo a quien aceptó recibir promociones. | C | I |
-| RF-AVI-06 | Avisar al personal en la campana y en vivo (por ejemplo, que su paciente espera). | S | I |
-| RF-AVI-07 | Mostrar en el menú del panel cuántos pendientes espera cada opción: citas por confirmar y cambios pedidos, atenciones sin terminar y laboratorio por revisar, y cobros de hoy. | S | I |
-| RF-REP-01 | Mostrar en "Hoy" las tarjetas de cada rol: citas, por confirmar, sala de espera y cobrado. | M | I |
-| RF-REP-02 | Reportar ingresos por día, doctor, tratamiento y medio de pago, en Excel e impresión. | S | I |
-| RF-REP-03 | Reportar actividad: atenciones, inasistencias, ocupación y horas más llenas. | S | I |
-| RF-REP-04 | Mostrar el dinero en espera: presupuestos sin aceptar e inasistencias. | C | I |
-| RF-REP-05 | Ocultar las ganancias a recepción y mostrarlas al doctor solo si la clínica lo permite. | M | I |
-| RF-CFG-01 | Gestionar usuarios por rol, con contraseña propia obligatoria al primer ingreso y recuperación por correo. | M | I |
-| RF-CFG-02 | Configurar tratamientos (duración, precio, quién los atiende, dónde aparecen) y doctores. | M | I |
-| RF-CFG-03 | Cambiar las reglas de reserva y de avisos sin tocar código, rechazando reglas que se contradicen. | M | I |
-| RF-CFG-04 | Guardar el historial de cambios (quién, qué y valor anterior), que solo lee el administrador. | M | I |
-| RF-CFG-05 | Crear una copia diaria de la base, restaurarla y dejar que solo el administrador odontólogo la descargue. | M | I |
-| RF-CFG-06 | Versionar los textos de consentimiento y llevar opciones rápidas y textos de WhatsApp editables. | S | I |
-| RF-API-01 | Documentar la API `/api/v1` en OpenAPI y probar cada ruta. | S | I |
+| ID | El sistema debe… | Prior. |
+| --- | --- | :-: |
+| RF-WEB-01 | Mostrar los datos de la clínica y su horario, calculado de los horarios de los doctores activos, y decir si está abierta ahora. | M |
+| RF-WEB-02 | Publicar una página por tratamiento con duración y precio "desde"; los tratamientos ocultos o inactivos no tienen página. | M |
+| RF-WEB-03 | Mostrar el equipo con su colegiatura, opiniones, preguntas frecuentes por tema y casos de antes y después solo con consentimiento escrito del paciente. | S |
+| RF-WEB-04 | Publicar promociones y campañas con su precio y aplicar el código promocional al reservar. | C |
+| RF-WEB-05 | Entregar cada página con título, descripción y datos estructurados para Google, y un mapa del sitio que deja fuera lo privado. | S |
+| RF-WEB-06 | Permitir al administrador editar los textos y fotos de cada página de la web desde el panel. | S |
+| RF-RES-01 | Reservar en tres pasos (servicio, día y hora, datos), ofreciendo solo los tratamientos que se reservan en línea. | M |
+| RF-RES-02 | Ofrecer solo horarios donde cabe el tratamiento completo más el tiempo de esterilización, primero los que no dejan huecos. | M |
+| RF-RES-03 | Permitir elegir doctor o tomar el primero disponible. | S |
+| RF-RES-04 | Reservar al instante en estado Pendiente, crear la cuenta del celular y el paciente, preparar la confirmación por WhatsApp y alertar a recepción. | M |
+| RF-RES-05 | Reservar para un familiar desde un celular recordado sin volver a escribir el número. | S |
+| RF-RES-06 | Entregar la cita como archivo de calendario (.ics) con dirección firmada. | C |
+| RF-RES-07 | Preguntar una sola vez cómo nos conoció el paciente, después de reservar. | C |
+| RF-CTA-01 | Abrir el enlace personal de la cita para verla, confirmarla o cancelarla. | M |
+| RF-CTA-02 | Cambiar la cita en el acto con más de 24 h de anticipación, o proponer hasta tres horarios si falta menos. | M |
+| RF-CTA-03 | Mostrar en Mi cuenta las próximas citas de la familia en un celular recordado, y el historial, planes y pagos solo tras una verificación reforzada. | M |
+| RF-CTA-04 | Pedir un enlace de acceso que queda listo para que recepción lo envíe, sin revelar números. | M |
+| RF-CTA-05 | Registrar los antecedentes de salud de cada paciente antes de su primera cita. | S |
+| RF-CTA-06 | Pedir la siguiente sesión del plan desde Mi cuenta, avisando a recepción una sola vez. | C |
+| RF-CTA-07 | Salir y olvidar el celular recordado. | S |
+| RF-CTA-08 | Recordar el celular que reserva la primera cita con un número que el consultorio no tenía, para que entre a Mi cuenta sin esperar el enlace; queda sin verificar hasta que toque un enlace de su número. | S |
+| RF-AGE-01 | Mostrar la agenda por día, semana, mes y lista; recepción ve a todos los doctores y cada doctor solo la suya. | M |
+| RF-AGE-02 | Crear citas desde el panel, confirmadas y con su aviso preparado, registrando al paciente nuevo en la misma ventana. | M |
+| RF-AGE-03 | Mover una cita (también arrastrándola) y cambiar su tratamiento o duración, rechazando los cruces y diciendo con qué cita o bloqueo choca. | M |
+| RF-AGE-04 | Llevar la cita por sus estados (confirmar, llegó, en atención, atendida, no asistió, cancelada) y deshacer el último paso dentro de un día. | M |
+| RF-AGE-05 | Registrar bloqueos de horario (almuerzo, curso, vacaciones) y cargar de una vez los feriados nacionales del año, sumando a la lista del sistema los que publica Nager.Date. | M |
+| RF-AGE-06 | Registrar el horario semanal de cada doctor, con rangos válidos solo por temporada. | M |
+| RF-AGE-07 | Buscar el próximo hueco y llevar una lista de espera que ofrece el horario liberado por WhatsApp y lo aparta mientras el paciente responde. | S |
+| RF-AGE-08 | Permitir sobrecupos marcados a propósito y series de citas repetidas con un solo aviso. | S |
+| RF-AGE-09 | Recibir a quien llega sin cita en el primer hueco del día. | S |
+| RF-AGE-10 | Aprobar, rechazar u ofrecer otro horario ante una solicitud de cambio del paciente. | M |
+| RF-AGE-11 | Aprender cuánto tarda de verdad cada doctor en cada tratamiento y reservar ese tiempo. | C |
+| RF-AGE-12 | Imprimir la hoja del día por doctor para marcar a mano. | C |
+| RF-AGE-13 | En la cita nueva del panel, ofrecer a un toque los tratamientos más pedidos, poner al doctor que atendió al paciente la última vez, mostrar los próximos siete días con cuántos horarios libres tiene cada uno y separar las horas en mañana y tarde. | S |
+| RF-PAC-01 | Registrar pacientes evitando duplicados por documento, nombre y celular, validando el documento según su tipo. | M |
+| RF-PAC-02 | Agrupar a la familia bajo un celular con un titular y su parentesco; los menores llevan un apoderado que firma por ellos. | M |
+| RF-PAC-03 | Mostrar la ficha del paciente con una línea de tiempo, su saldo y el siguiente paso; la alerta médica solo a quien lo atiende. | M |
+| RF-PAC-04 | Listar seguimientos: inasistencias sin nueva cita, controles vencidos, presupuestos sin aceptar, cumpleaños y pedido de reseña en Google. | S |
+| RF-PAC-05 | Bloquear y desbloquear las reservas web de un celular. | S |
+| RF-PAC-06 | Traer de RENIEC, por medio de Decolecta, los nombres y apellidos de un DNI al registrar un paciente; sin clave configurada la opción no aparece y, si el servicio no responde, se escriben a mano. | C |
+| RF-CLI-01 | Abrir la atención desde la cita con la plantilla del tratamiento y el odontograma anterior; solo la abre el doctor de la cita. | M |
+| RF-CLI-02 | Registrar antecedentes médicos y mostrar las alergias junto al nombre del paciente. | M |
+| RF-CLI-03 | Llevar el odontograma por superficies, con hallazgos escritos o dictados y sugerencias de diagnóstico y procedimiento. | M |
+| RF-CLI-04 | Emitir recetas que avisan por alergia, edad, embarazo y enfermedad, con dosis pediátrica por peso. | M |
+| RF-CLI-05 | Firmar en pantalla consentimientos informados (también el apoderado), imprimirlos y revocarlos sin borrarlos. | M |
+| RF-CLI-06 | Adjuntar radiografías y fotos comprimidas, servidas solo a quien puede ver la historia clínica. | M |
+| RF-CLI-07 | Terminar la atención revisando lo que suele olvidarse y permitir reabrirla hasta 24 h después. | M |
+| RF-CLI-08 | Imprimir la historia clínica completa con su odontograma, dejando registro de quién la imprimió. | S |
+| RF-CLI-09 | Seguir los trabajos de laboratorio desde que salen hasta que se pagan. | C |
+| RF-PRE-01 | Armar el presupuesto desde el odontograma, con la pieza, el motivo y la fecha hasta la que vale el precio. | M |
+| RF-PRE-02 | Aceptar el plan con firma y forma de pago: por sesión, al contado con descuento o en cuotas mensuales. | M |
+| RF-PRE-03 | Fijar los precios al firmar; lo que se agrega después se firma aparte. | M |
+| RF-PRE-04 | Armar paquetes de tratamientos y paquetes 2x1 para otra persona. | S |
+| RF-PRE-05 | Hacer seguimiento de cada presupuesto: en qué está, mensaje de WhatsApp y próxima cita. | S |
+| RF-PRE-06 | Avanzar el plan con cada sesión atendida y retrocederlo si se reabre la atención. | M |
+| RF-CAJ-01 | Cobrar una cita atendida en un solo paso, con descuento no mayor al precio y vuelto calculado en efectivo. | M |
+| RF-CAJ-02 | Llevar el saldo de cada paciente con cargos manuales y pagos adelantados como crédito. | M |
+| RF-CAJ-03 | Dar una constancia de pago con lo pagado y lo que falta. | M |
+| RF-CAJ-04 | Cargar cada cuota el día que vence y listar las cuotas atrasadas y las de la semana. | M |
+| RF-CAJ-05 | Cerrar la caja del día por medio de pago y por persona, bloqueando los pagos de ese día para recepción. | M |
+| RF-CAJ-06 | Anular pagos y cargos con su motivo, sin borrarlos. | M |
+| RF-CAJ-07 | Registrar gastos; el efectivo pagado sale de la caja. | S |
+| RF-CAJ-08 | Avisar a recepción para que cobre cuando el paciente debe algo al terminar la atención; la administradora que también atiende elige cobrar ella o pasar el cobro a recepción. | M |
+| RF-INV-01 | Llevar los materiales por lote y vencimiento, empezando con una lista sugerida y un conteo. | S |
+| RF-INV-02 | Descontar la receta de materiales del tratamiento al cerrar la atención, primero lo que vence primero. | S |
+| RF-INV-03 | Registrar el lote y la serie de cada implante en el paciente. | S |
+| RF-INV-04 | Pedir por WhatsApp lo que falta, recibir el pedido por lotes y alertar stock mínimo y vencimientos. | S |
+| RF-INV-05 | Calcular la bandeja del día y cuándo se acaba cada material según las citas. | C |
+| RF-AVI-01 | Preparar 22 tipos de avisos de WhatsApp (confirmación, recordatorio, cambios, cuotas, cumpleaños…) con textos editables. | M |
+| RF-AVI-02 | Etapa 1: abrir WhatsApp con el mensaje escrito (wa.me) y marcarlo como enviado. | M |
+| RF-AVI-03 | Etapa 2: enviar los avisos solos por la API oficial de Meta cuando se active. | S |
+| RF-AVI-04 | Pasar a "llamar" las citas del día siguiente que siguen sin confirmar a la hora configurada. | M |
+| RF-AVI-05 | Anunciar campañas solo a quien aceptó recibir promociones. | C |
+| RF-AVI-06 | Avisar al personal en la campana y en vivo (por ejemplo, que su paciente espera). | S |
+| RF-AVI-07 | Mostrar en el menú del panel cuántos pendientes espera cada opción: citas por confirmar y cambios pedidos, atenciones sin terminar y laboratorio por revisar, y cobros de hoy. | S |
+| RF-REP-01 | Mostrar en "Hoy" las tarjetas de cada rol: citas, por confirmar, sala de espera y cobrado. | M |
+| RF-REP-02 | Reportar ingresos por día, doctor, tratamiento y medio de pago, en Excel e impresión. | S |
+| RF-REP-03 | Reportar actividad: atenciones, inasistencias, ocupación y horas más llenas. | S |
+| RF-REP-04 | Mostrar el dinero en espera: presupuestos sin aceptar e inasistencias. | C |
+| RF-REP-05 | Ocultar las ganancias a recepción y mostrarlas al doctor solo si la clínica lo permite. | M |
+| RF-CFG-01 | Gestionar usuarios por rol, con contraseña propia obligatoria al primer ingreso y recuperación por correo. | M |
+| RF-CFG-02 | Configurar tratamientos (duración, precio, quién los atiende, dónde aparecen) y doctores. | M |
+| RF-CFG-03 | Cambiar las reglas de reserva y de avisos sin tocar código, rechazando reglas que se contradicen. | M |
+| RF-CFG-04 | Guardar el historial de cambios (quién, qué y valor anterior), que solo lee el administrador. | M |
+| RF-CFG-05 | Crear una copia diaria de la base, restaurarla y dejar que solo el administrador odontólogo la descargue. | M |
+| RF-CFG-06 | Versionar los textos de consentimiento y llevar opciones rápidas y textos de WhatsApp editables. | S |
+| RF-API-01 | Documentar la API `/api/v1` en OpenAPI y probar cada ruta. | S |
 
-Son 87 requerimientos, todos implementados (I). RF-API-01 estaba planificado y se completó en el E3: `docs/api/openapi.json` y la validación de cada respuesta de las pruebas contra él.
+Los 87 requerimientos están implementados y probados, así que la tabla no repite su estado. RF-API-01 era el único planificado y se completó en el E3: `docs/api/openapi.json` y la validación de cada respuesta de las pruebas contra él.
 
 ## Requerimientos no funcionales
 
@@ -249,7 +249,7 @@ URL pública del prototipo para que los usuarios lo prueben sin instalar nada: `
 
 El paciente llega a la web desde Google, una promoción o el enlace que recibe por WhatsApp. Todo camino termina en reservar o en su enlace personal, y el enlace lo lleva a Mi cuenta sin contraseña.
 
-<!-- figura: diagramas/flujo-paciente.png 13cm -->
+<!-- figura: diagramas/flujo-paciente.png 11.5cm -->
 ```mermaid
 flowchart TB
   subgraph pub["Web&nbsp;pública"]
@@ -314,11 +314,11 @@ flowchart TB
 
 ## Pantallas principales
 
-<!-- figura: prototipo/web-reserva.png 12.5cm -->
+<!-- figura: prototipo/web-reserva.png 11.5cm -->
 
 *Figura 3. Web del paciente en el celular: inicio, paso 1 (servicio) y paso 2 (día y hora) de la reserva. Cumple RF-WEB-01, RF-RES-01 y RF-RES-02.*
 
-<!-- figura: prototipo/web-mi-cuenta.png 12.5cm -->
+<!-- figura: prototipo/web-mi-cuenta.png 11.5cm -->
 
 *Figura 4. Enlace personal de la cita, Mi cuenta en un celular no recordado (pide el enlace por WhatsApp) y Mi cuenta en un celular recordado. Cumple RF-CTA-01, RF-CTA-03 y RF-CTA-04.*
 
@@ -326,7 +326,7 @@ flowchart TB
 
 *Figura 5. Recepción: "Hoy" con citas, por confirmar, sala de espera y cobrado; y la agenda del día con el buscador de huecos. Cumple RF-REP-01, RF-AGE-01 y RF-AGE-07.*
 
-<!-- figura: prototipo/panel-atencion.png 13cm -->
+<!-- figura: prototipo/panel-atencion.png 12cm -->
 
 *Figura 6. Doctor: pantalla de atención con la barra de secciones (motivo, odontograma, diagnóstico, tratamientos, evolución) y el aviso de antecedentes faltantes. Cumple RF-CLI-01 y RF-CLI-02.*
 
@@ -342,7 +342,7 @@ flowchart TB
 
 *Figura 9. "Hoy" de recepción en el celular, con la barra inferior, y el reporte de ingresos del administrador. Cumple RNF-USA-01 y RF-REP-02.*
 
-<!-- figura: prototipo/panel-cita-nueva.png 15cm -->
+<!-- figura: prototipo/panel-cita-nueva.png 14cm -->
 
 *Figura 10. Recepción, ventana "Nueva cita": a la izquierda, el paciente nuevo con la lupa junto al DNI, que trae sus nombres de RENIEC; a la derecha, los tratamientos más pedidos, los próximos siete días con sus horarios libres y las horas separadas en mañana y tarde. Cumple RF-AGE-13 y RF-PAC-06.*
 
@@ -411,7 +411,7 @@ flowchart TB
 
 *Figura 11. Contexto: quién usa el sistema y con qué sistemas externos se comunica.*
 
-Cuatro tipos de usuarios entran por HTTPS. WhatsApp es el canal con el paciente: en la etapa 1 el personal abre `wa.me` con el mensaje ya escrito y en la etapa 2 los avisos salen solos por la API oficial de Meta (ADR-07). El correo SMTP solo sirve para que el personal recupere su contraseña. Para Google, el sistema publica `sitemap.xml`, `robots.txt` y datos estructurados en cada página, y enlaza a Maps y a las opiniones. La cita reservada se entrega como archivo `.ics` para el calendario del celular. Al registrar a un paciente, el sistema puede traer de RENIEC, por medio de Decolecta, los nombres de su DNI; al cargar los feriados del año, suma los que publica Nager.Date. A los dos los llama con un tiempo de espera y, si no responden, sigue sin ellos (ADR-14).
+Cuatro tipos de usuarios entran por HTTPS. WhatsApp es el canal con el paciente: en la etapa 1 el personal abre `wa.me` con el mensaje ya escrito y en la etapa 2 los avisos salen solos por la API de Meta (ADR-07). El correo SMTP solo sirve para recuperar contraseñas. Para Google, el sistema publica `sitemap.xml`, `robots.txt` y datos estructurados, y la cita reservada se entrega como `.ics` para el calendario del celular. RENIEC (por Decolecta) da los nombres de un DNI y Nager.Date los feriados del año; a los dos los llama con un tiempo de espera y, si no responden, sigue sin ellos (ADR-14).
 
 ## Vista de contenedores (C4 nivel 2)
 
@@ -421,15 +421,15 @@ El sistema tiene cinco contenedores propios y dos almacenes de datos, y depende 
 
 | Contenedor | Tecnología | Responsabilidad |
 | --- | --- | --- |
-| Web del paciente | React 19, TypeScript 6, Vite 8, React Router 8, TanStack Query 5 | Inicio, tratamientos, reservar, enlace personal y Mi cuenta. Se compila dentro de `backend/public/app` y llama a la API con la cookie de sesión y el encabezado `X-XSRF-TOKEN`. |
-| Documento de cada página | Laravel, `SpaController` y la vista `spa.blade.php` | Devuelve el HTML con título, meta, datos estructurados y los datos de la página ya cargados. |
+| Web del paciente | React 19, TypeScript 6, Vite 8, TanStack Query 5 | Inicio, tratamientos, reservar, enlace personal y Mi cuenta; se compila en `backend/public/app` y llama a la API con sesión y XSRF. |
+| Documento de cada página | Laravel, `SpaController` | El HTML con título, meta, datos estructurados y los datos de la página. |
 | API `/api/v1` | Laravel 13: 13 controladores, 3 Form Requests, 10 API Resources | 36 rutas: contenido de la web, disponibilidad, reservar, enlace personal, Mi cuenta y salud. Límites por IP y por celular. |
 | Panel interno | Filament 5 y Livewire 4 | Agenda, pacientes, atención clínica, caja, inventario, avisos, reportes y configuración, según el rol. |
-| Tareas programadas | Programador de Laravel con un cron cada minuto | 10 tareas: recordatorios, citas sin confirmar, cuotas, apartados de la lista de espera, WhatsApp, cola, limpieza, duraciones aprendidas y copia diaria. |
-| Base de datos | MySQL 8 (SQLite en memoria en las pruebas) | 70 tablas y 143 llaves foráneas (diccionario del E2); también guarda sesiones, caché y cola. |
-| Archivos privados | Disco `storage/app/private` | Radiografías, fotos, firmas y copias de seguridad, fuera de `public/`; se entregan solo si la política lo permite. |
+| Tareas programadas | Programador de Laravel, un cron cada minuto | 10 tareas: recordatorios, citas sin confirmar, cuotas, lista de espera, WhatsApp, cola, limpieza, duraciones y copia diaria. |
+| Base de datos | MySQL 8 (SQLite en las pruebas) | 70 tablas y 143 llaves foráneas (E2); también sesiones, caché y cola. |
+| Archivos privados | `storage/app/private` | Radiografías, fotos, firmas y copias, fuera de `public/`; salen solo si la política lo permite. |
 
-<!-- figura: diagramas/c2-contenedores.png 11cm -->
+<!-- figura: diagramas/c2-contenedores.png 15cm -->
 ```mermaid
 %%{init: {"layout": "elk", "flowchart": {"nodeSpacing": 22, "rankSpacing": 36, "padding": 8}}}%%
 flowchart TB
@@ -437,7 +437,7 @@ flowchart TB
   per(["Personal"])
   cron(["Cron del<br/>servidor"])
   spa["<b>Web del paciente</b><br/>React 19 + TypeScript 6<br/>Vite 8, TanStack Query 5"]
-  pan["<b>Panel interno</b><br/>Filament 5 + Livewire 4<br/>29 recursos, 18 páginas"]
+  pan["<b>Panel interno</b><br/>Filament 5 + Livewire 4<br/>29 recursos, 13 páginas"]
   subgraph lar["Laravel 13 · PHP 8.3"]
     api["<b>API /api/v1</b><br/>36 rutas JSON, sesión<br/>+ XSRF, límites"]
     doc["<b>SpaController</b><br/>HTML de cada página<br/>con meta y datos"]
@@ -463,9 +463,11 @@ flowchart TB
 
 ## Vista de despliegue en Microsoft Azure
 
-El C2 cumple el rol de vista de despliegue y la figura 13 lo ubica en la infraestructura de Azure que diseña la línea CE03 del mismo equipo. Desde Internet solo entra el puerto 443. OPNsense filtra el tráfico (con Suricata como IDS/IPS) y lo pasa al proxy de la DMZ, que termina el TLS con Let's Encrypt, aplica el WAF de ModSecurity y guarda en caché los archivos de `/app/assets`. La aplicación corre en `vm-app` con Nginx y PHP-FPM 8.3, a partir del paquete `consultorio-para-hosting` que arma la CI, y con el cron `schedule:run` cada minuto. MySQL Flexible Server 8.0 no tiene acceso público y exige TLS. Los secretos del `.env` (clave de la aplicación, base de datos, token de Meta y clave de Decolecta) van en Key Vault y los registros, en Azure Monitor.
+El C2 cumple el rol de vista de despliegue y la figura 13 lo ubica en la infraestructura de Azure que diseña la línea CE03 del mismo equipo. Desde Internet solo entran los puertos 80 y 443, y solo hacia el proxy. El firewall `vm-fw` (Ubuntu con nftables, configurado por cloud-init, con Suricata como IDS en la WAN) filtra el tráfico y lo pasa al proxy de la DMZ, que termina el TLS con Let's Encrypt, aplica el WAF de ModSecurity y guarda en caché los archivos de `/app/assets`. La aplicación corre en `vm-app` con Nginx y PHP-FPM 8.3, a partir del paquete `consultorio-para-hosting` que arma la CI, y con el cron `schedule:run` cada minuto. MySQL Flexible Server 8.0 no tiene acceso público y exige TLS. Los secretos del `.env` (clave de la aplicación, base de datos, token de Meta y clave de Decolecta) van en Key Vault y los registros, en Azure Monitor.
 
-Este despliegue trae un cambio para el código. Detrás del proxy, `$request->ip()` devuelve la IP de `vm-proxy`, así que los límites por IP (8 reservas por hora en `BookingController`, 60 páginas y 240 llamadas a la API por minuto en `AppServiceProvider`) se compartirían entre todos los pacientes, y Laravel no sabría que la conexión es HTTPS. Por eso el proxy se declara como confiable con la variable `TRUSTED_PROXIES` (en Azure, 10.20.3.4), que lee `AppServiceProvider`; lo agregó la línea CE03 junto con la infraestructura y lo prueba `TrustedProxiesTest`.
+Detrás del proxy, `$request->ip()` devolvería la IP de `vm-proxy`: los límites por IP (RNF-SEG-04) se compartirían entre todos los pacientes y Laravel no sabría que la conexión es HTTPS. Por eso `AppServiceProvider` declara el proxy como confiable con `TRUSTED_PROXIES` (en Azure, 10.20.3.4), y lo prueba `TrustedProxiesTest`.
+
+El diseño original ponía OPNsense como firewall. Al desplegar, el 19/11/2026, la línea CE03 lo cambió por `vm-fw`, que sale solo con cloud-init (OPNsense no tiene imagen oficial en Azure) y cumple los mismos papeles, con sus reglas en el repositorio (`infra/firewall/*.nft`).
 
 <!-- figura: diagramas/despliegue-azure.png 11cm -->
 ```mermaid
@@ -473,7 +475,7 @@ Este despliegue trae un cambio para el código. Detrás del proxy, `$request->ip
 flowchart TB
   usr(["Pacientes y personal<br/>Internet, HTTPS 443"])
   subgraph az["Azure · VNet 10.20.0.0/16"]
-    fw["<b>OPNsense</b><br/>firewall, NAT, VPN IPsec,<br/>Suricata IDS/IPS"]
+    fw["<b>vm-fw</b> · Ubuntu 24.04<br/>nftables (firewall y NAT),<br/>VPN IPsec (strongSwan),<br/>Suricata IDS"]
     subgraph dmz["Subred DMZ"]
       px["<b>vm-proxy</b><br/>Nginx + ModSecurity (WAF),<br/>TLS Let's Encrypt,<br/>caché de /app/assets"]
     end
@@ -561,14 +563,14 @@ flowchart TB
 
 ## Decisiones de arquitectura (ADR)
 
-Cada decisión sigue el formato de Michael Nygard: contexto, opciones, decisión y consecuencias. Las ADR-01 a ADR-11 y la ADR-14 están aceptadas y se ven en el código. Las ADR-12 y ADR-13 se propusieron el 18/11/2026 para la app móvil y el servicio de IA, y quedaron descartadas el 19/11/2026, cuando el equipo los sacó del alcance; se dejan como registro de la decisión.
+Cada decisión sigue el formato de Michael Nygard: contexto, opciones, decisión y consecuencias. Las ADR-01 a ADR-11 y la ADR-14 están aceptadas y se ven en el código; las ADR-12 y ADR-13 (app móvil y servicio de IA) quedaron descartadas el 19/11/2026 y se dejan como registro.
 
 ### ADR-01. Un monolito modular con dos interfaces sobre los mismos servicios
 
 - **Contexto:** pacientes con celular, personal en computadora y tablet, un equipo de tres personas y un servidor.
 - **Opciones:** (a) aplicación PHP con vistas del servidor para todo; (b) frontend React y backend PHP separados en dos servidores; (c) un monolito Laravel que sirve la API y el panel, con la web React compilada dentro.
 - **Decisión:** (c). La web del paciente es React y consume `/api/v1` en el mismo dominio (sesión y XSRF, sin CORS); el personal usa el panel Filament; ambos llaman a `app/Services`.
-- **Consecuencias:** una sola base de código, un despliegue y una transacción para toda regla; la web se puede cambiar sin tocar las reglas. Un cliente que no sea un navegador necesitaría otra forma de autenticarse (ADR-12, descartada).
+- **Consecuencias:** una base de código, un despliegue y una transacción para toda regla; la web cambia sin tocar las reglas. Otro cliente que no sea un navegador necesitaría otra autenticación (ADR-12).
 
 ### ADR-02. Laravel 13 con PHP 8.3 para el backend
 
@@ -579,7 +581,7 @@ Cada decisión sigue el formato de Michael Nygard: contexto, opciones, decisión
 
 ### ADR-03. Filament 5 y Livewire 4 para el panel del personal
 
-- **Contexto:** el panel tiene 29 recursos, 18 páginas y 26 widgets (agenda, odontograma, caja); el personal no es técnico.
+- **Contexto:** el panel tiene 29 recursos, 13 páginas y 26 widgets (agenda, odontograma, caja); el personal no es técnico.
 - **Opciones:** (a) hacer el panel en React; (b) vistas Blade a mano; (c) Filament sobre Livewire.
 - **Decisión:** (c). Formularios, tablas, filtros y permisos salen de Filament; lo especial (agenda, odontograma) son componentes Livewire.
 - **Consecuencias:** mucho menos código y los mismos permisos que la API; el panel depende de la versión de Filament.
@@ -596,14 +598,14 @@ Cada decisión sigue el formato de Michael Nygard: contexto, opciones, decisión
 - **Contexto:** datos relacionales con reglas fuertes (una cita, un doctor y un paciente; pagos y cargos) y un hosting que ofrezca el motor.
 - **Opciones:** (a) MySQL o MariaDB; (b) PostgreSQL; (c) SQLite.
 - **Decisión:** (a) MySQL 8 en producción (MySQL Flexible Server en Azure) y SQLite en memoria para las pruebas.
-- **Consecuencias:** de las 19 llaves foráneas hacia el paciente, las 10 de historia clínica y dinero usan `restrictOnDelete`: un paciente con historia no se puede borrar (cifra corregida en el E2, sección 1.3). Las vistas y procedimientos de la FASE 2 serán solo para MySQL, para no romper las pruebas en SQLite.
+- **Consecuencias:** las 10 llaves foráneas de historia clínica y dinero hacia el paciente usan `restrictOnDelete` (E2, sección 1.3). Las vistas y procedimientos del E2 son solo para MySQL, para no romper las pruebas en SQLite.
 
 ### ADR-06. Un solo servidor con un cron cada minuto
 
 - **Contexto:** recordatorios, cuotas y copias necesitan tareas programadas, pero un hosting económico no tiene procesos permanentes ni Node.
-- **Opciones:** (a) hosting compartido con cPanel; (b) Azure App Service y base de datos administrada; (c) máquinas virtuales en Azure detrás de OPNsense, como diseña la línea CE03.
+- **Opciones:** (a) hosting compartido con cPanel; (b) Azure App Service y base de datos administrada; (c) máquinas virtuales en Azure detrás de un firewall propio, como diseña la línea CE03.
 - **Decisión:** (c) para la producción del curso. El sistema sigue necesitando solo PHP y un cron: `schedule:run` ejecuta las 10 tareas y procesa la cola con `queue:work --stop-when-empty`.
-- **Consecuencias:** el mismo paquete de la CI sirve en Azure y en un hosting compartido (RNF-COM-01). Si el cron falla, `KeepRemindersUpToDate` prepara los recordatorios al abrir el panel. Hay que configurar el proxy confiable (sección 3.4).
+- **Consecuencias:** el mismo paquete de la CI sirve en Azure y en un hosting compartido (RNF-COM-01). Si el cron falla, `KeepRemindersUpToDate` prepara los recordatorios al abrir el panel.
 
 ### ADR-07. WhatsApp oficial en dos etapas: enlace `wa.me` y luego la API de Meta
 
@@ -617,7 +619,7 @@ Cada decisión sigue el formato de Michael Nygard: contexto, opciones, decisión
 - **Contexto:** cobros, citas e historia clínica tienen valor legal y contable; un borrado no deja rastro.
 - **Opciones:** (a) borrar; (b) borrado lógico en todo; (c) anular con motivo lo que mueve dinero, impedir borrar lo clínico y auditar todo cambio.
 - **Decisión:** (c). Las políticas niegan `delete` en citas y pagos; cargos y pagos tienen `voided_at`, quién y motivo; 40 modelos usan `Auditable` (valores anteriores y nuevos, usuario, IP) y 15 usan `SoftDeletes`.
-- **Consecuencias:** los reportes y el cierre de caja excluyen lo anulado (`PatientsAndSetupPanelTest`); la auditoría crece y solo los enlaces y dispositivos vencidos se limpian con `model:prune`.
+- **Consecuencias:** los reportes y el cierre excluyen lo anulado (`PatientsAndSetupPanelTest`); la auditoría crece y solo se limpian enlaces y dispositivos vencidos (`model:prune`).
 
 ### ADR-09. Los pagos son solo informativos
 
@@ -630,29 +632,29 @@ Cada decisión sigue el formato de Michael Nygard: contexto, opciones, decisión
 
 - **Contexto:** pacientes de todas las edades olvidan contraseñas; una familia comparte un celular.
 - **Opciones:** (a) usuario y contraseña; (b) código OTP por SMS o WhatsApp; (c) enlace personal por WhatsApp y celular recordado.
-- **Decisión:** (c), según la decisión del cliente del 23/10/2026 ("sin códigos OTP"). El enlace de la cita vale hasta 2 días después de ella y el de acceso, 72 horas; el token se guarda como hash SHA-256; el celular queda recordado 120 días y lo personal pide una verificación reforzada de 15 minutos.
+- **Decisión:** (c), como pidió el cliente el 23/10/2026 ("sin códigos OTP"). El enlace de la cita vale hasta 2 días después de ella y el de acceso, 72 horas; el token se guarda como hash SHA-256 y el celular queda recordado 120 días.
 - **Consecuencias:** abrir el enlace verifica el celular; quien lo pierde pide otro enlace a recepción. Evidencia: `LinkControllerTest`, `AccountControllerTest`.
 
 ### ADR-11. Permisos por políticas y lo clínico solo para quien atiende (Ley N.º 29733)
 
 - **Contexto:** la historia clínica es un dato sensible; recepción necesita cobrar sin verla.
 - **Opciones:** (a) permisos por pantalla; (b) una política por modelo con reglas por rol y por relación con el paciente.
-- **Decisión:** (b). 35 políticas; `PatientPolicy::viewClinical` deja ver lo clínico al doctor que atiende al paciente y al administrador odontólogo; los archivos clínicos se sirven desde el disco privado solo tras pasar la política.
+- **Decisión:** (b). 35 políticas; `PatientPolicy::viewClinical` deja ver lo clínico al doctor que atiende y al administrador odontólogo, y los archivos clínicos salen del disco privado solo tras esa política.
 - **Consecuencias:** la misma regla vale en la API, el panel y las impresiones. Evidencia: `PanelAccessTest`, `TreatmentPlanPageTest`.
 
 ### ADR-12. API con tokens para una app móvil (descartada)
 
-- **Contexto:** el 18/11/2026 se planificó una app móvil; una app no es un navegador y no puede usar la cookie de sesión de la web.
-- **Opciones:** (a) una API nueva; (b) la misma `/api/v1` con tokens de Laravel Sanctum; (c) la misma API con el token del celular recordado como `Bearer`.
-- **Decisión:** se proponía (b). El 19/11/2026 el equipo decidió no construir la app móvil, así que la propuesta quedó descartada.
-- **Consecuencias:** la API sigue usando la sesión del mismo dominio (ADR-01) y no se agrega Sanctum. Si algún día se hace la app, esta ADR es el punto de partida.
+- **Contexto:** el 18/11/2026 se planificó una app móvil, que no puede usar la cookie de sesión de la web.
+- **Opciones:** (a) una API nueva; (b) `/api/v1` con tokens de Laravel Sanctum; (c) `/api/v1` con el token del celular recordado como `Bearer`.
+- **Decisión:** se proponía (b). El 19/11/2026 el equipo sacó la app del alcance.
+- **Consecuencias:** la API sigue con la sesión del mismo dominio (ADR-01), sin Sanctum; si se retoma la app, se parte de aquí.
 
 ### ADR-13. Servicio de IA de inasistencias aparte (descartada)
 
-- **Contexto:** el 18/11/2026 se planificó un servicio en Python que estimara el riesgo de "No asistió" para que recepción confirmara primero esas citas.
-- **Opciones:** (a) reglas fijas en PHP; (b) un servicio Python con FastAPI en Docker; (c) un servicio de aprendizaje automático en la nube.
-- **Decisión:** se proponía (b). El 19/11/2026 el equipo decidió no construirlo y la propuesta quedó descartada.
-- **Consecuencias:** recepción sigue con lo que ya existe: las citas sin confirmar pasan a "llamar" el día anterior (RF-AVI-04) y los seguimientos listan las inasistencias (RF-PAC-04).
+- **Contexto:** el 18/11/2026 se planificó estimar el riesgo de "No asistió" para que recepción confirme primero esas citas.
+- **Opciones:** (a) reglas fijas en PHP; (b) un servicio Python con FastAPI en Docker; (c) aprendizaje automático en la nube.
+- **Decisión:** se proponía (b). El 19/11/2026 el equipo lo sacó del alcance.
+- **Consecuencias:** siguen las citas sin confirmar para "llamar" el día anterior (RF-AVI-04) y los seguimientos de inasistencias (RF-PAC-04).
 
 ### ADR-14. Servicios externos con tiempo de espera y una alternativa propia
 
@@ -667,7 +669,7 @@ Cada decisión sigue el formato de Michael Nygard: contexto, opciones, decisión
 
 Los 20 casos de uso salen de las historias de usuario y de los menús reales de cada rol. El paciente usa la web; recepción, doctor y administrador usan el panel; el cron es un actor del sistema. La matriz del anexo A une cada caso de uso con sus requerimientos, componentes y pruebas, y el anexo D especifica los dos centrales: CU-02 Reservar cita en línea y CU-14 Atender y cerrar la atención.
 
-<!-- figura: diagramas/casos-de-uso-paciente.png 11cm -->
+<!-- figura: diagramas/casos-de-uso-paciente.png 10cm -->
 ```mermaid
 %%{init: {"flowchart": {"nodeSpacing": 22, "rankSpacing": 36, "padding": 8}}}%%
 flowchart LR
@@ -692,7 +694,7 @@ flowchart LR
 
 *Figura 16. Casos de uso del paciente o familiar.*
 
-<!-- figura: diagramas/casos-de-uso-personal.png 11cm -->
+<!-- figura: diagramas/casos-de-uso-personal.png 10cm -->
 ```mermaid
 %%{init: {"flowchart": {"nodeSpacing": 14, "rankSpacing": 50}}}%%
 flowchart LR
@@ -899,9 +901,9 @@ sequenceDiagram
 
 ## Diagramas de estados
 
-**Cita** (figura 22). Los estados y sus transiciones son los de `AppointmentStatus` y los métodos de `AppointmentService`. La web crea la cita "Pendiente" y el personal, "Confirmada". El último paso se deshace dentro de 24 h y vuelve a "Confirmada" si alguien la había confirmado, o a "Pendiente" si no (`UndoLastStepTest`).
+**Cita** (figura 22), según `AppointmentStatus` y los métodos de `AppointmentService`. La web crea la cita "Pendiente" y el personal, "Confirmada"; el último paso se deshace dentro de 24 h (`UndoLastStepTest`).
 
-<!-- figura: diagramas/estados-cita.png 13.5cm -->
+<!-- figura: diagramas/estados-cita.png 12.5cm -->
 ```mermaid
 stateDiagram-v2
   [*] --> Pendiente: reserva web
@@ -932,9 +934,9 @@ stateDiagram-v2
 
 *Figura 22. Estados de la cita (`app/Enums/AppointmentStatus.php`).*
 
-**Presupuesto y plan de tratamiento** (figura 23). Los estados son los de `TreatmentPlanStatus`. Al firmar, o al empezar a trabajarlo, el plan queda aceptado con los precios fijos (RN-09); cancelarlo cobra lo hecho y detiene las cuotas, como comprueba `TreatmentPlanPaymentsTest`.
+**Presupuesto y plan de tratamiento** (figura 23), según `TreatmentPlanStatus`. Al firmarlo o empezar a trabajarlo, el plan queda aceptado con precios fijos (RN-09); cancelarlo cobra lo hecho y detiene las cuotas (`TreatmentPlanPaymentsTest`).
 
-<!-- figura: diagramas/estados-presupuesto.png 10.5cm -->
+<!-- figura: diagramas/estados-presupuesto.png 9cm -->
 ```mermaid
 stateDiagram-v2
   direction TB
@@ -964,4 +966,4 @@ stateDiagram-v2
 
 # Anexos
 
-Los anexos van en un Word aparte, `CE021-S1-E1-Requerimientos-y-Diseno-del-Sistema-Anexos.docx`: **A**, la matriz de trazabilidad RF → historia → caso de uso → componente o servicio → archivo → prueba automatizada; **B**, el registro de la validación y el acta con el Dr. Vega y recepción `[PENDIENTE – firma]`; **C**, los diagramas de clases detallados; **D**, los criterios de aceptación en Gherkin de las 12 historias y la especificación de CU-02 y CU-14; y **E**, la evidencia de la sustentación ante el docente `[PENDIENTE – estudiante]`. La matriz se comprueba contra el código con `python3 docs/entregables/verificar-trazabilidad.py`: cada archivo y cada prueba que cita existen en el repositorio.
+Van en un Word aparte (`…-Anexos.docx`): **A**, la matriz RF → historia → caso de uso → componente → archivo → prueba, comprobada con `verificar-trazabilidad.py`; **B**, la validación y el acta `[PENDIENTE – firma]`; **C**, las clases detalladas; **D**, el Gherkin de las 12 historias y CU-02 y CU-14; **E**, la sustentación `[PENDIENTE – estudiante]`.

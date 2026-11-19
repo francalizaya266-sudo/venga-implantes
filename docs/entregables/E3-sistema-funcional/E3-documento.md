@@ -20,7 +20,7 @@ Lo que solo puede hacer una persona (la URL de producción, las capturas del por
 
 El sistema es un **monolito modular** (ADR-01 del E1): una sola aplicación Laravel que se despliega junta, pero con cada regla del negocio en un único servicio de `app/Services`, y tres entradas que usan esos servicios por igual: la web del paciente, el panel del personal y las tareas programadas. Se eligió así porque la clínica tiene un solo local, dos doctores y una recepcionista: un sistema distribuido le habría sumado costo y puntos de falla sin beneficio (sección 3.1 del E1). La figura 1 muestra los contenedores, igual que en el diseño del E1, y la figura 2, cómo se comunican y cómo se comprueba esa comunicación.
 
-<!-- figura: ../E1-requerimientos-y-diseno/diagramas/c2-contenedores.png 12cm -->
+<!-- figura: ../E1-requerimientos-y-diseno/diagramas/c2-contenedores.png 15cm -->
 
 ![](../E1-requerimientos-y-diseno/diagramas/c2-contenedores.png)
 
@@ -90,7 +90,7 @@ En esta fase se corrigió una diferencia con el ADR-14: el envío por la API de 
 
 La web y la API son dos programas escritos en dos lenguajes; si uno cambia la forma de una respuesta y el otro no, la página se rompe en producción aunque las pruebas de cada lado pasen. Para que eso no ocurra, la API tiene un contrato y las dos suites lo hacen cumplir (figura 2).
 
-<!-- figura: diagramas/integracion-capas.png 11cm -->
+<!-- figura: diagramas/integracion-capas.png 13cm -->
 
 ![](diagramas/integracion-capas.png)
 
@@ -166,7 +166,7 @@ Las demás pantallas del sistema (atención clínica, presupuesto, caja, cierre,
 | `frontend/` | La web del paciente: `src/api`, `src/pages`, `src/components`, `src/lib`, `src/styles` y `src/test` (fixtures, la API de mentira y el contrato). |
 | `docs/api/` | `openapi.json`, el contrato de la API. |
 | `docs/entregables/` | Los entregables de la EPE en Markdown, sus diagramas y evidencias, y el guion que genera los Word. |
-| `infra/` | El despliegue en Azure: plantillas Bicep, cloud-init de cada VM, configuración de Nginx, scripts de publicación y copias, y las guías de OPNsense. |
+| `infra/` | El despliegue en Azure: plantillas Bicep, cloud-init de cada VM, configuración de Nginx, scripts de publicación y copias, y las reglas del firewall (`vm-fw`). |
 | `.github/workflows/` | `tests.yml` (pruebas en cada cambio) y `desplegar-azure.yml` (publicación manual en producción). |
 
 ## Patrones y buenas prácticas aplicadas
@@ -281,17 +281,17 @@ Además, el servidor necesita un único cron, `* * * * * php artisan schedule:ru
 
 El despliegue sigue la vista de despliegue del E1 (figura 5) y está escrito como código en `infra/` (PR #13, unido a `main` el 19/11/2026): dos plantillas Bicep crean la red de producción y la de la sede de la clínica, cada VM se configura con cloud-init, y `infra/desplegar.sh` crea, enciende, apaga y muestra el estado de todo desde Cloud Shell.
 
-<!-- figura: ../E1-requerimientos-y-diseno/diagramas/despliegue-azure.png 11cm -->
+<!-- figura: ../E1-requerimientos-y-diseno/diagramas/despliegue-azure.png 13cm -->
 
 ![](../E1-requerimientos-y-diseno/diagramas/despliegue-azure.png)
 
-*Figura 5. Despliegue en Azure (figura 13 del E1): OPNsense como única entrada, el proxy con WAF en la DMZ, la aplicación sin IP pública y MySQL privado con TLS.*
+*Figura 5. Despliegue en Azure (figura 13 del E1): el firewall `vm-fw` como única entrada, el proxy con WAF en la DMZ, la aplicación sin IP pública y MySQL privado con TLS.*
 
 Cada versión se publica así, sin claves guardadas en GitHub:
 
 1. **Pruebas.** Cada cambio pasa por `tests.yml` (sección 4.4), que también arma el paquete `consultorio-para-hosting`.
-2. **Publicación.** El workflow `desplegar-azure.yml`, que se corre a mano y solo desde `main`, compila la web, arma el paquete, entra a Azure con OIDC (GitHub firma un token que solo acepta la identidad de despliegue), lo sube a Blob y le pide a `vm-app` que corra `remoto-publicar.sh`.
-3. **En `vm-app`**, `deploy-app.sh` deja la versión en su propia carpeta (`releases/<fecha>`), enlaza el `.env` y los archivos compartidos, corre `composer install --no-dev`, `migrate --force` y `optimize`, y recién al final cambia el enlace `current`. Quedan las últimas cinco versiones: volver a la anterior es cambiar ese enlace.
+2. **Publicación.** El workflow `desplegar-azure.yml`, que corre solo desde `main` (a mano o, con `DESPLIEGUE_AUTOMATICO=true`, después de cada CI en verde; E4, sección 2.1), compila la web, arma el paquete, entra a Azure con OIDC (GitHub firma un token que solo acepta la identidad de despliegue), lo sube a Blob y le pide a `vm-app` que corra `remoto-publicar.sh`.
+3. **En `vm-app`**, `deploy-app.sh` deja la versión en su propia carpeta (`releases/<fecha>`), enlaza el `.env` y los archivos compartidos, corre `composer install --no-dev`, `migrate --force` y `optimize`, y recién al final cambia el enlace `current`. Quedan las últimas cinco versiones: volver a la anterior es cambiar ese enlace, con la acción `volver` del mismo workflow.
 4. **Comprobación.** El workflow pide `/up` y falla si la web no responde.
 
 ## Evidencia de despliegue y ejecución

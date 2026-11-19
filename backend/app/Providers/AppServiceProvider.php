@@ -7,13 +7,18 @@ use App\Services\Inventory\SupplyForecast;
 use App\Services\Web\ClinicInfo;
 use Carbon\Carbon;
 use Carbon\CarbonImmutable;
+use Illuminate\Auth\Events\Authenticated;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\DevCommands;
+use Illuminate\Foundation\Events\DiagnosingHealth;
 use Illuminate\Http\Middleware\TrustProxies;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Events\RouteMatched;
+use Illuminate\Support\Facades\Context;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
@@ -57,6 +62,8 @@ class AppServiceProvider extends ServiceProvider
 
         $this->limitPatientRequests();
 
+        $this->observeRequests();
+
         self::trustConfiguredProxies();
 
         // "composer dev" levanta también el frontend (React), que vive en la carpeta de al lado.
@@ -79,6 +86,19 @@ class AppServiceProvider extends ServiceProvider
         }
 
         TrustProxies::at($proxies === '*' ? '*' : array_values(array_filter(array_map('trim', explode(',', $proxies)))));
+    }
+
+    /**
+     * Lo que vigilan Azure y GitHub Actions (/up) y lo que queda en cada línea del registro "json", además del
+     * identificador de la petición (AddRequestContext): la ruta y quién la hizo, por su id y no por su nombre.
+     */
+    private function observeRequests(): void
+    {
+        // /up responde 500 si la base de datos no contesta, y no solo cuando Laravel no arranca.
+        Event::listen(DiagnosingHealth::class, fn () => DB::select('select 1'));
+
+        Event::listen(RouteMatched::class, fn (RouteMatched $event) => Context::add('route', $event->route->getName() ?? $event->route->uri()));
+        Event::listen(Authenticated::class, fn (Authenticated $event) => Context::add('user_id', $event->user->getAuthIdentifier()));
     }
 
     /**

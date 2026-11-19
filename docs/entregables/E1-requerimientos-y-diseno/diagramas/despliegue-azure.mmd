@@ -2,7 +2,7 @@
 flowchart TB
   usr(["Pacientes y personal<br/>Internet, HTTPS 443"])
   subgraph az["Azure · VNet 10.20.0.0/16"]
-    fw["<b>OPNsense</b><br/>firewall, NAT, VPN IPsec,<br/>Suricata IDS/IPS"]
+    fw["<b>vm-fw</b> · Ubuntu 24.04<br/>nftables (firewall y NAT),<br/>VPN IPsec (strongSwan),<br/>Suricata IDS"]
     subgraph dmz["Subred DMZ"]
       px["<b>vm-proxy</b><br/>Nginx + ModSecurity (WAF),<br/>TLS Let's Encrypt,<br/>caché de /app/assets"]
     end

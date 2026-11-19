@@ -1,0 +1,22 @@
+%%{init: {"flowchart": {"nodeSpacing": 18, "rankSpacing": 30, "padding": 8, "subGraphTitleMargin": {"top": 4, "bottom": 22}, "wrappingWidth": 500}}}%%
+flowchart TB
+  subgraph ci["Integración continua"]
+    direction LR
+    dev(["Pull request<br/>con plantilla<br/>de revisión"])
+    be["<b>Backend</b><br/>Pint · 1 096 pruebas<br/>cobertura pcov ≥ 90 %"]
+    my["<b>MySQL 8</b><br/>objetos SQL · suite<br/>copia y restauración"]
+    fe["<b>Frontend</b><br/>Prettier · ESLint · tsc<br/>141 pruebas · build"]
+    dev --> be & my & fe
+  end
+  subgraph cdd["Despliegue y operación"]
+    direction LR
+    pub["<b>Publicar</b><br/>solo, tras las pruebas<br/>en verde; o a mano"]
+    vol["<b>Volver</b><br/>a mano, a la versión<br/>anterior o a otra"]
+    az["<b>vm-app</b><br/>OIDC → Blob →<br/>deploy-app.sh"]
+    up["<b>/up</b><br/>Laravel y la<br/>base responden"]
+    vig["<b>Vigilar</b><br/>cada 15 min,<br/>correo si falla"]
+    pub --> az
+    vol --> az
+    az --> up -.-> vig
+  end
+  ci -->|"revisión y merge a main"| cdd

@@ -154,6 +154,17 @@ local function ajustar_tabla(tabla, letras_por_linea)
       end
     end
   end
+  -- El encabezado va en negrita, que ocupa más: sus palabras piden algo más de ancho para no partirse
+  -- (antes salían "Tiemp/o" o "Caso/s" en las columnas de números).
+  for _, fila in ipairs(tabla.head.rows) do
+    for j, celda in ipairs(fila.cells) do
+      if j <= columnas then
+        for palabra in pandoc.utils.stringify(celda.contents):gmatch('%S+') do
+          minimo[j] = math.max(minimo[j], math.min(largo(palabra) * 1.15, 30) + 3)
+        end
+      end
+    end
+  end
   local suma_minimos, extra = 0, {}
   for j = 1, columnas do
     suma_minimos = suma_minimos + minimo[j]

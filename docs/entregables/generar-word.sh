@@ -66,3 +66,11 @@ INDICE=2 SEGUIDAS=1 generar CE023-S2-E3-Sistema-de-Software-Funcional-Integrado.
 # Anexos del E3: repositorio, manual técnico, capturas, evidencia de despliegue y ejecución, y sustentación.
 INDICE=2 generar CE023-S2-E3-Sistema-de-Software-Funcional-Integrado-Anexos.docx \
   E3-sistema-funcional/anexos/E3-anexos-metadatos.yaml E3-sistema-funcional/anexos/E3-anexos.md
+
+# FASE 4: E4, gestión del proyecto y calidad de software (CE024: CE0241–CE0244).
+INDICE=2 SEGUIDAS=1 generar CE024-S2-E4-Gestion-del-Proyecto-y-Calidad-de-Software.docx E4-gestion-y-calidad/E4-metadatos.yaml \
+  E4-gestion-y-calidad/E4-documento.md
+
+# Anexos del E4: reportes de pruebas, pipeline y observabilidad, artefactos ágiles, checklists y sustentación.
+INDICE=2 generar CE024-S2-E4-Gestion-del-Proyecto-y-Calidad-de-Software-Anexos.docx \
+  E4-gestion-y-calidad/anexos/E4-anexos-metadatos.yaml E4-gestion-y-calidad/anexos/E4-anexos.md

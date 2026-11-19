@@ -1,5 +1,6 @@
 <?php
 
+use Monolog\Formatter\JsonFormatter;
 use Monolog\Handler\NullHandler;
 use Monolog\Handler\StreamHandler;
 use Monolog\Handler\SyslogUdpHandler;
@@ -70,6 +71,18 @@ return [
             'path' => storage_path('logs/laravel.log'),
             'level' => env('LOG_LEVEL', 'debug'),
             'max_files' => env('LOG_DAILY_DAYS', 14),
+            'replace_placeholders' => true,
+        ],
+
+        // Producción (LOG_STACK=json): una línea JSON por evento en storage/logs/eventos-AAAA-MM-DD.log, con el
+        // identificador de la petición, la ruta y el usuario en "extra" (AddRequestContext y AppServiceProvider).
+        // Wazuh la lee como JSON y permite buscar por cualquiera de esos campos.
+        'json' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/eventos.log'),
+            'level' => env('LOG_LEVEL', 'debug'),
+            'max_files' => env('LOG_DAILY_DAYS', 14),
+            'formatter' => JsonFormatter::class,
             'replace_placeholders' => true,
         ],
 

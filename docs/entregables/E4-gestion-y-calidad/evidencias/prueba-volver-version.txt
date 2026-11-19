@@ -1,0 +1,26 @@
+1. Lista de versiones
+   20261119090000  (activa)
+   20261118090000
+   20261117090000
+  ok: una sola versión marcada como activa
+2. Volver sin indicar versión
+   ==> De 20261119090000 a 20261118090000
+   Listo: /tmp/tmp.smCC2HStiI/vega/releases/20261118090000
+  ok: pasa a la anterior
+  ok: rearma las cachés en la versión a la que vuelve
+  ok: recarga PHP-FPM y Nginx
+3. Volver otra vez
+   ==> De 20261118090000 a 20261117090000
+   Listo: /tmp/tmp.smCC2HStiI/vega/releases/20261117090000
+  ok: pasa a la que sigue hacia atrás
+4. Sin versión más vieja
+   No hay una versión anterior a 20261117090000.
+  ok: deja la activa como estaba
+5. Una versión que no existe
+   No existe la versión 20200101000000 en /tmp/tmp.smCC2HStiI/vega/releases.
+  ok: deja la activa como estaba
+6. Ir a una versión por su nombre (también hacia adelante)
+   ==> De 20261117090000 a 20261119090000
+   Listo: /tmp/tmp.smCC2HStiI/vega/releases/20261119090000
+  ok: queda la indicada
+Todo en orden.

@@ -220,14 +220,16 @@ class AgendaFindAndListTest extends TestCase
         $treatment = Treatment::factory()->create(['duration_minutes' => 30]);
         $doctor = $this->doctorOffering($treatment);
         $carmen = WaitlistEntry::factory()->for(Patient::factory()->state(['first_name' => 'Carmen', 'last_name' => 'Rojas']))->for($treatment)->create(['preferred_period' => DayPeriod::Afternoon]);
-        WaitlistEntry::factory()->for(Patient::factory()->state(['first_name' => 'Jorge']))->for($treatment)->removed()->create();
-        WaitlistEntry::factory()->for(Patient::factory()->state(['first_name' => 'Inés']))->for($treatment)->create(['earliest_date' => '2026-11-10']);
+        // Nombres completos que los datos de prueba al azar no pueden repetir: con solo "Jorge", la prueba fallaba
+        // cuando el doctor o la recepcionista inventados por la factory también se llamaban Jorge (CI del 19/11/2026).
+        WaitlistEntry::factory()->for(Patient::factory()->state(['first_name' => 'Jorge', 'last_name' => 'Fuera De Lista']))->for($treatment)->removed()->create();
+        WaitlistEntry::factory()->for(Patient::factory()->state(['first_name' => 'Inés', 'last_name' => 'Desde El Diez']))->for($treatment)->create(['earliest_date' => '2026-11-10']);
 
         $this->actingAs(User::factory()->reception()->create());
 
         Livewire::test(Agenda::class)
             ->assertSee(['De la lista de espera, caben hoy', 'Carmen Rojas', 'en la tarde', 'Ofrecer 15:00'])
-            ->assertDontSee(['Jorge', 'Inés'])
+            ->assertDontSee(['Fuera De Lista', 'Desde El Diez'])
             ->mountAction('offer', ['entry' => $carmen->id, 'doctor' => $doctor->id, 'date' => '2026-11-02', 'time' => '15:00'])
             ->assertActionDataSet(['doctor_id' => $doctor->id, 'date' => '2026-11-02', 'slot' => '15:00']);
 

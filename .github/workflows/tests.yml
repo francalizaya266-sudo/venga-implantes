@@ -20,7 +20,8 @@ jobs:
         with:
           php-version: '8.3'
           extensions: mbstring, intl, pdo_sqlite, zip, gd, exif
-          coverage: none
+          # pcov mide qué líneas de app/ recorren las pruebas (E4, reporte de cobertura).
+          coverage: pcov
 
       - name: Instalar dependencias
         run: composer install --no-interaction --prefer-dist --no-progress
@@ -33,8 +34,45 @@ jobs:
       - name: Formato (Pint)
         run: vendor/bin/pint --test
 
-      - name: Pruebas
-        run: php artisan test
+      - name: Pruebas con cobertura
+        run: >-
+          php artisan test --coverage-clover=cobertura/clover.xml --coverage-html=cobertura/html
+          --coverage-text=cobertura/resumen.txt --only-summary-for-coverage-text
+
+      # Meta: 90 % de las líneas de app/ (hoy, 96 %). Deja margen para pantallas del panel que se prueban a mano y
+      # avisa si un cambio grande llega sin pruebas. La cobertura de cada carpeta queda en el resumen del job.
+      - name: Cobertura mínima
+        run: |
+          python3 - <<'PY'
+          import collections, os, sys, xml.etree.ElementTree as ET
+          raiz = ET.parse('cobertura/clover.xml').getroot()
+          total = raiz.find('project/metrics')
+          lineas, cubiertas = int(total.get('statements')), int(total.get('coveredstatements'))
+          por_carpeta = collections.defaultdict(lambda: [0, 0])
+          for archivo in raiz.iter('file'):
+              partes = archivo.get('name').split('/app/', 1)[-1].split('/')
+              carpeta = 'app/' + '/'.join(partes[:2] if len(partes) > 2 else partes[:1])
+              m = archivo.find('metrics')
+              por_carpeta[carpeta][0] += int(m.get('statements'))
+              por_carpeta[carpeta][1] += int(m.get('coveredstatements'))
+          porcentaje = 100 * cubiertas / lineas
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as resumen:
+              resumen.write(f'### Cobertura del backend: {porcentaje:.2f} % de {lineas} líneas (meta 90 %)\n\n')
+              resumen.write('| Carpeta | Líneas | Cubiertas | % |\n| --- | ---: | ---: | ---: |\n')
+              for carpeta, (total_c, cub) in sorted(por_carpeta.items(), key=lambda x: -x[1][0]):
+                  if total_c:
+                      resumen.write(f'| {carpeta} | {total_c} | {cub} | {100 * cub / total_c:.1f} |\n')
+          print(f'Cobertura de líneas: {porcentaje:.2f} %')
+          sys.exit(0 if porcentaje >= 90 else 1)
+          PY
+
+      - name: Guardar el reporte de cobertura
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cobertura-backend
+          path: backend/cobertura
+          retention-days: 30
 
   # Las vistas, funciones, procedimientos y triggers de database/sql/mysql solo existen en MySQL: aquí se prueban
   # con un MySQL 8 de verdad, junto con toda la suite, los usuarios de seguridad.sql y una copia restaurada con el
