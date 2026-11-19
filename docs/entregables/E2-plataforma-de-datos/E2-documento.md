@@ -372,7 +372,7 @@ La prueba (tabla 14) simuló un daño desde la consola: se borraron 10 pagos y s
 | Daño desde la consola | root | 717 pagos (faltan 10); 262 pacientes con el nombre cambiado; 10 borrados anotados por el trigger |
 | Restauración (`respaldo:restaurar --force`) | `consultorio_despliegue` | 3,494 s, 3,215 s y 3,198 s (mediana 3,215 s); 257 sentencias |
 | Después de restaurar | — | 727 pagos, 0 nombres cambiados, los 10 registros del trigger conservados y las 70 tablas con las mismas filas, salvo la caché |
-| Lo mismo en la CI | `consultorio_despliegue` | El job imprime "Restauración: N ms" en cada corrida |
+| Lo mismo en la CI | `consultorio_despliegue` | 2,426 s en la primera corrida del job (19/11/2026, GitHub Actions), con los 10 registros del trigger y los 22 permisos comprobados; el job lo mide en cada corrida |
 
 Con una copia diaria, en el peor caso se pierde lo registrado desde las 03:00 de ese día, y la restauración con este volumen tarda unos segundos más lo que tome traer el archivo. Azure guarda además copias automáticas del servidor flexible y permite restaurar a un momento dado, lo que reduce esa pérdida `[PENDIENTE – estudiante: retención configurada en "Copia de seguridad y restauración" del portal y captura]`. El procedimiento paso a paso está en el anexo E.
 
