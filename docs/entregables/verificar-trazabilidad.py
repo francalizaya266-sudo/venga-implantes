@@ -4,7 +4,7 @@ Uso, desde cualquier carpeta:  python3 docs/entregables/verificar-trazabilidad.p
 
 Revisa que:
 1. cada requerimiento de la tabla 2 del documento principal esté una sola vez en la matriz del anexo A, y nada más;
-2. cada historia y cada caso de uso citados existan (HU de la tabla 5; CU-01 a CU-22) y que la matriz asigne a cada
+2. cada historia y cada caso de uso citados existan (HU de la tabla 5; CU-01 a CU-20) y que la matriz asigne a cada
    historia los mismos requerimientos que la tabla 5;
 3. cada archivo citado exista: `app/`, `config/` y `routes/` dentro de backend/; `src/` dentro de frontend/;
 4. cada prueba citada exista: `ClaseTest::test_algo` como método de backend/tests y `Archivo.test.tsx`: “nombre”
@@ -33,7 +33,7 @@ def filas(texto, prefijo):
 
 
 def lista_de_rf(celda):
-    """'RES-01, 02, 04' → {RES-01, RES-02, RES-04}; 'MOV-01 a 04' → {MOV-01 … MOV-04}."""
+    """'RES-01, 02, 04' → {RES-01, RES-02, RES-04}; 'RES-01 a 03' → {RES-01 … RES-03}."""
     rf, modulo = set(), None
     for parte in re.split(r',\s*', celda):
         rango = re.fullmatch(r'(?:([A-Z]+)-)?(\d+) a (\d+)', parte)
@@ -77,7 +77,7 @@ def main():
             errores.append(f'{h}: la tabla 5 dice {sorted(esperados)} y la matriz {sorted(por_historia.get(h, []))}')
     for h in set(por_historia) - set(historias):
         errores.append(f'{h} no está en la tabla 5')
-    if casos != {f'CU-{n:02d}' for n in range(1, 23)}:
+    if casos != {f'CU-{n:02d}' for n in range(1, 21)}:
         errores.append(f'casos de uso citados: {sorted(casos)}')
 
     pruebas_php = {}

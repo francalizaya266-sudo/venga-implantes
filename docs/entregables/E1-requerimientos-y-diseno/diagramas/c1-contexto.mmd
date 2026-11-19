@@ -9,6 +9,9 @@ flowchart TB
   mail["<b>Correo SMTP</b><br/>recuperar<br/>contraseñas"]
   goo["<b>Google</b><br/>búsqueda, Maps<br/>y opiniones"]
   cal["<b>Calendario</b><br/>del paciente<br/>(.ics)"]
+  dni["<b>RENIEC</b><br/>por Decolecta<br/>(nombres de un DNI)"]
+  fer["<b>Nager.Date</b><br/>feriados<br/>nacionales"]
   pac & rec & doc & adm -- "HTTPS" --> sis
   sis --> wa & mail & goo & cal
+  sis -- "con tiempo<br/>de espera" --> dni & fer
   wa -. "mensaje con<br/>enlace personal" .-> pac

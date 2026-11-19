@@ -9,23 +9,20 @@ flowchart LR
   cu12(["CU-12 Cobrar y dar<br/>constancia"])
   cu13(["CU-13 Cerrar la caja<br/>del día"])
   cu16(["CU-16 Controlar el<br/>inventario"])
-  cu22(["CU-22 Ver riesgo de<br/>inasistencia (planificado)"])
   doc(["Doctor"])
   adm(["Administrador"])
   cron(["Cron del sistema"])
-  ia(["Servicio de IA<br/>(planificado)"])
   cu14(["CU-14 Atender y cerrar<br/>la atención"])
   cu15(["CU-15 Presupuesto y<br/>firma del plan"])
   cu17(["CU-17 Ver reportes"])
   cu18(["CU-18 Configurar clínica,<br/>usuarios y web"])
   cu19(["CU-19 Copias e historial<br/>de cambios"])
   cu20(["CU-20 Recordatorios, cuotas,<br/>apartados y copia diaria"])
-  rec --- cu7 & cu8 & cu9 & cu10 & cu11 & cu12 & cu13 & cu16 & cu22
+  rec --- cu7 & cu8 & cu9 & cu10 & cu11 & cu12 & cu13 & cu16
   cu7 & cu16 --- doc
   doc --- cu14 & cu15
   cu10 ~~~ adm
   adm --- cu17 & cu18 & cu19
   cu12 ~~~ cron
   cron --- cu20
-  cu22 --- ia
   linkStyle default marker-end:none

@@ -1,7 +1,7 @@
 %%{init: {"flowchart": {"nodeSpacing": 22, "rankSpacing": 36, "padding": 8}}}%%
 flowchart LR
   pac(["Paciente<br/>o familiar"])
-  subgraph S["Web del paciente y app móvil"]
+  subgraph S["Web del paciente"]
     direction TB
     cu1(["CU-01 Consultar la web"])
     cu2(["CU-02 Reservar cita en línea"])
@@ -9,11 +9,10 @@ flowchart LR
     cu4(["CU-04 Cambiar la cita o proponer horarios"])
     cu5(["CU-05 Entrar a Mi cuenta"])
     cu6(["CU-06 Contar su salud antes de la cita"])
-    cu21(["CU-21 Usar la app móvil (planificado)"])
   end
   wa["WhatsApp"]
   rec(["Recepción"])
-  pac --- cu1 & cu2 & cu3 & cu4 & cu5 & cu6 & cu21
+  pac --- cu1 & cu2 & cu3 & cu4 & cu5 & cu6
   cu2 -. "«include»<br/>prepara la confirmación" .-> wa
   cu4 -. "con menos de 24 h:<br/>solicitud" .-> rec
   cu5 -. "«extend»<br/>pedir enlace" .-> wa

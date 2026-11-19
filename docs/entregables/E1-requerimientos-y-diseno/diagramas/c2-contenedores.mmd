@@ -1,31 +1,26 @@
-%%{init: {"flowchart": {"nodeSpacing": 22, "rankSpacing": 36, "padding": 8}}}%%
+%%{init: {"layout": "elk", "flowchart": {"nodeSpacing": 22, "rankSpacing": 36, "padding": 8}}}%%
 flowchart TB
   pac(["Paciente<br/>o familiar"])
   per(["Personal"])
   cron(["Cron del<br/>servidor"])
   spa["<b>Web del paciente</b><br/>React 19 + TypeScript 6<br/>Vite 8, TanStack Query 5"]
-  movil["<b>App móvil</b><br/>Flutter (planificada)"]
   pan["<b>Panel interno</b><br/>Filament 5 + Livewire 4<br/>29 recursos, 18 páginas"]
-  subgraph lar["Aplicación Laravel 13 · PHP 8.3"]
+  subgraph lar["Laravel 13 · PHP 8.3"]
     api["<b>API /api/v1</b><br/>36 rutas JSON, sesión<br/>+ XSRF, límites"]
     doc["<b>SpaController</b><br/>HTML de cada página<br/>con meta y datos"]
     srv["<b>Servicios de dominio</b><br/>13 módulos, 35 políticas,<br/>10 tareas programadas"]
   end
-  ia["<b>Servicio de IA</b><br/>FastAPI en Docker<br/>(planificado)"]
-  db[("<b>MySQL 8</b><br/>68 tablas")]
+  db[("<b>MySQL 8</b><br/>70 tablas")]
   fs[("<b>Archivos privados</b><br/>clínicos y copias")]
-  ext["<b>Externos</b><br/>WhatsApp, SMTP"]
+  ext["<b>Externos</b><br/>WhatsApp, SMTP,<br/>Decolecta, Nager.Date"]
   pac --> spa
-  pac -.-> movil
   per --> pan
   spa -- "JSON" --> api
   spa -- "1.ª carga" --> doc
-  movil -. "token" .-> api
   pan -- "Livewire" --> srv
   cron -- "schedule:run" --> srv
   api --> srv
   doc --> srv
-  srv -. "con tiempo<br/>de espera" .-> ia
   srv --> db
   srv --> fs
   srv --> ext
