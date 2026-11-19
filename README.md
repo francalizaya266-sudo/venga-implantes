@@ -143,3 +143,10 @@ La web le pide todo a Laravel en `/api/v1`, dentro del mismo dominio. `php artis
 
 - **Etapa 1 (`WHATSAPP_DRIVER=click_to_chat`):** el panel arma el mensaje con un enlace personal nuevo y abre WhatsApp ya escrito; recepción solo presiona Enviar. Sin programas no oficiales.
 - **Etapa 2 (`WHATSAPP_DRIVER=cloud_api`):** con el trámite de Meta listo, se completan `WHATSAPP_CLOUD_TOKEN` y `WHATSAPP_PHONE_NUMBER_ID`, y en cada texto del panel el nombre de su plantilla aprobada. `whatsapp:enviar` los manda solos cada 5 minutos.
+
+## Consulta de DNI (RENIEC)
+
+Al registrar un paciente (en **Pacientes → Nuevo** o como paciente nuevo en la ventana de la cita), la lupa junto al DNI pone sus nombres y apellidos como están en RENIEC, para no escribirlos a mano ni con errores en la historia clínica. Usa [Decolecta](https://decolecta.com): la cuenta gratis trae 1,000 consultas al mes y solo se gasta una cuando se toca la lupa.
+
+- Se crea la cuenta en decolecta.com, se copia la clave y se pone en `DNI_LOOKUP_TOKEN` del `.env`. Sin clave, la lupa no aparece.
+- Sale solo el número de DNI: ningún otro dato del paciente ni del consultorio. Si RENIEC no lo tiene, la consulta no responde o se acabaron las consultas del mes, lo dice y los nombres se escriben a mano como siempre.
