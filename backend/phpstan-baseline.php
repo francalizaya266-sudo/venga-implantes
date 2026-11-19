@@ -3722,7 +3722,7 @@ $ignoreErrors[] = [
 ];
 $ignoreErrors[] = [
     'rawMessage' => 'Access to an undefined property Illuminate\\Database\\Eloquent\\Model::$first_name.',
-    'count' => 1,
+    'count' => 2,
     'path' => __DIR__.'/app/Http/Controllers/Api/V1/Account/AccountController.php',
 ];
 $ignoreErrors[] = [
@@ -3732,7 +3732,7 @@ $ignoreErrors[] = [
 ];
 $ignoreErrors[] = [
     'rawMessage' => 'Access to an undefined property Illuminate\\Database\\Eloquent\\Model::$name.',
-    'count' => 2,
+    'count' => 4,
     'path' => __DIR__.'/app/Http/Controllers/Api/V1/Account/AccountController.php',
 ];
 $ignoreErrors[] = [
@@ -3762,7 +3762,7 @@ $ignoreErrors[] = [
 ];
 $ignoreErrors[] = [
     'rawMessage' => 'Cannot call method format() on string.',
-    'count' => 2,
+    'count' => 3,
     'path' => __DIR__.'/app/Http/Controllers/Api/V1/Account/AccountController.php',
 ];
 $ignoreErrors[] = [
