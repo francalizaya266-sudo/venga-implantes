@@ -6,10 +6,17 @@
 set -euo pipefail
 
 REGLAS="${1:?Faltan las reglas en base64}"
+
+# Llega sin el relleno "=" (ver b64 en desplegar.sh): se repone antes de decodificar.
+desde_b64() {
+  local s="$1"
+  while [ $(( ${#s} % 4 )) -ne 0 ]; do s="${s}="; done
+  printf '%s' "$s" | base64 -d
+}
 NUEVAS=$(mktemp)
 trap 'rm -f "$NUEVAS"' EXIT
 
-printf '%s' "$REGLAS" | base64 -d > "$NUEVAS"
+desde_b64 "$REGLAS" > "$NUEVAS"
 
 # Se comprueban antes de aplicar: un error de sintaxis no deja al firewall sin reglas.
 nft -c -f "$NUEVAS"

@@ -2,6 +2,7 @@
 # Firewall de la sede de la clínica (vm-fw en vnet-clinica): separa las subredes (equivalen a las VLAN del diseño)
 # y une la sede con producción por la VPN.
 # eth0 = WAN (10.10.0.4, con la IP pública) · eth1 = LAN (10.10.1.4, siguiente salto de todas las subredes).
+# El firewall también hace de jump host: se entra por SSH al 2200 y desde aquí a las demás VM.
 # Cambiar una regla: edita este archivo, haz un pull request y aplica con "bash infra/desplegar.sh reglas".
 
 flush ruleset
@@ -17,9 +18,9 @@ define PROD = 10.20.0.0/16
 define PROXY_PROD = 10.20.3.4
 define APP_PROD = 10.20.4.4
 define WAZUH = 10.10.50.10
-define RESPALDO = 10.10.50.20
+# Wazuh también recibe la copia horaria de la base de datos.
+define RESPALDO = 10.10.50.10
 define HONEYPOT = 10.10.60.10
-define JUMP = 10.10.10.20
 
 table inet filtro {
     chain entrada {
@@ -43,8 +44,7 @@ table inet filtro {
         ct state established,related accept
         ct state invalid drop
 
-        # Desde internet (después del NAT de destino): tu SSH al jump host y los señuelos del honeypot.
-        iifname $WAN ip daddr $JUMP tcp dport 22 accept
+        # Desde internet (después del NAT de destino): los señuelos del honeypot.
         iifname $WAN ip daddr $HONEYPOT tcp dport { 22, 3306 } accept
 
         # La DMZ solo puede enviar sus logs al SIEM; nada más hacia adentro.
@@ -78,7 +78,6 @@ table inet filtro {
 table ip nat {
     chain destino {
         type nat hook prerouting priority dstnat;
-        iifname $WAN tcp dport 2222 dnat to $JUMP:22
         iifname $WAN tcp dport { 22, 3306 } dnat to $HONEYPOT
     }
 

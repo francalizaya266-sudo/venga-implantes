@@ -9,17 +9,22 @@ y los registros en **Azure Monitor**. Una segunda red hace de **sede de la clín
 | Red | Grupo de recursos | Qué tiene |
 | --- | --- | --- |
 | `vnet-vega` 10.20.0.0/16 | `rg-vega-prod` | vm-fw, vm-proxy (DMZ), vm-app, MySQL, Key Vault, Blob, alertas |
-| `vnet-clinica` 10.10.0.0/16 | `rg-vega-clinica` | vm-fw, Wazuh, respaldo, honeypot, jump host, PC de recepción |
+| `vnet-clinica` 10.10.0.0/16 | `rg-vega-clinica` | vm-fw (también jump host), vm-wazuh (también recibe las copias) y una VM de laboratorio: recepción u honeypot |
 
 Todo se crea **sin pasos manuales**: el firewall es una VM Ubuntu configurada por cloud-init con las reglas de
 `infra/firewall/` (nftables, strongSwan, Suricata, Unbound). Ver `infra/firewall/README.md`.
 
-### Región y suscripciones
+### Regiones, cuota y suscripciones
 
-- **Región `chilecentral`**: la más cercana a Perú entre las que permite Azure for Students. Como es nueva, usa la
-  serie B v2 (`Standard_B2ats_v2`, 2 vCPU y 1 GiB con 2 GiB de swap; `Standard_B2als_v2`, 4 GiB, para Wazuh).
-- **Dos suscripciones**: producción en la de un integrante y la sede en la de otro (cada crédito es de 100 USD).
-  La VPN va por internet, así que funciona entre suscripciones. Mientras tanto, las dos pueden ser la misma.
+- **Cuota de Azure for Students: 6 vCPU por región.** Cada VM de la serie B v2 usa 2, así que entran 3 VM por región.
+- **Producción en `chilecentral`** (la más cercana a Perú): firewall, proxy y app, 6 vCPU.
+- **Sede en `northcentralus`** (otra región, con su propia cuota): firewall, Wazuh y una VM de laboratorio a la vez,
+  `recepcion` para las pruebas de VPN y del panel u `honeypot` para las de seguridad (`desplegar.sh sede honeypot`
+  cambia una por otra). La VPN va por internet, así que la distancia entre regiones no importa.
+- Tamaños: `Standard_B2ats_v2` (2 vCPU y 1 GiB con 2 GiB de swap) y `Standard_B2als_v2` (4 GiB) para Wazuh. De las
+  regiones permitidas, solo Chile Central y North Central US los ofrecen a esta suscripción.
+- Chile Central no tiene el apagado automático de Azure: se apaga con `desplegar.sh apagar`.
+- Producción y sede pueden ir en suscripciones de integrantes distintos (`SUB_PROD` y `SUB_SEDE`).
 
 ## Qué hay en esta carpeta
 
@@ -70,14 +75,12 @@ Pide una sola cosa: la clave nueva del administrador de MySQL (va a Key Vault y 
 | --- | --- |
 | `produccion` | Red, NSG, rutas, firewall, proxy, app, MySQL, Key Vault, Blob, alertas, identidad de GitHub |
 | `secretos` | Claves de la app, de los 4 usuarios de MySQL y de la VPN, en Key Vault |
-| `sede` | Red, NSG, rutas, firewall, Wazuh, respaldo, honeypot, jump host, PC de recepción |
+| `sede` | Red, NSG, rutas, firewall, Wazuh y la VM de recepción (`sede honeypot` la cambia por el honeypot) |
 | `vpn` | El túnel IPsec entre los dos firewalls |
 | `basedatos` | Los usuarios de `backend/database/sql/seguridad.sql` |
 
 Cada orden también se puede correr sola, por ejemplo `bash infra/desplegar.sh vpn`.
 
-Si la cuota de vCPU no alcanza para toda la sede (`preparar` la muestra; cada VM usa 2), `sede` falla con
-`QuotaExceeded`: corre primero `produccion`, `secretos` y `vpn` por separado, y enciende las VM de la sede por turnos.
 
 ### 3. Lo que queda (15 minutos)
 
@@ -99,11 +102,17 @@ Si la cuota de vCPU no alcanza para toda la sede (`preparar` la muestra; cada VM
    `/etc/vega/vega.env` con `KEY_VAULT`, `STORAGE_ACCOUNT` y `DB_HOST` (ver "Entrar a las VM").
 4. **Publicar**: GitHub → **Actions → Desplegar en Azure → Run workflow**.
 5. **Usuarios de MySQL otra vez**, ya migrada la base (da a reportes las vistas): `bash infra/desplegar.sh basedatos`.
-6. **Datos de prueba** (la rúbrica no admite datos reales), en vm-app:
+6. **Datos de prueba** (la rúbrica no admite datos reales), en vm-app. `DemoSeeder` necesita antes el catálogo y usa
+   Faker, que es dependencia de desarrollo: se instala un momento y se vuelve a quitar.
 
    ```bash
    cd /var/www/vega/current
+   source /opt/vega/kv.sh && CLAVE="$(kv_secret db-password-despliegue)"
+   sudo COMPOSER_ALLOW_SUPERUSER=1 composer install --no-interaction
+   sudo -u www-data env DB_USERNAME=consultorio_despliegue DB_PASSWORD="$CLAVE" php artisan db:seed --class=CatalogSeeder --force
    sudo -u www-data php artisan db:seed --class=DemoSeeder --force
+   sudo COMPOSER_ALLOW_SUPERUSER=1 composer install --no-dev --optimize-autoloader --no-interaction
+   sudo -u www-data php artisan optimize
    sudo -u www-data php artisan usuario:clave admin@consultorio.test
    ```
 
@@ -124,7 +133,7 @@ cual al encenderla. Así el gasto total queda en unos 10 a 25 USD del crédito.
 
 ## Entrar a las VM
 
-Agrega a `~/.ssh/config` de Cloud Shell (cambia las dos IP públicas):
+Agrega a `~/.ssh/config` (cambia las dos IP públicas; las muestra `desplegar.sh estado`):
 
 ```sshconfig
 Host vega-fw-prod
@@ -133,20 +142,16 @@ Host vega-fw-prod
 Host vega-fw-sede
   HostName IP_FIREWALL_SEDE
   Port 2200
-Host vega-jump
-  HostName IP_FIREWALL_SEDE
-  Port 2222
 
-Host vega-app vega-proxy vega-wazuh vega-respaldo vega-recepcion vega-honeypot
-  ProxyJump vega-jump
+# El firewall de la sede hace de jump host: desde él se llega a la sede y, por la VPN, a producción.
+Host vega-app vega-proxy vega-wazuh vega-recepcion vega-honeypot
+  ProxyJump vega-fw-sede
 Host vega-app
   HostName 10.20.4.4
 Host vega-proxy
   HostName 10.20.3.4
 Host vega-wazuh
   HostName 10.10.50.10
-Host vega-respaldo
-  HostName 10.10.50.20
 Host vega-recepcion
   HostName 10.10.30.10
 Host vega-honeypot
@@ -158,7 +163,7 @@ Host vega-*
   IdentityFile ~/.ssh/vega
 ```
 
-`vega-app` y `vega-proxy` pasan por el jump host de la sede y la VPN. Antes de la VPN, se entra directo por el
+`vega-app` y `vega-proxy` pasan por el firewall de la sede y la VPN. Antes de la VPN, se entra directo por el
 firewall de producción: `ssh -p 2222 vegaadmin@IP_FIREWALL_PRODUCCION` (vm-app) y `-p 2223` (vm-proxy).
 Cuando la VPN funciona, cierra esos accesos: `SETUP_SSH=false` en `entorno.env` y `bash infra/desplegar.sh produccion`.
 
@@ -177,7 +182,7 @@ proxy SOCKS5 `127.0.0.1:1080` (resolviendo el DNS por el proxy) y abre `https://
    ssh vega-app "sudo WAZUH_MANAGER=10.10.50.10 AGENT_NAME=vm-app DD_API_KEY=... DD_SITE=... bash ~/instalar-agentes.sh"
    ```
 
-3. Tablero de Wazuh: `ssh -L 8443:10.10.50.10:443 vega-jump` y abre `https://localhost:8443`.
+3. Tablero de Wazuh: `ssh -L 8443:10.10.50.10:443 vega-fw-sede` y abre `https://localhost:8443`.
 4. Sentry en Laravel (en un pull request): `composer require sentry/sentry-laravel`,
    `\Sentry\Laravel\Integration::handles($exceptions);` en `bootstrap/app.php` y el secreto `sentry-dsn`.
 5. UptimeRobot: monitores a `https://tu-dominio/up` y `https://tu-dominio/api/v1/site`.
@@ -201,12 +206,12 @@ Cada regla de `infra/firewall/*.nft` es una prueba con resultado esperado y obte
 | Cloud Shell | 300 peticiones seguidas a `/api/v1/account` | 429 con tu IP, no la del proxy |
 
 Cuando el WAF lleve unos días en detección sin falsos positivos, pásalo a bloqueo en vm-proxy:
-`sudo sed -i 's/^SecRuleEngine .*/SecRuleEngine On/' /etc/modsecurity/modsecurity.conf && sudo systemctl reload nginx`.
+`sudo sed -i 's/^SecRuleEngine .*/SecRuleEngine On/' /etc/nginx/modsecurity.conf && sudo systemctl reload nginx`.
 
 ## Continuidad
 
 1. **Copia horaria a la sede**: en vm-app, la llave `/etc/vega/dr_key` (su `.pub` va a
-   `/home/respaldo/.ssh/authorized_keys` en vm-respaldo). Prueba `sudo /opt/vega/copy-to-dr.sh`.
+   `/home/respaldo/.ssh/authorized_keys` en vm-wazuh). Prueba `sudo /opt/vega/copy-to-dr.sh`.
 2. MySQL Flexible guarda copias automáticas 7 días con restauración a un punto en el tiempo (RPO de minutos).
 3. **Ejercicio de recuperación** (anota la hora de inicio y de fin):
    1. Detén `vm-app`. UptimeRobot, Datadog y Azure Monitor deben avisar.
@@ -221,7 +226,7 @@ Cuando el WAF lleve unos días en detección sin falsos positivos, pásalo a blo
 
 | Recurso | Cobra apagado | Qué hacer |
 | --- | --- | --- |
-| VM (todas) | Solo el disco | `desplegar.sh apagar` al terminar cada sesión; la sede además se apaga sola a las 20:00 |
+| VM (todas) | Solo el disco | `desplegar.sh apagar` al terminar cada sesión |
 | MySQL | Sí | `az mysql flexible-server stop` en pausas largas (Azure lo enciende solo a los 30 días) |
 | IP públicas | Sí, poco | Se van al borrar cada grupo |
 

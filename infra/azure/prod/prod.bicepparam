@@ -14,6 +14,7 @@ using './main.bicep'
 param sshPublicKey = readEnvironmentVariable('SSH_PUBLIC_KEY')
 param adminSourceIps = readEnvironmentVariable('ADMIN_SOURCE_IPS', '')
 param githubRepo = readEnvironmentVariable('GITHUB_REPO', '')
+param githubOidcSubject = readEnvironmentVariable('GITHUB_OIDC_SUBJECT', '')
 param operatorObjectId = readEnvironmentVariable('OPERATOR_OBJECT_ID')
 param mysqlAdminPassword = readEnvironmentVariable('MYSQL_ADMIN_PASSWORD')
 param alertEmail = readEnvironmentVariable('ALERT_EMAIL')

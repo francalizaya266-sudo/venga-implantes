@@ -12,9 +12,11 @@ define APP = 10.20.4.4
 define DMZ = 10.20.3.0/24
 define APPNET = 10.20.4.0/24
 define SEDE = 10.10.0.0/16
-define SEDE_MGMT = 10.10.10.0/24
+# El firewall de la sede (WAN y LAN): hace de jump host para administrar producción por la VPN.
+define SEDE_MGMT = 10.10.0.0/23
 define WAZUH = 10.10.50.10
-define RESPALDO = 10.10.50.20
+# Wazuh también recibe la copia horaria de la base de datos.
+define RESPALDO = 10.10.50.10
 
 table inet filtro {
     chain entrada {

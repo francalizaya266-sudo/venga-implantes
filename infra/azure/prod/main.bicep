@@ -28,6 +28,9 @@ param allowSetupSsh bool = true
 @description('Repositorio de GitHub (dueño/nombre) que publica en vm-app sin claves. Vacío = sin despliegue desde GitHub.')
 param githubRepo string = ''
 
+@description('Sujeto del token de GitHub con los números de dueño y repositorio (repo:dueño@id/nombre@id:ref:refs/heads/main), el formato que GitHub usa ahora. Lo calcula desplegar.sh.')
+param githubOidcSubject string = ''
+
 @description('Id de objeto (Entra ID) de quien carga los secretos en Key Vault: az ad signed-in-user show --query id -o tsv')
 param operatorObjectId string
 
@@ -42,8 +45,8 @@ param alertEmail string
 @description('Red de la sede de la clínica, conectada por la VPN entre los dos firewalls.')
 param clinicAddressSpace string = '10.10.0.0/16'
 
-@description('Subred de administración de la sede (jump host).')
-param clinicMgmtPrefix string = '10.10.10.0/24'
+@description('Desde dónde se administra producción por la VPN: el firewall de la sede, que hace de jump host.')
+param clinicMgmtPrefix string = '10.10.0.0/23'
 
 @description('IP de la tarjeta LAN del firewall: siguiente salto de la DMZ y de la subred de la aplicación.')
 param firewallLanIp string = '10.20.1.4'
@@ -114,9 +117,10 @@ resource actionGroup 'Microsoft.Insights/actionGroups@2023-01-01' = {
 
 // ---------- NSG ----------
 
+// Azure acepta '*' solo como puerto único (destinationPortRange), no dentro de una lista.
 func rule(name string, priority int, direction string, access string, protocol string, source string, ports array) object => {
   name: name
-  properties: {
+  properties: union({
     priority: priority
     direction: direction
     access: access
@@ -124,8 +128,7 @@ func rule(name string, priority int, direction string, access string, protocol s
     sourceAddressPrefix: source
     sourcePortRange: '*'
     destinationAddressPrefix: '*'
-    destinationPortRanges: ports
-  }
+  }, contains(ports, '*') ? { destinationPortRange: '*' } : { destinationPortRanges: ports })
 }
 
 // Varias IP de origen: Azure solo las acepta como lista, sin etiquetas como "Internet".
@@ -176,6 +179,24 @@ resource nsgLan 'Microsoft.Network/networkSecurityGroups@2024-05-01' = {
     securityRules: [
       // Lo que vuelve de la sede por la VPN sale del firewall por esta tarjeta.
       rule('Permitir-Sede', 100, 'Inbound', 'Allow', '*', clinicAddressSpace, ['*'])
+      // La DMZ y la app salen a internet por el firewall: sus paquetes llegan a esta tarjeta con destino internet,
+      // y la regla por defecto de Azure (AllowVnetInBound) solo admite destinos internos.
+      rule('Permitir-Salida-Por-Firewall', 110, 'Inbound', 'Allow', '*', addressSpace, ['*'])
+      // Lo que el firewall reenvía hacia adentro conserva su origen (la IP del paciente o de la sede), y la regla de
+      // salida por defecto (AllowVnetOutBound) solo admite orígenes internos.
+      {
+        name: 'Permitir-Reenvio-Hacia-Adentro'
+        properties: {
+          priority: 100
+          direction: 'Outbound'
+          access: 'Allow'
+          protocol: '*'
+          sourceAddressPrefix: '*'
+          sourcePortRange: '*'
+          destinationAddressPrefix: addressSpace
+          destinationPortRange: '*'
+        }
+      }
     ]
   }
 }
@@ -504,6 +525,23 @@ resource githubFederation 'Microsoft.ManagedIdentity/userAssignedIdentities/fede
   }
 }
 
+// El mismo permiso para el formato nuevo del token de GitHub, que identifica dueño y repositorio por sus números.
+resource githubFederationIds 'Microsoft.ManagedIdentity/userAssignedIdentities/federatedIdentityCredentials@2023-01-31' = if (!empty(githubRepo) && !empty(githubOidcSubject)) {
+  parent: githubIdentity
+  name: 'github-main-ids'
+  properties: {
+    issuer: 'https://token.actions.githubusercontent.com'
+    subject: githubOidcSubject
+    audiences: [
+      'api://AzureADTokenExchange'
+    ]
+  }
+  // Azure no admite crear dos credenciales de la misma identidad a la vez.
+  dependsOn: [
+    githubFederation
+  ]
+}
+
 // Ejecutar el script de publicación en vm-app (az vm run-command) y nada más que manejar las VM del grupo.
 var virtualMachineContributor = '9980e02c-c2be-4d73-94e8-173b1dc7cf3c'
 
@@ -600,7 +638,7 @@ module appReadsSecrets '../modules/role.bicep' = if (deployVms) {
   params: {
     kind: 'keyvault'
     resourceName: vault.name
-    principalId: app.outputs.principalId
+    principalId: app!.outputs.principalId
     roleId: roles.keyVaultSecretsUser
   }
 }
@@ -610,7 +648,7 @@ module appWritesBackups '../modules/role.bicep' = if (deployVms) {
   params: {
     kind: 'storage'
     resourceName: storage.name
-    principalId: app.outputs.principalId
+    principalId: app!.outputs.principalId
     roleId: roles.blobDataContributor
   }
 }

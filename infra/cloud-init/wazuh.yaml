@@ -13,6 +13,13 @@ packages:
   - curl
   - jq
 
+users:
+  - default
+  # Recibe la copia horaria de la base de datos desde vm-app (infra/scripts/copy-to-dr.sh).
+  - name: respaldo
+    shell: /bin/bash
+    lock_passwd: true
+
 write_files:
   - path: /opt/vega/instalar-wazuh.sh
     permissions: "0755"
@@ -26,4 +33,7 @@ write_files:
       # Las contraseñas generadas quedan en /root/wazuh-install-files.tar: pásalas a 1Password.
 
 runcmd:
+  - mkdir -p /srv/respaldos
+  - chown respaldo:respaldo /srv/respaldos
+  - chmod 750 /srv/respaldos
   - /opt/vega/instalar-wazuh.sh
