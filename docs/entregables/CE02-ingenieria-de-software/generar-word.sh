@@ -28,7 +28,7 @@ generar() {
     --toc --toc-depth="${INDICE:-3}" --number-sections \
     --resource-path=".:$carpeta" \
     -o "$salida"
-  python3 plantilla/ajustar-docx.py "$salida" ${SEGUIDAS:+--secciones-seguidas}
+  python3 plantilla/ajustar-docx.py "$salida" "$metadatos" ${SEGUIDAS:+--secciones-seguidas}
   python3 plantilla/actualizar-indice.py "$salida"
   local pdf="${salida%.docx}.pdf"
   local paginas

@@ -6,3 +6,10 @@ author:
 date: "19/11/2026"
 toc-title: "Índice"
 lang: es-PE
+# Portada y encabezado de este Word (plantilla/ajustar-docx.py; lo común está en plantilla/portada.yaml).
+portada:
+  tipo: "Fase 0 · Análisis previo"
+  titulo: "Análisis y Diagnóstico frente a la Rúbrica"
+  evidencias: "Evidencias CE0211 a CE0244 de la línea CE02"
+  encabezado: "Análisis y diagnóstico"
+  despliegue: false
