@@ -477,13 +477,8 @@ $ignoreErrors[] = [
 ];
 $ignoreErrors[] = [
     'rawMessage' => 'Parameter #2 $treatment of static method App\\Filament\\Actions\\SignConsentAction::make() expects (Closure(): (App\\Models\\Treatment|null))|null, Closure(array): (Illuminate\\Database\\Eloquent\\Model|null) given.',
-    'count' => 1,
-    'path' => __DIR__.'/app/Filament/Concerns/HasPatientSummaryActions.php (in context of class App\Filament\Resources\Appointments\Pages\ViewAppointment)',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Parameter #2 $treatment of static method App\\Filament\\Actions\\SignConsentAction::make() expects (Closure(): (App\\Models\\Treatment|null))|null, Closure(array): (Illuminate\\Database\\Eloquent\\Model|null) given.',
-    'count' => 1,
-    'path' => __DIR__.'/app/Filament/Concerns/HasPatientSummaryActions.php (in context of class App\Filament\Resources\Patients\Pages\ViewPatient)',
+    'count' => 2,
+    'path' => __DIR__.'/app/Filament/Concerns/HasPatientSummaryActions.php',
 ];
 $ignoreErrors[] = [
     'rawMessage' => 'Parameter #1 $array (array{0: Filament\\Forms\\Components\\TextInput, 1: Filament\\Forms\\Components\\TextInput, 2: Filament\\Forms\\Components\\TextInput, 3?: Filament\\Forms\\Components\\DatePicker}) of array_values is already a list, call has no effect.',
@@ -3857,43 +3852,23 @@ $ignoreErrors[] = [
 ];
 $ignoreErrors[] = [
     'rawMessage' => 'Access to an undefined property Illuminate\\Database\\Eloquent\\Model::$first_name.',
-    'count' => 1,
-    'path' => __DIR__.'/app/Http/Controllers/Api/V1/Account/Concerns/ChangesAppointments.php (in context of class App\Http\Controllers\Api\V1\Account\AccountController)',
+    'count' => 2,
+    'path' => __DIR__.'/app/Http/Controllers/Api/V1/Account/Concerns/ChangesAppointments.php',
 ];
 $ignoreErrors[] = [
     'rawMessage' => 'Access to an undefined property Illuminate\\Database\\Eloquent\\Model::$name.',
-    'count' => 2,
-    'path' => __DIR__.'/app/Http/Controllers/Api/V1/Account/Concerns/ChangesAppointments.php (in context of class App\Http\Controllers\Api\V1\Account\AccountController)',
+    'count' => 4,
+    'path' => __DIR__.'/app/Http/Controllers/Api/V1/Account/Concerns/ChangesAppointments.php',
 ];
 $ignoreErrors[] = [
     'rawMessage' => 'Cannot call method format() on string.',
-    'count' => 1,
-    'path' => __DIR__.'/app/Http/Controllers/Api/V1/Account/Concerns/ChangesAppointments.php (in context of class App\Http\Controllers\Api\V1\Account\AccountController)',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Cannot call method toImmutable() on string.',
-    'count' => 1,
-    'path' => __DIR__.'/app/Http/Controllers/Api/V1/Account/Concerns/ChangesAppointments.php (in context of class App\Http\Controllers\Api\V1\Account\AccountController)',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Access to an undefined property Illuminate\\Database\\Eloquent\\Model::$first_name.',
-    'count' => 1,
-    'path' => __DIR__.'/app/Http/Controllers/Api/V1/Account/Concerns/ChangesAppointments.php (in context of class App\Http\Controllers\Api\V1\Account\LinkController)',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Access to an undefined property Illuminate\\Database\\Eloquent\\Model::$name.',
     'count' => 2,
-    'path' => __DIR__.'/app/Http/Controllers/Api/V1/Account/Concerns/ChangesAppointments.php (in context of class App\Http\Controllers\Api\V1\Account\LinkController)',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Cannot call method format() on string.',
-    'count' => 1,
-    'path' => __DIR__.'/app/Http/Controllers/Api/V1/Account/Concerns/ChangesAppointments.php (in context of class App\Http\Controllers\Api\V1\Account\LinkController)',
+    'path' => __DIR__.'/app/Http/Controllers/Api/V1/Account/Concerns/ChangesAppointments.php',
 ];
 $ignoreErrors[] = [
     'rawMessage' => 'Cannot call method toImmutable() on string.',
-    'count' => 1,
-    'path' => __DIR__.'/app/Http/Controllers/Api/V1/Account/Concerns/ChangesAppointments.php (in context of class App\Http\Controllers\Api\V1\Account\LinkController)',
+    'count' => 2,
+    'path' => __DIR__.'/app/Http/Controllers/Api/V1/Account/Concerns/ChangesAppointments.php',
 ];
 $ignoreErrors[] = [
     'rawMessage' => 'Access to an undefined property App\\Models\\Patient::$age.',
@@ -4517,203 +4492,8 @@ $ignoreErrors[] = [
 ];
 $ignoreErrors[] = [
     'rawMessage' => 'Call to an undefined method Illuminate\\Database\\Eloquent\\Model::writeAudit().',
-    'count' => 4,
-    'path' => __DIR__.'/app/Models/Concerns/Auditable.php (in context of class App\Models\Account)',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Call to an undefined method Illuminate\\Database\\Eloquent\\Model::writeAudit().',
-    'count' => 4,
-    'path' => __DIR__.'/app/Models/Concerns/Auditable.php (in context of class App\Models\Appointment)',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Call to an undefined method Illuminate\\Database\\Eloquent\\Model::writeAudit().',
-    'count' => 4,
-    'path' => __DIR__.'/app/Models/Concerns/Auditable.php (in context of class App\Models\Campaign)',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Call to an undefined method Illuminate\\Database\\Eloquent\\Model::writeAudit().',
-    'count' => 4,
-    'path' => __DIR__.'/app/Models/Concerns/Auditable.php (in context of class App\Models\Charge)',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Call to an undefined method Illuminate\\Database\\Eloquent\\Model::writeAudit().',
-    'count' => 4,
-    'path' => __DIR__.'/app/Models/Concerns/Auditable.php (in context of class App\Models\ClinicalFile)',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Call to an undefined method Illuminate\\Database\\Eloquent\\Model::writeAudit().',
-    'count' => 4,
-    'path' => __DIR__.'/app/Models/Concerns/Auditable.php (in context of class App\Models\ClinicalTemplate)',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Call to an undefined method Illuminate\\Database\\Eloquent\\Model::writeAudit().',
-    'count' => 4,
-    'path' => __DIR__.'/app/Models/Concerns/Auditable.php (in context of class App\Models\Consent)',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Call to an undefined method Illuminate\\Database\\Eloquent\\Model::writeAudit().',
-    'count' => 4,
-    'path' => __DIR__.'/app/Models/Concerns/Auditable.php (in context of class App\Models\ConsentTemplate)',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Call to an undefined method Illuminate\\Database\\Eloquent\\Model::writeAudit().',
-    'count' => 4,
-    'path' => __DIR__.'/app/Models/Concerns/Auditable.php (in context of class App\Models\Consultation)',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Call to an undefined method Illuminate\\Database\\Eloquent\\Model::writeAudit().',
-    'count' => 4,
-    'path' => __DIR__.'/app/Models/Concerns/Auditable.php (in context of class App\Models\ConsultationDiagnosis)',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Call to an undefined method Illuminate\\Database\\Eloquent\\Model::writeAudit().',
-    'count' => 4,
-    'path' => __DIR__.'/app/Models/Concerns/Auditable.php (in context of class App\Models\DailyClosing)',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Call to an undefined method Illuminate\\Database\\Eloquent\\Model::writeAudit().',
-    'count' => 4,
-    'path' => __DIR__.'/app/Models/Concerns/Auditable.php (in context of class App\Models\Doctor)',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Call to an undefined method Illuminate\\Database\\Eloquent\\Model::writeAudit().',
-    'count' => 4,
-    'path' => __DIR__.'/app/Models/Concerns/Auditable.php (in context of class App\Models\DoctorSchedule)',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Call to an undefined method Illuminate\\Database\\Eloquent\\Model::writeAudit().',
-    'count' => 4,
-    'path' => __DIR__.'/app/Models/Concerns/Auditable.php (in context of class App\Models\Expense)',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Call to an undefined method Illuminate\\Database\\Eloquent\\Model::writeAudit().',
-    'count' => 4,
-    'path' => __DIR__.'/app/Models/Concerns/Auditable.php (in context of class App\Models\Faq)',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Call to an undefined method Illuminate\\Database\\Eloquent\\Model::writeAudit().',
-    'count' => 4,
-    'path' => __DIR__.'/app/Models/Concerns/Auditable.php (in context of class App\Models\LabOrder)',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Call to an undefined method Illuminate\\Database\\Eloquent\\Model::writeAudit().',
-    'count' => 4,
-    'path' => __DIR__.'/app/Models/Concerns/Auditable.php (in context of class App\Models\MedicalBackground)',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Call to an undefined method Illuminate\\Database\\Eloquent\\Model::writeAudit().',
-    'count' => 4,
-    'path' => __DIR__.'/app/Models/Concerns/Auditable.php (in context of class App\Models\MessageTemplate)',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Call to an undefined method Illuminate\\Database\\Eloquent\\Model::writeAudit().',
-    'count' => 4,
-    'path' => __DIR__.'/app/Models/Concerns/Auditable.php (in context of class App\Models\Odontogram)',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Call to an undefined method Illuminate\\Database\\Eloquent\\Model::writeAudit().',
-    'count' => 4,
-    'path' => __DIR__.'/app/Models/Concerns/Auditable.php (in context of class App\Models\OdontogramEntry)',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Call to an undefined method Illuminate\\Database\\Eloquent\\Model::writeAudit().',
-    'count' => 4,
-    'path' => __DIR__.'/app/Models/Concerns/Auditable.php (in context of class App\Models\Patient)',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Call to an undefined method Illuminate\\Database\\Eloquent\\Model::writeAudit().',
-    'count' => 4,
-    'path' => __DIR__.'/app/Models/Concerns/Auditable.php (in context of class App\Models\Payment)',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Call to an undefined method Illuminate\\Database\\Eloquent\\Model::writeAudit().',
-    'count' => 4,
-    'path' => __DIR__.'/app/Models/Concerns/Auditable.php (in context of class App\Models\Prescription)',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Call to an undefined method Illuminate\\Database\\Eloquent\\Model::writeAudit().',
-    'count' => 4,
-    'path' => __DIR__.'/app/Models/Concerns/Auditable.php (in context of class App\Models\PrescriptionItem)',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Call to an undefined method Illuminate\\Database\\Eloquent\\Model::writeAudit().',
-    'count' => 4,
-    'path' => __DIR__.'/app/Models/Concerns/Auditable.php (in context of class App\Models\PurchaseOrder)',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Call to an undefined method Illuminate\\Database\\Eloquent\\Model::writeAudit().',
-    'count' => 4,
-    'path' => __DIR__.'/app/Models/Concerns/Auditable.php (in context of class App\Models\RescheduleRequest)',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Call to an undefined method Illuminate\\Database\\Eloquent\\Model::writeAudit().',
-    'count' => 4,
-    'path' => __DIR__.'/app/Models/Concerns/Auditable.php (in context of class App\Models\Review)',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Call to an undefined method Illuminate\\Database\\Eloquent\\Model::writeAudit().',
-    'count' => 4,
-    'path' => __DIR__.'/app/Models/Concerns/Auditable.php (in context of class App\Models\ScheduleBlock)',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Call to an undefined method Illuminate\\Database\\Eloquent\\Model::writeAudit().',
-    'count' => 4,
-    'path' => __DIR__.'/app/Models/Concerns/Auditable.php (in context of class App\Models\Setting)',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Call to an undefined method Illuminate\\Database\\Eloquent\\Model::writeAudit().',
-    'count' => 4,
-    'path' => __DIR__.'/app/Models/Concerns/Auditable.php (in context of class App\Models\SmileCase)',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Call to an undefined method Illuminate\\Database\\Eloquent\\Model::writeAudit().',
-    'count' => 4,
-    'path' => __DIR__.'/app/Models/Concerns/Auditable.php (in context of class App\Models\Supplier)',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Call to an undefined method Illuminate\\Database\\Eloquent\\Model::writeAudit().',
-    'count' => 4,
-    'path' => __DIR__.'/app/Models/Concerns/Auditable.php (in context of class App\Models\Supply)',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Call to an undefined method Illuminate\\Database\\Eloquent\\Model::writeAudit().',
-    'count' => 4,
-    'path' => __DIR__.'/app/Models/Concerns/Auditable.php (in context of class App\Models\Treatment)',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Call to an undefined method Illuminate\\Database\\Eloquent\\Model::writeAudit().',
-    'count' => 4,
-    'path' => __DIR__.'/app/Models/Concerns/Auditable.php (in context of class App\Models\TreatmentPackage)',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Call to an undefined method Illuminate\\Database\\Eloquent\\Model::writeAudit().',
-    'count' => 4,
-    'path' => __DIR__.'/app/Models/Concerns/Auditable.php (in context of class App\Models\TreatmentPlan)',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Call to an undefined method Illuminate\\Database\\Eloquent\\Model::writeAudit().',
-    'count' => 4,
-    'path' => __DIR__.'/app/Models/Concerns/Auditable.php (in context of class App\Models\TreatmentPlanInstallment)',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Call to an undefined method Illuminate\\Database\\Eloquent\\Model::writeAudit().',
-    'count' => 4,
-    'path' => __DIR__.'/app/Models/Concerns/Auditable.php (in context of class App\Models\TreatmentPlanItem)',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Call to an undefined method Illuminate\\Database\\Eloquent\\Model::writeAudit().',
-    'count' => 4,
-    'path' => __DIR__.'/app/Models/Concerns/Auditable.php (in context of class App\Models\TreatmentPlanSignature)',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Call to an undefined method Illuminate\\Database\\Eloquent\\Model::writeAudit().',
-    'count' => 4,
-    'path' => __DIR__.'/app/Models/Concerns/Auditable.php (in context of class App\Models\User)',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Call to an undefined method Illuminate\\Database\\Eloquent\\Model::writeAudit().',
-    'count' => 4,
-    'path' => __DIR__.'/app/Models/Concerns/Auditable.php (in context of class App\Models\WaitlistEntry)',
+    'count' => 160,
+    'path' => __DIR__.'/app/Models/Concerns/Auditable.php',
 ];
 $ignoreErrors[] = [
     'rawMessage' => 'Access to an undefined property Illuminate\\Database\\Eloquent\\Model&object{pivot: Illuminate\\Database\\Eloquent\\Relations\\Pivot}::$treatment.',
