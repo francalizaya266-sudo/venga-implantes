@@ -59,8 +59,15 @@ class DatabaseBackupTest extends TestCase
         // En SQLite esa orden no existe y rompería la restauración: la copia no la lleva.
         $this->assertSame('', DatabaseBackup::encodingLine('sqlite', null));
 
+        // La copia de esta base lleva la orden de su motor: ninguna en SQLite y SET NAMES en MySQL (job "mysql" de CI).
         $name = app(DatabaseBackup::class)->create();
-        $this->assertStringNotContainsString('SET NAMES', gzdecode(Storage::disk('local')->get($name)));
+        $copy = gzdecode(Storage::disk('local')->get($name));
+
+        if (DB::getDriverName() === 'sqlite') {
+            $this->assertStringNotContainsString('SET NAMES', $copy);
+        } else {
+            $this->assertStringContainsString("SET NAMES utf8mb4;\n", $copy);
+        }
     }
 
     public function test_only_the_last_copies_are_kept(): void
