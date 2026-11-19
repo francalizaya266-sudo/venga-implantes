@@ -109,8 +109,8 @@ Leyenda: **Cubierta** = la evidencia existe y es verificable; **Parcial** = hay 
 | CE0232 Desktop | No aplica | — | — | — |
 | CE0233 Web integrada con base de datos | Cubierta (código) | Sistema web completo: web del paciente, panel interno, MySQL, reglas del negocio y pruebas. | El documento técnico E3 y las capturas de funcionamiento. | FASE 3: documento + guion de capturas `[PENDIENTE – capturas]`. |
 | CE0234 Full-stack desplegable | Parcial | Frontend React, backend Laravel y API `/api/v1` (36 rutas, 69 pruebas de la API); paquete para el hosting en CI. | API documentada (OpenAPI) y evidencia de despliegue (URL). | FASE 3: OpenAPI de la API existente; URL `[PENDIENTE – estudiante]`. |
-| CE0235 Distribuido con servicios interoperables | Falta | Integración con WhatsApp (wa.me hoy, API de Meta preparada en `CloudApiChannel`). | Un servicio propio separado, con API, prueba de integración y de resiliencia. | FASE 3: servicio de IA de inasistencias (FastAPI + Docker). |
-| CE0236 Móvil | Falta | La web es mobile-first, pero no es una app. | App móvil que consuma la API. | FASE 3: app móvil confirmada por el estudiante (ver "Decisiones del estudiante"). |
+| CE0235 Distribuido con servicios interoperables | Falta | Integración con WhatsApp (wa.me hoy, API de Meta preparada en `CloudApiChannel`). | Un servicio propio separado, con API, prueba de integración y de resiliencia. | ~~FASE 3: servicio de IA de inasistencias (FastAPI + Docker).~~ Descartado el 19/11/2026. FASE 3: documentar la integración con RENIEC (Decolecta), Nager.Date y WhatsApp, con sus pruebas de falla. |
+| CE0236 Móvil | Falta | La web es mobile-first, pero no es una app. | App móvil que consuma la API. | ~~FASE 3: app móvil.~~ Descartada el 19/11/2026 (ver "Decisiones del estudiante"). |
 
 ### E4 · CE024 Calidad de Software
 
@@ -157,6 +157,12 @@ Respondidas el 18/11/2026:
 2. **App móvil (CE0236):** sí se implementa, además de la web, la API y el servicio de IA.
 3. **Despliegue:** en Microsoft Azure (coherente con la línea CE03 del mismo equipo).
 4. **Integrantes (ciclo 10):** Fran Franklin Calizaya Apaza, Jhoel Hairton Apaza Quispe y Joselyn Yucra Mamani.
+
+Cambios del 19/11/2026:
+
+5. **App móvil y servicio de IA:** ya no se hacen. CE0236 queda sin evidencia propia (la web sigue siendo mobile-first) y la decisión se registra en el E1 (ADR-12 y ADR-13, descartadas).
+6. **Servicios externos:** el sistema consulta los nombres de un DNI en RENIEC por medio de Decolecta y suma los feriados de Nager.Date, con tiempo de espera y una alternativa propia (ADR-14 del E1). Son la evidencia de integración entre servicios que se documenta en el E3.
+7. **Área CE01 (Gestión de TI):** ya se presentó y no forma parte de esta evaluación. Sí se hace todo lo de Ingeniería de Software, incluido el E4 completo con la gestión ágil.
 
 ## Lista de `[PENDIENTE]`
 

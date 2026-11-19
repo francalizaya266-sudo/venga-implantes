@@ -4,7 +4,7 @@
 
 La matriz une cada requerimiento funcional de la tabla 2 con su historia de usuario (tabla 5), su caso de uso (figuras 16 y 17), el componente del diagrama C3 que lo atiende (figuras 14 y 15), el archivo principal del código y la prueba automatizada que lo comprueba. Las rutas que empiezan con `app/`, `config/` o `routes/` están en `backend/`; las que empiezan con `src/`, en `frontend/`. Las pruebas del backend se citan como `Clase::método` (PHPUnit, en `backend/tests`) y las del frontend como archivo y nombre de la prueba (Vitest). Un guion (—) en la columna HU indica que el requerimiento no tiene una historia propia en la tabla 5.
 
-La matriz se comprueba con `python3 docs/entregables/verificar-trazabilidad.py`, que revisa que cada requerimiento de la tabla 2 esté una sola vez, que cada historia tenga los mismos requerimientos que en la tabla 5, que los 22 casos de uso estén cubiertos y que cada archivo y cada prueba citados existan en el repositorio. La ejecución del 18/11/2026 encontró los 88 requerimientos, 148 pruebas distintas en 83 archivos de prueba y 106 archivos del código, todos presentes.
+La matriz se comprueba con `python3 docs/entregables/verificar-trazabilidad.py`, que revisa que cada requerimiento de la tabla 2 esté una sola vez, que cada historia tenga los mismos requerimientos que en la tabla 5, que los 20 casos de uso estén cubiertos y que cada archivo y cada prueba citados existan en el repositorio. La ejecución del 19/11/2026 encontró los 87 requerimientos, 164 pruebas distintas en 87 archivos de prueba y 112 archivos del código, todos presentes.
 
 *Tabla A1. Matriz de trazabilidad RF → historia → caso de uso → componente → archivo → prueba automatizada.*
 
@@ -30,11 +30,12 @@ La matriz se comprueba con `python3 docs/entregables/verificar-trazabilidad.py`,
 | RF-CTA-05 | — | CU-06 | API v1; pages/account | `app/Http/Controllers/Api/V1/Account/HealthController.php`; `src/pages/account/HealthPage.tsx` | `HealthControllerTest::test_the_family_tells_the_doctor_about_their_health_once`; `HealthPage.test.tsx`: “sends the health history to the clinic and returns to Mi cuenta” |
 | RF-CTA-06 | — | CU-05 | API v1 → StaffAlerts | `app/Http/Controllers/Api/V1/Account/AccountController.php` | `AccountControllerTest::test_asking_for_the_next_session_tells_reception_once_and_only_from_the_family_phone` |
 | RF-CTA-07 | — | CU-05 | API v1 → Access; pages/account | `app/Services/Access/DeviceService.php` | `AccountControllerTest::test_leaving_forgets_this_device`; `AccountPage.test.tsx`: “forgets this phone when the patient leaves” |
+| RF-CTA-08 | — | CU-02, CU-05 | API v1 → Booking, Access | `app/Http/Controllers/Api/V1/Booking/BookingController.php`; `app/Services/Access/DeviceService.php` | `BookingControllerTest::test_a_first_booking_with_a_new_number_enters_my_account_without_waiting_for_the_link`; `BookingControllerTest::test_a_number_the_clinic_already_has_is_not_remembered_without_its_link`; `LinkControllerTest::test_the_owner_of_the_number_using_its_link_on_another_phone_forgets_the_phones_that_never_used_one` |
 | RF-AGE-01 | — | CU-07 | Panel Filament → Agenda | `app/Filament/Pages/Agenda.php` | `AgendaCalendarTest::test_reception_sees_every_doctor_on_the_day`; `AgendaCalendarTest::test_a_doctor_only_sees_their_own_agenda_and_starts_on_the_week` |
 | RF-AGE-02 | HU-05 | CU-07 | Panel Filament → Booking | `app/Filament/Actions/CreateAppointmentAction.php`; `app/Services/Booking/AppointmentService.php` | `AgendaPanelTest::test_reception_books_a_free_slot_and_the_notice_is_prepared`; `AgendaCalendarTest::test_a_new_patient_is_registered_in_the_same_window_as_the_appointment` |
 | RF-AGE-03 | HU-05 | CU-07 | Panel Filament → Booking | `app/Services/Booking/AppointmentService.php`; `app/Services/Booking/AppointmentChange.php` | `AgendaCalendarTest::test_dropping_an_appointment_moves_it_after_confirming`; `AppointmentServiceTest::test_a_clash_says_which_appointment_or_which_block_is_in_the_way` |
 | RF-AGE-04 | HU-06 | CU-08 | Panel Filament → Booking | `app/Filament/Actions/AppointmentActions.php`; `app/Services/Booking/AppointmentService.php` | `AgendaPanelTest::test_the_day_buttons_move_an_appointment_through_its_states`; `UndoLastStepTest::test_after_a_day_there_is_nothing_left_to_undo` |
-| RF-AGE-05 | — | CU-07 | Panel Filament → Agenda | `app/Services/Agenda/BlockScheduler.php`; `app/Support/PeruvianHolidays.php` | `AgendaToolsTest::test_a_block_can_repeat_the_same_hours_every_week`; `BlockSchedulerTest::test_loading_holidays_closes_those_whole_days_for_every_doctor` |
+| RF-AGE-05 | — | CU-07 | Panel Filament → Agenda → Nager.Date | `app/Services/Agenda/BlockScheduler.php`; `app/Services/Agenda/HolidayCalendar.php`; `app/Support/PeruvianHolidays.php` | `AgendaToolsTest::test_a_block_can_repeat_the_same_hours_every_week`; `BlockSchedulerTest::test_loading_holidays_closes_those_whole_days_for_every_doctor`; `HolidayCalendarTest::test_it_adds_the_holidays_only_nager_date_has_and_keeps_the_names_the_system_uses`; `HolidayCalendarTest::test_when_nager_date_does_not_answer_it_is_the_system_list_and_it_tries_again_in_a_few_minutes` |
 | RF-AGE-06 | — | CU-07 | Panel Filament | `app/Filament/Resources/Doctors/DoctorResource.php` | `DoctorSeasonAndAccessTest::test_a_range_of_the_schedule_can_be_valid_only_for_a_season`; `DoctorWeekScheduleTest::test_ranges_that_overlap_are_caught_as_the_hour_picker_writes_them` |
 | RF-AGE-07 | — | CU-09 | Panel Filament → Agenda, Booking | `app/Services/Agenda/GapFinder.php`; `app/Services/Booking/WaitlistService.php` | `AgendaFindAndListTest::test_find_a_gap_offers_the_next_free_times_and_opens_the_appointment_ready`; `WaitlistServiceTest::test_an_offered_slot_is_held_for_that_patient_while_they_answer` |
 | RF-AGE-08 | — | CU-07 | Panel Filament → Booking | `app/Services/Booking/AppointmentService.php` | `OverbookingTest::test_booking_over_another_appointment_only_passes_when_it_is_asked_as_an_overbooking`; `AppointmentSeriesTest::test_a_series_repeats_the_weekday_and_the_time_and_tells_the_patient_once` |
@@ -42,18 +43,20 @@ La matriz se comprueba con `python3 docs/entregables/verificar-trazabilidad.py`,
 | RF-AGE-10 | HU-03 | CU-09 | Panel Filament → Booking | `app/Services/Booking/RescheduleRequestService.php` | `RescheduleRequestServiceTest::test_approving_an_option_moves_the_appointment_and_notifies_the_patient`; `RescheduleRequestServiceTest::test_rejecting_keeps_the_original_time_and_tells_the_patient` |
 | RF-AGE-11 | — | CU-20 | Comandos → Agenda | `app/Services/Agenda/LearnedDurations.php`; `app/Console/Commands/LearnDurations.php` | `LearnedDurationsTest::test_the_agenda_reserves_what_the_doctor_really_takes` |
 | RF-AGE-12 | — | CU-07 | Panel Filament | `app/Http/Controllers/Reports/AgendaDayController.php` | `ClinicWeekAndPrintTest::test_the_day_sheet_lists_each_doctor_with_their_appointments_to_tick_by_hand` |
+| RF-AGE-13 | — | CU-07 | Panel Filament → Agenda | `app/Filament/Actions/CreateAppointmentAction.php`; `app/Filament/Support/SlotPicker.php` | `EasierSchedulingTest::test_the_next_seven_days_are_buttons_that_say_how_many_free_times_each_has`; `EasierSchedulingTest::test_the_free_times_come_in_morning_and_afternoon_and_the_ones_that_leave_no_gaps_are_recommended`; `EasierSchedulingTest::test_the_most_booked_treatments_are_one_tap_away`; `EasierSchedulingTest::test_choosing_the_patient_brings_the_doctor_who_saw_them_last` |
 | RF-PAC-01 | — | CU-10 | Panel Filament → Patients | `app/Services/Patients/PatientRegistrar.php` | `PatientRegistrationTest::test_patients_that_may_already_be_registered_are_found_by_document_name_and_phone`; `PatientRegistrationTest::test_documents_are_checked_by_type_and_saved_clean` |
 | RF-PAC-02 | — | CU-10 | Panel Filament → Patients | `app/Services/Patients/PatientRegistrar.php`; `app/Filament/Resources/Accounts/AccountResource.php` | `PatientRegistrationTest::test_a_phone_has_one_holder_and_a_wrong_relationship_can_be_corrected`; `PatientRegistrationTest::test_a_minor_has_a_guardian_who_signs_for_them` |
 | RF-PAC-03 | — | CU-10 | Panel Filament → Patients | `app/Filament/Resources/Patients/PatientResource.php`; `app/Services/Patients/PatientInsights.php` | `PatientsAndSetupPanelTest::test_the_patient_file_shows_one_timeline_and_the_medical_alert_only_to_who_attends`; `PatientNextStepTest::test_the_file_says_what_is_next_for_each_one_with_the_button_to_do_it` |
 | RF-PAC-04 | — | CU-10 | Panel Filament → Dashboard | `app/Services/Dashboard/FollowUps.php` | `DashboardPanelTest::test_reception_sees_whom_to_follow_up_with_and_the_lists_count_the_same`; `DashboardPanelTest::test_regulars_who_leave_happy_are_asked_for_their_google_review_once_in_six_months` |
 | RF-PAC-05 | — | CU-10 | Panel Filament | `app/Filament/Resources/Accounts/AccountActions.php` | `PatientsAndSetupPanelTest::test_reception_blocks_and_unblocks_web_bookings_for_a_phone`; `AppointmentServiceTest::test_rejects_web_booking_from_a_blocked_number` |
+| RF-PAC-06 | — | CU-10 | Panel Filament → Patients → Decolecta | `app/Services/Patients/DniLookup.php`; `app/Filament/Resources/Patients/Schemas/PatientForm.php` | `DniLookupTest::test_the_magnifying_glass_fills_the_names_as_reniec_has_them`; `DniLookupTest::test_when_reniec_does_not_have_it_or_does_not_answer_the_names_stay_to_be_written`; `DniLookupTest::test_the_magnifying_glass_only_shows_for_a_dni_and_with_the_key_set` |
 | RF-CLI-01 | HU-09 | CU-14 | Panel Filament → Clinical | `app/Services/Clinical/ConsultationService.php` | `ClinicalServicesTest::test_attending_an_appointment_opens_the_consultation_with_the_treatment_template_and_a_first_odontogram`; `ClinicalServicesTest::test_only_the_doctor_of_the_appointment_can_attend_it` |
 | RF-CLI-02 | — | CU-14 | Panel Filament → Clinical | `app/Filament/Actions/EditMedicalBackgroundAction.php` | `ClinicalPanelTest::test_doctors_register_medical_background_and_alerts_show_up`; `ClinicalPanelTest::test_the_allergy_stays_next_to_the_name_and_a_related_medication_is_flagged` |
 | RF-CLI-03 | — | CU-14 | Panel Filament → Clinical | `app/Livewire/OdontogramChart.php`; `app/Services/Clinical/FindingsDictation.php` | `ClinicalPanelTest::test_the_odontogram_marks_surfaces_only_for_the_doctor_writing`; `FindingsDictationTest::test_dictated_words_are_understood_like_the_doctor_says_them` |
 | RF-CLI-04 | HU-11 | CU-14 | Clinical | `app/Services/Clinical/PrescriptionService.php`; `app/Services/Clinical/PediatricDose.php` | `PatientSafetyChecksTest::test_the_prescription_warns_by_age_pregnancy_illness_and_what_the_patient_takes`; `PatientSafetyChecksTest::test_a_child_dose_goes_by_weight_and_never_passes_an_adult_one` |
 | RF-CLI-05 | — | CU-14 | Panel Filament → Clinical | `app/Services/Clinical/ConsentService.php`; `app/Filament/Actions/SignConsentAction.php` | `ClinicalFilesPanelTest::test_a_consent_is_signed_on_screen_printed_and_revoked`; `ClinicalFilesAndConsentsTest::test_a_parent_signs_for_a_child_and_the_signed_text_does_not_change_when_the_template_does` |
 | RF-CLI-06 | — | CU-14 | Clinical; Policies | `app/Services/Clinical/ClinicalFileService.php`; `app/Http/Controllers/Clinical/ClinicalFileController.php` | `ClinicalFilesAndConsentsTest::test_images_are_compressed_with_a_thumbnail_and_documents_are_kept_as_they_are`; `ClinicalFilesAndConsentsTest::test_files_are_only_served_to_who_can_see_the_clinical_record` |
-| RF-CLI-07 | HU-09 | CU-14 | Clinical → Billing, Inventory | `app/Services/Clinical/ConsultationService.php` | `VisitCloseOutTest::test_finishing_reviews_what_is_often_forgotten_then_asks_reception_to_collect_and_suggests_the_next_session`; `ClinicalServicesTest::test_closing_completes_the_appointment_and_reopening_is_allowed_for_24_hours` |
+| RF-CLI-07 | HU-09 | CU-14 | Clinical → Billing, Inventory | `app/Services/Clinical/ConsultationService.php` | `VisitCloseOutTest::test_finishing_reviews_what_is_often_forgotten_then_tells_reception_to_collect_and_suggests_the_next_session`; `ClinicalServicesTest::test_closing_completes_the_appointment_and_reopening_is_allowed_for_24_hours` |
 | RF-CLI-08 | — | CU-14 | Panel Filament | `app/Http/Controllers/Clinical/PrintController.php` | `ClinicalFilesPanelTest::test_the_full_history_prints_with_the_odontogram_and_leaves_a_trace` |
 | RF-CLI-09 | — | CU-14 | Panel Filament | `app/Filament/Resources/LabOrders/LabOrderResource.php`; `app/Filament/Actions/SendToLabAction.php` | `LabOrdersTest::test_a_lab_work_is_followed_from_the_day_it_leaves_until_it_is_paid` |
 | RF-PRE-01 | HU-10 | CU-15 | Panel Filament → Clinical | `app/Services/Clinical/TreatmentPlanService.php`; `app/Services/Clinical/OdontogramSuggestions.php` | `TreatmentPlanPanelTest::test_a_new_plan_comes_filled_from_the_odontogram_and_is_accepted_printed_and_sent`; `TreatmentPlanPanelTest::test_the_budget_names_each_tooth_says_why_and_until_when_it_is_valid` |
@@ -69,6 +72,7 @@ La matriz se comprueba con `python3 docs/entregables/verificar-trazabilidad.py`,
 | RF-CAJ-05 | HU-08 | CU-13 | Panel Filament → Billing | `app/Services/Billing/CashClosing.php`; `app/Filament/Pages/CashClosing.php` | `DailyClosingTest::test_closing_the_day_counts_the_cash_and_locks_its_payments_for_reception`; `CashClosingPanelTest::test_the_day_adds_up_by_method_and_by_person_without_what_was_voided` |
 | RF-CAJ-06 | — | CU-12 | Billing; Policies | `app/Services/Billing/BillingService.php` | `PatientsAndSetupPanelTest::test_payments_are_voided_not_deleted_and_leave_the_total` |
 | RF-CAJ-07 | — | CU-13 | Panel Filament | `app/Filament/Resources/Expenses/ExpenseResource.php` | `ExpensesTest::test_reception_notes_an_expense_and_the_cash_paid_leaves_the_drawer` |
+| RF-CAJ-08 | — | CU-12, CU-14 | Panel Filament → StaffAlerts | `app/Filament/Support/VisitCloseOut.php` | `VisitCloseOutTest::test_finishing_reviews_what_is_often_forgotten_then_tells_reception_to_collect_and_suggests_the_next_session`; `VisitCloseOutTest::test_a_doctor_who_has_nothing_to_collect_does_not_bother_reception`; `VisitCloseOutTest::test_the_admin_who_attends_collects_or_hands_the_payment_to_reception`; `VisitCloseOutTest::test_without_anyone_at_reception_the_admin_collects_herself` |
 | RF-INV-01 | — | CU-16 | Panel Filament → Inventory | `app/Services/Inventory/InventoryService.php`; `app/Services/Inventory/StarterCatalog.php` | `InventoryPanelTest::test_the_clinic_starts_with_the_suggested_list_and_then_counts_what_it_has`; `InventoryServiceTest::test_a_count_sets_what_there_is_and_keeps_who_and_why` |
 | RF-INV-02 | — | CU-16 | Clinical → Inventory | `app/Services/Inventory/InventoryService.php` | `InventoryServiceTest::test_closing_a_consultation_uses_the_recipe_taking_first_what_expires_first` |
 | RF-INV-03 | — | CU-14 | Clinical → Inventory | `app/Services/Inventory/InventoryService.php` | `InventoryServiceTest::test_an_implant_records_its_lot_and_serial_on_the_patient` |
@@ -80,6 +84,7 @@ La matriz se comprueba con `python3 docs/entregables/verificar-trazabilidad.py`,
 | RF-AVI-04 | — | CU-20 | Comandos → Booking | `app/Console/Commands/FlagUnconfirmedAppointments.php` | `FlagUnconfirmedAppointmentsTest::test_flags_tomorrows_unconfirmed_appointments_so_reception_calls`; `SettingsNoticesTest::test_unconfirmed_appointments_pass_to_call_from_the_hour_chosen_in_ajustes` |
 | RF-AVI-05 | — | CU-11 | WhatsApp | `app/Services/WhatsApp/CampaignBroadcast.php` | `CampaignAnnouncementTest::test_a_published_campaign_is_announced_only_to_who_accepts_promotions_and_apart_from_appointment_notices` |
 | RF-AVI-06 | — | CU-08 | StaffAlerts; Panel Filament | `app/Services/StaffAlerts.php`; `app/Livewire/PanelPulse.php` | `StaffAlertsTest::test_an_alert_is_in_the_bell_right_away_without_waiting_for_the_queue`; `LivePanelTest::test_the_doctor_is_told_their_patient_is_waiting_until_they_call_them_in` |
+| RF-AVI-07 | — | CU-07, CU-12 | Panel Filament | `app/Filament/Support/MenuPending.php` | `MenuPendingTest::test_the_agenda_counts_the_appointments_to_confirm_and_the_changes_patients_asked_for`; `MenuPendingTest::test_patients_count_the_unfinished_visits_and_the_lab_work_that_needs_something`; `MenuPendingTest::test_the_cash_desk_counts_who_still_owes_for_today`; `MenuPendingTest::test_nothing_waiting_shows_no_number` |
 | RF-REP-01 | — | CU-17 | Panel Filament → Dashboard | `app/Filament/Pages/Dashboard.php`; `app/Services/Dashboard/TodayPulse.php` | `DashboardPanelTest::test_each_role_sees_its_own_cards`; `DashboardPanelTest::test_the_waiting_room_lists_who_has_waited_longest_first` |
 | RF-REP-02 | — | CU-17 | Panel Filament → Reports | `app/Services/Reports/EarningsReport.php`; `app/Http/Controllers/Reports/EarningsExportController.php` | `EarningsReportTest::test_it_breaks_earnings_down_by_day_doctor_treatment_and_payment_method`; `ReportsPanelTest::test_the_excel_download_has_a_sheet_per_table_and_every_payment` |
 | RF-REP-03 | — | CU-17 | Reports | `app/Services/Reports/ActivityReport.php` | `ActivityReportTest::test_it_counts_attended_visits_no_shows_and_new_patients`; `ActivityReportTest::test_occupancy_is_the_booked_share_of_the_open_hours_after_blocks` |
@@ -91,15 +96,9 @@ La matriz se comprueba con `python3 docs/entregables/verificar-trazabilidad.py`,
 | RF-CFG-04 | — | CU-19 | Modelos (Auditable); Panel Filament | `app/Models/Concerns/Auditable.php`; `app/Filament/Resources/AuditLogs/AuditLogResource.php` | `AuditableTest::test_records_who_changed_what_with_old_and_new_values`; `ChangeHistoryTest::test_only_the_administrator_reads_the_history_and_nobody_changes_it` |
 | RF-CFG-05 | — | CU-19, CU-20 | Comandos → Backup; Panel Filament | `app/Services/Backup/DatabaseBackup.php`; `app/Filament/Pages/Backups.php` | `DatabaseBackupTest::test_a_backup_brings_back_everything_as_it_was`; `BackupsPanelTest::test_copies_have_clinical_data_so_only_the_dentist_admin_gets_them` |
 | RF-CFG-06 | — | CU-18 | Panel Filament | `app/Filament/Resources/ConsentTemplates/ConsentTemplateResource.php`; `app/Filament/Resources/MessageTemplates/MessageTemplateResource.php` | `TextsUsageAndVersionsTest::test_what_each_previous_version_of_a_consent_text_said_can_be_read`; `ClinicalPanelTest::test_quick_writing_records_use_and_saves_new_options` |
-| RF-MOV-01 | HU-13 | CU-21 | App móvil (planificada) → API v1 → Access | API que usará: `app/Services/Access/MagicLinkService.php`; la app, `[PENDIENTE: FASE 3]` | La regla: `AccountControllerTest::test_entering_with_the_access_link_remembers_the_device_and_shows_history_for_a_while`; la app, `[PENDIENTE: FASE 3]` |
-| RF-MOV-02 | HU-13 | CU-21 | App móvil (planificada) → API v1 → Booking | API que usará: `app/Http/Controllers/Api/V1/Account/AccountController.php`; la app, `[PENDIENTE: FASE 3]` | La regla: `AccountControllerTest::test_the_family_confirms_and_cancels_from_my_account`; la app, `[PENDIENTE: FASE 3]` |
-| RF-MOV-03 | HU-13 | CU-21 | App móvil (planificada) → API v1 → Booking | API que usará: `app/Http/Controllers/Api/V1/Booking/BookingController.php`; la app, `[PENDIENTE: FASE 3]` | La regla: `BookingControllerTest::test_a_new_patient_books_with_spanish_errors`; la app, `[PENDIENTE: FASE 3]` |
-| RF-MOV-04 | HU-13 | CU-21 | App móvil (planificada) → API v1 → Access | API que usará: `app/Http/Controllers/Api/V1/Account/AccountController.php`; la app, `[PENDIENTE: FASE 3]` | La regla: `AccountControllerTest::test_after_checking_it_is_them_the_family_sees_its_plans_what_was_done_paid_and_the_next_cuota`; la app, `[PENDIENTE: FASE 3]` |
-| RF-IA-01 | HU-14 | CU-22 | Servicio de IA (planificado) | El servicio, `[PENDIENTE: FASE 3]` | `[PENDIENTE: FASE 3]` |
-| RF-IA-02 | HU-14 | CU-22 | Panel Filament → cliente del servicio de IA (planificado) | Por cambiar: `app/Filament/Pages/Agenda.php` | `[PENDIENTE: FASE 3]` |
-| RF-API-01 | — | CU-21 | API v1 | `routes/api.php` | Hoy, cada grupo de rutas tiene su prueba de controlador, por ejemplo `BookingControllerTest::test_a_new_patient_books_with_spanish_errors`; la verificación contra OpenAPI, `[PENDIENTE: FASE 3]` |
+| RF-API-01 | — | CU-01 a CU-06 | API v1 | `routes/api.php` | Hoy, cada grupo de rutas tiene su prueba de controlador, por ejemplo `BookingControllerTest::test_a_new_patient_books_with_spanish_errors`; la verificación contra OpenAPI, `[PENDIENTE: FASE 3]` |
 
-En los requerimientos planificados (RF-MOV, RF-IA y RF-API) la matriz cita la regla que ya existe y está probada en la API, porque la app móvil y el servicio de IA la reutilizarán; el archivo y la prueba de la pieza nueva se agregan en la FASE 3.
+En el único requerimiento planificado, RF-API-01, la matriz cita las pruebas de controlador que ya cubren cada grupo de rutas; la descripción OpenAPI y la prueba que compara cada respuesta con ella se agregan en la FASE 3 (E3).
 
 [[VERTICAL]]
 
@@ -124,9 +123,9 @@ Este anexo se llena en la sesión de validación descrita en la sección 2.4 (ta
 | 9 | Cerrar la caja del día | Recepcionista | | | | |
 | 10 | Ver los ingresos del mes por doctor y descargar el Excel | Dr. Vega | | | | |
 | 11 | Cambiar la anticipación mínima de reserva | Dr. Vega | | | | |
-| 12 | Recorrer los bocetos de la app móvil y decir qué falta | Ambos | | | | |
+| 12 | Registrar a un paciente nuevo con la lupa del DNI y darle una cita con los botones de día | Recepcionista | | | | |
 
-Resultado: tareas completadas sin ayuda: \_\_\_\_\_\_ de 13 (la tarea 12 cuenta una vez por participante). Meta: 90 % o más.
+Resultado: tareas completadas sin ayuda: \_\_\_\_\_\_ de 12. Meta: 90 % o más.
 
 ## Cuestionario SUS {-}
 
@@ -162,7 +161,7 @@ Cálculo: en las afirmaciones impares se resta 1 a la respuesta; en las pares, l
 
 **Lugar:** Clínica Vega Implant, Jr. Apurímac 648, Juliaca.
 
-**Objeto.** Validar con los usuarios del consultorio la especificación de requerimientos (88 requerimientos funcionales, 16 no funcionales, 23 reglas de negocio y 14 historias de usuario) y el prototipo navegable con datos de demostración (figuras 1 a 10 del documento principal).
+**Objeto.** Validar con los usuarios del consultorio la especificación de requerimientos (87 requerimientos funcionales, 17 no funcionales, 24 reglas de negocio y 12 historias de usuario) y el prototipo navegable con datos de demostración (figuras 1 a 10 del documento principal).
 
 **Participantes.**
 
@@ -176,12 +175,11 @@ Cálculo: en las afirmaciones impares se resta 1 a la respuesta; en las pares, l
 
 **Lo que se revisó.** Las 12 tareas de la tabla 7 sobre el prototipo, el registro de la tabla B1, el cuestionario de la tabla B2 y la lista de requerimientos de la tabla 2.
 
-**Resultados.** Tareas completadas sin ayuda: \_\_\_\_\_\_ de 13. SUS del Dr. Vega: \_\_\_\_\_\_. SUS de recepción: \_\_\_\_\_\_.
+**Resultados.** Tareas completadas sin ayuda: \_\_\_\_\_\_ de 12. SUS del Dr. Vega: \_\_\_\_\_\_. SUS de recepción: \_\_\_\_\_\_.
 
 **Puntos que deciden los usuarios en esta sesión.**
 
-1. Cómo entra el paciente a la app móvil: con el enlace personal que llega por WhatsApp (decisión del 23/10/2026) o con un código de WhatsApp (ADR-12). Decisión: \_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_
-2. Si se inicia el trámite con Meta para la etapa 2 de los avisos (ADR-07). Decisión: \_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_
+1. Si se inicia el trámite con Meta para la etapa 2 de los avisos (ADR-07). Decisión: \_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_
 
 **Observaciones y cambios pedidos.**
 
@@ -228,7 +226,7 @@ La figura 18 del documento principal muestra las 24 clases del dominio y sus rel
 
 ## Criterios de aceptación de las historias de usuario {-}
 
-Cada historia de la tabla 5 tiene sus escenarios en Gherkin. Entre paréntesis va la clase de prueba que ya los comprueba; HU-13 y HU-14 son planificadas y sus escenarios serán las pruebas de la FASE 3.
+Cada historia de la tabla 5 tiene sus escenarios en Gherkin. Entre paréntesis va la clase de prueba que ya los comprueba.
 
 **HU-01 · Reservar en línea** (`BookingControllerTest`, `AppointmentServiceTest`)
 
@@ -377,34 +375,6 @@ Escenario: reglas que se contradicen
   Entonces no se guardan y el formulario dice por qué
 ```
 
-**HU-13 · App móvil (planificada)**
-
-```text
-Escenario: entrar sin contraseña
-  Dado un celular con una cita en el consultorio
-  Cuando la persona pide su enlace en la app y lo abre desde WhatsApp en ese mismo celular
-  Entonces la app queda con una sesión propia (token) y muestra las citas de la familia
-Escenario: mismas reglas que la web
-  Dado que faltan menos de 12 horas para la cita
-  Cuando intenta cancelarla desde la app
-  Entonces la app muestra el mismo mensaje que la web y la cita se mantiene
-```
-
-**HU-14 · Riesgo de inasistencia (planificado)**
-
-```text
-Escenario: servicio disponible
-  Dado las citas de mañana
-  Cuando recepción abre la agenda
-  Entonces cada cita muestra su riesgo de inasistencia (bajo, medio o alto)
-Escenario: servicio caído
-  Dado que el servicio de IA no responde en el tiempo de espera
-  Cuando recepción abre la agenda
-  Entonces la agenda carga igual, sin el indicador de riesgo
-```
-
-[[PAGINA]]
-
 ## Especificación de los casos de uso centrales {-}
 
 *Tabla D1. Especificación de los dos casos de uso centrales.*
@@ -413,7 +383,29 @@ Escenario: servicio caído
 | --- | --- | --- |
 | Actores | Paciente o familiar; WhatsApp (secundario) | Doctor; recepción (secundario) |
 | Precondición | El tratamiento se reserva en línea y algún doctor lo ofrece en la web. | La cita está "En sala" o "Confirmada" y el usuario es el doctor de la cita. |
-| Flujo principal | 1. Elige el servicio con su duración y precio "desde". 2. Elige doctor (o el primero disponible), día y hora entre los horarios libres. 3. Escribe sus datos o elige a un familiar y acepta la privacidad. 4. El sistema valida, vuelve a comprobar el horario en una transacción y crea la cita "Pendiente". 5. Muestra "Reserva hecha" con el archivo de calendario y deja el WhatsApp con el enlace personal en la bandeja. | 1. Pulsa "Atender": la cita pasa a "En atención" con la plantilla del tratamiento y el odontograma anterior. 2. Registra motivo, odontograma, diagnóstico, procedimientos, receta y consentimiento. 3. Pulsa "Terminar atención": el sistema muestra lo que suele olvidarse y los materiales. 4. Al confirmar, en una transacción: avanza el plan, la cita queda "Atendida", se carga lo hecho y se descuentan los materiales. 5. Recepción recibe el aviso de cobrar y la próxima sesión sugerida. |
-| Alternos | 4a. El horario se ocupó mientras tanto: vuelve al paso 2. 4b. El paciente está en tratamiento: se le dice que su doctor programa las sesiones. 4c. Más de 2 citas futuras por paciente o 6 por celular: se rechaza con el motivo. 4d. Más de 8 reservas por hora desde la misma conexión: se detiene. | 1a. Otro doctor intenta atender: se le niega. 2a. Una alergia o un embarazo: la receta advierte antes de guardar. 3a. Se descarta la atención: la cita vuelve a "En sala". 4a. Se reabre dentro de 24 h para corregir sin cobrar dos veces. |
+| Flujo principal | 1. Elige el servicio con su duración y precio "desde". 2. Elige doctor (o el primero disponible), día y hora entre los horarios libres. 3. Escribe sus datos o elige a un familiar y acepta la privacidad. 4. El sistema valida, vuelve a comprobar el horario en una transacción y crea la cita "Pendiente". 5. Muestra "Reserva hecha" con el archivo de calendario y deja el WhatsApp con el enlace personal en la bandeja. | 1. Pulsa "Atender": la cita pasa a "En atención" con la plantilla del tratamiento y el odontograma anterior. 2. Registra motivo, odontograma, diagnóstico, procedimientos, receta y consentimiento. 3. Pulsa "Terminar atención": el sistema muestra lo que suele olvidarse y los materiales. 4. Al confirmar, en una transacción: avanza el plan, la cita queda "Atendida", se carga lo hecho y se descuentan los materiales. 5. Si el paciente debe algo, recepción recibe el aviso de cobrar (el doctor no maneja dinero, RN-24) y la atención sugiere la próxima sesión. |
+| Alternos | 4a. El horario se ocupó mientras tanto: vuelve al paso 2. 4b. El paciente está en tratamiento: se le dice que su doctor programa las sesiones. 4c. Más de 2 citas futuras por paciente o 6 por celular: se rechaza con el motivo. 4d. Más de 8 reservas por hora desde la misma conexión: se detiene. | 1a. Otro doctor intenta atender: se le niega. 2a. Una alergia o un embarazo: la receta advierte antes de guardar. 3a. Se descarta la atención: la cita vuelve a "En sala". 4a. Se reabre dentro de 24 h para corregir sin cobrar dos veces. 5a. La administradora que también atiende elige cobrar ella o pasar el cobro a recepción; si no hay nadie activo en recepción, cobra ella. |
 | Postcondición | Cita "Pendiente", cuenta y paciente creados o reutilizados, aviso de confirmación y alerta a recepción. | Historia clínica completa y auditada, cita "Atendida", cargo pendiente de cobro y stock actualizado. |
-| Reglas y pruebas | RN-01 a RN-05; `BookingControllerTest::test_a_time_taken_meanwhile_sends_the_patient_back_to_choose_another`, `AppointmentServiceTest::test_limits_each_patient_to_two_future_web_appointments` | RN-14, RN-16; `ClinicalServicesTest::test_only_the_doctor_of_the_appointment_can_attend_it`, `VisitCloseOutTest::test_finishing_reviews_what_is_often_forgotten_then_asks_reception_to_collect_and_suggests_the_next_session` |
+| Reglas y pruebas | RN-01 a RN-05; `BookingControllerTest::test_a_time_taken_meanwhile_sends_the_patient_back_to_choose_another`, `AppointmentServiceTest::test_limits_each_patient_to_two_future_web_appointments` | RN-14, RN-16, RN-24; `ClinicalServicesTest::test_only_the_doctor_of_the_appointment_can_attend_it`, `VisitCloseOutTest::test_finishing_reviews_what_is_often_forgotten_then_tells_reception_to_collect_and_suggests_the_next_session`, `VisitCloseOutTest::test_the_admin_who_attends_collects_or_hands_the_payment_to_reception` |
+
+[[PAGINA]]
+
+# Anexo E. Evidencia de la sustentación
+
+Este anexo guarda la evidencia de que el entregable se sustentó ante el docente, como pide la rúbrica del área (CE021). Se llena el día de la sustentación `[PENDIENTE – estudiante: llenar el día de la sustentación]`.
+
+*Tabla E1. Registro de la sustentación del E1.*
+
+| Campo | Registro |
+| --- | --- |
+| Fecha y hora | `[PENDIENTE – estudiante]` |
+| Docente evaluador | `[PENDIENTE – estudiante]` |
+| Modalidad (presencial o virtual) | `[PENDIENTE – estudiante]` |
+| Integrantes que sustentaron y parte que expuso cada uno | `[PENDIENTE – estudiante]` |
+| Enlace a la grabación o a las diapositivas | `[PENDIENTE – estudiante]` |
+| Preguntas del docente y respuesta resumida | `[PENDIENTE – estudiante]` |
+| Observaciones y compromisos de corrección | `[PENDIENTE – estudiante]` |
+
+**Capturas de la sesión.** `[PENDIENTE – estudiante: una captura de la sustentación con los integrantes visibles y otra de la diapositiva de la matriz de trazabilidad]`
+
+**Firma del docente.** `[PENDIENTE – firma]`

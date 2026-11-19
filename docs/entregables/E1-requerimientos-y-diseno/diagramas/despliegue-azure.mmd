@@ -1,23 +1,21 @@
-%%{init: {"flowchart": {"nodeSpacing": 22, "rankSpacing": 36, "padding": 8}}}%%
+%%{init: {"flowchart": {"nodeSpacing": 22, "rankSpacing": 36, "padding": 8, "subGraphTitleMargin": {"top": 4, "bottom": 22}, "wrappingWidth": 400}}}%%
 flowchart TB
   usr(["Pacientes y personal<br/>Internet, HTTPS 443"])
-  subgraph az["Microsoft Azure · VNet 10.20.0.0/16 (diseño de la línea CE03)"]
+  subgraph az["Azure · VNet 10.20.0.0/16"]
     fw["<b>OPNsense</b><br/>firewall, NAT, VPN IPsec,<br/>Suricata IDS/IPS"]
     subgraph dmz["Subred DMZ"]
       px["<b>vm-proxy</b><br/>Nginx + ModSecurity (WAF),<br/>TLS Let's Encrypt,<br/>caché de /app/assets"]
     end
     subgraph snapp["Subred de aplicación"]
       va["<b>vm-app</b> · Linux<br/>Nginx + PHP-FPM 8.3<br/>Laravel + React compilado<br/>cron: schedule:run cada minuto<br/>storage/app/private"]
-      iac["Contenedor del servicio<br/>de IA (planificado)"]
     end
     subgraph snd["Subred de datos"]
       my[("<b>MySQL Flexible</b><br/>Server 8.0<br/>privado y con TLS")]
     end
     ops["<b>Key Vault</b> (secretos)<br/><b>Azure Monitor</b><br/>(registros y alertas)"]
   end
-  ext["<b>Servicios externos</b><br/>API de WhatsApp (Meta)<br/>correo SMTP"]
+  ext["<b>Servicios externos</b><br/>API de WhatsApp (Meta),<br/>correo SMTP, Decolecta,<br/>Nager.Date"]
   usr --> fw --> px --> va
   va --> my
-  va -.-> iac
   va -.-> ops
   va --> ext

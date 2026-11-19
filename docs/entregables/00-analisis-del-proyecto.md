@@ -12,6 +12,7 @@ Este documento reúne el análisis previo obligatorio (sección 0 del prompt CE0
 8. No hay servicio distribuido (CE0235) ni app móvil (CE0236).
 9. No hay contradicciones que impidan seguir: el frontend y el backend existen, la base está definida y el sistema compila y pasa sus pruebas.
 10. Decisiones del estudiante (18/11/2026): el repositorio de la EPE es `venga-implantes`, sí se hace la app móvil, el despliegue es en Microsoft Azure y el equipo lo forman Fran Franklin Calizaya Apaza, Jhoel Hairton Apaza Quispe y Joselyn Yucra Mamani (ciclo 10). Faltan la sección y el número de grupo.
+11. Cambio del 19/11/2026: el equipo decidió **no** hacer la app móvil ni el servicio de IA, y que el área CE01 (Gestión de TI) no forma parte de esta evaluación porque ya se presentó. Se agregaron al sistema la consulta de DNI en RENIEC (por Decolecta) y los feriados de Nager.Date. Donde este análisis habla de la app o del servicio de IA, vale como el plan del 18/11/2026.
 
 Frente a la rúbrica, de las 18 evidencias de CE02 hay 1 cubierta en código (CE0233), 9 parciales, 6 que faltan (una de ellas, la app móvil, es opcional) y 2 que no aplican (consola y escritorio). El código está más avanzado que la documentación: la mayor parte del trabajo que sigue es documentar y medir lo que ya existe, y los cambios de código se concentran en la base de datos (E2), la documentación de la API y el servicio distribuido (E3), y la cobertura, el despliegue y el monitoreo (E4).
 
