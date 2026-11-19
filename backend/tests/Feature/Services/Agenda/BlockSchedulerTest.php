@@ -10,6 +10,7 @@ use App\Services\Agenda\AvailabilityService;
 use App\Services\Agenda\BlockScheduler;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Tests\Concerns\CreatesAgenda;
 use Tests\TestCase;
 
@@ -25,6 +26,8 @@ class BlockSchedulerTest extends TestCase
 
         $this->freezeMonday();
         $this->reception = User::factory()->reception()->create();
+        // Sin Nager.Date: los feriados son los que conoce el sistema (lo que suma Nager.Date se prueba en HolidayCalendarTest).
+        Http::fake(['date.nager.at/*' => Http::response('Service Unavailable', 503)]);
     }
 
     public function test_a_block_repeats_the_same_weekday_and_hours_one_block_per_week(): void

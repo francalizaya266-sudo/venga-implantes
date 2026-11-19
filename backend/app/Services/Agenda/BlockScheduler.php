@@ -5,7 +5,6 @@ namespace App\Services\Agenda;
 use App\Enums\ScheduleBlockType;
 use App\Models\ScheduleBlock;
 use App\Models\User;
-use App\Support\PeruvianHolidays;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
@@ -19,6 +18,8 @@ final class BlockScheduler
 {
     /** Hasta cuántas semanas seguidas se repite un bloqueo. */
     public const REPEAT_MAX_WEEKS = 26;
+
+    public function __construct(private HolidayCalendar $holidays) {}
 
     /**
      * El bloqueo y, si se repite, el mismo horario en cada una de las semanas siguientes. Cada uno queda como un
@@ -52,7 +53,7 @@ final class BlockScheduler
      */
     public function pendingHolidays(int $year): array
     {
-        return collect(PeruvianHolidays::of($year))
+        return collect($this->holidays->of($year))
             ->filter(fn (string $name, string $date) => $date >= today()->toDateString() && ! $this->isClosedAllDay(CarbonImmutable::parse($date)))
             ->all();
     }
@@ -76,7 +77,7 @@ final class BlockScheduler
                 'type' => ScheduleBlockType::Holiday,
                 'starts_at' => $day,
                 'ends_at' => $day->addDay(),
-                'reason' => PeruvianHolidays::of($day->year)[$day->toDateString()],
+                'reason' => $this->holidays->of($day->year)[$day->toDateString()],
                 'created_by_user_id' => $by->getKey(),
             ]))
             ->values());

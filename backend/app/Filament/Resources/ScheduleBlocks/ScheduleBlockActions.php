@@ -6,6 +6,7 @@ use App\Filament\Resources\ScheduleBlocks\Pages\ManageScheduleBlocks;
 use App\Models\ScheduleBlock;
 use App\Models\User;
 use App\Services\Agenda\BlockScheduler;
+use App\Services\Agenda\HolidayCalendar;
 use Carbon\CarbonImmutable;
 use Closure;
 use Filament\Actions\Action;
@@ -103,6 +104,10 @@ final class ScheduleBlockActions
                     ->visible(fn (Get $get) => app(BlockScheduler::class)->pendingHolidays((int) $get('year')) !== []),
                 Text::make(fn (Get $get) => 'Los feriados que quedan de '.$get('year').' ya están bloqueados.')
                     ->visible(fn (Get $get) => app(BlockScheduler::class)->pendingHolidays((int) $get('year')) === []),
+                // De dónde sale la lista: con Nager.Date al día, o solo la del sistema si no respondió.
+                Text::make(fn (Get $get) => app(HolidayCalendar::class)->includesNagerDate((int) $get('year'))
+                    ? 'Lista de feriados nacionales al día, consultada en Nager.Date (date.nager.at).'
+                    : 'Nager.Date no respondió: es la lista de feriados que trae el sistema. Revisa si se agregó alguno por ley.'),
             ])
             ->action(function (array $data): void {
                 /** @var User $user */
