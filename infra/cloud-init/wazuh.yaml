@@ -1,0 +1,26 @@
+#cloud-config
+# vm-wazuh: Wazuh todo en uno (indexador, servidor y tablero).
+# Con 4 GB de RAM se instala con -i (ignora el mínimo recomendado): sirve para un laboratorio pequeño.
+# Revisa la versión vigente en https://documentation.wazuh.com y cámbiala aquí si hace falta.
+timezone: America/Lima
+package_update: true
+package_upgrade: true
+
+packages:
+  - curl
+  - jq
+
+write_files:
+  - path: /opt/vega/instalar-wazuh.sh
+    permissions: "0755"
+    content: |
+      #!/usr/bin/env bash
+      set -euo pipefail
+      WAZUH_VERSION=4.12
+      cd /root
+      curl -sO "https://packages.wazuh.com/${WAZUH_VERSION}/wazuh-install.sh"
+      bash ./wazuh-install.sh -a -i | tee /root/wazuh-install.log
+      # Las contraseñas generadas quedan en /root/wazuh-install-files.tar: pásalas a 1Password.
+
+runcmd:
+  - /opt/vega/instalar-wazuh.sh

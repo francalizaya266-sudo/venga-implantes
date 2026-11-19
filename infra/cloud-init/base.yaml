@@ -1,0 +1,15 @@
+#cloud-config
+# vm-jump y vm-recepcion: herramientas para administrar y para probar la red.
+timezone: America/Lima
+package_update: true
+package_upgrade: true
+
+packages:
+  - curl
+  - jq
+  - nmap
+  - w3m
+  - mysql-client
+  - netcat-openbsd
+  - dnsutils
+  - traceroute

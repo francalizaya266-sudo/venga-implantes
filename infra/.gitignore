@@ -1,0 +1,2 @@
+# Configuración local del despliegue (puede tener tu IP).
+azure/entorno.env

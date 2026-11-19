@@ -1,0 +1,35 @@
+#cloud-config
+# vm-proxy (DMZ): nginx con ModSecurity y las reglas OWASP CRS (WAF), HTTPS con Let's Encrypt y caché de
+# /app/assets. Recibe lo que OPNsense le reenvía desde internet y lo pasa a vm-app (10.20.4.4).
+# ModSecurity empieza en modo detección: se pasa a bloqueo en la fase de pruebas (infra/README.md).
+timezone: America/Lima
+package_update: true
+package_upgrade: true
+
+packages:
+  - nginx
+  - libnginx-mod-http-modsecurity
+  - modsecurity-crs
+  - certbot
+  - python3-certbot-nginx
+  - curl
+  - jq
+
+write_files:
+  - path: /etc/nginx/modsec/main.conf
+    content: |
+      # Configuración base de ModSecurity y reglas OWASP CRS (paquetes de Ubuntu).
+      # Si una ruta no existe en tu versión, revisa con: dpkg -L modsecurity-crs
+      Include /etc/modsecurity/modsecurity.conf
+      Include /etc/modsecurity/crs/crs-setup.conf
+      Include /usr/share/modsecurity-crs/rules/*.conf
+
+runcmd:
+  - cp /etc/modsecurity/modsecurity.conf-recommended /etc/modsecurity/modsecurity.conf
+  # Detección primero: registra en /var/log/modsec_audit.log sin bloquear. En la fase 6 se cambia a "On".
+  - sed -i 's/^SecRuleEngine .*/SecRuleEngine DetectionOnly/' /etc/modsecurity/modsecurity.conf
+  - sed -i 's#^SecAuditLog .*#SecAuditLog /var/log/modsec_audit.log#' /etc/modsecurity/modsecurity.conf
+  - mkdir -p /var/cache/nginx/vega /etc/vega
+  - chown www-data:www-data /var/cache/nginx/vega
+  - rm -f /etc/nginx/sites-enabled/default
+  - systemctl enable --now nginx

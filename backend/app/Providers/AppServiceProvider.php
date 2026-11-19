@@ -12,6 +12,7 @@ use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\DevCommands;
+use Illuminate\Http\Middleware\TrustProxies;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\RateLimiter;
@@ -56,10 +57,28 @@ class AppServiceProvider extends ServiceProvider
 
         $this->limitPatientRequests();
 
+        self::trustConfiguredProxies();
+
         // "composer dev" levanta también el frontend (React), que vive en la carpeta de al lado.
         if (is_file(base_path('../frontend/package.json'))) {
             DevCommands::register('npm --prefix ../frontend run dev', 'vite');
         }
+    }
+
+    /**
+     * Detrás del proxy de la DMZ (Azure), $request->ip() sería la IP del proxy: los límites por IP se compartirían
+     * entre todos los pacientes y Laravel no sabría que la conexión es HTTPS. Confiar en el proxy le devuelve la IP
+     * real (X-Forwarded-For) y el esquema (X-Forwarded-Proto). Sin TRUSTED_PROXIES no se confía en nadie.
+     */
+    public static function trustConfiguredProxies(): void
+    {
+        $proxies = trim((string) config('consultorio.trusted_proxies'));
+
+        if ($proxies === '') {
+            return;
+        }
+
+        TrustProxies::at($proxies === '*' ? '*' : array_values(array_filter(array_map('trim', explode(',', $proxies)))));
     }
 
     /**
