@@ -162,6 +162,24 @@ class EasierSchedulingTest extends TestCase
             ->assertActionDataSet(['treatment_shortcut' => (string) $whitening->id]);
     }
 
+    public function test_each_shortcut_stays_tied_to_its_treatment_when_the_list_changes(): void
+    {
+        $whitening = Treatment::factory()->create(['name' => 'Blanqueamiento', 'duration_minutes' => 30]);
+        $this->doctor->treatments()->attach($whitening);
+        $chipsId = null;
+
+        // Elegir otro doctor reordena "Los más pedidos": cada botón lleva la clave de su tratamiento para que el
+        // navegador no deje marcado el que ahora ocupa su lugar.
+        Livewire::test(Agenda::class)
+            ->mountAction('createAppointment', ['doctor' => $this->doctor->id])
+            ->assertSchemaComponentExists('treatment_shortcut', checkComponentUsing: function (ChoiceChips $quick) use (&$chipsId): bool {
+                $chipsId = $quick->getId();
+
+                return true;
+            })
+            ->assertMountedActionModalSeeHtml('wire:key="'.$chipsId.'-'.$whitening->id.'"');
+    }
+
     public function test_choosing_the_patient_brings_the_doctor_who_saw_them_last(): void
     {
         $other = $this->doctorOffering($this->treatment);

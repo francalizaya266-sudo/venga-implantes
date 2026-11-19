@@ -9,7 +9,8 @@
                 <div class="choice-chips-row">
                     @foreach ($options as $value => $label)
                         @php($description = $getDescription($value))
-                        <label @class(['choice-chip', 'is-highlighted' => $isHighlighted($value)])>
+                        {{-- La clave mantiene cada botón con su valor cuando la lista cambia (por ejemplo, al elegir otro doctor). --}}
+                        <label wire:key="{{ $getId() }}-{{ $value }}" @class(['choice-chip', 'is-highlighted' => $isHighlighted($value)])>
                             <input
                                 type="radio"
                                 class="choice-chip-input"
