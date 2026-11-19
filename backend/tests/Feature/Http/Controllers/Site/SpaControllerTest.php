@@ -44,7 +44,7 @@ class SpaControllerTest extends TestCase
     /** Un celular recordado de la cuenta, como el que deja el enlace de WhatsApp. */
     private function rememberDevice(Account $account): void
     {
-        RememberedDevice::create(['account_id' => $account->id, 'token_hash' => hash('sha256', 'este-celular'), 'expires_at' => now()->addMonth()]);
+        RememberedDevice::create(['account_id' => $account->id, 'token_hash' => hash('sha256', 'este-celular'), 'expires_at' => now()->addMonth(), 'verified_at' => now()]);
         $this->withCookie(DeviceService::COOKIE, 'este-celular');
     }
 

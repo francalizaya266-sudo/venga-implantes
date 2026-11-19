@@ -86,11 +86,14 @@ describe('Mi cuenta from a phone that is not remembered', () => {
     expect(screen.getByLabelText('Tu celular')).toHaveValue('987654321');
   });
 
-  it('points whoever has never booked to their first appointment', async () => {
+  it('points whoever has never booked to their first appointment, which needs no link', async () => {
     mockApi({ [ACCOUNT]: page({ guest: true }) });
     renderApp('/mi-cuenta');
 
-    expect(await screen.findByRole('link', { name: 'Reserva la primera' })).toHaveAttribute('href', '/reservar');
+    const first = await screen.findByRole('link', { name: 'Reserva la primera' });
+    expect(first).toHaveAttribute('href', '/reservar');
+    // Con su primera reserva, el celular queda recordado: no hay enlace que esperar.
+    expect(first.closest('p')).toHaveTextContent('entras a Mi cuenta al instante, sin esperar ningún enlace');
   });
 });
 

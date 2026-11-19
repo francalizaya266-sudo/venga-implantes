@@ -63,7 +63,7 @@ class BookingControllerTest extends TestCase
         $account = Account::factory()->verified()->create(['phone' => '+51987654321']);
         $mother = Patient::factory()->for($account)->create(['first_name' => 'Rosa']);
         $child = Patient::factory()->dependentOf($account)->create(['first_name' => 'Mateo']);
-        RememberedDevice::create(['account_id' => $account->id, 'token_hash' => hash('sha256', 'celular-de-rosa'), 'expires_at' => now()->addMonth()]);
+        RememberedDevice::create(['account_id' => $account->id, 'token_hash' => hash('sha256', 'celular-de-rosa'), 'expires_at' => now()->addMonth(), 'verified_at' => now()]);
         $this->withCookie(DeviceService::COOKIE, 'celular-de-rosa');
 
         return [$account, $mother, $child];
@@ -126,7 +126,7 @@ class BookingControllerTest extends TestCase
             ->assertCreated()
             ->assertJsonPath('data.treatment', $evaluation->name)
             ->assertJsonPath('data.phone', '987 654 321')
-            ->assertJsonPath('data.remembered', false)
+            ->assertJsonPath('data.remembered', true)
             ->assertJsonPath('data.who', 'María Quispe Rojas · con '.$doctor->name);
 
         $appointment = Appointment::with('patient.account')->sole();
@@ -137,6 +137,57 @@ class BookingControllerTest extends TestCase
         $this->assertSame('María', $appointment->patient->first_name);
         $this->assertSame('+51987654321', $appointment->patient->account->phone);
         $this->assertSame(PatientRelationship::Self, $appointment->patient->relationship);
+    }
+
+    public function test_a_first_booking_with_a_new_number_enters_my_account_without_waiting_for_the_link(): void
+    {
+        $this->freezeMonday();
+        $evaluation = Treatment::factory()->evaluation()->create();
+        $this->doctorOffering($evaluation);
+
+        $response = $this->book($this->booking($evaluation))
+            ->assertCreated()
+            ->assertJsonPath('data.remembered', true)
+            ->assertCookie(DeviceService::COOKIE);
+        $phone = $response->getCookie(DeviceService::COOKIE)->getValue();
+
+        $appointment = Appointment::with('patient.account')->sole();
+        $device = RememberedDevice::sole();
+        $this->assertTrue($device->account->is($appointment->patient->account));
+        // Nadie tocó todavía un enlace del número: lo que reserva no cuenta como hecho desde el celular de la familia.
+        $this->assertFalse($device->isVerified());
+        $this->assertFalse($appointment->from_verified_device);
+
+        // Mi cuenta ya lo reconoce: ve su cita. Sus citas pasadas y sus datos siguen pidiendo el enlace.
+        $this->withCookie(DeviceService::COOKIE, $phone)
+            ->getJson(route('api.v1.account.show'))
+            ->assertOk()
+            ->assertJsonPath('data.guest', false)
+            ->assertJsonPath('data.upcoming.0.id', $appointment->id)
+            ->assertJsonPath('data.elevated', false)
+            ->assertJsonPath('data.past', null);
+
+        // Y todavía puede contar cómo nos conoció, aunque ya quedó recordado.
+        $this->withCookie(DeviceService::COOKIE, $phone)
+            ->postJson($response->json('data.origin_url'), ['origin' => AppointmentOrigin::Facebook->value])
+            ->assertOk();
+        $this->assertSame(AppointmentOrigin::Facebook, $appointment->fresh()->origin);
+    }
+
+    public function test_a_number_the_clinic_already_has_is_not_remembered_without_its_link(): void
+    {
+        $this->freezeMonday();
+        $evaluation = Treatment::factory()->evaluation()->create();
+        $this->doctorOffering($evaluation);
+        Patient::factory()->for(Account::factory()->create(['phone' => '+51987654321']))->create(['first_name' => 'Rosa']);
+
+        // Ese número puede no ser de quien lo escribe: su cuenta no se abre hasta que toque un enlace que llega a ese WhatsApp.
+        $this->book($this->booking($evaluation))
+            ->assertCreated()
+            ->assertJsonPath('data.remembered', false)
+            ->assertCookieMissing(DeviceService::COOKIE);
+
+        $this->assertSame(0, RememberedDevice::count());
     }
 
     public function test_the_birth_date_comes_in_three_fields_and_an_incomplete_one_is_rejected(): void
@@ -361,7 +412,7 @@ class BookingControllerTest extends TestCase
         $account = Account::factory()->verified()->create(['phone' => '+51987654321']);
         $mother = Patient::factory()->for($account)->create(['first_name' => 'Rosa']);
         Appointment::factory()->for($mother)->at('2026-10-20 10:00')->create(['status' => AppointmentStatus::Completed]);
-        RememberedDevice::create(['account_id' => $account->id, 'token_hash' => hash('sha256', 'celular-de-rosa'), 'expires_at' => now()->addMonth()]);
+        RememberedDevice::create(['account_id' => $account->id, 'token_hash' => hash('sha256', 'celular-de-rosa'), 'expires_at' => now()->addMonth(), 'verified_at' => now()]);
 
         // Desde otro celular, con el número de Rosa: la web no pide códigos, así que la cita se crea.
         $this->book($this->booking($evaluation, ['first_name' => 'Carlos', 'last_name' => 'Mamani Soto']))->assertCreated();
@@ -390,7 +441,7 @@ class BookingControllerTest extends TestCase
         Patient::factory()->for($account)->create(['first_name' => 'María', 'last_name' => 'Quispe Huamán']);
         Patient::factory()->dependentOf($account)->create(['first_name' => 'Maria', 'last_name' => 'Flores Ticona']);
         Patient::factory()->dependentOf($account)->create(['first_name' => 'Mateo', 'last_name' => 'Quispe Flores']);
-        RememberedDevice::create(['account_id' => $account->id, 'token_hash' => hash('sha256', 'celular-de-maria'), 'expires_at' => now()->addMonth()]);
+        RememberedDevice::create(['account_id' => $account->id, 'token_hash' => hash('sha256', 'celular-de-maria'), 'expires_at' => now()->addMonth(), 'verified_at' => now()]);
 
         $this->withCookie(DeviceService::COOKIE, 'celular-de-maria')
             ->getJson(route('api.v1.booking.options'))

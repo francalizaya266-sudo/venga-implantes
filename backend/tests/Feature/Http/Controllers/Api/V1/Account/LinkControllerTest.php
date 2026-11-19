@@ -73,6 +73,36 @@ class LinkControllerTest extends TestCase
         $this->assertSame(1, RememberedDevice::whereBelongsTo($appointment->patient->account)->count());
     }
 
+    public function test_a_phone_remembered_by_its_first_booking_is_verified_when_it_uses_a_link_of_its_number(): void
+    {
+        [$appointment, $token] = $this->appointmentWithLink();
+        $phone = RememberedDevice::create(['account_id' => $appointment->patient->account_id, 'token_hash' => hash('sha256', 'celular-que-reservo'), 'expires_at' => now()->addMonth()]);
+
+        $this->withCookie(DeviceService::COOKIE, 'celular-que-reservo')
+            ->postJson(route('api.v1.links.confirm', $token))
+            ->assertOk();
+
+        $this->assertTrue($phone->fresh()->isVerified());
+        $this->assertSame(1, RememberedDevice::count());
+    }
+
+    public function test_the_owner_of_the_number_using_its_link_on_another_phone_forgets_the_phones_that_never_used_one(): void
+    {
+        [$appointment, $token] = $this->appointmentWithLink();
+        $account = $appointment->patient->account;
+        $booked = RememberedDevice::create(['account_id' => $account->id, 'token_hash' => hash('sha256', 'celular-que-reservo'), 'expires_at' => now()->addMonth()]);
+        $family = RememberedDevice::create(['account_id' => $account->id, 'token_hash' => hash('sha256', 'celular-de-la-familia'), 'expires_at' => now()->addMonth(), 'verified_at' => now()]);
+
+        // El enlace llega al WhatsApp del número: quien lo toca desde otro celular es su dueño.
+        $this->postJson(route('api.v1.links.confirm', $token))
+            ->assertOk()
+            ->assertCookie(DeviceService::COOKIE);
+
+        $this->assertNotNull($booked->fresh()->revoked_at);
+        $this->assertNull($family->fresh()->revoked_at);
+        $this->assertTrue(RememberedDevice::whereKeyNot([$booked->id, $family->id])->sole()->isVerified());
+    }
+
     public function test_the_link_of_an_appointment_the_family_has_not_recognized_names_who_it_is_for_and_asks(): void
     {
         [$appointment, $token] = $this->appointmentWithLink();

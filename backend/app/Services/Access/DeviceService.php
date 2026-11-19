@@ -20,7 +20,8 @@ class DeviceService
 
     private const ELEVATED_SESSION_KEY = 'patient.elevated_until';
 
-    public function remember(Account $account, Request $request): RememberedDevice
+    /** @param  bool  $verified  Si llegó con un enlace del número; si no, queda sin verificar hasta que toque uno. */
+    public function remember(Account $account, Request $request, bool $verified = true): RememberedDevice
     {
         $token = Str::random(48);
         $days = (int) Setting::get('devices.remember_days', 120);
@@ -31,6 +32,7 @@ class DeviceService
             'ip_address' => $request->ip(),
             'last_used_at' => now(),
             'expires_at' => now()->addDays($days),
+            'verified_at' => $verified ? now() : null,
         ]);
 
         Cookie::queue(Cookie::make(self::COOKIE, $token, $days * 24 * 60, httpOnly: true, sameSite: 'lax'));
@@ -63,6 +65,20 @@ class DeviceService
         ])->save();
 
         return $device;
+    }
+
+    /** El celular tocó un enlace de su número: queda verificado. */
+    public function verify(RememberedDevice $device): void
+    {
+        if (! $device->isVerified()) {
+            $device->forceFill(['verified_at' => now()])->save();
+        }
+    }
+
+    /** Los celulares que entraron sin enlace dejan de estar recordados. */
+    public function forgetUnverified(Account $account): void
+    {
+        $account->rememberedDevices()->whereNull('revoked_at')->whereNull('verified_at')->update(['revoked_at' => now()]);
     }
 
     /** "Salir en este celular": deja de estar recordado. */
