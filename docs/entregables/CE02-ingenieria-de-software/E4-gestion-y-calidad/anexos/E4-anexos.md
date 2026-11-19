@@ -432,7 +432,7 @@ Estas evidencias se toman con producción encendida. Ninguna debe mostrar claves
 | Datos | E2 Plataforma de datos | PR VI-5 y VI-12 | 19/11/2026 |
 | Capacidad operativa | E3 Sistema funcional integrado | PR VI-14 | 19/11/2026 |
 | Despliegue | Infraestructura en Azure | PR VI-13, VI-15, VI-16 y VI-17 | 19/11/2026 |
-| Entrega | E4 Gestión y calidad | PR del E4 `[PENDIENTE – estudiante: número al fusionarlo]` | `[PENDIENTE]` |
+| Entrega | E4 Gestión y calidad | PR VI-19, VI-20 y VI-21 | 19/11/2026 |
 | Cierre | Sustentación y aceptación de la clínica | Anexo E | `[PENDIENTE – estudiante]` |
 
 *Tabla C5. Registro de riesgos completo.*

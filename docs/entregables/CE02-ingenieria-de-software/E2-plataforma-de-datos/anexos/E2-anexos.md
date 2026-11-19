@@ -186,7 +186,7 @@ Lo que solo puede mostrarse desde el servidor de Azure o desde una herramienta c
 | --: | --- | --- | --- |
 | 1 | `[PENDIENTE – estudiante: versión y "Información general" del servidor MySQL]` | Portal de Azure, servidor flexible | 2.1 |
 | 2 | `[PENDIENTE – estudiante: tablas de la base y diagrama del dominio Caja]` | MySQL Workbench o phpMyAdmin conectado a Azure | 2.3 |
-| 3 | `[PENDIENTE – estudiante: job "Base de datos (MySQL 8)" en verde, con la línea "Restauración: N ms"]` | GitHub, pestaña Actions | 3.7 y 4.3 |
+| 3 | Hecho con el registro de la CI. El job "Base de datos (MySQL 8)" de la ejecución `44532382044` (merge del PR #20 a `main`, 19/11/2026 a las 8:24) terminó en verde: "Restauración: 1864 ms", 259 sentencias, los 10 registros del trigger conservados y "Todo como se esperaba." en los permisos | GitHub, pestaña Actions | 3.7 y 4.3 |
 | 4 | `[PENDIENTE – estudiante: log_bin_trust_function_creators en ON]` | Azure, Parámetros del servidor | 4.1 |
 | 5 | `[PENDIENTE – estudiante: salida de seguridad.sql en Azure, incluido el permiso SHOW_ROUTINE]` | Consola de MySQL contra Azure | 4.1 |
 | 6 | `[PENDIENTE – estudiante: retención de copias y restauración a un momento dado]` | Azure, Copia de seguridad y restauración | 4.3 |
@@ -234,7 +234,7 @@ Este anexo es el manual de la base para quien administre el sistema. Todo comand
       bash database/sql/probar-seguridad.sh
     ```
 
-6. Dejar la aplicación con `DB_USERNAME=consultorio_app` y su clave en el `.env` de `vm-app`. `[PENDIENTE: FASE 4, el despliegue en Azure: cómo llegan los secretos de Key Vault al .env]`
+6. Guardar la clave de `consultorio_app` en Key Vault como `db-password` y la de `consultorio_despliegue` como `db-password-despliegue`. En cada publicación, `infra/scripts/deploy-app.sh` arma el `.env` de `vm-app`: copia la configuración sin secretos de `/etc/vega/app.env` (hecha desde `infra/env/produccion.env`, que ya trae `DB_USERNAME=consultorio_app`) y le agrega `DB_PASSWORD` y las demás claves. Las lee de Key Vault con la identidad administrada de la VM (`infra/scripts/kv.sh`), sin claves guardadas en el disco. El `.env` queda con permisos 640, de root y del grupo `www-data`. Las migraciones corren con `consultorio_despliegue` y su clave solo vive mientras dura ese paso.
 
 ## Publicar una versión nueva {-}
 
