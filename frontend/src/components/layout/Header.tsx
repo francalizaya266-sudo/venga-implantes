@@ -17,7 +17,10 @@ function NavLink({ item, pathname, withIcon = false }: { item: NavItem; pathname
 
 interface Props {
   site: Site;
-  /** Mientras se reserva, el encabezado queda solo con el nombre, que vuelve al inicio. */
+  /**
+   * Mientras se reserva, el encabezado queda solo con el nombre, que vuelve al inicio, y en Reservar cita una salida a
+   * la vista: casi nadie sabe que el nombre también es un enlace.
+   */
   minimal: boolean;
 }
 
@@ -74,7 +77,16 @@ export function Header({ site, minimal }: Props) {
             </span>
           </AppLink>
         )}
-        {minimal ? null : (
+        {minimal ? (
+          isBooking(pathname) ? (
+            <AppLink href={paths.home} className="header-back">
+              <span aria-hidden="true">←</span>
+              <span>
+                Volver<span className="long">&nbsp;al inicio</span>
+              </span>
+            </AppLink>
+          ) : null
+        ) : (
           <>
             <nav className="site-nav" aria-label="Principal">
               {nav.map((item) => (

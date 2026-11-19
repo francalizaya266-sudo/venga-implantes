@@ -119,6 +119,9 @@ img { max-width: 100%; display: block; }
 .site-header .btn { white-space: nowrap; gap: 0; }
 .site-header .btn svg { margin-right: 8px; }
 @media (max-width: 479px) { .site-header .long { display: none; } }
+/* Reservar cita: la salida al inicio, discreta, para que no compita con los pasos. */
+.header-back { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); text-decoration: none; font-weight: 600; font-size: .9375rem; padding: 10px; border-radius: 999px; white-space: nowrap; transition: color .15s ease, background-color .15s ease; }
+.header-back:hover { color: var(--accent); background: var(--surface); }
 /* Sin la barra de abajo (el enlace de una cita), "Reservar" no entra en un celular junto al nombre y "Menú". */
 @media (max-width: 559px) { .site-header .btn { display: none; } }
 @media (max-width: 359px) { .action-bar .long { display: none; } }

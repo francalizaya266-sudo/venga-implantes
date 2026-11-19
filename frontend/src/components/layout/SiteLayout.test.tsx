@@ -8,6 +8,8 @@ import { site } from '@/test/fixtures';
 const WHATSAPP = 'https://wa.me/51912345678?text=';
 /** "Reservar cita" con "cita" en su propio elemento: en pantallas angostas el botón dice solo "Reservar". */
 const BOOK = /^Reservar\s?cita$/;
+/** Igual "Volver al inicio": en pantallas angostas dice solo "Volver". */
+const BACK = /^Volver\s?al inicio$/;
 
 function withSite(changes: Partial<Site>): void {
   mockApi({ '/api/v1/site': { data: site(changes) } });
@@ -211,7 +213,10 @@ describe('SiteLayout', () => {
 
     expect(await screen.findByText('Los pasos')).toBeInTheDocument();
     expect(screen.queryByRole('navigation', { name: 'Principal' })).not.toBeInTheDocument();
-    expect(within(screen.getByRole('banner')).getAllByRole('link')).toHaveLength(1);
+    // El nombre y una salida a la vista: casi nadie sabe que el nombre también vuelve al inicio.
+    const banner = within(screen.getByRole('banner'));
+    expect(banner.getAllByRole('link')).toHaveLength(2);
+    expect(banner.getByRole('link', { name: BACK })).toHaveAttribute('href', '/');
 
     const footer = within(screen.getByRole('contentinfo'));
     expect(footer.getByRole('link', { name: 'Escríbenos por WhatsApp' })).toHaveAttribute(
@@ -220,6 +225,19 @@ describe('SiteLayout', () => {
     );
     expect(footer.getByRole('link', { name: 'Política de privacidad' })).toHaveAttribute('href', '/privacidad');
     expect(footer.queryByText('Tu salud bucal, en buenas manos')).not.toBeInTheDocument();
+  });
+
+  it('leaves only the name in the header of the other short pages, which have their own way back', async () => {
+    mockApi();
+    renderPiece(
+      <SiteLayout whatsappFloat={false} minimalFooter>
+        <p>Antes de tu cita</p>
+      </SiteLayout>,
+      '/mi-cuenta/pacientes/7/salud',
+    );
+
+    await screen.findByText('Antes de tu cita');
+    expect(within(screen.getByRole('banner')).getAllByRole('link')).toHaveLength(1);
   });
 
   it('does not repeat the booking button in the header of the booking page', async () => {
