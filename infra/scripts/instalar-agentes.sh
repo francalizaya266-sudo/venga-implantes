@@ -26,6 +26,7 @@ add_log() {
     sed -i "s#</ossec_config>#  <localfile>\n    <log_format>${format}</log_format>\n    <location>${file}</location>\n  </localfile>\n</ossec_config>#" /var/ossec/etc/ossec.conf
   fi
 }
+[ -d /var/www/vega ] && add_log "/var/www/vega/shared/storage/logs/eventos-*.log" json
 [ -d /var/www/vega ] && add_log "/var/www/vega/shared/storage/logs/laravel-*.log" syslog
 [ -d /etc/nginx ] && add_log "/var/log/nginx/vega.access.log" apache
 [ -f /etc/opencanaryd/opencanary.conf ] && add_log "/var/log/opencanary.log" json
