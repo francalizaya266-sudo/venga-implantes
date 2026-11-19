@@ -36,6 +36,7 @@ use App\Models\Setting;
 use App\Services\Backup\FilesBackup;
 use App\Services\Web\ClinicInfo;
 use Filament\Actions\CreateAction;
+use Filament\Auth\MultiFactor\App\AppAuthentication;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\TimePicker;
@@ -152,6 +153,10 @@ class AdminPanelProvider extends PanelProvider
             // "Mi perfil" en el menú del usuario: cada uno cambia su propia clave sin pedírsela al administrador,
             // y cada doctor, además, cómo sale en la página web.
             ->profile(EditProfile::class, isSimple: false)
+            // El panel se abre desde internet (el doctor de viaje, la recepción desde casa): además de la contraseña
+            // pide el código de la app autenticadora. Es obligatorio: quien aún no lo tiene solo ve la pantalla para
+            // activarlo. Los códigos de recuperación sirven si pierde el celular.
+            ->multiFactorAuthentication([AppAuthentication::make()->recoverable()], isRequired: true)
             ->brandName(fn () => Setting::get('clinic.name'))
             // Con logo subido en la puesta a punto de la web, el panel lo muestra; si no, el diente de la web junto al nombre.
             ->brandLogo(fn () => app(ClinicInfo::class)->logoUrl() ?? view('filament.brand', ['name' => Setting::get('clinic.name')]))

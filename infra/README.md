@@ -37,7 +37,7 @@ Todo se crea **sin pasos manuales**: el firewall es una VM Ubuntu configurada po
 | `azure/presupuesto.bicep` | Alerta de presupuesto al 50 % y 80 % |
 | `firewall/` | Reglas de nftables de cada firewall y su guía |
 | `cloud-init/` | Lo que cada VM instala sola al nacer |
-| `nginx/` | El proxy (WAF, HTTPS, caché, `/panel` cerrado a internet) y vm-app |
+| `nginx/` | El proxy (WAF, HTTPS, caché, límite de peticiones al `/panel`) y vm-app |
 | `env/produccion.env` | Configuración de producción sin secretos |
 | `scripts/` | Publicar la app, VPN, reglas, usuarios de MySQL, copias, agentes de Wazuh y Datadog |
 | `../.github/workflows/desplegar-azure.yml` | Publica la app en vm-app desde GitHub, sin contraseñas |
@@ -204,11 +204,12 @@ Cada regla de `infra/firewall/*.nft` es una prueba con resultado esperado y obte
 | Desde | Comando | Esperado |
 | --- | --- | --- |
 | Cloud Shell | `curl -I https://tu-dominio/` | 200 |
-| Cloud Shell | `curl -I https://tu-dominio/panel` | 403 |
+| Cloud Shell | `curl -I https://tu-dominio/panel/login` | 200: el panel pide contraseña y código de la app (MFA) |
+| Navegador | Entrar al panel con un usuario sin segundo factor | Solo ve la pantalla para activarlo (QR y códigos de recuperación) |
 | Cloud Shell | `curl -I "https://tu-dominio/api/v1/booking/slots?date=2026-12-01&treatment=1%27%20OR%201=1"` | Alerta en `/var/log/modsec_audit.log` (403 con el WAF en `On`) |
 | Cloud Shell | `nmap -Pn -p 22,3306,8080 IP_FIREWALL_PRODUCCION` | Cerrados o filtrados |
 | Cloud Shell | `nmap -Pn -p 22,3306 IP_FIREWALL_SEDE` | Abiertos; alerta del honeypot en Wazuh |
-| vega-recepcion | `curl -I https://tu-dominio/panel/login` | 200 (por la VPN) |
+| vega-recepcion | `curl -I https://tu-dominio/panel/login` | 200 (también por la VPN) |
 | vega-recepcion | `nc -zv 10.10.50.10 22` | Bloqueado; `fw-personal-bloqueo` en el firewall de la sede |
 | vega-recepcion | `nc -zv 10.20.4.4 80` | Bloqueado: solo el proxy llega a vm-app |
 | vega-honeypot | `nc -zv 10.10.30.10 22` | Bloqueado; `fw-dmz-bloqueo` |

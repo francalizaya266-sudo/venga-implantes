@@ -61,8 +61,8 @@ class DemoSeeder extends Seeder
         Setting::set('web.about', 'Te atiende el Dr. Jassmanny Neil Vega Jaen, cirujano dentista e implantólogo (C.O.P. 29668).');
 
         // El doctor es también el administrador: el gerente general de la clínica.
-        $admin = User::factory()->admin(isDentist: true)->create(['name' => 'Dr. Jassmanny Neil Vega Jaen', 'email' => 'admin@consultorio.test']);
-        $reception = User::factory()->reception()->create(['name' => 'Recepción', 'email' => 'recepcion@consultorio.test']);
+        $admin = User::factory()->admin(isDentist: true)->withoutMfa()->create(['name' => 'Dr. Jassmanny Neil Vega Jaen', 'email' => 'admin@consultorio.test']);
+        $reception = User::factory()->reception()->withoutMfa()->create(['name' => 'Recepción', 'email' => 'recepcion@consultorio.test']);
 
         // Biografía y estudios quedan vacíos: los escribe el doctor desde el panel.
         $vega = Doctor::factory()->withSchedule()->create([

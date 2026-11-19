@@ -8,6 +8,7 @@ use App\Filament\Concerns\HasSpanishLabels;
 use App\Filament\Resources\Users\Pages\ManageUsers;
 use App\Models\User;
 use BackedEnum;
+use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
@@ -143,6 +144,21 @@ class UserResource extends Resource
                 // La misma regla que en el resto de Configuración: se borra solo a quien se registró por error y nunca
                 // entró; a los demás se les quita el acceso.
                 ActionGroup::make([
+                    // Perdió el celular y los códigos de recuperación: al volver a entrar activa el segundo factor de nuevo.
+                    Action::make('resetMfa')
+                        ->label('Quitar segundo factor')
+                        ->icon(Heroicon::OutlinedDevicePhoneMobile)
+                        ->color('danger')
+                        ->requiresConfirmation()
+                        ->modalHeading(fn (User $record) => 'Quitar el segundo factor de '.$record->name)
+                        ->modalDescription('Úsalo solo si perdió el celular y sus códigos de recuperación. La próxima vez que entre tendrá que activarlo de nuevo con su app.')
+                        ->visible(fn (User $record) => filled($record->getAppAuthenticationSecret()))
+                        ->action(function (User $record): void {
+                            $record->saveAppAuthenticationRecoveryCodes(null);
+                            $record->saveAppAuthenticationSecret(null);
+
+                            Notification::make()->success()->title('Segundo factor quitado')->send();
+                        }),
                     DeleteAction::make()
                         ->authorizationNotification()
                         ->modalDescription('Solo se borra a quien nunca entró al panel. A los demás se les apaga "Puede entrar al panel".')
