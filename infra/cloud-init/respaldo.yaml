@@ -1,0 +1,23 @@
+#cloud-config
+# vm-respaldo: recibe por la VPN una copia de la base de datos cada hora y MySQL para probar restauraciones.
+timezone: America/Lima
+package_update: true
+package_upgrade: true
+
+packages:
+  - mysql-server
+  - curl
+  - jq
+
+users:
+  - default
+  # Usuario que solo recibe copias. Su llave pública se agrega después (ver infra/README.md, fase 7).
+  - name: respaldo
+    shell: /bin/bash
+    lock_passwd: true
+
+runcmd:
+  - mkdir -p /srv/respaldos
+  - chown respaldo:respaldo /srv/respaldos
+  - chmod 750 /srv/respaldos
+  - systemctl enable --now mysql

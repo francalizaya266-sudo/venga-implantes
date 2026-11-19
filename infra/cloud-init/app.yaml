@@ -1,0 +1,50 @@
+#cloud-config
+# vm-app: nginx + PHP-FPM 8.3 (el de Ubuntu 24.04, el mismo de la CI), Composer y azcopy para las copias a Blob.
+# No tiene IP pública: recibe solo del proxy de la DMZ (10.20.3.4) y sale a internet por OPNsense.
+timezone: America/Lima
+package_update: true
+package_upgrade: true
+
+packages:
+  - nginx
+  - php8.3-fpm
+  - php8.3-cli
+  - php8.3-mysql
+  - php8.3-sqlite3
+  - php8.3-mbstring
+  - php8.3-xml
+  - php8.3-curl
+  - php8.3-zip
+  - php8.3-gd
+  - php8.3-intl
+  - php8.3-bcmath
+  - unzip
+  - git
+  - mysql-client
+  - netcat-openbsd
+  - jq
+
+write_files:
+  # Radiografías y fotos de hasta 25 MB.
+  - path: /etc/php/8.3/fpm/conf.d/99-vega.ini
+    content: |
+      upload_max_filesize = 25M
+      post_max_size = 25M
+      memory_limit = 256M
+      expose_php = Off
+      date.timezone = America/Lima
+  - path: /etc/php/8.3/cli/conf.d/99-vega.ini
+    content: |
+      memory_limit = 512M
+      date.timezone = America/Lima
+
+runcmd:
+  - php -r "copy('https://getcomposer.org/installer', '/tmp/composer-setup.php');"
+  - php /tmp/composer-setup.php --install-dir=/usr/local/bin --filename=composer
+  - curl -sSL https://aka.ms/downloadazcopy-v10-linux -o /tmp/azcopy.tgz
+  - tar -xzf /tmp/azcopy.tgz -C /tmp
+  - sh -c 'cp /tmp/azcopy_linux_amd64_*/azcopy /usr/local/bin/azcopy && chmod 755 /usr/local/bin/azcopy'
+  - mkdir -p /var/www/vega/releases /var/www/vega/shared/storage /var/www/vega/shared/media /etc/vega /opt/vega
+  - chown -R www-data:www-data /var/www/vega/shared
+  - rm -f /etc/nginx/sites-enabled/default
+  - systemctl enable --now php8.3-fpm nginx
