@@ -29,6 +29,12 @@ add_log() {
 [ -d /var/www/vega ] && add_log "/var/www/vega/shared/storage/logs/laravel-*.log" syslog
 [ -d /etc/nginx ] && add_log "/var/log/nginx/vega.access.log" apache
 [ -f /etc/opencanaryd/opencanary.conf ] && add_log "/var/log/opencanary.log" json
+[ -f /var/log/modsec_audit.log ] && add_log "/var/log/modsec_audit.log" syslog
+# Firewall (vm-fw): bloqueos de nftables (van al log del kernel) y alertas de Suricata.
+if [ -f /etc/nftables.conf ]; then
+  add_log "/var/log/kern.log" syslog
+  add_log "/var/log/suricata/eve.json" json
+fi
 
 systemctl daemon-reload
 systemctl enable --now wazuh-agent

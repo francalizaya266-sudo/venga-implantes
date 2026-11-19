@@ -2,6 +2,9 @@
 # vm-honeypot: OpenCanary simula SSH (22) y MySQL (3306). El SSH real de administración pasa al 2222.
 # Cada intento queda en /var/log/opencanary.log, que lee el agente de Wazuh.
 timezone: America/Lima
+# Sale a internet por el firewall (vm-fw), que nace a la vez: espera hasta 15 minutos a que dé salida y DNS.
+bootcmd:
+  - [sh, -c, 'for i in $(seq 1 90); do curl -s --max-time 5 -o /dev/null http://azure.archive.ubuntu.com/ubuntu/ && exit 0; sleep 10; done; exit 0']
 package_update: true
 package_upgrade: true
 

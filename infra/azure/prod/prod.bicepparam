@@ -7,7 +7,7 @@
 //   export OPERATOR_OBJECT_ID="$(az ad signed-in-user show --query id -o tsv)"
 //   export MYSQL_ADMIN_PASSWORD='...'   # sácala de 1Password
 //   export ALERT_EMAIL='correo-del-equipo@...'
-//   export DEPLOY_VMS=false             # true en la segunda pasada, con OPNsense ya funcionando
+//   export DEPLOY_VMS=true              # false crea solo la red, los servicios y el firewall
 //   export AUTO_SHUTDOWN=2300           # opcional: apaga vm-proxy y vm-app cada noche para ahorrar crédito
 using './main.bicep'
 
@@ -17,6 +17,6 @@ param githubRepo = readEnvironmentVariable('GITHUB_REPO', '')
 param operatorObjectId = readEnvironmentVariable('OPERATOR_OBJECT_ID')
 param mysqlAdminPassword = readEnvironmentVariable('MYSQL_ADMIN_PASSWORD')
 param alertEmail = readEnvironmentVariable('ALERT_EMAIL')
-param deployVms = bool(readEnvironmentVariable('DEPLOY_VMS', 'false'))
+param deployVms = bool(readEnvironmentVariable('DEPLOY_VMS', 'true'))
 param autoShutdownTime = readEnvironmentVariable('AUTO_SHUTDOWN', '')
 param allowSetupSsh = bool(readEnvironmentVariable('SETUP_SSH', 'true'))

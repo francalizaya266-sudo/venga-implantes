@@ -1,7 +1,10 @@
 #cloud-config
 # vm-app: nginx + PHP-FPM 8.3 (el de Ubuntu 24.04, el mismo de la CI), Composer y azcopy para las copias a Blob.
-# No tiene IP pública: recibe solo del proxy de la DMZ (10.20.3.4) y sale a internet por OPNsense.
+# No tiene IP pública: recibe solo del proxy de la DMZ (10.20.3.4) y sale a internet por el firewall.
 timezone: America/Lima
+# Sale a internet por el firewall (vm-fw), que nace a la vez: espera hasta 15 minutos a que dé salida y DNS.
+bootcmd:
+  - [sh, -c, 'for i in $(seq 1 90); do curl -s --max-time 5 -o /dev/null http://azure.archive.ubuntu.com/ubuntu/ && exit 0; sleep 10; done; exit 0']
 package_update: true
 package_upgrade: true
 

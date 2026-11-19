@@ -1,0 +1,65 @@
+#cloud-config
+# vm-fw: firewall Linux de producción o de la sede, configurado solo al nacer.
+#   nftables   reglas y NAT (infra/firewall/produccion.nft o sede.nft)
+#   strongSwan VPN IPsec entre los dos firewalls (la configura "desplegar.sh vpn")
+#   Suricata   IDS en la WAN (/var/log/suricata/eve.json)
+#   Unbound    DNS interno, solo en la sede
+# Los marcadores __ASI__ los completa Bicep (infra/azure/modules/firewall-vm.bicep).
+timezone: America/Lima
+package_update: true
+package_upgrade: true
+
+swap:
+  filename: /swapfile
+  size: 2G
+  maxsize: 2G
+
+packages:
+  - nftables
+  - strongswan-swanctl
+  - charon-systemd
+  - suricata
+  - suricata-update
+  - jq
+  - curl
+
+write_files:
+  - path: /etc/nftables.conf
+    encoding: b64
+    permissions: "0644"
+    content: __NFT_B64__
+  # Rutas hacia las subredes internas por la tarjeta LAN (el router de Azure de esa subred).
+  - path: /etc/netplan/60-vega-rutas.yaml
+    encoding: b64
+    permissions: "0600"
+    content: __NETPLAN_B64__
+  - path: /etc/sysctl.d/60-vega-firewall.conf
+    content: |
+      net.ipv4.ip_forward = 1
+      # Azure con dos tarjetas: validación de origen flexible para no descartar lo que vuelve por la VPN.
+      net.ipv4.conf.all.rp_filter = 2
+      net.ipv4.conf.default.rp_filter = 2
+  # SSH del firewall en el 2200 (el 22 de la WAN lo usa el NAT) y también en el 22 para el jump host.
+  - path: /etc/ssh/sshd_config.d/10-vega-puertos.conf
+    content: |
+      Port 22
+      Port 2200
+  - path: /etc/unbound/unbound.conf.d/vega.conf
+    encoding: b64
+    content: __UNBOUND_B64__
+  - path: /etc/vega/rol
+    content: |
+      __ROL__
+
+runcmd:
+  - sysctl --system
+  - netplan apply
+  - systemctl enable --now nftables
+  - nft -f /etc/nftables.conf
+  - systemctl daemon-reload
+  - systemctl restart ssh.socket || systemctl restart ssh
+  - systemctl enable --now strongswan
+  - suricata-update
+  - systemctl enable --now suricata
+  - systemctl restart suricata
+  - sh -c 'if grep -q sede /etc/vega/rol; then DEBIAN_FRONTEND=noninteractive apt-get install -y unbound && systemctl enable --now unbound && systemctl restart unbound; else rm -f /etc/unbound/unbound.conf.d/vega.conf; fi'
