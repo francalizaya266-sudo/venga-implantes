@@ -16,6 +16,17 @@ class ApiErrorsTest extends TestCase
 {
     use LazilyRefreshDatabase;
 
+    /**
+     * Lo que ve el paciente en producción (APP_DEBUG=false). Con APP_DEBUG=true, como en el .env.example que usa la
+     * CI, Laravel agrega la clase, el archivo y la traza del error para quien programa.
+     */
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        config(['app.debug' => false]);
+    }
+
     public function test_a_booking_link_with_a_list_where_text_goes_is_rejected_without_breaking(): void
     {
         foreach (['codigo', 'promo', 'tratamiento', 'doctor', 'origen'] as $field) {
