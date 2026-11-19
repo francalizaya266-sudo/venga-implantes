@@ -1,0 +1,266 @@
+Resultado de sql/monitoreo.sql en el MySQL 8.0.46 local (Docker), base consultorio con los datos de demostración,
+corrido como root el 18/11/2026 a las 21:46 (hora de Lima). performance_schema cuenta desde que arrancó el contenedor.
+
+--------------
+SELECT table_name AS tabla,
+       table_rows AS filas_estimadas,
+       ROUND(data_length / 1048576, 2) AS datos_mb,
+       ROUND(index_length / 1048576, 2) AS indices_mb,
+       ROUND((data_length + index_length) / 1048576, 2) AS total_mb
+FROM information_schema.tables
+WHERE table_schema = DATABASE() AND table_type = 'BASE TABLE'
+ORDER BY data_length + index_length DESC
+LIMIT 12
+--------------
+
++---------------------+-----------------+----------+------------+----------+
+| tabla               | filas_estimadas | datos_mb | indices_mb | total_mb |
++---------------------+-----------------+----------+------------+----------+
+| audit_logs          |            4547 |     1.52 |       0.48 |     2.00 |
+| charges             |             755 |     0.13 |       0.36 |     0.48 |
+| appointments        |             861 |     0.14 |       0.28 |     0.42 |
+| payments            |             727 |     0.09 |       0.33 |     0.42 |
+| stock_movements     |             300 |     0.06 |       0.11 |     0.17 |
+| patients            |             262 |     0.06 |       0.09 |     0.16 |
+| waitlist_entries    |               0 |     0.02 |       0.11 |     0.13 |
+| whatsapp_messages   |               1 |     0.02 |       0.09 |     0.11 |
+| reschedule_requests |               0 |     0.02 |       0.09 |     0.11 |
+| treatment_plans     |               1 |     0.02 |       0.09 |     0.11 |
+| lab_orders          |               0 |     0.02 |       0.08 |     0.09 |
+| campaigns           |               0 |     0.02 |       0.08 |     0.09 |
++---------------------+-----------------+----------+------------+----------+
+--------------
+SELECT COUNT(*) AS tablas,
+       ROUND(SUM(data_length) / 1048576, 2) AS datos_mb,
+       ROUND(SUM(index_length) / 1048576, 2) AS indices_mb,
+       ROUND(SUM(data_length + index_length) / 1048576, 2) AS total_mb
+FROM information_schema.tables
+WHERE table_schema = DATABASE() AND table_type = 'BASE TABLE'
+--------------
+
++--------+----------+------------+----------+
+| tablas | datos_mb | indices_mb | total_mb |
++--------+----------+------------+----------+
+|     70 |     3.00 |       3.95 |     6.95 |
++--------+----------+------------+----------+
+--------------
+SELECT @@global.slow_query_log AS registro_activo,
+       @@global.long_query_time AS segundos,
+       @@global.log_queries_not_using_indexes AS sin_indice,
+       @@global.log_output AS salida
+--------------
+
++-----------------+-----------+------------+--------+
+| registro_activo | segundos  | sin_indice | salida |
++-----------------+-----------+------------+--------+
+|               0 | 10.000000 |          0 | FILE   |
++-----------------+-----------+------------+--------+
+--------------
+SELECT LEFT(digest_text, 90) AS consulta,
+       count_star AS veces,
+       ROUND(sum_timer_wait / 1e12, 3) AS segundos_en_total,
+       ROUND(avg_timer_wait / 1e9, 3) AS ms_promedio,
+       sum_rows_examined AS filas_leidas,
+       sum_no_index_used AS veces_sin_indice
+FROM performance_schema.events_statements_summary_by_digest
+WHERE schema_name = DATABASE() AND digest_text NOT LIKE 'EXPLAIN%'
+ORDER BY sum_timer_wait DESC
+LIMIT 10
+--------------
+
++--------------------------------------------------------------------------------------------+-------+-------------------+-------------+--------------+------------------+
+| consulta                                                                                   | veces | segundos_en_total | ms_promedio | filas_leidas | veces_sin_indice |
++--------------------------------------------------------------------------------------------+-------+-------------------+-------------+--------------+------------------+
+| INSERT INTO `audit_logs` ( `id` , `user_id` , `event` , `auditable_type` , `auditable_id`  |   184 |             0.797 |       4.332 |            0 |                0 |
+| SHOW TABLE STATUS LIKE ?                                                                   |   806 |               0.7 |       0.868 |        64296 |                0 |
+| CREATE TABLE `patients` ( `id` INT8 UNSIGNED NOT NULL AUTO_INCREMENT , `account_id` INT8 U |     4 |              0.28 |       69.96 |            0 |                0 |
+| SHOW TRIGGERS LIKE ?                                                                       |   525 |             0.274 |       0.522 |        18048 |              525 |
+| CREATE TABLE `users` ( `id` INT8 UNSIGNED NOT NULL AUTO_INCREMENT , `name` VARCHARACTER (? |     4 |             0.267 |      66.643 |            0 |                0 |
+| CREATE TABLE `appointments` ( `id` INT8 UNSIGNED NOT NULL AUTO_INCREMENT , `patient_id` IN |     4 |             0.238 |      59.515 |            0 |                0 |
+| CREATE TABLE `doctors` ( `id` INT8 UNSIGNED NOT NULL AUTO_INCREMENT , `user_id` INT8 UNSIG |     4 |             0.228 |      56.935 |            0 |                0 |
+| SET SESSION `character_set_results` = ?                                                    |  4544 |             0.219 |       0.048 |            0 |                0 |
+| INSERT INTO `appointments` ( `id` , `patient_id` , `doctor_id` , `treatment_id` , `treatme |    36 |             0.209 |       5.816 |            0 |                0 |
+| CREATE TABLE `treatments` ( `id` INT8 UNSIGNED NOT NULL AUTO_INCREMENT , `name` VARCHARACT |     4 |             0.203 |      50.628 |            0 |                0 |
++--------------------------------------------------------------------------------------------+-------+-------------------+-------------+--------------+------------------+
+--------------
+SELECT object_name AS tabla, rows_full_scanned AS filas_leidas_sin_indice, latency AS tiempo
+FROM sys.schema_tables_with_full_table_scans
+WHERE object_schema = DATABASE()
+ORDER BY rows_full_scanned DESC
+LIMIT 10
+--------------
+
++--------------------+-------------------------+-----------+
+| tabla              | filas_leidas_sin_indice | tiempo    |
++--------------------+-------------------------+-----------+
+| audit_logs         |                    9198 | 93.13 ms  |
+| appointments       |                    6889 | 34.05 ms  |
+| payments           |                    4362 | 34.89 ms  |
+| charges            |                    3776 | 27.90 ms  |
+| patients           |                    2624 | 10.76 ms  |
+| stock_movements    |                    1801 | 7.12 ms   |
+| accounts           |                    1040 | 2.73 ms   |
+| migrations         |                     265 | 315.55 us |
+| treatment_supplies |                     212 | 1.01 ms   |
+| icd10_codes        |                     192 | 365.02 us |
++--------------------+-------------------------+-----------+
+--------------
+SELECT object_name AS tabla, index_name AS indice
+FROM sys.schema_unused_indexes
+WHERE object_schema = DATABASE()
+ORDER BY object_name, index_name
+--------------
+
++-----------------------------+----------------------------------------------------------+
+| tabla                       | indice                                                   |
++-----------------------------+----------------------------------------------------------+
+| appointment_events          | appointment_events_appointment_id_foreign                |
+| appointment_events          | appointment_events_user_id_foreign                       |
+| appointments                | appointments_campaign_id_foreign                         |
+| appointments                | appointments_cancelled_by_user_id_foreign                |
+| appointments                | appointments_created_by_user_id_foreign                  |
+| appointments                | appointments_patient_id_starts_at_index                  |
+| appointments                | appointments_series_id_index                             |
+| appointments                | appointments_treatment_id_foreign                        |
+| appointments                | appointments_treatment_plan_item_id_index                |
+| audit_logs                  | audit_logs_auditable_type_auditable_id_index             |
+| audit_logs                  | audit_logs_user_id_foreign                               |
+| cache                       | cache_expiration_index                                   |
+| cache_locks                 | cache_locks_expiration_index                             |
+| campaigns                   | campaigns_starts_at_ends_at_index                        |
+| campaigns                   | campaigns_treatment_package_id_foreign                   |
+| charges                     | charges_appointment_id_foreign                           |
+| charges                     | charges_campaign_id_foreign                              |
+| charges                     | charges_consultation_id_foreign                          |
+| charges                     | charges_created_by_user_id_foreign                       |
+| charges                     | charges_doctor_id_foreign                                |
+| charges                     | charges_treatment_id_foreign                             |
+| charges                     | charges_treatment_plan_item_id_foreign                   |
+| charges                     | charges_voided_by_user_id_foreign                        |
+| clinical_files              | clinical_files_consultation_id_foreign                   |
+| clinical_files              | clinical_files_uploaded_by_user_id_foreign               |
+| clinical_templates          | clinical_templates_user_id_foreign                       |
+| consents                    | consents_clinical_file_id_foreign                        |
+| consents                    | consents_consent_template_id_foreign                     |
+| consents                    | consents_doctor_id_foreign                               |
+| consents                    | consents_treatment_id_foreign                            |
+| consultation_diagnoses      | consultation_diagnoses_icd10_code_id_foreign             |
+| consultation_plan_items     | consultation_plan_items_treatment_plan_item_id_foreign   |
+| consultation_treatments     | consultation_treatments_treatment_id_foreign             |
+| consultations               | consultations_appointment_id_foreign                     |
+| consultations               | consultations_patient_id_attended_at_index               |
+| daily_closings              | daily_closings_closed_by_user_id_foreign                 |
+| desk_notes                  | desk_notes_created_by_user_id_foreign                    |
+| desk_notes                  | desk_notes_done_by_user_id_foreign                       |
+| desk_notes                  | desk_notes_due_on_index                                  |
+| desk_notes                  | desk_notes_patient_id_foreign                            |
+| expenses                    | expenses_paid_by_user_id_foreign                         |
+| expenses                    | expenses_voided_by_user_id_foreign                       |
+| failed_jobs                 | failed_jobs_connection_queue_failed_at_index             |
+| jobs                        | jobs_queue_index                                         |
+| lab_orders                  | lab_orders_created_by_user_id_foreign                    |
+| lab_orders                  | lab_orders_doctor_id_foreign                             |
+| lab_orders                  | lab_orders_due_on_index                                  |
+| lab_orders                  | lab_orders_expense_id_foreign                            |
+| lab_orders                  | lab_orders_patient_id_foreign                            |
+| magic_links                 | magic_links_account_id_foreign                           |
+| magic_links                 | magic_links_appointment_id_foreign                       |
+| magic_links                 | magic_links_created_by_user_id_foreign                   |
+| medical_backgrounds         | medical_backgrounds_updated_by_user_id_foreign           |
+| odontogram_entries          | odontogram_entries_odontogram_id_tooth_index             |
+| odontograms                 | odontograms_doctor_id_foreign                            |
+| odontograms                 | odontograms_patient_id_created_at_index                  |
+| patients                    | patients_referred_by_patient_id_foreign                  |
+| payment_audit_logs          | payment_audit_logs_payment_id_index                      |
+| payments                    | payments_appointment_id_foreign                          |
+| payments                    | payments_doctor_id_foreign                               |
+| payments                    | payments_received_by_user_id_foreign                     |
+| payments                    | payments_treatment_id_foreign                            |
+| payments                    | payments_voided_by_user_id_foreign                       |
+| prescriptions               | prescriptions_consultation_id_foreign                    |
+| prescriptions               | prescriptions_doctor_id_foreign                          |
+| purchase_order_items        | purchase_order_items_supply_id_foreign                   |
+| purchase_orders             | purchase_orders_created_by_user_id_foreign               |
+| purchase_orders             | purchase_orders_received_by_user_id_foreign              |
+| referrals                   | referrals_appointment_id_foreign                         |
+| referrals                   | referrals_referrer_patient_id_foreign                    |
+| remembered_devices          | remembered_devices_account_id_foreign                    |
+| reschedule_request_options  | reschedule_request_options_doctor_id_foreign             |
+| reschedule_request_options  | reschedule_request_options_reschedule_request_id_foreign |
+| reschedule_requests         | reschedule_requests_appointment_id_foreign               |
+| reschedule_requests         | reschedule_requests_requested_by_user_id_foreign         |
+| reschedule_requests         | reschedule_requests_requested_doctor_id_foreign          |
+| reschedule_requests         | reschedule_requests_requested_treatment_id_foreign       |
+| reschedule_requests         | reschedule_requests_resolved_by_user_id_foreign          |
+| reschedule_requests         | reschedule_requests_status_index                         |
+| reviews                     | reviews_treatment_id_foreign                             |
+| schedule_blocks             | schedule_blocks_created_by_user_id_foreign               |
+| schedule_blocks             | schedule_blocks_doctor_id_starts_at_index                |
+| sessions                    | sessions_last_activity_index                             |
+| sessions                    | sessions_user_id_index                                   |
+| smile_cases                 | smile_cases_consent_confirmed_by_user_id_foreign         |
+| smile_cases                 | smile_cases_doctor_id_foreign                            |
+| smile_cases                 | smile_cases_patient_id_foreign                           |
+| smile_cases                 | smile_cases_treatment_id_foreign                         |
+| stock_movements             | stock_movements_appointment_id_foreign                   |
+| stock_movements             | stock_movements_consultation_id_type_index               |
+| stock_movements             | stock_movements_patient_id_foreign                       |
+| stock_movements             | stock_movements_purchase_order_id_foreign                |
+| stock_movements             | stock_movements_supply_id_created_at_index               |
+| stock_movements             | stock_movements_user_id_foreign                          |
+| supply_batches              | supply_batches_purchase_order_id_foreign                 |
+| supply_batches              | supply_batches_supply_id_remaining_index                 |
+| text_snippet_usages         | text_snippet_usages_user_id_foreign                      |
+| text_snippets               | text_snippets_field_user_id_index                        |
+| text_snippets               | text_snippets_shortcut_index                             |
+| treatment_package_items     | treatment_package_items_treatment_id_foreign             |
+| treatment_package_items     | treatment_package_items_treatment_package_id_foreign     |
+| treatment_packages          | treatment_packages_created_by_user_id_foreign            |
+| treatment_plan_installments | treatment_plan_installments_charge_id_foreign            |
+| treatment_plan_installments | treatment_plan_installments_due_on_charge_id_index       |
+| treatment_plan_installments | treatment_plan_installments_treatment_plan_id_foreign    |
+| treatment_plan_items        | treatment_plan_items_treatment_id_foreign                |
+| treatment_plan_items        | treatment_plan_items_treatment_package_id_foreign        |
+| treatment_plan_signatures   | treatment_plan_signatures_created_by_user_id_foreign     |
+| treatment_plan_signatures   | treatment_plan_signatures_treatment_plan_id_foreign      |
+| treatment_plans             | treatment_plans_campaign_id_foreign                      |
+| treatment_plans             | treatment_plans_consultation_id_foreign                  |
+| treatment_plans             | treatment_plans_included_in_plan_id_foreign              |
+| treatment_plans             | treatment_plans_patient_id_status_index                  |
+| treatment_plans             | treatment_plans_status_proposed_at_index                 |
+| waitlist_entries            | waitlist_entries_appointment_id_foreign                  |
+| waitlist_entries            | waitlist_entries_created_by_user_id_foreign              |
+| waitlist_entries            | waitlist_entries_doctor_id_foreign                       |
+| waitlist_entries            | waitlist_entries_offered_doctor_id_foreign               |
+| waitlist_entries            | waitlist_entries_patient_id_foreign                      |
+| waitlist_entries            | waitlist_entries_status_index                            |
+| waitlist_entries            | waitlist_entries_treatment_id_foreign                    |
+| whatsapp_messages           | whatsapp_messages_appointment_id_foreign                 |
+| whatsapp_messages           | whatsapp_messages_opened_by_user_id_foreign              |
+| whatsapp_messages           | whatsapp_messages_patient_id_foreign                     |
+| whatsapp_messages           | whatsapp_messages_sent_by_user_id_foreign                |
+| whatsapp_messages           | whatsapp_messages_status_due_at_index                    |
++-----------------------------+----------------------------------------------------------+
+--------------
+SELECT user AS usuario, host AS desde, COUNT(*) AS conexiones, SUM(command = 'Sleep') AS en_espera,
+       MAX(time) AS segundos_la_mas_larga
+FROM information_schema.processlist
+WHERE db = DATABASE() OR user LIKE 'consultorio\_%'
+GROUP BY user, host
+ORDER BY conexiones DESC
+--------------
+
++---------+-----------------+------------+-----------+-----------------------+
+| usuario | desde           | conexiones | en_espera | segundos_la_mas_larga |
++---------+-----------------+------------+-----------+-----------------------+
+| root    | 127.0.0.1:44044 |          1 |         0 |                     0 |
++---------+-----------------+------------+-----------+-----------------------+
+--------------
+SELECT changed_at AS cuando, database_user AS quien, event AS que, payment_id AS pago,
+       LEFT(CAST(old_values AS CHAR), 80) AS antes, LEFT(CAST(new_values AS CHAR), 80) AS despues
+FROM payment_audit_logs
+WHERE changed_at >= fn_ahora_lima() - INTERVAL 30 DAY
+ORDER BY changed_at DESC
+LIMIT 20
+--------------
+

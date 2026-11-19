@@ -1,0 +1,15 @@
+Carga de sql/ddl.sql y sql/dml.sql en una base vacía (ce02_carga) del MySQL 8.0.46 local, 19/11/2026.
+Antes: GRANT SELECT, EXECUTE ON ce02_carga.* TO consultorio_despliegue (el DEFINER de vistas, funciones y triggers).
+Después: REVOKE y DROP DATABASE ce02_carga.
+
+$ cat ddl.sql dml.sql | mysql ce02_carga
+carga: 1938 ms
+
++-----------+-------+-------------+-------------+-----------+---------+--------+----------+------+
+| pacientes | pagos | migraciones | saldo_total | por_pagar | rutinas | vistas | triggers | fks  |
++-----------+-------+-------------+-------------+-----------+---------+--------+----------+------+
+|       262 |   727 |          53 |    49740.00 |  49740.00 |       8 |      5 |        2 |  143 |
++-----------+-------+-------------+-------------+-----------+---------+--------+----------+------+
+
+Sin el GRANT previo, la carga se detiene al crear la primera vista que usa una función:
+ERROR 1370 (42000) at line 2639: execute command denied to user 'consultorio_despliegue'@'%' for routine 'ce02_carga.fn_estado_cita'

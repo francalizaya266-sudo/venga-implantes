@@ -1,0 +1,58 @@
+---
+config:
+  layout: elk
+---
+erDiagram
+  direction LR
+  suppliers {
+    bigint id PK
+  }
+  supplies {
+    bigint id PK
+    bigint supplier_id FK
+  }
+  supply_batches {
+    bigint id PK
+    bigint supply_id FK
+    bigint purchase_order_id FK
+  }
+  purchase_orders {
+    bigint id PK
+    bigint supplier_id FK
+    bigint created_by_user_id FK
+    bigint received_by_user_id FK
+  }
+  purchase_order_items {
+    bigint id PK
+    bigint purchase_order_id FK
+    bigint supply_id FK
+  }
+  treatment_supplies {
+    bigint id PK
+    bigint treatment_id FK, UK
+    bigint supply_id FK, UK
+  }
+  stock_movements {
+    bigint id PK
+    bigint supply_id FK
+    bigint supply_batch_id FK
+    bigint patient_id FK
+    bigint consultation_id FK
+    bigint appointment_id FK
+    bigint purchase_order_id FK
+    bigint user_id FK
+  }
+  suppliers |o--o{ supplies : ""
+  purchase_orders |o--o{ supply_batches : ""
+  supplies ||--o{ supply_batches : ""
+  suppliers ||--o{ purchase_orders : ""
+  purchase_orders ||--o{ purchase_order_items : ""
+  supplies ||--o{ purchase_order_items : ""
+  supplies ||--o{ treatment_supplies : ""
+  treatments ||--o{ treatment_supplies : ""
+  appointments |o--o{ stock_movements : ""
+  consultations |o--o{ stock_movements : ""
+  patients |o--o{ stock_movements : ""
+  purchase_orders |o--o{ stock_movements : ""
+  supply_batches |o--o{ stock_movements : ""
+  supplies ||--o{ stock_movements : ""

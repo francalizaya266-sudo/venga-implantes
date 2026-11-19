@@ -1,0 +1,66 @@
+---
+config:
+  layout: elk
+---
+erDiagram
+  direction TB
+  appointments {
+    bigint id PK
+    bigint patient_id FK
+    bigint doctor_id FK
+    bigint treatment_id FK
+    bigint treatment_plan_item_id FK
+    bigint campaign_id FK
+    bigint cancelled_by_user_id FK
+    bigint created_by_user_id FK
+  }
+  appointment_events {
+    bigint id PK
+    bigint appointment_id FK
+    bigint user_id FK
+  }
+  reschedule_requests {
+    bigint id PK
+    bigint appointment_id FK
+    bigint requested_by_user_id FK
+    bigint requested_doctor_id FK
+    bigint requested_treatment_id FK
+    bigint resolved_by_user_id FK
+  }
+  reschedule_request_options {
+    bigint id PK
+    bigint reschedule_request_id FK
+    bigint doctor_id FK
+  }
+  waitlist_entries {
+    bigint id PK
+    bigint patient_id FK
+    bigint treatment_id FK
+    bigint doctor_id FK
+    bigint offered_doctor_id FK
+    bigint appointment_id FK
+    bigint created_by_user_id FK
+  }
+  desk_notes {
+    bigint id PK
+    bigint patient_id FK
+    bigint done_by_user_id FK
+    bigint created_by_user_id FK
+  }
+  campaigns |o--o{ appointments : ""
+  doctors ||--o{ appointments : ""
+  patients ||--o{ appointments : ""
+  treatments ||--o{ appointments : ""
+  treatment_plan_items |o--o{ appointments : ""
+  appointments ||--o{ appointment_events : ""
+  appointments ||--o{ reschedule_requests : ""
+  doctors |o--o{ reschedule_requests : ""
+  treatments |o--o{ reschedule_requests : ""
+  doctors ||--o{ reschedule_request_options : ""
+  reschedule_requests ||--o{ reschedule_request_options : ""
+  appointments |o--o{ waitlist_entries : ""
+  doctors |o--o{ waitlist_entries : ""
+  doctors |o--o{ waitlist_entries : ""
+  patients ||--o{ waitlist_entries : ""
+  treatments |o--o{ waitlist_entries : ""
+  patients |o--o{ desk_notes : ""

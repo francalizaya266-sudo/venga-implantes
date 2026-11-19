@@ -12,8 +12,9 @@ Uso: python3 plantilla/ajustar-docx.py word/archivo.docx [--secciones-seguidas]
 3. Un párrafo que solo dice [[PAGINA]] hace empezar en una página nueva lo que sigue (por ejemplo, un acta), y la
    fila de una tabla con [PENDIENTE – firma] deja espacio para firmar a mano.
 4. El título "Anexos" del documento principal (que solo dice dónde están los anexos) no empieza página nueva.
-5. El párrafo que sigue a una tabla lleva 6 puntos de aire antes, y un bloque de código no se parte ni se separa
-   del párrafo que lo presenta.
+5. El párrafo que sigue a una tabla lleva 6 puntos de aire antes, y un bloque de código no se separa del párrafo
+   que lo presenta. Uno corto (hasta 35 líneas, como un escenario Gherkin) tampoco se parte; uno largo (un script
+   completo de un anexo) empieza en la misma página y sigue en las siguientes, sin dejar una hoja en blanco.
 6. Con --secciones-seguidas, después de la primera, cada sección principal sigue en la misma página, separada
    por espacio, para que un entregable con límite de páginas no pierda medias hojas en blanco.
 """
@@ -77,12 +78,18 @@ def aire_tras_tablas(doc):
             espacio.set(qn('w:before'), str(int(Pt(6).pt * 20)))
 
 
+LINEAS_DE_UN_BLOQUE_ENTERO = 35
+
+
 def bloques_de_codigo_enteros(doc):
-    """Un bloque de código (los escenarios Gherkin) no se parte y no queda separado del título que lo presenta."""
+    """Un bloque de código no queda separado del título que lo presenta; si es corto, tampoco se parte."""
     parrafos = doc.paragraphs
     for anterior, parrafo in zip(parrafos, parrafos[1:]):
         if parrafo.style.name == 'Source Code':
-            parrafo.paragraph_format.keep_together = True
+            # pandoc deja cada bloque en un solo párrafo, con un salto de línea (w:br) entre línea y línea.
+            lineas = len(parrafo._element.findall('.//' + qn('w:br'))) + 1
+            if lineas <= LINEAS_DE_UN_BLOQUE_ENTERO:
+                parrafo.paragraph_format.keep_together = True
             anterior.paragraph_format.keep_with_next = True
 
 

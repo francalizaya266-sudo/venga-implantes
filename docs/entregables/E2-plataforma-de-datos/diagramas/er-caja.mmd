@@ -1,0 +1,48 @@
+---
+config:
+  layout: elk
+---
+erDiagram
+  direction LR
+  charges {
+    bigint id PK
+    bigint patient_id FK
+    bigint appointment_id FK
+    bigint consultation_id FK
+    bigint treatment_plan_item_id FK
+    bigint treatment_id FK
+    bigint doctor_id FK
+    bigint campaign_id FK
+    bigint created_by_user_id FK
+    bigint voided_by_user_id FK
+  }
+  payments {
+    bigint id PK
+    bigint patient_id FK
+    bigint appointment_id FK
+    bigint doctor_id FK
+    bigint treatment_id FK
+    bigint received_by_user_id FK
+    bigint voided_by_user_id FK
+  }
+  daily_closings {
+    bigint id PK
+    date date UK
+    bigint closed_by_user_id FK
+  }
+  expenses {
+    bigint id PK
+    bigint paid_by_user_id FK
+    bigint voided_by_user_id FK
+  }
+  appointments |o--o{ charges : ""
+  campaigns |o--o{ charges : ""
+  consultations |o--o{ charges : ""
+  doctors |o--o{ charges : ""
+  patients ||--o{ charges : ""
+  treatments |o--o{ charges : ""
+  treatment_plan_items |o--o{ charges : ""
+  appointments |o--o{ payments : ""
+  doctors |o--o{ payments : ""
+  patients ||--o{ payments : ""
+  treatments |o--o{ payments : ""

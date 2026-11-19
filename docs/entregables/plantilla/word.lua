@@ -5,12 +5,16 @@ Filtro de pandoc para los entregables en Word.
    esté escrito como texto o como código en línea.
 2. Cambia un diagrama Mermaid por su imagen exportada cuando va precedido de
    <!-- figura: ruta/al/diagrama.png --> (o <!-- figura: ruta.png 12cm --> para otro ancho; por defecto,
-   16 cm). En GitHub se sigue viendo el diagrama Mermaid. Toda imagen sola en su párrafo va centrada.
+   16 cm). En GitHub se sigue viendo el diagrama Mermaid. Si lo que sigue es una imagen sola (la que se ve en
+   GitHub), también se reemplaza. Toda imagen sola en su párrafo va centrada.
 3. Un párrafo en cursiva que empieza con "Figura N." o "Tabla N." toma el estilo de leyenda.
 4. "Resumen ejecutivo" y los anexos sin número no se numeran.
 5. El ancho de cada columna de una tabla sale de su contenido: ninguna es más angosta que su palabra más
    larga (hasta 30 letras) y el espacio que sobra va a las columnas con más texto. Entre los párrafos
    [[HORIZONTAL]] y [[VERTICAL]] (hojas horizontales, ver ajustar-docx.py) la línea es más larga.
+6. <!-- archivo: ruta/al/script.sql sql --> pone el texto completo de ese archivo como bloque de código (el
+   lenguaje es opcional). La ruta se busca como las imágenes (--resource-path), así el anexo no se queda con
+   una copia vieja del script. En GitHub el comentario no se ve: al lado va un enlace al archivo.
 ]==]
 
 local function pendiente(texto)
@@ -57,6 +61,19 @@ local function es_leyenda(bloque, prefijo)
   return primero and primero.t == 'Str' and primero.text == prefijo
 end
 
+-- Texto de un archivo del repositorio para el punto 6, buscado en las mismas carpetas que las imágenes.
+local function leer_archivo(ruta)
+  for _, carpeta in ipairs(PANDOC_STATE.resource_path) do
+    local archivo = io.open(pandoc.path.join({ carpeta, ruta }), 'r')
+    if archivo then
+      local texto = archivo:read('a')
+      archivo:close()
+      return (texto:gsub('\n+$', ''))
+    end
+  end
+  error('No se encontró el archivo que se quiere incluir: ' .. ruta)
+end
+
 local function leyenda(bloque, estilo)
   return pandoc.Div({ pandoc.Para(bloque.content[1].content) }, { ['custom-style'] = estilo })
 end
@@ -66,13 +83,18 @@ function Blocks(bloques)
   local i = 1
   while i <= #bloques do
     local b = bloques[i]
-    local ruta, ancho
+    local ruta, ancho, archivo, lenguaje
     if b.t == 'RawBlock' and b.format == 'html' then
       ruta, ancho = b.text:match('^<!%-%-%s*figura:%s*(%S+)%s*(%S*)%s*%-%->$')
+      archivo, lenguaje = b.text:match('^<!%-%-%s*archivo:%s*(%S+)%s*(%S*)%s*%-%->$')
     end
-    if ruta then
+    if archivo then
+      salida:insert(pandoc.CodeBlock(leer_archivo(archivo), pandoc.Attr('', lenguaje ~= '' and { lenguaje } or {})))
+    elseif ruta then
       local siguiente = bloques[i + 1]
-      if siguiente and siguiente.t == 'CodeBlock' then
+      local es_imagen = siguiente and (siguiente.t == 'Figure'
+        or (siguiente.t == 'Para' and #siguiente.content == 1 and siguiente.content[1].t == 'Image'))
+      if siguiente and (siguiente.t == 'CodeBlock' or es_imagen) then
         i = i + 1
       end
       local imagen = pandoc.Image({}, ruta, '', { width = ancho ~= '' and ancho or '16cm' })

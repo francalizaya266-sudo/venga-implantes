@@ -1,0 +1,60 @@
+---
+config:
+  layout: elk
+---
+erDiagram
+  direction TB
+  accounts {
+    bigint id PK
+    varchar phone UK
+    bigint blocked_by_user_id FK
+  }
+  patients {
+    bigint id PK
+    bigint account_id FK
+    varchar document_type UK
+    varchar document_number UK
+    varchar referral_code UK
+    bigint referred_by_patient_id FK
+  }
+  remembered_devices {
+    bigint id PK
+    bigint account_id FK
+    char token_hash UK
+  }
+  magic_links {
+    bigint id PK
+    bigint account_id FK
+    bigint appointment_id FK
+    char token_hash UK
+    bigint created_by_user_id FK
+  }
+  referrals {
+    bigint id PK
+    bigint referrer_patient_id FK
+    bigint referred_patient_id FK, UK
+    bigint appointment_id FK
+  }
+  message_templates {
+    bigint id PK
+    varchar key UK
+  }
+  whatsapp_messages {
+    bigint id PK
+    bigint account_id FK
+    bigint patient_id FK
+    bigint appointment_id FK
+    bigint opened_by_user_id FK
+    bigint sent_by_user_id FK
+  }
+  accounts |o--o{ patients : ""
+  patients |o--o{ patients : ""
+  accounts ||--o{ remembered_devices : ""
+  accounts ||--o{ magic_links : ""
+  appointments |o--o{ magic_links : ""
+  appointments |o--o{ referrals : ""
+  patients ||--o| referrals : ""
+  patients ||--o{ referrals : ""
+  accounts |o--o{ whatsapp_messages : ""
+  appointments |o--o{ whatsapp_messages : ""
+  patients |o--o{ whatsapp_messages : ""

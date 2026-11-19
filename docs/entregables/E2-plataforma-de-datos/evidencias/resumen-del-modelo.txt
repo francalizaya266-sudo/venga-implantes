@@ -1,0 +1,15 @@
+Tablas: 70; columnas: 810; con comentario en la migración o enum: 81; descritas con el glosario: 729; sin descripción: 0 []
+Llaves foráneas: 143 (CASCADE: 33, RESTRICT: 21, SET NULL: 89)
+Únicos: 24; índices (sin PK ni únicos): 169
+Tablas con comentario: 42
+Tablas más referidas: users 34, patients 19, doctors 17, treatments 17, appointments 10, consultations 9, accounts 4, supplies 4
+
+Por dominio (tablas, columnas, llaves foráneas):
+  Pacientes, cuentas y avisos: 7, 104, 15
+  Catálogo, doctores y agenda: 12, 186, 33
+  Atención clínica: 17, 177, 36
+  Presupuestos y planes de tratamiento: 7, 88, 17
+  Caja: 4, 59, 18
+  Inventario: 7, 72, 17
+  Web pública: 3, 37, 6
+  Acceso, auditoría y sistema: 13, 87, 1

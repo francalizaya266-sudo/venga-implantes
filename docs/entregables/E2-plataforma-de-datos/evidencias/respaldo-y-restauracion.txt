@@ -1,0 +1,66 @@
+Copia y restauración en el MySQL 8.0.46 local con los datos de demostración, 18/11/2026.
+
+== php artisan respaldo:crear (usuario consultorio_app)
+Copia guardada: storage/app/private/respaldos/respaldo_2026-11-18_212018.sql.gz
+tiempo: 0.488 s
+tamaño: 220238 bytes (ls -l storage/app/private/respaldos/respaldo_2026-11-18_212018.sql.gz)
+
+== Corrida 1. Daño simulado (como root): se borran 10 pagos y se cambia el nombre de todos los pacientes
++-------+-------------------+----------------------+
+| pagos | pacientes_danados | borrados_en_bitacora |
++-------+-------------------+----------------------+
+|   717 |               262 |                   10 |
++-------+-------------------+----------------------+
+== php artisan respaldo:restaurar --force (usuario consultorio_despliegue)
+Base de datos restaurada desde respaldo_2026-11-18_212018.sql.gz (257 sentencias).
+También se volvieron a crear las vistas, funciones, procedimientos y triggers de MySQL.
+La bitácora de pagos conserva 10 anotaciones de después de la copia.
+tiempo: 3.494 s
+== Después
++-------+-------------------+----------------+
+| pagos | pacientes_danados | filas_bitacora |
++-------+-------------------+----------------+
+|   727 |                 0 |             10 |
++-------+-------------------+----------------+
+
+== Corrida 2. Daño simulado (como root): se borran 10 pagos y se cambia el nombre de todos los pacientes
++-------+-------------------+----------------------+
+| pagos | pacientes_danados | borrados_en_bitacora |
++-------+-------------------+----------------------+
+|   717 |               262 |                   10 |
++-------+-------------------+----------------------+
+== php artisan respaldo:restaurar --force (usuario consultorio_despliegue)
+Base de datos restaurada desde respaldo_2026-11-18_212018.sql.gz (257 sentencias).
+También se volvieron a crear las vistas, funciones, procedimientos y triggers de MySQL.
+La bitácora de pagos conserva 10 anotaciones de después de la copia.
+tiempo: 3.215 s
+== Después
++-------+-------------------+----------------+
+| pagos | pacientes_danados | filas_bitacora |
++-------+-------------------+----------------+
+|   727 |                 0 |             10 |
++-------+-------------------+----------------+
+
+== Corrida 3. Daño simulado (como root): se borran 10 pagos y se cambia el nombre de todos los pacientes
++-------+-------------------+----------------------+
+| pagos | pacientes_danados | borrados_en_bitacora |
++-------+-------------------+----------------------+
+|   717 |               262 |                   10 |
++-------+-------------------+----------------------+
+== php artisan respaldo:restaurar --force (usuario consultorio_despliegue)
+Base de datos restaurada desde respaldo_2026-11-18_212018.sql.gz (257 sentencias).
+También se volvieron a crear las vistas, funciones, procedimientos y triggers de MySQL.
+La bitácora de pagos conserva 10 anotaciones de después de la copia.
+tiempo: 3.198 s
+== Después
++-------+-------------------+----------------+
+| pagos | pacientes_danados | filas_bitacora |
++-------+-------------------+----------------+
+|   727 |                 0 |             10 |
++-------+-------------------+----------------+
+
+== Filas de las 70 tablas antes del daño y después de restaurar (conteo.sh): solo cambia la caché
+5c5
+< cache	2
+---
+> cache	0
