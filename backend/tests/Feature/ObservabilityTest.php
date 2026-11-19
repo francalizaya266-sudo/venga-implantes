@@ -5,7 +5,6 @@ namespace Tests\Feature;
 use App\Http\Middleware\AddRequestContext;
 use App\Models\User;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
@@ -43,10 +42,16 @@ class ObservabilityTest extends TestCase
         $this->getJson('/up')->assertOk()->assertExactJson(['status' => 'up']);
     }
 
+    /**
+     * La conexión por defecto pasa a una base que no existe, sea SQLite (pruebas locales) o MySQL (job "Base de
+     * datos (MySQL 8)" de la CI): cambiar solo la conexión sqlite no tocaba la que usa ese job.
+     */
     public function test_up_fails_when_the_database_does_not_answer(): void
     {
-        config(['database.connections.sqlite.database' => $this->logFolder.'/no-existe.sqlite']);
-        DB::purge('sqlite');
+        config([
+            'database.connections.sin_base' => ['driver' => 'sqlite', 'database' => $this->logFolder.'/no-existe.sqlite', 'prefix' => ''],
+            'database.default' => 'sin_base',
+        ]);
 
         $this->getJson('/up')->assertInternalServerError()->assertExactJson(['status' => 'down']);
     }
