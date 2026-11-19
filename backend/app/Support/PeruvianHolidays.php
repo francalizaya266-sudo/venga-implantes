@@ -4,7 +4,10 @@ namespace App\Support;
 
 use Carbon\CarbonImmutable;
 
-/** Los feriados nacionales del Perú de un año, para cargarlos de una vez como días en que el consultorio no atiende. */
+/**
+ * Los feriados nacionales del Perú de un año que el sistema conoce sin conexión. HolidayCalendar les suma los que trae
+ * Nager.Date, para cargarlos de una vez como días en que el consultorio no atiende.
+ */
 final class PeruvianHolidays
 {
     /** Los de fecha fija: "mes-día" => nombre. */

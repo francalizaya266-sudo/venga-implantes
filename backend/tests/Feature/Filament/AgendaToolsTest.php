@@ -18,6 +18,7 @@ use App\Services\Agenda\AvailabilityService;
 use Carbon\CarbonImmutable;
 use Filament\Actions\Testing\TestAction;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Livewire\Livewire;
 use Tests\Concerns\CreatesAgenda;
 use Tests\Concerns\ReadsNotifications;
@@ -198,8 +199,11 @@ class AgendaToolsTest extends TestCase
 
     public function test_the_holidays_of_the_year_are_loaded_at_once_as_closed_days(): void
     {
+        Http::fake(['date.nager.at/*' => Http::response('Service Unavailable', 503)]);
+
         Livewire::test(ManageScheduleBlocks::class)
             ->mountAction('loadHolidays')
+            ->assertMountedActionModalSee('Nager.Date no respondió: es la lista de feriados que trae el sistema.')
             // Los que quedan del año ya vienen marcados.
             ->assertActionDataSet(['year' => 2026, 'days' => ['2026-12-08', '2026-12-09', '2026-12-25']])
             ->assertMountedActionModalSee(['Martes 8 de diciembre · Inmaculada Concepción', 'Viernes 25 de diciembre · Navidad'])
@@ -220,8 +224,29 @@ class AgendaToolsTest extends TestCase
             ->assertActionDataSet(fn (array $data) => count($data['days']) === 16 && $data['days'][0] === '2027-01-01');
     }
 
+    public function test_a_holiday_that_only_nager_date_has_is_offered_too(): void
+    {
+        // Uno que una ley agregó y el sistema todavía no tiene.
+        Http::fake(['date.nager.at/api/v3/PublicHolidays/2026/PE' => Http::response([
+            ['date' => '2026-12-25', 'localName' => 'Navidad', 'global' => true],
+            ['date' => '2026-12-31', 'localName' => 'Fin de Año', 'global' => true],
+        ])]);
+
+        Livewire::test(ManageScheduleBlocks::class)
+            ->mountAction('loadHolidays')
+            ->assertMountedActionModalSee(['Jueves 31 de diciembre · Fin de Año', 'Lista de feriados nacionales al día, consultada en Nager.Date (date.nager.at).'])
+            ->assertActionDataSet(['days' => ['2026-12-08', '2026-12-09', '2026-12-25', '2026-12-31']])
+            ->setActionData(['days' => ['2026-12-31']])
+            ->callMountedAction()
+            ->assertNotified('1 feriado bloqueado');
+
+        $this->assertSame('Fin de Año', ScheduleBlock::query()->sole()->reason);
+    }
+
     public function test_loading_holidays_needs_at_least_one_and_is_for_who_manages_every_agenda(): void
     {
+        Http::fake(['date.nager.at/*' => Http::response('Service Unavailable', 503)]);
+
         Livewire::test(ManageScheduleBlocks::class)
             ->mountAction('loadHolidays')
             ->setActionData(['days' => []])
