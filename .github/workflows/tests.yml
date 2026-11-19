@@ -101,7 +101,7 @@ jobs:
           php artisan key:generate
 
       - name: Larastan
-        run: vendor/bin/phpstan analyse --no-progress --memory-limit=1G --error-format=raw
+        run: vendor/bin/phpstan analyse --no-progress --memory-limit=1G
 
   # Las vistas, funciones, procedimientos y triggers de database/sql/mysql solo existen en MySQL: aquí se prueban
   # con un MySQL 8 de verdad, junto con toda la suite, los usuarios de seguridad.sql y una copia restaurada con el
@@ -258,7 +258,7 @@ jobs:
   paquete:
     name: Paquete para el hosting
     if: github.event_name == 'push'
-    needs: [backend, mysql, frontend]
+    needs: [backend, analisis, mysql, frontend]
     runs-on: ubuntu-latest
 
     steps:

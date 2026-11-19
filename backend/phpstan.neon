@@ -1,8 +1,10 @@
 # Análisis estático del backend con Larastan (PHPStan para Laravel). Corre en la CI, job "Análisis estático".
 # Nivel 5: tipos de los argumentos y de lo que devuelve cada método, además de lo de los niveles 0 a 4 (clases,
 # métodos y propiedades que no existen, código muerto, condiciones siempre verdaderas o falsas).
+# phpstan-baseline.php guarda los avisos que ya había el 19/11/2026: la CI solo falla con avisos nuevos.
 includes:
     - vendor/larastan/larastan/extension.neon
+    - phpstan-baseline.php
 
 parameters:
     paths:
