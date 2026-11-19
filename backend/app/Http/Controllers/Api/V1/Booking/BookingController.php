@@ -20,7 +20,6 @@ use App\Services\Access\PatientAccess;
 use App\Services\Booking\AppointmentService;
 use App\Services\Booking\WebAvailability;
 use App\Services\Booking\WebBookingData;
-use App\Services\Web\ClinicInfo;
 use App\Services\Web\PageMeta;
 use App\Support\CampaignText;
 use App\Support\Dates;
@@ -155,7 +154,7 @@ class BookingController extends Controller
     }
 
     /** Reserva la cita. Si el horario se acaba de ocupar responde 409, para volver a elegir. */
-    public function store(StoreBookingRequest $request, AppointmentService $appointments, ClinicInfo $clinic): JsonResponse
+    public function store(StoreBookingRequest $request, AppointmentService $appointments): JsonResponse
     {
         $data = $request->validated();
         $device = $request->device();
@@ -190,23 +189,7 @@ class BookingController extends Controller
         $newNumber = $device === null && Account::withTrashed()->where('phone', Phone::normalize($data['phone']))->doesntExist();
 
         try {
-            $appointment = $appointments->bookFromWeb(new WebBookingData(
-                doctorId: $slot['doctor_id'],
-                treatmentId: $treatment->getKey(),
-                startsAt: CarbonImmutable::parse($data['date'].' '.$data['time']),
-                phone: $device ? $device->account->phone : $data['phone'],
-                patientId: $existing?->getKey(),
-                firstName: $existing ? null : $data['first_name'],
-                lastName: $existing ? null : $data['last_name'],
-                birthDate: ! $existing && filled($data['birth_date'] ?? null) ? CarbonImmutable::parse($data['birth_date']) : null,
-                relationship: $this->relationship($data, $family),
-                acceptsPrivacy: $request->boolean('accepts_privacy') || $request->privacyAlreadyAccepted(),
-                acceptsPromotions: $request->boolean('accepts_promotions'),
-                origin: AppointmentOrigin::tryFrom((string) ($data['origin'] ?? '')),
-                promoCode: filled($data['promo_code'] ?? null) ? $data['promo_code'] : null,
-                note: filled($data['note'] ?? null) ? $data['note'] : null,
-                campaignSlug: $data['campaign_slug'] ?? null,
-            ), $device);
+            $appointment = $appointments->bookFromWeb($this->bookingData($request, $treatment, $slot, $existing, $family), $device);
         } catch (BookingException $e) {
             return $e->getMessage() === BookingException::slotTaken()->getMessage() ? $this->slotTaken() : $this->problem($e->getMessage());
         } catch (AuthorizationException $e) {
@@ -221,11 +204,52 @@ class BookingController extends Controller
             $this->access->rememberNewcomer($appointment->patient->account, $request);
         }
 
+        return response()->json(['data' => $this->confirmation($appointment, $device, $newNumber)], 201);
+    }
+
+    /**
+     * Lo que pidió el paciente, listo para AppointmentService: desde un celular recordado no se escribe el celular, y a
+     * un familiar que ya existe no se le vuelven a pedir los datos.
+     *
+     * @param  array{doctor_id: int, ...}  $slot
+     * @param  Collection<int, Patient>  $family
+     */
+    private function bookingData(StoreBookingRequest $request, Treatment $treatment, array $slot, ?Patient $existing, Collection $family): WebBookingData
+    {
+        $data = $request->validated();
+        $device = $request->device();
+
+        return new WebBookingData(
+            doctorId: $slot['doctor_id'],
+            treatmentId: $treatment->getKey(),
+            startsAt: CarbonImmutable::parse($data['date'].' '.$data['time']),
+            phone: $device ? $device->account->phone : $data['phone'],
+            patientId: $existing?->getKey(),
+            firstName: $existing ? null : $data['first_name'],
+            lastName: $existing ? null : $data['last_name'],
+            birthDate: ! $existing && filled($data['birth_date'] ?? null) ? CarbonImmutable::parse($data['birth_date']) : null,
+            relationship: $this->relationship($data, $family),
+            acceptsPrivacy: $request->boolean('accepts_privacy') || $request->privacyAlreadyAccepted(),
+            acceptsPromotions: $request->boolean('accepts_promotions'),
+            origin: AppointmentOrigin::tryFrom((string) ($data['origin'] ?? '')),
+            promoCode: filled($data['promo_code'] ?? null) ? $data['promo_code'] : null,
+            note: filled($data['note'] ?? null) ? $data['note'] : null,
+            campaignSlug: $data['campaign_slug'] ?? null,
+        );
+    }
+
+    /**
+     * La pantalla de "Cita reservada": qué, cuándo y con quién, y lo que se puede hacer desde ahí.
+     *
+     * @return array<string, mixed>
+     */
+    private function confirmation(Appointment $appointment, ?RememberedDevice $device, bool $newNumber): array
+    {
         $asksOrigin = $this->asksOrigin($appointment, $device);
         $day = Dates::day($appointment->starts_at->toImmutable());
         $hour = Dates::time($appointment->starts_at->format('H:i'));
 
-        return response()->json(['data' => [
+        return [
             'treatment' => $appointment->treatment->name,
             'when' => $day.', '.$hour,
             'who' => $appointment->patient->full_name.' · con '.$appointment->doctor->name,
@@ -238,7 +262,7 @@ class BookingController extends Controller
             'whatsapp_message' => "Hola, acabo de reservar {$appointment->treatment->name} para el ".mb_strtolower($day).' a las '.$hour." a nombre de {$appointment->patient->full_name}.",
             'origins' => $asksOrigin ? self::originsToAsk()->map(fn (AppointmentOrigin $origin) => ['value' => $origin->value, 'label' => $origin->getLabel()]) : [],
             'origin_url' => $asksOrigin ? URL::signedRoute('api.v1.booking.origin', ['appointment' => $appointment->getKey()], absolute: false) : null,
-        ]], 201);
+        ];
     }
 
     /**
