@@ -165,7 +165,7 @@ class AgendaFindAndListTest extends TestCase
             ->callAction(TestAction::make('nextDayWithSlots')->schemaComponent('slot'))
             ->assertActionDataSet(['date' => '2026-11-09'])
             ->assertSchemaComponentExists('slot', checkComponentUsing: fn (ToggleButtons $slot) => $slot->getOptions() !== []
-                && ! str_contains($slot->getChildSchema($slot::BELOW_CONTENT_SCHEMA_KEY)->toHtml(), 'no hay horario libre'));
+                && ! str_contains((string) $slot->getChildSchema($slot::BELOW_CONTENT_SCHEMA_KEY)?->toHtml(), 'no hay horario libre'));
     }
 
     public function test_a_second_tap_on_the_same_treatment_clears_the_search(): void

@@ -18,6 +18,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /** Tratamiento o tipo de cita, con duración y precio referencial. */
@@ -176,6 +177,24 @@ class Treatment extends Model
     public function nextSessionDays(): int
     {
         return $this->next_session_days ?: TreatmentKind::for($this)->nextSessionDays();
+    }
+
+    /**
+     * Los tratamientos más agendados con esos doctores en los últimos 90 días, del más pedido al menos: van
+     * primero en los botones de un toque ("Buscar hueco" en la agenda y "Nueva cita").
+     *
+     * @param  list<int>  $doctorIds
+     * @return Collection<int, int> Ids de tratamiento.
+     */
+    public static function mostBookedIds(array $doctorIds): Collection
+    {
+        return Appointment::query()
+            ->whereIn('doctor_id', $doctorIds)
+            ->where('starts_at', '>=', now()->subDays(90))
+            ->select('treatment_id', DB::raw('count(*) as total'))
+            ->groupBy('treatment_id')
+            ->orderByDesc('total')
+            ->pluck('treatment_id');
     }
 
     /** Minutos de limpieza y esterilización después de la cita. */

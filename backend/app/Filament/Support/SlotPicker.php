@@ -2,7 +2,9 @@
 
 namespace App\Filament\Support;
 
+use App\Enums\AppointmentStatus;
 use App\Enums\DayPeriod;
+use App\Filament\Forms\ChoiceChips;
 use App\Models\Appointment;
 use App\Models\Doctor;
 use App\Models\LabOrder;
@@ -26,6 +28,9 @@ use Filament\Forms\Components\ToggleButtons;
 use Filament\Schemas\Components\Component;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
+use Filament\Support\Enums\Width;
+use Filament\Support\Icons\Heroicon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\HtmlString;
 
 /**
@@ -40,13 +45,25 @@ final class SlotPicker
 
     private const LAST_MANUAL_HOUR = 22;
 
+    /** Los días que se ven como botones: hoy y los seis siguientes. */
+    private const DAYS_SHOWN = 7;
+
     /**
      * @param  Appointment|null  $moving  Cita que se mueve: su tratamiento es fijo y su horario no cuenta como ocupado.
      * @return list<Component|Field>
      */
     public static function fields(?Appointment $moving = null): array
     {
-        $suggest = fn (Set $set, Get $get) => $set('slot', self::suggestedSlot($get, $moving));
+        // Con otro tratamiento o doctor: si el día elegido ya no tiene lugar (ya pasó o está lleno) y no se eligió a
+        // propósito, se pasa solo al siguiente con lugar. Y queda puesto el primer horario libre desde la hora que
+        // se tocó en la agenda.
+        $suggest = function (Set $set, Get $get) use ($moving): void {
+            if ($moving === null) {
+                self::moveToDayWithSlots($get, $set);
+            }
+
+            $set('slot', self::suggestedSlot($get, $moving));
+        };
 
         return [
             // Hora que se tocó en la agenda: se propone el primer horario libre desde ahí.
@@ -54,32 +71,57 @@ final class SlotPicker
                 ->default(fn () => preg_match('/^\d{2}:\d{2}$/', (string) request('time')) ? request('time') : null)
                 ->dehydrated(false),
 
-            // El día que se tocó en la agenda: entonces no se cambia al día en que suele venir el paciente.
+            // El día que se eligió a propósito (en la agenda o con un toque): entonces no se cambia por el día en que
+            // suele venir el paciente ni por el siguiente con lugar.
             Hidden::make('date_from_agenda')
                 ->default(fn () => self::requestedDate()?->toDateString())
                 ->dehydrated(false),
 
             // Primero qué se hace y después con quién: así lo cuenta el paciente al llamar.
-            self::treatmentSelect($moving)->afterStateUpdated($suggest),
+            self::treatmentSelect($moving)->afterStateUpdated(function (Set $set, Get $get) use ($suggest): void {
+                $set('treatment_shortcut', filled($get('treatment_id')) ? (string) $get('treatment_id') : null);
+                $suggest($set, $get);
+            }),
             self::doctorSelect($moving)->afterStateUpdated($suggest),
 
-            DatePicker::make('date')
+            // Los tratamientos que más se agendan, a un toque (antes siempre había que abrir la lista y buscar).
+            ChoiceChips::make('treatment_shortcut')
+                ->label('Los más pedidos')
+                ->options(fn (Get $get) => self::quickTreatments($get('doctor_id')))
+                ->afterStateHydrated(fn (ChoiceChips $component, Get $get) => $component->state(filled($get('treatment_id')) ? (string) $get('treatment_id') : null))
+                ->extraAttributes(['class' => 'treatment-chips'])
+                ->live()
+                ->dehydrated(false)
+                ->hidden(fn (Get $get) => $moving !== null || self::quickTreatments($get('doctor_id')) === [])
+                ->columnSpanFull()
+                ->afterStateUpdated(function (?string $state, Get $get, Set $set) use ($suggest): void {
+                    $set('treatment_id', filled($state) ? (int) $state : null);
+                    $suggest($set, $get);
+                }),
+
+            // Los próximos siete días, cada uno con cuántos horarios libres tiene (antes era un calendario y había
+            // que probar día por día). Un día más lejos, con "Otro día".
+            ChoiceChips::make('date')
                 ->label('Día')
-                ->native(false)
-                ->displayFormat('D d/m/Y')
-                ->firstDayOfWeek(1)
-                ->closeOnDateSelection()
+                ->options(fn (Get $get) => self::dayOptions($get('date')))
+                ->descriptions(fn (Get $get) => self::freeSlotsPerDay($get, $moving))
                 // Desde la ficha ("Agendar"), el próximo día en que suele venir el paciente.
-                ->default(fn () => self::requestedDate() ?? ($moving ? null : self::nextUsualDay(Patient::find(request()->integer('patient')))) ?? today())
-                ->minDate(today())
+                ->default(fn () => (self::requestedDate() ?? ($moving ? null : self::nextUsualDay(Patient::find(request()->integer('patient')))) ?? today())->toDateString())
+                ->extraAttributes(['class' => 'day-chips'])
                 ->required()
+                ->rule('after_or_equal:today')
                 ->live()
                 // Si algo suyo sigue en el laboratorio y llega después de ese día, se avisa antes de agendar.
                 ->helperText(fn (Get $get) => self::labWorkArrivingAfter($moving?->patient_id ?? $get('patient_id'), $get('date')))
-                ->afterStateUpdated($suggest),
+                ->hintAction(self::otherDayAction($moving))
+                ->columnSpanFull()
+                ->afterStateUpdated(function (Get $get, Set $set) use ($moving): void {
+                    $set('date_from_agenda', $get('date'));
+                    $set('slot', self::suggestedSlot($get, $moving));
+                }),
 
-            // Todos los horarios a la vista, un toque cada uno (antes era una lista desplegable).
-            ToggleButtons::make('slot')
+            // Todos los horarios a la vista, un toque cada uno, separados en mañana y tarde.
+            ChoiceChips::make('slot')
                 ->label('Horario libre')
                 ->helperText(fn (Get $get) => self::slotsHint($get, $moving))
                 // Día lleno: un toque lleva al siguiente con lugar (antes había que probar día por día).
@@ -96,20 +138,24 @@ final class SlotPicker
                         }
                     }))
                 ->options(fn (Get $get) => self::slotOptions($get, $moving))
-                ->inline()
-                ->extraAttributes(['class' => 'slot-buttons'])
+                ->groups(fn (Get $get) => self::slotGroups($get, $moving))
+                ->highlighted(fn (Get $get) => self::recommendedSlots($get, $moving))
+                ->descriptions(fn (Get $get) => array_fill_keys(self::recommendedSlots($get, $moving), 'Recomendada'))
+                ->extraAttributes(['class' => 'slot-chips'])
                 ->columnSpanFull()
                 ->required(fn (Get $get) => ! $get('manual'))
                 ->hidden(fn (Get $get) => (bool) $get('manual')),
 
             // Para una hora que la agenda no ofrece: fuera del horario de atención o, en una cita nueva, un
-            // sobrecupo. Llega con la hora que se había elegido o tocado en la agenda.
+            // sobrecupo. Llega con la hora que se había elegido o tocado en la agenda, si todavía no pasó.
             Toggle::make('manual')
                 ->label($moving === null ? 'Otra hora (fuera del horario, o un sobrecupo)' : 'Otra hora (fuera del horario de atención)')
                 ->live()
                 ->afterStateUpdated(function (?bool $state, Get $get, Set $set): void {
-                    if ($state && blank($get('manual_time'))) {
-                        $set('manual_time', $get('slot') ?? $get('preferred_time'));
+                    $carried = $get('slot') ?? $get('preferred_time');
+
+                    if ($state && blank($get('manual_time')) && filled($carried) && ! self::isPast($get('date'), $carried)) {
+                        $set('manual_time', $carried);
                     }
 
                     self::showManualTime($get, $set);
@@ -120,10 +166,11 @@ final class SlotPicker
                 ->afterStateUpdated(fn (Get $get, Set $set) => self::showManualTime($get, $set)),
 
             // Dos toques, la hora y los minutos, como los horarios libres (antes había que teclearla en un cuadro
-            // vacío). Con solo tocar la hora queda "en punto".
+            // vacío). Con solo tocar la hora queda en punto (o en el primer minuto que todavía no pasó). Hoy, solo
+            // desde la hora actual.
             ToggleButtons::make('manual_hour')
                 ->label('Hora')
-                ->options(fn (Get $get) => self::hourOptions($get('manual_time')))
+                ->options(fn (Get $get) => self::hourOptions($get('manual_time'), $get('date')))
                 ->inline()
                 ->fullWidth()
                 ->extraAttributes(['class' => 'slot-buttons time-buttons'])
@@ -137,8 +184,8 @@ final class SlotPicker
 
             ToggleButtons::make('manual_minute')
                 ->label('Minutos')
-                ->helperText(fn (Get $get) => self::manualTimeHint($get('manual_time')))
-                ->options(fn (Get $get) => self::minuteOptions($get('manual_time')))
+                ->helperText(fn (Get $get) => self::manualTimeHint($get('manual_time'), $get('date')))
+                ->options(fn (Get $get) => self::minuteOptions($get('manual_time'), $get('date'), $get('manual_hour')))
                 ->inline()
                 ->fullWidth()
                 ->extraAttributes(['class' => 'slot-buttons time-buttons'])
@@ -167,15 +214,101 @@ final class SlotPicker
         ];
     }
 
+    /** "Otro día": un día más allá de los siete que se ven, en un calendario. */
+    private static function otherDayAction(?Appointment $moving): Action
+    {
+        return Action::make('otherDay')
+            ->label('Otro día')
+            ->icon(Heroicon::OutlinedCalendarDays)
+            ->link()
+            ->modalHeading('Otro día')
+            ->modalWidth(Width::Small)
+            // Encima de "Nueva cita", sin cerrarla mientras se elige.
+            ->overlayParentActions()
+            ->modalSubmitActionLabel('Elegir')
+            ->fillForm(fn (Get $get) => ['day' => $get('date')])
+            ->schema([
+                DatePicker::make('day')
+                    ->label('Día')
+                    ->native(false)
+                    ->displayFormat('D d/m/Y')
+                    ->firstDayOfWeek(1)
+                    ->closeOnDateSelection()
+                    ->minDate(today())
+                    ->required(),
+            ])
+            ->action(function (array $data, Get $get, Set $set) use ($moving): void {
+                $day = CarbonImmutable::parse($data['day'])->toDateString();
+
+                $set('date', $day);
+                $set('date_from_agenda', $day);
+                $set('slot', self::suggestedSlot($get, $moving));
+            });
+    }
+
     /**
-     * Las horas que se ofrecen con "Otra hora": de 6 de la mañana a 10 de la noche, más la que ya esté puesta si cae
-     * fuera (una hora que llegó de otro lado nunca queda sin su botón).
+     * Los botones de los días: hoy y los seis siguientes, más el elegido si cae más lejos.
+     *
+     * @return array<string, string> "2026-11-19" => "Mañana"
+     */
+    private static function dayOptions(mixed $chosen): array
+    {
+        $days = collect(range(0, self::DAYS_SHOWN - 1))->map(fn (int $offset) => today()->addDays($offset)->toDateString());
+
+        if (is_string($chosen) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $chosen) === 1) {
+            $days->push($chosen);
+        }
+
+        return $days->unique()->sort()->mapWithKeys(fn (string $date) => [$date => self::dayLabel(CarbonImmutable::parse($date))])->all();
+    }
+
+    /** "Hoy", "Mañana", "Vie 20" (y, si es de otro mes, "Lun 4 ene"). */
+    private static function dayLabel(CarbonImmutable $day): string
+    {
+        return match (true) {
+            $day->isToday() => 'Hoy',
+            $day->isTomorrow() => 'Mañana',
+            default => ucfirst(rtrim($day->translatedFormat('D'), '.')).' '.$day->day.($day->month !== today()->month ? ' '.rtrim($day->translatedFormat('M'), '.') : ''),
+        };
+    }
+
+    /**
+     * Bajo cada día, cuántos horarios libres tiene para el tratamiento y el doctor elegidos.
+     *
+     * @return array<string, string> "2026-11-19" => "12 libres"
+     */
+    private static function freeSlotsPerDay(Get $get, ?Appointment $moving): array
+    {
+        if (! self::canSearch($get, $moving)) {
+            return [];
+        }
+
+        return collect(self::dayOptions($get('date')))
+            ->map(fn (string $label, string $date) => match ($count = self::slotsOn($get, $moving, $date)->count()) {
+                0 => 'Sin lugar',
+                1 => '1 libre',
+                default => "{$count} libres",
+            })
+            ->all();
+    }
+
+    /**
+     * Las horas que se ofrecen con "Otra hora": de 6 de la mañana a 10 de la noche (hoy, desde la hora actual: una
+     * hora que ya pasó no se ofrece), más la que ya esté puesta si cae fuera (una hora que llegó de otro lado nunca
+     * queda sin su botón).
      *
      * @return array<int|string, string> "16" => "16"
      */
-    private static function hourOptions(?string $current): array
+    private static function hourOptions(?string $current, mixed $date): array
     {
-        $hours = range(self::FIRST_MANUAL_HOUR, self::LAST_MANUAL_HOUR);
+        $first = self::FIRST_MANUAL_HOUR;
+
+        if (self::isToday($date)) {
+            // En los últimos cinco minutos de la hora ya no queda ningún minuto por delante: desde la siguiente.
+            $first = max($first, now()->minute >= 55 ? now()->hour + 1 : now()->hour);
+        }
+
+        $hours = $first <= self::LAST_MANUAL_HOUR ? range($first, self::LAST_MANUAL_HOUR) : [];
 
         if (($time = self::manualTimeParts($current)) !== null) {
             $hours[] = $time['hour'];
@@ -187,13 +320,18 @@ final class SlotPicker
     }
 
     /**
-     * Los minutos, de cinco en cinco, más los que ya estén puestos si no son múltiplo de cinco.
+     * Los minutos, de cinco en cinco (hoy, en la hora actual, los que todavía no pasaron), más los que ya estén
+     * puestos si no son de esos.
      *
      * @return array<int|string, string> "05" => ":05"
      */
-    private static function minuteOptions(?string $current): array
+    private static function minuteOptions(?string $current, mixed $date, mixed $hour): array
     {
         $minutes = range(0, 55, 5);
+
+        if (self::isToday($date) && filled($hour) && (int) $hour === now()->hour) {
+            $minutes = array_values(array_filter($minutes, fn (int $minute) => $minute > now()->minute));
+        }
 
         if (($time = self::manualTimeParts($current)) !== null) {
             $minutes[] = $time['minute'];
@@ -205,18 +343,22 @@ final class SlotPicker
     }
 
     /** Bajo los minutos: la hora que quedó (por la tarde, también como se dice: "4:20 p. m.") o qué falta tocar. */
-    private static function manualTimeHint(?string $current): string
+    private static function manualTimeHint(?string $current, mixed $date): string
     {
         $time = self::manualTimeParts($current);
 
         return match (true) {
+            $time === null && self::hourOptions(null, $date) === [] => 'Hoy ya no quedan horas por delante: elige otro día.',
             $time === null => 'Toca la hora y, si no es en punto, los minutos.',
             $time['hour'] >= 13 => "La cita empieza a las {$current} (".Dates::time($current).').',
             default => "La cita empieza a las {$current}.",
         };
     }
 
-    /** Al tocar la hora o los minutos: la hora completa. Sin minutos todavía, queda en punto; sin hora, espera. */
+    /**
+     * Al tocar la hora o los minutos: la hora completa. Sin minutos todavía, queda en punto (hoy, en la hora actual,
+     * en el primer minuto que todavía no pasó); sin hora, espera.
+     */
     private static function composeManualTime(Get $get, Set $set): void
     {
         if (blank($get('manual_hour'))) {
@@ -225,6 +367,14 @@ final class SlotPicker
 
         if (blank($get('manual_minute'))) {
             $set('manual_minute', '00');
+        }
+
+        if (self::isPast($get('date'), sprintf('%02d:%02d', (int) $get('manual_hour'), (int) $get('manual_minute')))) {
+            $ahead = self::minuteOptions(null, $get('date'), $get('manual_hour'));
+
+            if ($ahead !== []) {
+                $set('manual_minute', sprintf('%02d', array_key_first($ahead)));
+            }
         }
 
         $set('manual_time', sprintf('%02d:%02d', (int) $get('manual_hour'), (int) $get('manual_minute')));
@@ -292,7 +442,18 @@ final class SlotPicker
             return false;
         }
 
-        return CarbonImmutable::parse($get('date'))->setTimeFromTimeString($get('manual_time'))->isPast();
+        return self::isPast($get('date'), $get('manual_time'));
+    }
+
+    /** Ese día a esa hora ya quedó atrás. */
+    private static function isPast(mixed $date, mixed $time): bool
+    {
+        return filled($date) && filled($time) && CarbonImmutable::parse($date)->setTimeFromTimeString((string) $time)->isPast();
+    }
+
+    private static function isToday(mixed $date): bool
+    {
+        return filled($date) && CarbonImmutable::parse($date)->isToday();
     }
 
     /** Qué se hace: solo lo que realiza el doctor elegido (si ya hay uno). */
@@ -463,7 +624,10 @@ final class SlotPicker
         if (self::slotOptions($get, $moving) !== []) {
             $usual = self::usualVisit($get);
 
-            return ($usual !== null && $usual['period'] !== null ? $usual['label'].': esos horarios van primero. ' : '').'★ = pegado a otra cita (no deja huecos).';
+            return collect([
+                $usual !== null && $usual['period'] !== null ? $usual['label'].': esos horarios van primero.' : null,
+                self::recommendedSlots($get, $moving) !== [] ? 'Las recomendadas van pegadas a otra cita: así no quedan huecos en la agenda.' : null,
+            ])->filter()->implode(' ');
         }
 
         if (! self::canSearch($get, $moving)) {
@@ -503,16 +667,7 @@ final class SlotPicker
         $memo = 'slot-picker.next-day.'.implode('|', [$doctor->getKey(), $treatment->getKey(), $from->toDateString(), $patientId, $moving?->getKey(), self::chosenDuration($get, $moving)]);
 
         if (! request()->attributes->has($memo)) {
-            $availability = app(AvailabilityService::class)->forPatient($patientId);
-            $found = null;
-
-            for ($day = $from->addDay(); $found === null && $day->lte($from->addDays(GapFinder::SEARCH_DAYS)); $day = $day->addDay()) {
-                if ($availability->slotsFor($doctor, $treatment, $day, ignoreAppointmentId: $moving?->getKey(), durationMinutes: self::chosenDuration($get, $moving))->isNotEmpty()) {
-                    $found = $day;
-                }
-            }
-
-            request()->attributes->set($memo, $found);
+            request()->attributes->set($memo, self::firstDayWithSlots($doctor, $treatment, $from->addDay(), $patientId, self::chosenDuration($get, $moving), $moving?->getKey()));
         }
 
         return request()->attributes->get($memo);
@@ -555,28 +710,184 @@ final class SlotPicker
         }
     }
 
-    /** @return array<string, string> */
+    /** @return array<string, string> "10:00" => "10:00", los de la parte del día en que suele venir, primero. */
     private static function slotOptions(Get $get, ?Appointment $moving): array
+    {
+        return self::slots($get, $moving)->mapWithKeys(fn (Slot $slot) => [$slot->label() => $slot->label()])->all();
+    }
+
+    /** @return array<string, string> "10:00" => "Mañana", "15:30" => "Tarde" */
+    private static function slotGroups(Get $get, ?Appointment $moving): array
+    {
+        return self::slots($get, $moving)
+            ->mapWithKeys(fn (Slot $slot) => [$slot->label() => DayPeriod::Morning->includes($slot->startsAt) ? 'Mañana' : 'Tarde'])
+            ->all();
+    }
+
+    /** @return list<string> Los horarios pegados a otra cita: no dejan huecos en la agenda. */
+    private static function recommendedSlots(Get $get, ?Appointment $moving): array
+    {
+        return self::slots($get, $moving)->filter(fn (Slot $slot) => $slot->recommended)->map(fn (Slot $slot) => $slot->label())->values()->all();
+    }
+
+    /**
+     * Los horarios libres del día elegido. Los de la parte del día en que suele venir, primero.
+     *
+     * @return Collection<int, Slot>
+     */
+    private static function slots(Get $get, ?Appointment $moving): Collection
+    {
+        $usualPeriod = $moving ? null : self::usualVisit($get)['period'] ?? null;
+
+        return self::slotsOn($get, $moving, $get('date'))
+            ->sortBy(fn (Slot $slot) => $usualPeriod && ! $usualPeriod->includes($slot->startsAt) ? 1 : 0)
+            ->values();
+    }
+
+    /**
+     * Los horarios libres de un día para el tratamiento y el doctor elegidos (hoy, desde ahora). Lo piden los
+     * botones, sus grupos, el texto de abajo y la validación en el mismo pedido: se busca una sola vez.
+     *
+     * @return Collection<int, Slot>
+     */
+    private static function slotsOn(Get $get, ?Appointment $moving, mixed $date): Collection
     {
         $doctor = Doctor::find($get('doctor_id'));
         $treatment = Treatment::find($moving?->treatment_id ?? $get('treatment_id'));
-        $date = $get('date');
 
-        if (! $doctor || ! $treatment || ! $date) {
-            return [];
+        if (! $doctor || ! $treatment || blank($date)) {
+            return collect();
         }
 
         $day = CarbonImmutable::parse($date);
+        $patientId = $moving?->patient_id ?? (filled($get('patient_id')) ? (int) $get('patient_id') : null);
+        $duration = self::chosenDuration($get, $moving);
+        $memo = 'slot-picker.slots.'.implode('|', [$doctor->getKey(), $treatment->getKey(), $day->toDateString(), $patientId, $moving?->getKey(), $duration]);
 
-        $usualPeriod = $moving ? null : self::usualVisit($get)['period'] ?? null;
+        if (! request()->attributes->has($memo)) {
+            // El horario apartado para este paciente (de la lista de espera) le sirve; el de otro, no.
+            request()->attributes->set($memo, app(AvailabilityService::class)
+                ->forPatient($patientId)
+                ->slotsFor($doctor, $treatment, $day, earliest: $day->isToday() ? now() : null, ignoreAppointmentId: $moving?->getKey(), durationMinutes: $duration));
+        }
 
-        // Los de la parte del día en que suele venir, primero.
-        // El horario apartado para este paciente (de la lista de espera) le sirve; el de otro, no.
-        return app(AvailabilityService::class)
-            ->forPatient($moving?->patient_id ?? (filled($get('patient_id')) ? (int) $get('patient_id') : null))
-            ->slotsFor($doctor, $treatment, $day, earliest: $day->isToday() ? now() : null, ignoreAppointmentId: $moving?->getKey(), durationMinutes: self::chosenDuration($get, $moving))
-            ->sortBy(fn (Slot $slot) => $usualPeriod && ! $usualPeriod->includes($slot->startsAt) ? 1 : 0)
-            ->mapWithKeys(fn (Slot $slot) => [$slot->label() => $slot->label().($slot->recommended ? ' ★' : '')])
-            ->all();
+        return request()->attributes->get($memo);
+    }
+
+    /**
+     * Los botones de "Los más pedidos": los cuatro tratamientos que más se agendan (con el doctor elegido, si ya hay
+     * uno). Nada si el consultorio tiene uno solo: con la lista basta.
+     *
+     * @return array<int, string> Id => nombre
+     */
+    private static function quickTreatments(mixed $doctorId): array
+    {
+        $memo = 'slot-picker.quick.'.(int) $doctorId;
+
+        if (! request()->attributes->has($memo)) {
+            $doctorIds = filled($doctorId) ? [(int) $doctorId] : Doctor::query()->active()->pluck('id')->all();
+            $offered = Treatment::query()
+                ->active()
+                ->whereHas('doctors', fn ($doctors) => $doctors->whereKey($doctorIds))
+                ->orderBy('sort_order')
+                ->orderBy('name')
+                ->get(['id', 'name', 'sort_order']);
+            $popular = Treatment::mostBookedIds($doctorIds);
+
+            request()->attributes->set($memo, $offered->count() < 2 ? [] : $offered
+                ->sortBy(fn (Treatment $treatment) => [$popular->search($treatment->getKey()) === false ? PHP_INT_MAX : $popular->search($treatment->getKey()), $treatment->sort_order])
+                ->take(4)
+                ->mapWithKeys(fn (Treatment $treatment) => [$treatment->getKey() => $treatment->name])
+                ->all());
+        }
+
+        return request()->attributes->get($memo);
+    }
+
+    /**
+     * Si el día elegido ya no tiene horario libre (ya pasó, como a la noche, o está lleno) y no se eligió a
+     * propósito, pasa al siguiente con lugar: así no se abre en un día vacío.
+     */
+    private static function moveToDayWithSlots(Get $get, Set $set): void
+    {
+        if (filled($get('date_from_agenda')) || ! self::canSearch($get, null) || self::slotOptions($get, null) !== []) {
+            return;
+        }
+
+        if ($next = self::nextDayWithSlots($get, null)) {
+            $set('date', $next->toDateString());
+        }
+    }
+
+    /**
+     * El primer día desde $from (incluido) en que el doctor tiene un horario libre para el tratamiento, dentro de
+     * las semanas en que busca la agenda. Null si no hay ninguno.
+     */
+    public static function firstDayWithSlots(Doctor $doctor, Treatment $treatment, CarbonImmutable $from, ?int $patientId = null, ?int $duration = null, ?int $ignoreAppointmentId = null): ?CarbonImmutable
+    {
+        $availability = app(AvailabilityService::class)->forPatient($patientId);
+        $from = $from->startOfDay();
+
+        for ($day = $from; $day->lte($from->addDays(GapFinder::SEARCH_DAYS)); $day = $day->addDay()) {
+            $earliest = $day->isToday() ? now() : null;
+
+            if ($availability->slotsFor($doctor, $treatment, $day, earliest: $earliest, ignoreAppointmentId: $ignoreAppointmentId, durationMinutes: $duration)->isNotEmpty()) {
+                return $day;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * El doctor que atendió al paciente la última vez, si sigue activo y hace el tratamiento elegido. Así, con
+     * varios doctores, no hay que elegirlo cada vez.
+     */
+    public static function lastDoctorId(?Patient $patient, mixed $treatmentId = null): ?int
+    {
+        if ($patient === null) {
+            return null;
+        }
+
+        return Appointment::query()
+            ->whereBelongsTo($patient)
+            ->where('status', AppointmentStatus::Completed)
+            ->whereHas('doctor', fn ($doctor) => $doctor->active()
+                ->when(filled($treatmentId), fn ($query) => $query->whereHas('treatments', fn ($treatments) => $treatments->whereKey($treatmentId))))
+            ->latest('starts_at')
+            ->value('doctor_id');
+    }
+
+    /**
+     * Al elegir al paciente, si todavía no hay doctor, queda el que lo atendió la última vez (el doctor solo agenda
+     * con él mismo, así que esto es para recepción y administración).
+     *
+     * @return bool Si se puso el doctor.
+     */
+    public static function followLastDoctor(Get $get, Set $set): bool
+    {
+        if (filled($get('doctor_id'))) {
+            return false;
+        }
+
+        $doctorId = self::lastDoctorId(filled($get('patient_id')) ? Patient::find($get('patient_id')) : null, $get('treatment_id'));
+
+        if ($doctorId === null) {
+            return false;
+        }
+
+        $set('doctor_id', $doctorId);
+
+        return true;
+    }
+
+    /**
+     * En una cita nueva, después de cambiar el doctor desde fuera de su lista (por ejemplo, al elegir al paciente):
+     * lo mismo que al elegirlo a mano.
+     */
+    public static function refreshAfterDoctorChange(Get $get, Set $set): void
+    {
+        self::moveToDayWithSlots($get, $set);
+        $set('slot', self::suggestedSlot($get, null));
     }
 }

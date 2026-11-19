@@ -196,9 +196,16 @@ class AppointmentForm
                     ->afterStateUpdated(function (Set $set, Get $get) use ($forToday) {
                         $set('treatment_plan_item_id', null);
 
+                        // Con varios doctores, queda el que lo atendió la última vez.
+                        $doctorChanged = SlotPicker::followLastDoctor($get, $set);
+
                         // Si suele venir un mismo día, se propone el próximo, con sus horarios de siempre primero.
                         if (! $forToday) {
                             SlotPicker::followUsualDay($get, $set);
+
+                            if ($doctorChanged) {
+                                SlotPicker::refreshAfterDoctorChange($get, $set);
+                            }
                         }
                     }),
                 Grid::make(2)
