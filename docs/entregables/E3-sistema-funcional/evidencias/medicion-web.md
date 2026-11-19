@@ -1,12 +1,12 @@
 # Rendimiento y accesibilidad de la web del paciente
 
-Medido el 19/11/2026 con `node medir-web.cjs <URL> / /tratamientos/limpieza-dental /reservar /promociones/blanqueamiento-20 /mi-cuenta` (Chromium de Playwright, caché vacía, mediana de 3 cargas), sobre el commit `67ba171` y los mismos datos de `medicion-api.md`.
+Medido el 19/11/2026 con `node medir-web.cjs <URL> / /tratamientos/limpieza-dental /reservar /promociones/blanqueamiento-20 /mi-cuenta` (Chromium de Playwright, caché vacía, mediana de 3 cargas), sobre los mismos datos de `medicion-api.md`.
 
 No es Lighthouse (no estaba disponible en la máquina): son las mismas métricas de laboratorio, pero sin su puntaje. El perfil **celular** imita al de Lighthouse para móvil: pantalla de 412 × 823, red 4G lenta (150 ms de latencia y 1,6 Mbit/s de bajada) y el procesador 4 veces más lento.
 
 ## Sin compresión (servidor de desarrollo de PHP)
 
-El servidor de desarrollo no comprime: el JavaScript viaja con sus 459 KB.
+El servidor de desarrollo no comprime: el JavaScript viaja con sus 459 KB. Medido sobre el commit `67ba171`.
 
 | Página | Perfil | TTFB (ms) | FCP (ms) | LCP (ms) | CLS | TBT (ms) | Carga (ms) | Pedidos | Descarga (KB) |
 |---|---|---|---|---|---|---|---|---|---|
@@ -21,26 +21,26 @@ El servidor de desarrollo no comprime: el JavaScript viaja con sus 459 KB.
 | `/mi-cuenta` | escritorio | 46 | 136 | 140 | 0.000 | 0 | 88 | 7 | 671 |
 | `/mi-cuenta` | celular | 151 | 3512 | 3512 | 0.000 | 0 | 3365 | 7 | 671 |
 
-## Con compresión gzip, como la que hace Nginx
+## A través del Nginx de producción (`infra/nginx/proxy.conf`)
 
-Igual que arriba, pero a través de un proxy local (`proxy-gzip.py`) que comprime con gzip (nivel 5) el HTML, el CSS, el JavaScript, el JSON y el SVG: el JavaScript baja a 139 KB y el CSS a 18 KB (`npm run build`).
+Igual que arriba, pero a través de una copia local del Nginx de `vm-proxy` en Azure (`bash nginx-local.sh`: Nginx 1.24 de Ubuntu 24.04, el mismo paquete que instala `infra/cloud-init/proxy.yaml`), con su caché de `/app/assets` y la compresión que se le agregó en el E3. Sin el bloque `gzip_types`, el `gzip on` de Ubuntu solo comprime el HTML y la tabla sería la de arriba. Con él, el JavaScript baja de 459 KB a 139 KB y el CSS de 83 KB a 18 KB; el JSON de la API no se comprime (lleva datos del paciente: BREACH). Medido sobre el commit `10312b2` más ese cambio.
 
 | Página | Perfil | TTFB (ms) | FCP (ms) | LCP (ms) | CLS | TBT (ms) | Carga (ms) | Pedidos | Descarga (KB) |
 |---|---|---|---|---|---|---|---|---|---|
-| `/` | escritorio | 64 | 256 | 264 | 0.004 | 0 | 124 | 23 | 442 |
-| `/` | celular | 151 | 1796 | 1944 | 0.000 | 0 | 1515 | 13 | 333 |
-| `/tratamientos/limpieza-dental` | escritorio | 56 | 176 | 720 | 0.000 | 0 | 114 | 13 | 294 |
-| `/tratamientos/limpieza-dental` | celular | 151 | 1700 | 1848 | 0.000 | 0 | 1531 | 6 | 245 |
-| `/reservar` | escritorio | 67 | 224 | 228 | 0.000 | 0 | 146 | 10 | 303 |
-| `/reservar` | celular | 152 | 1728 | 1728 | 0.000 | 0 | 1551 | 10 | 303 |
-| `/promociones/blanqueamiento-20` | escritorio | 69 | 188 | 188 | 0.000 | 0 | 128 | 6 | 243 |
-| `/promociones/blanqueamiento-20` | celular | 152 | 1680 | 1680 | 0.000 | 0 | 1549 | 6 | 243 |
-| `/mi-cuenta` | escritorio | 53 | 180 | 184 | 0.000 | 0 | 116 | 7 | 284 |
-| `/mi-cuenta` | celular | 151 | 1660 | 1660 | 0.000 | 0 | 1513 | 7 | 284 |
+| `/` | escritorio | 65 | 216 | 256 | 0.004 | 0 | 107 | 23 | 442 |
+| `/` | celular | 151 | 1820 | 1924 | 0.000 | 0 | 1516 | 13 | 333 |
+| `/tratamientos/limpieza-dental` | escritorio | 58 | 164 | 696 | 0.000 | 0 | 108 | 13 | 294 |
+| `/tratamientos/limpieza-dental` | celular | 152 | 1760 | 1872 | 0.000 | 0 | 1530 | 6 | 245 |
+| `/reservar` | escritorio | 50 | 148 | 156 | 0.000 | 0 | 94 | 10 | 303 |
+| `/reservar` | celular | 151 | 1684 | 1684 | 0.000 | 0 | 1537 | 10 | 303 |
+| `/promociones/blanqueamiento-20` | escritorio | 52 | 140 | 140 | 0.000 | 0 | 93 | 6 | 243 |
+| `/promociones/blanqueamiento-20` | celular | 151 | 1652 | 1652 | 0.000 | 0 | 1523 | 6 | 243 |
+| `/mi-cuenta` | escritorio | 47 | 144 | 144 | 0.000 | 0 | 96 | 7 | 284 |
+| `/mi-cuenta` | celular | 151 | 1700 | 1700 | 0.000 | 0 | 1550 | 7 | 284 |
 
-Umbrales de Google para una buena experiencia: LCP hasta 2 500 ms, CLS hasta 0,1 y TBT hasta 200 ms. Con compresión, las cinco páginas los cumplen en el perfil de celular (LCP de 1 660 a 1 944 ms, CLS 0 y TBT 0); sin compresión, el LCP sube a unos 3 500 ms por el peso del JavaScript.
+Umbrales de Google para una buena experiencia: LCP hasta 2 500 ms, CLS hasta 0,1 y TBT hasta 200 ms. A través del Nginx de producción, las cinco páginas los cumplen en el perfil de celular (LCP de 1 652 a 1 924 ms, CLS 0 y TBT 0); sin la compresión de JavaScript y CSS, el LCP sube a unos 3 500 ms.
 
-## Accesibilidad (revisión automática parcial, perfil celular, con compresión)
+## Accesibilidad (revisión automática parcial, perfil celular, a través del Nginx de producción)
 
 Accesibilidad de `/` (contraste de 66 textos; 65 sobre imagen o degradado, sin revisar): sin observaciones.
 Accesibilidad de `/tratamientos/limpieza-dental` (contraste de 84 textos; 22 sobre imagen o degradado, sin revisar): sin observaciones.
