@@ -180,6 +180,8 @@ class AccountController extends Controller
     {
         $this->authorizeAppointment($request, $appointment);
 
+        $request->validate(['reason' => ['nullable', 'string']]);
+
         try {
             $this->appointments->cancelByPatient($appointment, $request->string('reason')->limit(250)->toString() ?: null);
         } catch (BookingException $e) {

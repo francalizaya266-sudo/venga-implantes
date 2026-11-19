@@ -143,4 +143,13 @@ describe('post', () => {
       first_name: 'Escribe tus nombres.',
     });
   });
+
+  it('never shows an empty message when the API answers without one', async () => {
+    mockApi({ 'POST /api/v1/account/logout': { status: 403, body: { message: '' } } });
+
+    const error = await post(apiUrl('account/logout')).catch((problem: unknown) => problem);
+
+    expect(error).toBeInstanceOf(ApiError);
+    expect((error as ApiError).message).toBe('La petición falló (403).');
+  });
 });

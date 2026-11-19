@@ -1,11 +1,15 @@
 <?php
 
 use App\Http\Middleware\SecurityHeaders;
+use App\Support\ApiErrorMessage;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Exceptions\HttpResponseException;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use Symfony\Component\HttpFoundation\Response;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -27,4 +31,16 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
         );
+
+        // La web muestra el "message" de la API tal cual: los errores que arma Laravel (404, 429, 500…) salen en
+        // español y sin nombres de clases. Una respuesta que el código armó a propósito se deja como está.
+        $exceptions->respond(function (Response $response, Throwable $e, Request $request): Response {
+            $message = ApiErrorMessage::forStatus($response->getStatusCode());
+
+            if ($message === null || ! $request->is('api/*') || ! $response instanceof JsonResponse || $e instanceof HttpResponseException) {
+                return $response;
+            }
+
+            return $response->setData([...(array) $response->getData(true), 'message' => $message]);
+        });
     })->create();

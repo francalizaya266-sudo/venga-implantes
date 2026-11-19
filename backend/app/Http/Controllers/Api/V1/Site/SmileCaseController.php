@@ -19,6 +19,8 @@ class SmileCaseController extends Controller
      */
     public function __invoke(Request $request, StructuredData $structuredData, PageMeta $meta): array
     {
+        $request->validate(['tratamiento' => ['nullable', 'string']]);
+
         $treatments = Treatment::query()->whereHas('smileCases', fn (Builder $query) => $query->published())->orderBy('sort_order')->get();
         $selected = $treatments->firstWhere('slug', (string) $request->query('tratamiento'));
 
