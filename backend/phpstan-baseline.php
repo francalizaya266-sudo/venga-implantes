@@ -4836,16 +4836,6 @@ $ignoreErrors[] = [
     'path' => __DIR__.'/app/Models/MagicLink.php',
 ];
 $ignoreErrors[] = [
-    'rawMessage' => 'Method App\\Models\\MagicLink::prunable() has invalid return type App\\Models\\Builder.',
-    'count' => 1,
-    'path' => __DIR__.'/app/Models/MagicLink.php',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Method App\\Models\\MagicLink::prunable() should return App\\Models\\Builder but returns Illuminate\\Database\\Eloquent\\Builder<static(App\\Models\\MagicLink)>.',
-    'count' => 1,
-    'path' => __DIR__.'/app/Models/MagicLink.php',
-];
-$ignoreErrors[] = [
     'rawMessage' => 'Access to an undefined property App\\Models\\Patient::$age.',
     'count' => 3,
     'path' => __DIR__.'/app/Models/Patient.php',
