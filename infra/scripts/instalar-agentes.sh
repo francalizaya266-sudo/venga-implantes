@@ -12,12 +12,33 @@ set -euo pipefail
 AGENT_NAME="${AGENT_NAME:-$(hostname)}"
 WAZUH_MAJOR="${WAZUH_MAJOR:-4.x}"
 
-echo "==> Agente de Wazuh ($AGENT_NAME -> $WAZUH_MANAGER)"
+# El agente no puede ser más nuevo que el servidor (vm-wazuh tiene la 4.12.0): se fija la misma versión.
+WAZUH_AGENT_VERSION="${WAZUH_AGENT_VERSION:-4.12.0-1}"
+
+# En vm-wazuh no: el agente y el servidor son paquetes incompatibles y el agente desinstalaría al servidor.
+# El servidor ya se vigila a sí mismo (agente 000).
+if dpkg -s wazuh-manager >/dev/null 2>&1; then
+  echo "Esta VM es el servidor de Wazuh: no se instala el agente."
+  exit 0
+fi
+
+echo "==> Agente de Wazuh $WAZUH_AGENT_VERSION ($AGENT_NAME -> $WAZUH_MANAGER)"
 curl -s https://packages.wazuh.com/key/GPG-KEY-WAZUH | gpg --no-default-keyring --keyring gnupg-ring:/usr/share/keyrings/wazuh.gpg --import
 chmod 644 /usr/share/keyrings/wazuh.gpg
 echo "deb [signed-by=/usr/share/keyrings/wazuh.gpg] https://packages.wazuh.com/${WAZUH_MAJOR}/apt/ stable main" > /etc/apt/sources.list.d/wazuh.list
 apt-get update -q
-WAZUH_MANAGER="$WAZUH_MANAGER" WAZUH_AGENT_NAME="$AGENT_NAME" apt-get install -y wazuh-agent
+# Un agente de otra versión se quita del todo: bajar de versión deja a dpkg preguntando por archivos de configuración.
+instalada="$(dpkg-query -W -f='${Version}' wazuh-agent 2>/dev/null || true)"
+if [ -n "$instalada" ] && [ "$instalada" != "$WAZUH_AGENT_VERSION" ]; then
+  apt-mark unhold wazuh-agent >/dev/null 2>&1 || true
+  systemctl stop wazuh-agent 2>/dev/null || true
+  dpkg --purge --force-all wazuh-agent >/dev/null 2>&1 || true
+  rm -rf /var/ossec
+fi
+WAZUH_MANAGER="$WAZUH_MANAGER" WAZUH_AGENT_NAME="$AGENT_NAME" DEBIAN_FRONTEND=noninteractive   apt-get install -y --allow-downgrades -o Dpkg::Options::=--force-confnew "wazuh-agent=$WAZUH_AGENT_VERSION"
+apt-mark hold wazuh-agent >/dev/null
+# Si ya había un agente, deja apuntado el servidor correcto.
+sed -i "s#<address>.*</address>#<address>${WAZUH_MANAGER}</address>#" /var/ossec/etc/ossec.conf
 
 # Logs propios del proyecto que Wazuh debe leer, si existen en esta VM.
 add_log() {
@@ -38,7 +59,8 @@ if [ -f /etc/nftables.conf ]; then
 fi
 
 systemctl daemon-reload
-systemctl enable --now wazuh-agent
+systemctl enable wazuh-agent
+systemctl restart wazuh-agent
 
 if [ -n "${DD_API_KEY:-}" ]; then
   echo "==> Agente de Datadog"

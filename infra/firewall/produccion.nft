@@ -7,6 +7,8 @@ flush ruleset
 
 define WAN = "eth0"
 define LAN = "eth1"
+# IP privada de la WAN: el NAT de destino solo aplica a lo que llega a esta IP, no a lo que entra por la VPN.
+define WAN_IP = 10.20.0.4
 define PROXY = 10.20.3.4
 define APP = 10.20.4.4
 define DMZ = 10.20.3.0/24
@@ -27,7 +29,7 @@ table inet filtro {
         icmp type echo-request limit rate 5/second accept
         # IKE y NAT-T de la VPN con la sede.
         udp dport { 500, 4500 } accept
-        # SSH del propio firewall: el NSG solo deja llegar a las IP de administración; por la VPN, el jump host.
+        # SSH del propio firewall: el NSG solo deja llegar a las IP de administración; por la VPN, la sede.
         tcp dport 2200 accept
         ip saddr $SEDE_MGMT tcp dport 22 accept
         log prefix "fw-entrada-bloqueo " level info drop
@@ -41,8 +43,8 @@ table inet filtro {
         # Internet -> proxy de la DMZ (después del NAT de destino).
         iifname $WAN ip daddr $PROXY tcp dport { 80, 443 } accept
 
-        # SSH de instalación, antes de la VPN (el NSG lo limita a las IP de administración).
-        iifname $WAN ip daddr { $PROXY, $APP } tcp dport 22 accept
+        # vm-app y vm-proxy no tienen SSH desde internet: se administran por la VPN (desde el firewall de la sede)
+        # o con "az vm run-command", sin abrir puertos.
 
         # El proxy es el único que llega a la aplicación.
         ip saddr $PROXY ip daddr $APP tcp dport 80 accept
@@ -51,8 +53,8 @@ table inet filtro {
         ip saddr $SEDE ip daddr $PROXY tcp dport { 80, 443 } accept
         ip saddr $SEDE_MGMT ip daddr { $PROXY, $APP } tcp dport 22 accept
 
-        # De la aplicación a la sede: logs al SIEM y copia horaria al respaldo.
-        ip saddr $APP ip daddr $WAZUH tcp dport { 1514, 1515 } accept
+        # De la aplicación y el proxy a la sede: logs al SIEM; la app, además, la copia horaria.
+        ip saddr { $APP, $PROXY } ip daddr $WAZUH tcp dport { 1514, 1515 } accept
         ip saddr $APP ip daddr $RESPALDO tcp dport 22 accept
 
         # Salida a internet de la DMZ y la aplicación: actualizaciones, Key Vault, Blob, WhatsApp, correo (587).
@@ -67,9 +69,7 @@ table inet filtro {
 table ip nat {
     chain destino {
         type nat hook prerouting priority dstnat;
-        iifname $WAN tcp dport { 80, 443 } dnat to $PROXY
-        iifname $WAN tcp dport 2222 dnat to $APP:22
-        iifname $WAN tcp dport 2223 dnat to $PROXY:22
+        iifname $WAN ip daddr $WAN_IP tcp dport { 80, 443 } dnat to $PROXY
     }
 
     chain origen {

@@ -168,9 +168,10 @@ Host vega-*
   IdentityFile ~/.ssh/vega
 ```
 
-`vega-app` y `vega-proxy` pasan por el firewall de la sede y la VPN. Antes de la VPN, se entra directo por el
-firewall de producción: `ssh -p 2222 vegaadmin@IP_FIREWALL_PRODUCCION` (vm-app) y `-p 2223` (vm-proxy).
-Cuando la VPN funciona, cierra esos accesos: `SETUP_SSH=false` en `entorno.env` y `bash infra/desplegar.sh produccion`.
+`vega-app` y `vega-proxy` pasan por el firewall de la sede y la VPN: no tienen SSH desde internet. Sin SSH, cualquier
+VM se administra con `az vm run-command invoke -g GRUPO -n VM --command-id RunShellScript --scripts "..."`, que es como
+`desplegar.sh` hace la VPN, las reglas y los usuarios de MySQL. En Git Bash de Windows, antepón `MSYS_NO_PATHCONV=1`
+para que no cambie las rutas que empiezan por `/`.
 
 Para usar el panel como si estuvieras en la clínica: `ssh -D 1080 vega-recepcion`, configura el navegador con el
 proxy SOCKS5 `127.0.0.1:1080` (resolviendo el DNS por el proxy) y abre `https://tu-dominio/panel`.

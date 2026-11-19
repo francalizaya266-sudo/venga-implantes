@@ -149,8 +149,8 @@ func ruleFrom(name string, priority int, sources array, ports array) object => {
 var adminIps = filter(map(split(adminSourceIps, ','), ip => trim(ip)), ip => !empty(ip))
 
 var adminWanRules = empty(adminIps) ? [] : [
-  // 2200: SSH del firewall. 2222 y 2223: SSH a vm-app y vm-proxy mientras no existe la VPN.
-  ruleFrom('Permitir-Admin', 120, adminIps, ['2200', '2222', '2223'])
+  // 2200: SSH del firewall. vm-app y vm-proxy se administran por la VPN o con az vm run-command.
+  ruleFrom('Permitir-Admin', 120, adminIps, ['2200'])
 ]
 
 var adminSshRules = (!allowSetupSsh || empty(adminIps)) ? [] : [
