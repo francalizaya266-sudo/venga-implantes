@@ -309,7 +309,7 @@ class LabOrderResource extends Resource
                     ->actions($next || ! $canBook ? [] : [
                         Action::make('book')->label('Agendar cita')->button()->url(self::bookUrl($record)),
                     ])
-                    ->persistent($next === null && $canBook)
+                    ->persistent()
                     ->send();
             });
     }

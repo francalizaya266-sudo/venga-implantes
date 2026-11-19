@@ -1,12 +1,13 @@
 %%{init: {"flowchart": {"nodeSpacing": 18, "rankSpacing": 30, "padding": 8, "subGraphTitleMargin": {"top": 4, "bottom": 22}, "wrappingWidth": 500}}}%%
 flowchart TB
   subgraph ci["Integración continua"]
-    direction LR
+    direction TB
     dev(["Pull request<br/>con plantilla<br/>de revisión"])
-    be["<b>Backend</b><br/>Pint · 1 096 pruebas<br/>cobertura pcov ≥ 90 %"]
+    be["<b>Backend</b><br/>Pint · 1 097 pruebas<br/>cobertura pcov ≥ 90 %"]
+    an["<b>Análisis estático</b><br/>Larastan nivel 5<br/>sin avisos nuevos"]
     my["<b>MySQL 8</b><br/>objetos SQL · suite<br/>copia y restauración"]
-    fe["<b>Frontend</b><br/>Prettier · ESLint · tsc<br/>141 pruebas · build"]
-    dev --> be & my & fe
+    fe["<b>Frontend</b><br/>Prettier · ESLint · tsc<br/>141 pruebas · cobertura ≥ 85 %"]
+    dev --> be & an & my & fe
   end
   subgraph cdd["Despliegue y operación"]
     direction LR

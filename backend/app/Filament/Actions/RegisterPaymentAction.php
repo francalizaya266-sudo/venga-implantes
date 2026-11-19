@@ -134,7 +134,8 @@ final class RegisterPaymentAction
                     ->button()
                     ->color(($next['url'] ?? null) ? 'gray' : 'primary'),
             ])))
-            ->persistent(($next['url'] ?? null) !== null)
+            // Se queda en pantalla con la constancia a mano mientras el paciente sigue en el mostrador.
+            ->persistent()
             ->send();
     }
 

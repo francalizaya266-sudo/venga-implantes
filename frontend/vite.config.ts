@@ -40,5 +40,15 @@ export default defineConfig({
     setupFiles: ['src/test/setup.ts'],
     css: false,
     restoreMocks: true,
+    // "npm run test:coverage" (y la CI) mide qué líneas de src/ recorren las pruebas, sin contar las propias pruebas.
+    coverage: {
+      provider: 'v8',
+      include: ['src/**/*.{ts,tsx}'],
+      exclude: ['src/test/**', 'src/**/*.test.{ts,tsx}', 'src/**/*.d.ts'],
+      reporter: ['text', 'html', 'json-summary'],
+      // Medido el 19/11/2026: 90,5 % de las líneas y 77,4 % de las ramas. El mínimo deja unos cinco puntos de
+      // margen, como el 90 % del backend, y avisa si llega una pantalla nueva sin pruebas.
+      thresholds: { lines: 85, statements: 85, functions: 85, branches: 70 },
+    },
   },
 });

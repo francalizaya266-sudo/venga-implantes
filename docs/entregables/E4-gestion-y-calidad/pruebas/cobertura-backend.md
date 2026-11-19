@@ -1,14 +1,14 @@
 # Cobertura del backend (pcov)
 
-Suite completa sobre la rama del E4 el 19/11/2026: 1 096 pruebas y 10 548 verificaciones en verde, 400 s con cobertura (`php artisan test --coverage-clover`). Líneas: **96,06 %** (23 343 de 24 301). Métodos: 85,73 % (2 511 de 2 929). Es la misma tabla que la CI escribe en el resumen del job "Backend" y el reporte HTML completo queda como artefacto `cobertura-backend`.
+Suite completa sobre la rama del E4 el 19/11/2026: 1 097 pruebas y 10 555 verificaciones en verde, 386 s con cobertura (`php artisan test --coverage-clover`). Líneas: **96,10 %** (23 354 de 24 302). Métodos: 85,83 % (2 514 de 2 929). Es la misma tabla que la CI escribe en el resumen del job "Backend" y el reporte HTML completo queda como artefacto `cobertura-backend`.
 
 | Carpeta | Líneas | Cubiertas | % |
 | --- | ---: | ---: | ---: |
 | `app/Filament/Resources` | 8 533 | 8 151 | 95,5 |
 | `app/Filament/Pages` | 1 686 | 1 671 | 99,1 |
-| `app/Filament/Actions` | 1 476 | 1 447 | 98,0 |
+| `app/Filament/Actions` | 1 477 | 1 448 | 98,0 |
 | `app/Services/Clinical` | 1 371 | 1 319 | 96,2 |
-| `app/Models` | 1 196 | 1 133 | 94,7 |
+| `app/Models` | 1 196 | 1 143 | 95,6 |
 | `app/Filament/Widgets` | 1 125 | 1 112 | 98,8 |
 | `app/Filament/Support` | 1 115 | 1 097 | 98,4 |
 | `app/Http/Controllers` | 1 053 | 1 045 | 99,2 |

@@ -70,6 +70,8 @@ class NextVisitAtCheckoutTest extends TestCase
 
         $this->assertStringContainsString('Su próxima cita: jueves 5 de noviembre, 10:00 a. m. · Limpieza dental.', $notice['body']);
         $this->assertSame(['Ver constancia'], array_column($notice['actions'], 'label'));
+        // Sin nada que agendar, igual queda en pantalla: la constancia sigue a mano.
+        $this->assertSame('persistent', $notice['duration']);
 
         // Se atendió hoy, no tiene plan ni otra cita: se le ofrece su control.
         $done = $this->patientOwing('Ana', 'Flores');
