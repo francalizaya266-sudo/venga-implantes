@@ -333,7 +333,8 @@ var vms = [
     name: 'vm-wazuh'
     subnet: 'snet-servidores'
     ip: wazuhIp
-    size: 'Standard_B2s'
+    // Wazuh necesita 4 GiB.
+    size: 'Standard_B2als_v2'
     disk: 64
     cloudInit: loadTextContent('../../cloud-init/wazuh.yaml')
   }
@@ -341,7 +342,7 @@ var vms = [
     name: 'vm-respaldo'
     subnet: 'snet-servidores'
     ip: '10.10.50.20'
-    size: 'Standard_B1s'
+    size: 'Standard_B2ats_v2'
     disk: 64
     cloudInit: loadTextContent('../../cloud-init/respaldo.yaml')
   }
@@ -349,7 +350,7 @@ var vms = [
     name: 'vm-honeypot'
     subnet: 'snet-dmz'
     ip: '10.10.60.10'
-    size: 'Standard_B1s'
+    size: 'Standard_B2ats_v2'
     disk: 30
     cloudInit: loadTextContent('../../cloud-init/honeypot.yaml')
   }
@@ -357,7 +358,7 @@ var vms = [
     name: 'vm-jump'
     subnet: 'snet-mgmt'
     ip: '10.10.10.20'
-    size: 'Standard_B1s'
+    size: 'Standard_B2ats_v2'
     disk: 30
     cloudInit: loadTextContent('../../cloud-init/base.yaml')
   }
@@ -365,7 +366,7 @@ var vms = [
     name: 'vm-recepcion'
     subnet: 'snet-personal'
     ip: '10.10.30.10'
-    size: 'Standard_B1s'
+    size: 'Standard_B2ats_v2'
     disk: 30
     cloudInit: loadTextContent('../../cloud-init/base.yaml')
   }

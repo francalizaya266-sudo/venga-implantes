@@ -4,7 +4,8 @@
 #
 #   bash infra/desplegar.sh <orden>
 #
-#   preparar          Revisa la sesión, compila las plantillas, crea la llave SSH y los grupos de recursos.
+#   preparar          Revisa la sesión, compila las plantillas, registra los servicios de Azure, muestra la
+#                     cuota de vCPU y crea la llave SSH y los grupos de recursos.
 #   produccion red    Producción, primera pasada: red, MySQL, Key Vault, Blob, alertas, identidad de GitHub.
 #   secretos          Crea en Key Vault las claves que falten (app y los 4 usuarios de MySQL).
 #   produccion vms    Producción, segunda pasada: vm-proxy y vm-app (con OPNsense ya instalado).
@@ -29,6 +30,8 @@ source "$ENTORNO"
 
 : "${REGION:?}" "${SUB_PROD:?}" "${SUB_SEDE:?}" "${RG_PROD:?}" "${RG_SEDE:?}"
 LLAVE="$HOME/.ssh/vega"
+PROVEEDORES=(Microsoft.CloudShell Microsoft.Compute Microsoft.Network Microsoft.Storage Microsoft.KeyVault
+  Microsoft.DBforMySQL Microsoft.OperationalInsights Microsoft.Insights Microsoft.ManagedIdentity Microsoft.DevTestLab)
 
 paso() { printf '\n==> %s\n' "$*"; }
 
@@ -147,6 +150,22 @@ case "$orden" in
       mkdir -p "$HOME/.ssh"
       ssh-keygen -t ed25519 -C "vega-implant" -f "$LLAVE" -N ""
     fi
+    for sub in "$SUB_PROD" "$SUB_SEDE"; do
+      usar "$sub"
+      paso "Servicios de Azure en \"$sub\" (las suscripciones de estudiante no los traen registrados)"
+      for proveedor in "${PROVEEDORES[@]}"; do
+        az provider register -n "$proveedor" --wait=false -o none
+      done
+      for proveedor in "${PROVEEDORES[@]}"; do
+        until [ "$(az provider show -n "$proveedor" --query registrationState -o tsv)" = "Registered" ]; do
+          echo "  esperando $proveedor..."
+          sleep 15
+        done
+      done
+      echo "  Todos registrados."
+      paso "Cuota de vCPU en $REGION (cada VM de la serie B v2 usa 2)"
+      az vm list-usage -l "$REGION" --query "[?contains(name.value,'BSv2') || contains(name.value,'BASv2') || name.value=='cores'].{cuota:localName, usados:currentValue, limite:limit}" -o table
+    done
     paso "Grupos de recursos"
     usar "$SUB_PROD"; az group create -n "$RG_PROD" -l "$REGION" -o none
     usar "$SUB_SEDE"; az group create -n "$RG_SEDE" -l "$REGION" -o none

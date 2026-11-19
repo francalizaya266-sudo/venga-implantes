@@ -1,6 +1,6 @@
 // Alerta de presupuesto de la suscripción: avisa por correo al 50 % y al 80 % del monto mensual.
 //
-//   az deployment sub create -l brazilsouth -f infra/azure/presupuesto.bicep \
+//   az deployment sub create -l chilecentral -f infra/azure/presupuesto.bicep \
 //     -p alertEmail='correo-del-equipo@...' startDate='2026-12-01'
 //
 // Si tu tipo de suscripción no admite presupuestos, el saldo del crédito se revisa en
