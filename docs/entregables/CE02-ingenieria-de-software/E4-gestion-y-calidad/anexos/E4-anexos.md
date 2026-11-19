@@ -786,8 +786,8 @@ Este anexo guarda la evidencia de que el entregable se sustentó ante el docente
 
 | Campo | Registro |
 | --- | --- |
-| Fecha y hora | `[PENDIENTE – estudiante]` |
-| Docente evaluador | `[PENDIENTE – estudiante]` |
+| Fecha y hora | |
+| Docente evaluador | |
 | Integrantes que sustentaron y parte que expuso cada uno | `[PENDIENTE – estudiante]` |
 | Demostración en vivo (CI de un PR, publicación y vuelta atrás, vigilancia de `/up`) | `[PENDIENTE – estudiante]` |
 | Preguntas del docente y respuesta resumida | `[PENDIENTE – estudiante]` |

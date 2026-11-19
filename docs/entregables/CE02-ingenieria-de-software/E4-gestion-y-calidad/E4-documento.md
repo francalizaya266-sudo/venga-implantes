@@ -12,7 +12,7 @@
 
 **Aseguramiento y auditoría.** La matriz ISO/IEC 25010 tiene 16 métricas con meta y valor medido. Hay seis instrumentos de aseguramiento, entre ellos una plantilla de PR nueva con nueve puntos de revisión. Se midieron 2 935 métodos: la complejidad ciclomática media es de 2,87, y 102 métodos pasan de 10. Se hicieron cinco refactorizaciones reales, una de ellas en este entregable, que baja la reserva web de complejidad 31 a 15. Larastan, nuevo en la CI, encontró tres fallas que nadie había notado, ya corregidas con su prueba. La autoevaluación CMMI (SCAMPI C, no oficial) ubica al proceso en el **nivel 1 con prácticas de nivel 2 y 3 en marcha**: la ingeniería y la gestión de configuración son fuertes, y la planificación y la medición, débiles. El plan de mejora tiene once acciones con responsable y fecha, y dos ya están cumplidas (sección 4).
 
-**Lo que falta para cerrar.** La primera publicación en verde y las capturas de producción, que dependen de encender Azure (sección 2.3). También faltan el rol de Joselyn y la sustentación.
+**Lo que falta para cerrar.** La primera publicación en verde y las capturas de producción, que dependen de encender Azure (sección 2.3). También falta la sustentación.
 
 # Pruebas
 
@@ -195,7 +195,7 @@ El Charter se escribió al cierre, con lo que el proyecto ya había decidido y r
 | Alcance | 87 requerimientos funcionales en 13 módulos, 17 no funcionales y 12 historias de usuario (E1). Web del paciente, panel del personal, API `/api/v1` e integración con WhatsApp, RENIEC y Nager.Date. |
 | Fuera del alcance | La app móvil y el servicio de IA, descartados el 19/11/2026. Tampoco hay pasarela de pagos ni facturación electrónica: se cobra en el consultorio (ADR-09). |
 | Equipo | Fran Franklin Calizaya Apaza, Jhoel Hairton Apaza Quispe y Joselyn Yucra Mamani (roles en la sección 3.4) |
-| Plazo | Del 22/10/2026 (primer PR) a la sustentación del E4 `[PENDIENTE – estudiante: fecha]` |
+| Plazo | Del 22/10/2026 (primer PR) a la sustentación del E4 |
 | Presupuesto | Crédito de Azure for Students de 100 USD por integrante, con alertas al 50 % y al 80 % de 40 USD al mes. El software es libre y sin licencias. |
 
 La EDT (figura 3) parte el trabajo en seis entregas. Cuatro de ellas son los entregables E1 a E4, y cada paquete tiene su evidencia en el repositorio.
@@ -289,7 +289,7 @@ Se eligió **Scrum adaptado** como marco principal, por cuatro razones. El equip
 | Ciclo de vida | Sprints de duración fija, sin fases | Cuatro fases con un hito cada una: objetivos (Inicio), arquitectura (Elaboración), capacidad operativa (Construcción) y entrega (Transición) | Sprints semanales, con las fases de OpenUP como hitos. Inicio: diagnóstico de la FASE 0. Elaboración: E1 (C4 y 14 ADR) y E2. Construcción: S1 a S3. Transición: S4 (Azure, E3 y E4) |
 | Iteración | De 1 a 4 semanas, con un incremento usable | Varias iteraciones por fase, de 2 a 6 semanas | 1 semana, y cada PR deja `main` lista para publicar |
 | Disciplinas | No las define | Requisitos, Arquitectura, Desarrollo, Prueba, Despliegue, Gestión de configuración y cambio, y Gestión del proyecto | Todas tienen artefacto: SRS y HU (E1), C4 y ADR (E1), PR con pruebas, workflows, git con ramas y PR, y este Charter |
-| Roles | Product Owner, Scrum Master y equipo de desarrollo | Stakeholder, analista, arquitecto, desarrollador, tester y jefe de proyecto | Fran: Product Owner y desarrollador, revisa e integra los PR. Jhoel: infraestructura y despliegue. Joselyn: `[PENDIENTE – estudiante: rol]`. Dr. Vega: stakeholder. El asistente de IA fue una herramienta del desarrollador, no un rol |
+| Roles | Product Owner, Scrum Master y equipo de desarrollo | Stakeholder, analista, arquitecto, desarrollador, tester y jefe de proyecto | Fran: Product Owner y desarrollador, revisa e integra los PR. Jhoel: infraestructura y despliegue. Joselyn: equipo de desarrollo, a cargo de la validación con la clínica (plan de mejora, acción 3). Dr. Vega: stakeholder. El asistente de IA fue una herramienta del desarrollador, no un rol |
 | Artefactos | Product Backlog, Sprint Backlog e incremento | Visión, lista de ítems de trabajo, arquitectura, casos de prueba y plan de iteración | El backlog son los RF y las HU del E1; la arquitectura, la sección 3 del E1; los casos de prueba, las suites; el plan de iteración, el objetivo del sprint |
 | Riesgos | Implícitos en la inspección y adaptación | Explícitos: los riesgos guían el orden del trabajo | Registro de riesgos (tabla 9) y ADR para cada decisión con alternativas |
 

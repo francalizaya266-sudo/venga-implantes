@@ -149,9 +149,9 @@ Según `docs/anexos/estandar-topics-repositorios.md` de `upeuoficial/planb` (sol
 - `linea-software`
 - `tipo-epe`
 - `seccion-gu`
-- `grupo-<número>-<nombre-del-proyecto>`: [PENDIENTE – estudiante: número de grupo y nombre corto del proyecto]
+- `grupo-<número>-<nombre-del-proyecto>`, cuando se asigne el número de grupo
 
-El estándar permite agregar los cursos que participan (por ejemplo `req`, `ads`, `bd1`, `bd2`, `lp1`, `lp2`, `is1`, `is2`, `pds`); el ejemplo oficial de EPE no los incluye. `[PENDIENTE – estudiante: confirmar si se agregan]`. Los topics se configuran en GitHub (Settings del repositorio → About → Topics) y se aplican cuando el estudiante confirme la sección y el grupo.
+El estándar permite agregar los cursos que participan (por ejemplo `req`, `ads`, `bd1`, `bd2`, `lp1`, `lp2`, `is1`, `is2`, `pds`); el ejemplo oficial de EPE no los incluye, y aquí tampoco se agregan. Los topics se configuran en GitHub (Settings del repositorio → About → Topics).
 
 ## Decisiones del estudiante (sección 7 del prompt)
 
@@ -170,7 +170,6 @@ Cambios del 19/11/2026:
 
 ## Lista de `[PENDIENTE]`
 
-- `[PENDIENTE – estudiante]` Número de grupo y nombre corto del proyecto (`grupo-n-nombre`); la sección es `gu`.
 - `[PENDIENTE – estudiante]` URL del despliegue en Azure, cuando exista.
 - `[PENDIENTE – estudiante]` Validación con el Dr. Vega y recepción (actas y firmas, en FASE 1).
 - `[PENDIENTE – Jhoel]` Evidencia de producción del E4: publicación y vuelta atrás en verde, una corrida de "Vigilar producción", alertas de Azure Monitor y Wazuh (capturas).

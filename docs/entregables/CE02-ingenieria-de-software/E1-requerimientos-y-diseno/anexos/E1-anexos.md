@@ -168,7 +168,7 @@ Cálculo: en las afirmaciones impares se resta 1 a la respuesta; en las pares, l
 | Nombre | Rol en la validación |
 | --- | --- |
 | Dr. Jassmanny Neil Vega Jaen (COP 29668) | Administrador y odontólogo de la clínica |
-| `[PENDIENTE – estudiante: nombre de la recepcionista]` | Recepción |
+| Recepcionista de la clínica | Recepción |
 | Fran Franklin Calizaya Apaza | Equipo de desarrollo (conduce la sesión) |
 | Jhoel Hairton Apaza Quispe | Equipo de desarrollo (anota tiempos y errores) |
 | Joselyn Yucra Mamani | Equipo de desarrollo (anota observaciones) |
@@ -398,8 +398,8 @@ Este anexo guarda la evidencia de que el entregable se sustentó ante el docente
 
 | Campo | Registro |
 | --- | --- |
-| Fecha y hora | `[PENDIENTE – estudiante]` |
-| Docente evaluador | `[PENDIENTE – estudiante]` |
+| Fecha y hora | |
+| Docente evaluador | |
 | Modalidad (presencial o virtual) | `[PENDIENTE – estudiante]` |
 | Integrantes que sustentaron y parte que expuso cada uno | `[PENDIENTE – estudiante]` |
 | Enlace a la grabación o a las diapositivas | `[PENDIENTE – estudiante]` |
