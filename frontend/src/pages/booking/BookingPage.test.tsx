@@ -35,7 +35,7 @@ const summary = () => within(screen.getByRole('complementary', { name: 'Resumen 
 
 describe('BookingPage', () => {
   it('books an appointment in three steps', async () => {
-    const calls = bookingApi({}, { [BOOK]: { data: bookedAppointment() } });
+    const calls = bookingApi({}, { [BOOK]: { status: 201, body: { data: bookedAppointment() } } });
     const { user, router } = renderApp('/reservar');
 
     await step('¿Qué necesitas?');
@@ -133,7 +133,12 @@ describe('BookingPage', () => {
   it('goes back to choose another time when the chosen one was just taken', async () => {
     const calls = bookingApi(
       {},
-      { [BOOK]: { status: 409, body: { code: 'slot_taken', message: 'Ese horario se acaba de ocupar. Elige otro.' } } },
+      {
+        [BOOK]: {
+          status: 409,
+          body: { code: 'slot_taken', message: 'Ese horario se acaba de ocupar. Por favor elige otro.' },
+        },
+      },
     );
     const { user, router } = renderApp(DETAILS);
 
@@ -141,7 +146,7 @@ describe('BookingPage', () => {
     await user.click(screen.getByRole('button', { name: 'Reservar cita' }));
 
     await step('Elige día y hora');
-    expect(screen.getByRole('alert')).toHaveTextContent('Ese horario se acaba de ocupar. Elige otro.');
+    expect(screen.getByRole('alert')).toHaveTextContent('Ese horario se acaba de ocupar. Por favor elige otro.');
     expect(router.state.location.search).toBe('?tratamiento=limpieza-dental');
     // Los horarios se piden de nuevo: el que se ocupó ya no debe ofrecerse.
     await waitFor(() => expect(calls.filter((call) => call.url === DAYS)).toHaveLength(2));
@@ -352,7 +357,7 @@ describe('BookingPage', () => {
   it('from a remembered phone it asks who the appointment is for, not the number', async () => {
     const calls = bookingApi(
       { device: bookingDevice() },
-      { [BOOK]: { data: bookedAppointment({ remembered: true }) } },
+      { [BOOK]: { status: 201, body: { data: bookedAppointment({ remembered: true }) } } },
     );
     const { user } = renderApp(DETAILS);
 
@@ -375,7 +380,7 @@ describe('BookingPage', () => {
   it('from a remembered phone another person is a relative of the holder', async () => {
     const calls = bookingApi(
       { device: bookingDevice() },
-      { [BOOK]: { data: bookedAppointment({ remembered: true }) } },
+      { [BOOK]: { status: 201, body: { data: bookedAppointment({ remembered: true }) } } },
     );
     const { user } = renderApp(DETAILS);
 
@@ -450,8 +455,8 @@ describe('BookingPage', () => {
     const calls = bookingApi(
       {},
       {
-        [BOOK]: { data: bookedAppointment() },
-        'POST /api/v1/booking/appointments/9/origin?signature=abc': { message: null },
+        [BOOK]: { status: 201, body: { data: bookedAppointment() } },
+        'POST /api/v1/booking/appointments/9/origin?signature=abc': { message: '¡Gracias por contarnos!' },
       },
     );
     const { user } = renderApp(DETAILS);
@@ -464,7 +469,7 @@ describe('BookingPage', () => {
     );
 
     expect(screen.getByText('¡Gracias por contarnos!')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Un conocido' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Recomendación' })).not.toBeInTheDocument();
     expect(calls[calls.length - 1]).toMatchObject({
       method: 'POST',
       url: '/api/v1/booking/appointments/9/origin?signature=abc',

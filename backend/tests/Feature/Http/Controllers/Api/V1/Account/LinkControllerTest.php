@@ -138,6 +138,18 @@ class LinkControllerTest extends TestCase
         $this->assertSame('Viaje', $appointment->fresh()->cancellation_reason);
     }
 
+    public function test_a_reason_that_is_not_text_is_rejected_before_the_link_is_used(): void
+    {
+        [$appointment, $token] = $this->appointmentWithLink();
+
+        $this->postJson(route('api.v1.links.cancel', $token), ['reason' => ['Viaje']])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('reason');
+
+        $this->assertSame(AppointmentStatus::Pending, $appointment->fresh()->status);
+        $this->assertSame(0, RememberedDevice::count());
+    }
+
     public function test_too_close_to_the_appointment_it_cannot_be_cancelled_from_the_link(): void
     {
         [$appointment, $token] = $this->appointmentWithLink('2026-11-02 15:00');

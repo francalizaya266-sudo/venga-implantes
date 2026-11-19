@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Router;
+use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 /**
@@ -113,7 +114,8 @@ final class SpaDocument
             $this->router->substituteImplicitBindings($route);
 
             $response = Router::toResponse($request, $route->run());
-        } catch (ModelNotFoundException) {
+        } catch (ModelNotFoundException|ValidationException) {
+            // Un enlace con datos que no se entienden (por ejemplo "?tratamiento[]=") es una dirección que no existe.
             return ['url' => $url, 'status' => 404, 'body' => ['message' => self::errorTitle(404)]];
         } catch (HttpExceptionInterface $e) {
             return ['url' => $url, 'status' => $e->getStatusCode(), 'body' => ['message' => self::errorTitle($e->getStatusCode())]];

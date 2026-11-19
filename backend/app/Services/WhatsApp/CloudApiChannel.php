@@ -37,8 +37,12 @@ class CloudApiChannel
                 'text' => ['body' => $renderedBody, 'preview_url' => true],
             ];
 
+        // Con Meta caída, cada aviso espera a lo más 13 s y no los 30 s de Laravel: la tanda de 50 termina antes de
+        // la siguiente ejecución (cada 5 minutos) y el aviso queda fallido con el motivo (ADR-14 del E1).
         $response = Http::withToken($config['token'])
             ->acceptJson()
+            ->connectTimeout(3)
+            ->timeout(10)
             ->post("https://graph.facebook.com/{$config['version']}/{$config['phone_number_id']}/messages", $payload)
             ->throw();
 

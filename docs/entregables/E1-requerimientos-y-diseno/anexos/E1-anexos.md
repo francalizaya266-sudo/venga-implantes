@@ -96,9 +96,9 @@ La matriz se comprueba con `python3 docs/entregables/verificar-trazabilidad.py`,
 | RF-CFG-04 | — | CU-19 | Modelos (Auditable); Panel Filament | `app/Models/Concerns/Auditable.php`; `app/Filament/Resources/AuditLogs/AuditLogResource.php` | `AuditableTest::test_records_who_changed_what_with_old_and_new_values`; `ChangeHistoryTest::test_only_the_administrator_reads_the_history_and_nobody_changes_it` |
 | RF-CFG-05 | — | CU-19, CU-20 | Comandos → Backup; Panel Filament | `app/Services/Backup/DatabaseBackup.php`; `app/Filament/Pages/Backups.php` | `DatabaseBackupTest::test_a_backup_brings_back_everything_as_it_was`; `BackupsPanelTest::test_copies_have_clinical_data_so_only_the_dentist_admin_gets_them` |
 | RF-CFG-06 | — | CU-18 | Panel Filament | `app/Filament/Resources/ConsentTemplates/ConsentTemplateResource.php`; `app/Filament/Resources/MessageTemplates/MessageTemplateResource.php` | `TextsUsageAndVersionsTest::test_what_each_previous_version_of_a_consent_text_said_can_be_read`; `ClinicalPanelTest::test_quick_writing_records_use_and_saves_new_options` |
-| RF-API-01 | — | CU-01 a CU-06 | API v1 | `routes/api.php` | Hoy, cada grupo de rutas tiene su prueba de controlador, por ejemplo `BookingControllerTest::test_a_new_patient_books_with_spanish_errors`; la verificación contra OpenAPI, `[PENDIENTE: FASE 3]` |
+| RF-API-01 | — | CU-01 a CU-06 | API v1 | `routes/api.php`, `docs/api/openapi.json` | `OpenApiTest::test_every_api_route_is_documented_with_its_name_and_nothing_else_is`; cada respuesta de las pruebas de la API se compara con el contrato (`tests/Concerns/ChecksApiContract.php`) |
 
-En el único requerimiento planificado, RF-API-01, la matriz cita las pruebas de controlador que ya cubren cada grupo de rutas; la descripción OpenAPI y la prueba que compara cada respuesta con ella se agregan en la FASE 3 (E3).
+RF-API-01 estaba planificado y se completó en la FASE 3 (E3): `docs/api/openapi.json` describe las 36 rutas y `TestCase` compara con él cada respuesta de la API que piden las pruebas.
 
 [[VERTICAL]]
 

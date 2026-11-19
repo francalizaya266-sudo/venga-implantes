@@ -1,0 +1,27 @@
+%%{init: {"flowchart": {"nodeSpacing": 26, "rankSpacing": 46, "padding": 8, "wrappingWidth": 400}}}%%
+flowchart TB
+  subgraph nav["Navegador"]
+    web["<b>Web del paciente</b><br/>React 19 · TanStack Query<br/>client.ts: XSRF, reintento<br/>con 419, ApiError"]
+    pan["<b>Personal de la clínica</b><br/>navegador en la sede"]
+  end
+  subgraph lar["Laravel 13 en vm-app"]
+    spa["<b>SpaController</b><br/>SpaDocument: HTML con meta<br/>y los datos de la página"]
+    api["<b>API /api/v1</b><br/>36 rutas · 13 controladores<br/>3 Form Requests · 10 Resources<br/>límites por IP y por celular"]
+    fil["<b>Panel Filament</b><br/>Livewire · 29 recursos<br/>13 páginas · 35 políticas"]
+    srv["<b>Servicios de dominio</b><br/>70 clases en 13 módulos<br/>transacciones y bloqueo<br/>de la agenda del doctor"]
+    cron["<b>Tareas programadas</b><br/>10 tareas · schedule:run<br/>cada minuto"]
+  end
+  db[("<b>MySQL 8</b><br/>70 tablas · 5 vistas<br/>6 funciones · 2 triggers")]
+  ext["<b>Servicios externos</b><br/>Decolecta: 5 s<br/>Nager.Date: 3 + 5 s<br/>WhatsApp Cloud API: 3 + 10 s"]
+  oas{{"<b>docs/api/openapi.json</b><br/>contrato OpenAPI 3.1"}}
+  web -- "primera carga" --> spa
+  web -- "JSON, cookie de sesión" --> api
+  spa -- "misma acción,<br/>sin otro pedido" --> api
+  pan --> fil
+  api --> srv
+  fil --> srv
+  cron --> srv
+  srv --> db
+  srv -- "tiempo de espera<br/>y alternativa" --> ext
+  oas -. "PHPUnit: cada respuesta" .-> api
+  oas -. "Vitest: cada respuesta<br/>de prueba" .-> web

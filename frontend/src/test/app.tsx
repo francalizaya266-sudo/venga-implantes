@@ -6,6 +6,7 @@ import { createMemoryRouter, RouterProvider, type RouteObject } from 'react-rout
 import { vi } from 'vitest';
 import { routes } from '@/app/router';
 import { Root } from '@/app/Root';
+import { contractErrors } from '@/test/contract';
 import { site } from '@/test/fixtures';
 
 interface Reply {
@@ -35,6 +36,18 @@ function isReply(value: unknown): value is Reply {
   return typeof value === 'object' && value !== null && 'body' in value;
 }
 
+/** Lo que las respuestas de mentira no cumplen de docs/api/openapi.json: setup.ts lo revisa al final de cada prueba. */
+const contractViolations: string[] = [];
+
+export function takeContractViolations(): string[] {
+  return contractViolations.splice(0);
+}
+
+function checkContract(key: string, reply: Reply): void {
+  const [method = 'GET', url = ''] = key.split(' ');
+  contractViolations.push(...contractErrors(method, url, reply.status ?? 200, reply.body));
+}
+
 /**
  * La API de mentira de una prueba. Las claves son "GET /api/v1/home" o "POST /api/v1/…" (sin método, GET). Lo
  * que no se declare responde 404. Devuelve las peticiones hechas, para comprobar qué se envió.
@@ -45,6 +58,13 @@ export function mockApi(answers: Record<string, Answer> = {}): ApiCall[] {
 
   for (const [key, answer] of Object.entries(answers)) {
     all[key.includes(' ') ? key : `GET ${key}`] = answer;
+  }
+
+  // Cada respuesta tiene que ser una que la API de verdad puede dar.
+  for (const [key, answer] of Object.entries(all)) {
+    if (typeof answer !== 'function') {
+      checkContract(key, isReply(answer) ? answer : { body: answer });
+    }
   }
 
   vi.stubGlobal(
@@ -62,7 +82,7 @@ export function mockApi(answers: Record<string, Answer> = {}): ApiCall[] {
           answer === undefined
             ? { status: 404, body: { message: `Sin respuesta de prueba para ${method} ${url}` } }
             : typeof answer === 'function'
-              ? (answer as (sent: unknown) => Reply)(body)
+              ? answeredWith(`${method} ${url}`, (answer as (sent: unknown) => Reply)(body))
               : isReply(answer)
                 ? answer
                 : { body: answer };
@@ -75,6 +95,12 @@ export function mockApi(answers: Record<string, Answer> = {}): ApiCall[] {
   );
 
   return calls;
+}
+
+function answeredWith(key: string, reply: Reply): Reply {
+  checkContract(key, reply);
+
+  return reply;
 }
 
 function mount(routeObjects: RouteObject[], path: string) {

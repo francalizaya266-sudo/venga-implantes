@@ -433,6 +433,27 @@ class AccountControllerTest extends TestCase
         $this->assertSame('2026-11-05 11:00', $appointment->fresh()->starts_at->format('Y-m-d H:i'));
     }
 
+    public function test_moving_an_appointment_asks_for_a_day_and_a_time_that_are_still_free(): void
+    {
+        $treatment = Treatment::factory()->create(['duration_minutes' => 30]);
+        $doctor = $this->doctorOffering($treatment);
+        $appointment = Appointment::factory()->for($this->mother)->for($doctor)->for($treatment)->at('2026-11-04 10:00')->create();
+        $this->rememberDevice();
+
+        $this->getJson(route('api.v1.account.appointments.change.slots', [$appointment, 'date' => 'jueves']))
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('date');
+        $this->postJson(route('api.v1.account.appointments.change.save', $appointment), ['chosen' => []])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('chosen');
+        // A las 3 de la madrugada no hay atención: se dice por qué y se elige otro.
+        $this->postJson(route('api.v1.account.appointments.change.save', $appointment), ['chosen' => ['2026-11-05 03:00']])
+            ->assertUnprocessable()
+            ->assertJsonMissingPath('errors');
+
+        $this->assertSame('2026-11-04 10:00', $appointment->fresh()->starts_at->format('Y-m-d H:i'));
+    }
+
     public function test_leaving_forgets_this_device(): void
     {
         $this->rememberDevice()

@@ -58,6 +58,16 @@ class BookingController extends Controller
      */
     public function options(Request $request, PageMeta $meta): array
     {
+        // Llegan del enlace con que se abrió la reserva: si no son texto (por ejemplo "?codigo[]="), se responde
+        // 422 en vez de fallar al leerlos.
+        $request->validate([
+            'codigo' => ['nullable', 'string'],
+            'promo' => ['nullable', 'string'],
+            'tratamiento' => ['nullable', 'string'],
+            'doctor' => ['nullable', 'string'],
+            'origen' => ['nullable', 'string'],
+        ]);
+
         $promoCode = strtoupper(substr(trim((string) $request->query('codigo')), 0, 30));
         $campaignSlug = filled($request->query('promo')) ? substr((string) $request->query('promo'), 0, 120) : null;
         $campaign = Campaign::forBooking($promoCode, $campaignSlug);

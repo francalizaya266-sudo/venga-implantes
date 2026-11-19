@@ -1,0 +1,5872 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "API de la web del paciente",
+    "version": "1",
+    "description": "La API que consume la web pública en React (backend/routes/api.php). Vive en el mismo dominio que la web: usa la sesión y la cookie del celular recordado, no tokens.\n\n- Cada respuesta trae `data` (lo que la pantalla muestra, con los textos ya listos) y, en las páginas, `meta` (título, descripción y datos estructurados para Google).\n- Los pedidos que cambian algo (POST) llevan la cabecera `X-XSRF-TOKEN` con el valor de la cookie `XSRF-TOKEN` que deja Laravel.\n- Los errores traen `message` en español, listo para mostrar al paciente; los de validación (422) traen además `errors` por campo.\n\nEste documento se escribe a mano y las pruebas lo hacen cumplir: cada respuesta JSON de `/api/v1` que produce la suite de backend se valida contra su esquema (tests/Concerns/ChecksApiContract.php), y OpenApiTest comprueba que cada ruta tiene su operación y al revés."
+  },
+  "servers": [
+    {
+      "url": "/api/v1",
+      "description": "El mismo dominio que la web."
+    }
+  ],
+  "tags": [
+    {
+      "name": "Sitio",
+      "description": "El contenido de las páginas públicas."
+    },
+    {
+      "name": "Reserva",
+      "description": "Reservar una cita en línea."
+    },
+    {
+      "name": "Mi cuenta",
+      "description": "Mi cuenta, desde el celular recordado (sin contraseña)."
+    },
+    {
+      "name": "Enlaces de WhatsApp",
+      "description": "El enlace personal que llega por WhatsApp: de una cita o de acceso a Mi cuenta."
+    }
+  ],
+  "paths": {
+    "/site": {
+      "get": {
+        "operationId": "site",
+        "tags": [
+          "Sitio"
+        ],
+        "summary": "Lo que comparten todas las páginas",
+        "responses": {
+          "200": {
+            "description": "Datos del consultorio, horario, secciones y textos editables.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Site"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/home": {
+      "get": {
+        "operationId": "home",
+        "tags": [
+          "Sitio"
+        ],
+        "summary": "Inicio",
+        "responses": {
+          "200": {
+            "description": "El inicio, con el saludo al celular recordado si lo hay.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/HomeData"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PageMeta"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/treatments": {
+      "get": {
+        "operationId": "treatments.index",
+        "tags": [
+          "Sitio"
+        ],
+        "summary": "Servicios",
+        "responses": {
+          "200": {
+            "description": "Los tratamientos públicos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/TreatmentsData"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PageMeta"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/treatments/{slug}": {
+      "get": {
+        "operationId": "treatments.show",
+        "tags": [
+          "Sitio"
+        ],
+        "summary": "Un servicio",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Slug"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "El tratamiento con su promoción vigente, próximos horarios, doctores, preguntas, casos y opiniones.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/TreatmentData"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PageMeta"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe (o no se muestra en la web).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/promotions": {
+      "get": {
+        "operationId": "promotions.index",
+        "tags": [
+          "Sitio"
+        ],
+        "summary": "Promociones vigentes",
+        "responses": {
+          "200": {
+            "description": "Las promociones publicadas.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/PromotionsData"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PageMeta"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/promotions/{slug}": {
+      "get": {
+        "operationId": "promotions.show",
+        "tags": [
+          "Sitio"
+        ],
+        "summary": "Una promoción",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Slug"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "La promoción con su precio o paquete y con qué abrir la reserva. Suma una visita a sus métricas.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/PromotionData"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PageMeta"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Terminó o no existe: ofrece las vigentes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PromotionEnded"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/team": {
+      "get": {
+        "operationId": "team",
+        "tags": [
+          "Sitio"
+        ],
+        "summary": "Equipo",
+        "responses": {
+          "200": {
+            "description": "Los doctores públicos con sus tratamientos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/TeamData"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PageMeta"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/cases": {
+      "get": {
+        "operationId": "cases",
+        "tags": [
+          "Sitio"
+        ],
+        "summary": "Antes y después",
+        "parameters": [
+          {
+            "name": "tratamiento",
+            "in": "query",
+            "required": false,
+            "description": "Slug del tratamiento para filtrar.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Los casos publicados, filtrables por tratamiento.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/CasesData"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PageMeta"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Datos que no pasaron la validación.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/reviews": {
+      "get": {
+        "operationId": "reviews",
+        "tags": [
+          "Sitio"
+        ],
+        "summary": "Opiniones",
+        "responses": {
+          "200": {
+            "description": "Las opiniones publicadas.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ReviewsData"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PageMeta"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/faqs": {
+      "get": {
+        "operationId": "faqs",
+        "tags": [
+          "Sitio"
+        ],
+        "summary": "Preguntas frecuentes",
+        "responses": {
+          "200": {
+            "description": "Las preguntas agrupadas por tema.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/FaqsData"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PageMeta"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/pages/contact": {
+      "get": {
+        "operationId": "pages.contact",
+        "tags": [
+          "Sitio"
+        ],
+        "summary": "Contacto",
+        "responses": {
+          "200": {
+            "description": "El encabezado; los datos de contacto vienen en /site.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ContactData"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PageMeta"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/pages/privacy": {
+      "get": {
+        "operationId": "pages.privacy",
+        "tags": [
+          "Sitio"
+        ],
+        "summary": "Política de privacidad",
+        "responses": {
+          "200": {
+            "description": "Los datos del responsable para la política.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/PrivacyData"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PageMeta"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/booking/options": {
+      "get": {
+        "operationId": "booking.options",
+        "tags": [
+          "Reserva"
+        ],
+        "summary": "Primer paso de la reserva",
+        "parameters": [
+          {
+            "name": "codigo",
+            "in": "query",
+            "required": false,
+            "description": "Código de promoción.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "promo",
+            "in": "query",
+            "required": false,
+            "description": "Slug de la promoción (las que no usan código).",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tratamiento",
+            "in": "query",
+            "required": false,
+            "description": "Slug del tratamiento elegido de antemano.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "doctor",
+            "in": "query",
+            "required": false,
+            "description": "Slug del doctor elegido desde su ficha.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "origen",
+            "in": "query",
+            "required": false,
+            "description": "Cómo llegó (AppointmentOrigin); otro valor se ignora.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "para",
+            "in": "query",
+            "required": false,
+            "description": "Familiar del celular recordado para quien se reserva.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Los tratamientos que se reservan en la web, la promoción del enlace y la familia del celular recordado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/BookingOptions"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PageMeta"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Datos que no pasaron la validación.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/booking/days": {
+      "get": {
+        "operationId": "booking.days",
+        "tags": [
+          "Reserva"
+        ],
+        "summary": "Días con horarios libres",
+        "parameters": [
+          {
+            "name": "treatment",
+            "in": "query",
+            "required": true,
+            "description": "El tratamiento (id) que se reserva en la web.",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "doctor",
+            "in": "query",
+            "required": false,
+            "description": "Con un doctor; vacío o uno que no lo atiende: el primero libre.",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "date",
+            "in": "query",
+            "required": false,
+            "description": "El día que ya venía elegido.",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Los próximos días libres y los horarios del primero (o del elegido).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/BookingDays"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "El tratamiento no se reserva en la web.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/booking/slots": {
+      "get": {
+        "operationId": "booking.slots",
+        "tags": [
+          "Reserva"
+        ],
+        "summary": "Horarios libres de un día",
+        "parameters": [
+          {
+            "name": "treatment",
+            "in": "query",
+            "required": true,
+            "description": "El tratamiento (id) que se reserva en la web.",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "doctor",
+            "in": "query",
+            "required": false,
+            "description": "Con un doctor; vacío o uno que no lo atiende: el primero libre.",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "date",
+            "in": "query",
+            "required": true,
+            "description": "El día.",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Los horarios del día, con los sugeridos primero.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/SlotPicker"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "El tratamiento no se reserva en la web.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Datos que no pasaron la validación.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/booking/appointments": {
+      "post": {
+        "operationId": "booking.store",
+        "tags": [
+          "Reserva"
+        ],
+        "summary": "Reservar la cita",
+        "description": "Con celular recordado no pide el número y puede ser para un familiar. Un número nuevo crea la cuenta y deja este celular recordado.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Xsrf"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BookingRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "La cita quedó reservada (pendiente de confirmar por WhatsApp).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/BookedAppointment"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Elegir a un familiar registrado desde un celular que no está recordado (respaldo del servicio de citas; la API ya lo rechaza antes con 422).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "El horario se acaba de ocupar: hay que elegir otro.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "message",
+                    "code"
+                  ],
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "const": "slot_taken"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "419": {
+            "description": "La sesión venció y la cabecera X-XSRF-TOKEN ya no vale: la web pide /site para renovarla y reintenta una vez.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validación, o una regla del consultorio (tratamiento que no se reserva en la web, familiar que no es de este celular, código que no existe…).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rejected"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Varias reservas seguidas desde la misma conexión.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/booking/appointments/{appointment}/origin": {
+      "post": {
+        "operationId": "booking.origin",
+        "tags": [
+          "Reserva"
+        ],
+        "summary": "\"¿Cómo nos conociste?\"",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Appointment"
+          },
+          {
+            "name": "signature",
+            "in": "query",
+            "required": true,
+            "description": "Firma relativa de Laravel: viene en origin_url de la reserva.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Xsrf"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OriginRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Gracias.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Message"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "La dirección firmada no vale o venció.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe (o no se muestra en la web).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "419": {
+            "description": "La sesión venció y la cabecera X-XSRF-TOKEN ya no vale: la web pide /site para renovarla y reintenta una vez.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Datos que no pasaron la validación.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Demasiados pedidos seguidos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/account": {
+      "get": {
+        "operationId": "account.show",
+        "tags": [
+          "Mi cuenta"
+        ],
+        "summary": "Mi cuenta",
+        "responses": {
+          "200": {
+            "description": "Las citas de la familia; con acceso verificado, también planes, pagos, citas pasadas y datos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/AccountData"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PageMeta"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Demasiados pedidos seguidos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "celularRecordado": []
+          }
+        ]
+      }
+    },
+    "/account/access": {
+      "post": {
+        "operationId": "account.access",
+        "tags": [
+          "Mi cuenta"
+        ],
+        "summary": "Pedir el enlace de acceso desde un celular nuevo",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Xsrf"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccessRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Recepción le enviará su enlace por WhatsApp.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/AccessRequested"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "419": {
+            "description": "La sesión venció y la cabecera X-XSRF-TOKEN ya no vale: la web pide /site para renovarla y reintenta una vez.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Datos que no pasaron la validación.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Ya lo pidió hace poco (5 por hora por conexión, 2 por número).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/account/verification": {
+      "post": {
+        "operationId": "account.verification",
+        "tags": [
+          "Mi cuenta"
+        ],
+        "summary": "Pedir el enlace para ver planes y pagos",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Xsrf"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Se envía (como mucho 2 por hora).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Message"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No le toca: el celular no es de esa familia, el enlace firmado no vale o no hay celular recordado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "419": {
+            "description": "La sesión venció y la cabecera X-XSRF-TOKEN ya no vale: la web pide /site para renovarla y reintenta una vez.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Demasiados pedidos seguidos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "celularRecordado": []
+          }
+        ]
+      }
+    },
+    "/account/logout": {
+      "post": {
+        "operationId": "account.logout",
+        "tags": [
+          "Mi cuenta"
+        ],
+        "summary": "Olvidar este celular",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Xsrf"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "El celular ya no está recordado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Message"
+                }
+              }
+            }
+          },
+          "419": {
+            "description": "La sesión venció y la cabecera X-XSRF-TOKEN ya no vale: la web pide /site para renovarla y reintenta una vez.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Demasiados pedidos seguidos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "celularRecordado": []
+          }
+        ]
+      }
+    },
+    "/account/appointments/{appointment}/confirm": {
+      "post": {
+        "operationId": "account.appointments.confirm",
+        "tags": [
+          "Mi cuenta"
+        ],
+        "summary": "Confirmar una cita",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Appointment"
+          },
+          {
+            "$ref": "#/components/parameters/Xsrf"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Confirmada (si estaba pendiente y todavía se puede).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Message"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No le toca: el celular no es de esa familia, el enlace firmado no vale o no hay celular recordado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe (o no se muestra en la web).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "419": {
+            "description": "La sesión venció y la cabecera X-XSRF-TOKEN ya no vale: la web pide /site para renovarla y reintenta una vez.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Demasiados pedidos seguidos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "celularRecordado": []
+          }
+        ]
+      }
+    },
+    "/account/appointments/{appointment}/cancel": {
+      "post": {
+        "operationId": "account.appointments.cancel",
+        "tags": [
+          "Mi cuenta"
+        ],
+        "summary": "Cancelar una cita",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Appointment"
+          },
+          {
+            "$ref": "#/components/parameters/Xsrf"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CancelRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Cancelada.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Message"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No le toca: el celular no es de esa familia, el enlace firmado no vale o no hay celular recordado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe (o no se muestra en la web).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "419": {
+            "description": "La sesión venció y la cabecera X-XSRF-TOKEN ya no vale: la web pide /site para renovarla y reintenta una vez.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Ya no se puede cancelar en línea, o el motivo no es texto.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rejected"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Demasiados pedidos seguidos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "celularRecordado": []
+          }
+        ]
+      }
+    },
+    "/account/appointments/{appointment}/change": {
+      "get": {
+        "operationId": "account.appointments.change",
+        "tags": [
+          "Mi cuenta"
+        ],
+        "summary": "Cambiar el horario: pantalla",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Appointment"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "La cita, si el cambio es al instante o lo aprueba el consultorio, y los días y horarios libres.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ChangeData"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PageMeta"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No le toca: el celular no es de esa familia, el enlace firmado no vale o no hay celular recordado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe (o no se muestra en la web).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Demasiados pedidos seguidos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "celularRecordado": []
+          }
+        ]
+      },
+      "post": {
+        "operationId": "account.appointments.change.save",
+        "tags": [
+          "Mi cuenta"
+        ],
+        "summary": "Cambiar el horario",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Appointment"
+          },
+          {
+            "$ref": "#/components/parameters/Xsrf"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Cambiada, o pedido enviado al consultorio.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Message"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No le toca: el celular no es de esa familia, el enlace firmado no vale o no hay celular recordado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe (o no se muestra en la web).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "419": {
+            "description": "La sesión venció y la cabecera X-XSRF-TOKEN ya no vale: la web pide /site para renovarla y reintenta una vez.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "El horario ya no está, o los datos no pasaron la validación.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rejected"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Demasiados pedidos seguidos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "celularRecordado": []
+          }
+        ]
+      }
+    },
+    "/account/appointments/{appointment}/change/slots": {
+      "get": {
+        "operationId": "account.appointments.change.slots",
+        "tags": [
+          "Mi cuenta"
+        ],
+        "summary": "Cambiar el horario: horarios de un día",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Appointment"
+          },
+          {
+            "name": "date",
+            "in": "query",
+            "required": true,
+            "description": "El día.",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Los horarios libres del día para mover la cita.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/SlotPicker"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No le toca: el celular no es de esa familia, el enlace firmado no vale o no hay celular recordado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe (o no se muestra en la web).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Datos que no pasaron la validación.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Demasiados pedidos seguidos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "celularRecordado": []
+          }
+        ]
+      }
+    },
+    "/account/patients/{patient}/next-session": {
+      "post": {
+        "operationId": "account.patients.session",
+        "tags": [
+          "Mi cuenta"
+        ],
+        "summary": "Pedir la próxima sesión del tratamiento",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Patient"
+          },
+          {
+            "$ref": "#/components/parameters/Xsrf"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Recepción recibe el pedido (uno cada 12 horas). \"message\" es null si esa persona no tiene sesiones por programar.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "message"
+                  ],
+                  "properties": {
+                    "message": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No le toca: el celular no es de esa familia, el enlace firmado no vale o no hay celular recordado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe (o no se muestra en la web).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "419": {
+            "description": "La sesión venció y la cabecera X-XSRF-TOKEN ya no vale: la web pide /site para renovarla y reintenta una vez.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Demasiados pedidos seguidos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "celularRecordado": []
+          }
+        ]
+      }
+    },
+    "/account/patients/{patient}/health": {
+      "get": {
+        "operationId": "account.patients.health",
+        "tags": [
+          "Mi cuenta"
+        ],
+        "summary": "\"Antes de tu cita\": preguntas de salud",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Patient"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Las preguntas dichas para quien responde.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/HealthData"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PageMeta"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No le toca: el celular no es de esa familia, el enlace firmado no vale o no hay celular recordado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe (o no se muestra en la web).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "El consultorio ya tiene sus antecedentes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "message",
+                    "code"
+                  ],
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "const": "already_known"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Demasiados pedidos seguidos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "celularRecordado": []
+          }
+        ]
+      },
+      "post": {
+        "operationId": "account.patients.health.store",
+        "tags": [
+          "Mi cuenta"
+        ],
+        "summary": "\"Antes de tu cita\": guardar las respuestas",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Patient"
+          },
+          {
+            "$ref": "#/components/parameters/Xsrf"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HealthRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Guardado: el doctor lo verá en la ficha.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Message"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No le toca: el celular no es de esa familia, el enlace firmado no vale o no hay celular recordado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe (o no se muestra en la web).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "El consultorio ya tiene sus antecedentes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "message",
+                    "code"
+                  ],
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "const": "already_known"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "419": {
+            "description": "La sesión venció y la cabecera X-XSRF-TOKEN ya no vale: la web pide /site para renovarla y reintenta una vez.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Datos que no pasaron la validación.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Demasiados pedidos seguidos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "celularRecordado": []
+          }
+        ]
+      }
+    },
+    "/links/{token}": {
+      "get": {
+        "operationId": "links.show",
+        "tags": [
+          "Enlaces de WhatsApp"
+        ],
+        "summary": "Qué abre el enlace",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Token"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Abrir el enlace no cambia nada (la vista previa de WhatsApp también lo abre).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/LinkData"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PageMeta"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "El token no tiene la forma de un enlace (32 letras y números). Uno con la forma correcta que no existe o venció responde 200 con \"kind\": \"expired\".",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Demasiados pedidos seguidos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/links/{token}/confirm": {
+      "post": {
+        "operationId": "links.confirm",
+        "tags": [
+          "Enlaces de WhatsApp"
+        ],
+        "summary": "Confirmar la cita del enlace",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Token"
+          },
+          {
+            "$ref": "#/components/parameters/Xsrf"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Confirmada; este celular queda recordado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Message"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe (o no se muestra en la web).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "419": {
+            "description": "La sesión venció y la cabecera X-XSRF-TOKEN ya no vale: la web pide /site para renovarla y reintenta una vez.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Demasiados pedidos seguidos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/links/{token}/cancel": {
+      "post": {
+        "operationId": "links.cancel",
+        "tags": [
+          "Enlaces de WhatsApp"
+        ],
+        "summary": "Cancelar la cita del enlace",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Token"
+          },
+          {
+            "$ref": "#/components/parameters/Xsrf"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CancelRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Cancelada; este celular queda recordado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Message"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe (o no se muestra en la web).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "419": {
+            "description": "La sesión venció y la cabecera X-XSRF-TOKEN ya no vale: la web pide /site para renovarla y reintenta una vez.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Ya no se puede cancelar en línea, o el motivo no es texto.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rejected"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Demasiados pedidos seguidos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/links/{token}/enter": {
+      "post": {
+        "operationId": "links.enter",
+        "tags": [
+          "Enlaces de WhatsApp"
+        ],
+        "summary": "Entrar a Mi cuenta con el enlace de acceso",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Token"
+          },
+          {
+            "$ref": "#/components/parameters/Xsrf"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Este celular queda recordado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Message"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe (o no se muestra en la web).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "419": {
+            "description": "La sesión venció y la cabecera X-XSRF-TOKEN ya no vale: la web pide /site para renovarla y reintenta una vez.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Demasiados pedidos seguidos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/links/{token}/change": {
+      "get": {
+        "operationId": "links.change",
+        "tags": [
+          "Enlaces de WhatsApp"
+        ],
+        "summary": "Cambiar el horario desde el enlace: pantalla",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Token"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Como en Mi cuenta.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ChangeData"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PageMeta"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe (o no se muestra en la web).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Demasiados pedidos seguidos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "links.change.save",
+        "tags": [
+          "Enlaces de WhatsApp"
+        ],
+        "summary": "Cambiar el horario desde el enlace",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Token"
+          },
+          {
+            "$ref": "#/components/parameters/Xsrf"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Cambiada, o pedido enviado; este celular queda recordado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Message"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe (o no se muestra en la web).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "419": {
+            "description": "La sesión venció y la cabecera X-XSRF-TOKEN ya no vale: la web pide /site para renovarla y reintenta una vez.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "El horario ya no está, o los datos no pasaron la validación.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rejected"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Demasiados pedidos seguidos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/links/{token}/change/slots": {
+      "get": {
+        "operationId": "links.change.slots",
+        "tags": [
+          "Enlaces de WhatsApp"
+        ],
+        "summary": "Cambiar el horario desde el enlace: horarios de un día",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Token"
+          },
+          {
+            "name": "date",
+            "in": "query",
+            "required": true,
+            "description": "El día.",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Los horarios libres del día.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/SlotPicker"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe (o no se muestra en la web).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Datos que no pasaron la validación.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Demasiados pedidos seguidos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "celularRecordado": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "cd_device",
+        "description": "El celular recordado: lo deja la reserva desde un número nuevo o tocar un enlace de WhatsApp. Sin él, Mi cuenta responde \"guest: true\" y las acciones responden 403."
+      }
+    },
+    "parameters": {
+      "Slug": {
+        "name": "slug",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "Appointment": {
+        "name": "appointment",
+        "in": "path",
+        "required": true,
+        "description": "Id de la cita.",
+        "schema": {
+          "type": "integer"
+        }
+      },
+      "Patient": {
+        "name": "patient",
+        "in": "path",
+        "required": true,
+        "description": "Id del paciente de la familia.",
+        "schema": {
+          "type": "integer"
+        }
+      },
+      "Token": {
+        "name": "token",
+        "in": "path",
+        "required": true,
+        "description": "El token del enlace (32 letras y números).",
+        "schema": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9]{32}$"
+        }
+      },
+      "Xsrf": {
+        "name": "X-XSRF-TOKEN",
+        "in": "header",
+        "required": true,
+        "description": "El valor de la cookie XSRF-TOKEN (protección CSRF de Laravel).",
+        "schema": {
+          "type": "string"
+        }
+      }
+    },
+    "schemas": {
+      "AccessRequest": {
+        "type": "object",
+        "required": [
+          "phone"
+        ],
+        "properties": {
+          "phone": {
+            "type": "string",
+            "maxLength": 20
+          }
+        },
+        "additionalProperties": false
+      },
+      "AccessRequested": {
+        "type": "object",
+        "description": "No dice si el número existe: a todos se les responde lo mismo.",
+        "required": [
+          "phone",
+          "whatsapp_message"
+        ],
+        "properties": {
+          "phone": {
+            "type": "string"
+          },
+          "whatsapp_message": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AccountData": {
+        "description": "Sin celular recordado solo dice \"guest: true\". Planes, saldos, citas pasadas y datos de la familia llegan solo con el acceso verificado por enlace (\"elevated\"); si no, son null.",
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "guest"
+            ],
+            "properties": {
+              "guest": {
+                "const": true
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "required": [
+              "guest",
+              "holder",
+              "several",
+              "phone",
+              "elevated",
+              "upcoming",
+              "plans",
+              "balances",
+              "past",
+              "family"
+            ],
+            "properties": {
+              "guest": {
+                "const": false
+              },
+              "holder": {
+                "type": [
+                  "object",
+                  "null"
+                ],
+                "required": [
+                  "first_name",
+                  "initials"
+                ],
+                "properties": {
+                  "first_name": {
+                    "type": "string"
+                  },
+                  "initials": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "several": {
+                "type": "boolean"
+              },
+              "phone": {
+                "type": "string"
+              },
+              "elevated": {
+                "type": "boolean"
+              },
+              "upcoming": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/AppointmentCard"
+                }
+              },
+              "plans": {
+                "type": [
+                  "array",
+                  "null"
+                ],
+                "items": {
+                  "$ref": "#/components/schemas/PlanCard"
+                }
+              },
+              "balances": {
+                "type": [
+                  "array",
+                  "null"
+                ],
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "name",
+                    "text",
+                    "owed"
+                  ],
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "text": {
+                      "type": "string"
+                    },
+                    "owed": {
+                      "type": "boolean"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "past": {
+                "type": [
+                  "array",
+                  "null"
+                ],
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "date",
+                    "name",
+                    "treatment",
+                    "status"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "integer"
+                    },
+                    "date": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "treatment": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "family": {
+                "type": [
+                  "array",
+                  "null"
+                ],
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "name",
+                    "relationship",
+                    "document",
+                    "birth_date",
+                    "email"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "integer"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "relationship": {
+                      "type": "string"
+                    },
+                    "document": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "birth_date": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "email": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
+      "AppointmentCard": {
+        "type": "object",
+        "required": [
+          "id",
+          "kicker",
+          "status",
+          "tone",
+          "when",
+          "what",
+          "guest_notice",
+          "ask_health",
+          "pending_request",
+          "can_change",
+          "can_confirm",
+          "can_cancel",
+          "cancel_min_hours",
+          "cancel_message"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "kicker": {
+            "type": "string",
+            "description": "\"Tu cita\" o \"Cita de Lucía\"."
+          },
+          "status": {
+            "type": "string"
+          },
+          "tone": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "ok",
+              "bad",
+              "quiet",
+              null
+            ]
+          },
+          "when": {
+            "type": "string"
+          },
+          "what": {
+            "type": "string",
+            "description": "Tratamiento · doctor."
+          },
+          "guest_notice": {
+            "type": "boolean",
+            "description": "Cita reservada con este número desde otro celular que nadie confirmó: se pregunta si la reconoce."
+          },
+          "ask_health": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "required": [
+              "patient_id",
+              "text"
+            ],
+            "properties": {
+              "patient_id": {
+                "type": "integer"
+              },
+              "text": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          },
+          "pending_request": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Los horarios pedidos que el consultorio todavía no responde."
+          },
+          "can_change": {
+            "type": "boolean"
+          },
+          "can_confirm": {
+            "type": "boolean"
+          },
+          "can_cancel": {
+            "type": "boolean"
+          },
+          "cancel_min_hours": {
+            "type": "integer"
+          },
+          "cancel_message": {
+            "type": "string",
+            "description": "Texto para pedir la cancelación por WhatsApp cuando ya no se puede en línea."
+          }
+        },
+        "additionalProperties": false
+      },
+      "AppointmentOrigin": {
+        "type": "string",
+        "enum": [
+          "google",
+          "facebook",
+          "instagram",
+          "tiktok",
+          "whatsapp",
+          "campaign",
+          "referral",
+          "recommendation",
+          "walk_in",
+          "other"
+        ],
+        "description": "Cómo llegó el paciente (App\\Enums\\AppointmentOrigin)."
+      },
+      "BookedAppointment": {
+        "type": "object",
+        "required": [
+          "treatment",
+          "when",
+          "who",
+          "price_line",
+          "phone",
+          "remembered",
+          "calendar_url",
+          "whatsapp_message",
+          "origins",
+          "origin_url"
+        ],
+        "properties": {
+          "treatment": {
+            "type": "string"
+          },
+          "when": {
+            "type": "string"
+          },
+          "who": {
+            "type": "string"
+          },
+          "price_line": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "phone": {
+            "type": "string"
+          },
+          "remembered": {
+            "type": "boolean",
+            "description": "Este celular quedó recordado."
+          },
+          "calendar_url": {
+            "type": "string",
+            "description": "Archivo .ics de la cita (dirección firmada)."
+          },
+          "whatsapp_message": {
+            "type": "string"
+          },
+          "origins": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "value",
+                "label"
+              ],
+              "properties": {
+                "value": {
+                  "$ref": "#/components/schemas/AppointmentOrigin"
+                },
+                "label": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            },
+            "description": "\"¿Cómo nos conociste?\": vacío si no se pregunta."
+          },
+          "origin_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Dirección firmada para responder \"¿Cómo nos conociste?\"."
+          }
+        },
+        "additionalProperties": false
+      },
+      "BookingDays": {
+        "type": "object",
+        "required": [
+          "doctors",
+          "doctor_id",
+          "days",
+          "date",
+          "day",
+          "slots"
+        ],
+        "properties": {
+          "doctors": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "name"
+              ],
+              "properties": {
+                "id": {
+                  "type": "integer"
+                },
+                "name": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "doctor_id": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "days": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PickerDay"
+            }
+          },
+          "date": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date"
+          },
+          "day": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "slots": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Slot"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "BookingDevice": {
+        "type": "object",
+        "description": "El celular recordado y la familia entre la que se elige de quién es la cita.",
+        "required": [
+          "phone",
+          "family",
+          "has_holder",
+          "patient_id",
+          "privacy_accepted",
+          "promotions_accepted"
+        ],
+        "properties": {
+          "phone": {
+            "type": "string"
+          },
+          "family": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "name",
+                "first_name",
+                "is_self",
+                "in_treatment"
+              ],
+              "properties": {
+                "id": {
+                  "type": "integer"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "first_name": {
+                  "type": "string"
+                },
+                "is_self": {
+                  "type": "boolean"
+                },
+                "in_treatment": {
+                  "type": "boolean"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "has_holder": {
+            "type": "boolean"
+          },
+          "patient_id": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "privacy_accepted": {
+            "type": "boolean"
+          },
+          "promotions_accepted": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "BookingOptions": {
+        "type": "object",
+        "required": [
+          "treatments",
+          "initial_treatment_id",
+          "preferred_doctor_id",
+          "campaign",
+          "promo_code",
+          "promo_problem",
+          "campaign_slug",
+          "origin",
+          "device",
+          "relationships"
+        ],
+        "properties": {
+          "treatments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BookingTreatment"
+            }
+          },
+          "initial_treatment_id": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "preferred_doctor_id": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "campaign": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "required": [
+              "name",
+              "discount",
+              "treatment"
+            ],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "discount": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "treatment": {
+                "type": [
+                  "object",
+                  "null"
+                ],
+                "required": [
+                  "id",
+                  "name"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "integer"
+                  },
+                  "name": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false
+          },
+          "promo_code": {
+            "type": "string"
+          },
+          "promo_problem": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "campaign_slug": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "origin": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/AppointmentOrigin"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "device": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/BookingDevice"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "relationships": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "value",
+                "label"
+              ],
+              "properties": {
+                "value": {
+                  "$ref": "#/components/schemas/Relationship"
+                },
+                "label": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "BookingRequest": {
+        "type": "object",
+        "required": [
+          "treatment_id",
+          "date",
+          "time",
+          "relationship"
+        ],
+        "properties": {
+          "treatment_id": {
+            "type": "integer"
+          },
+          "doctor_id": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Vacío: el primero libre."
+          },
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "time": {
+            "type": "string",
+            "pattern": "^\\d{2}:\\d{2}$"
+          },
+          "patient_id": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Un familiar del celular recordado; vacío para una persona nueva."
+          },
+          "phone": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 20,
+            "description": "Obligatorio sin celular recordado. Celular peruano de 9 dígitos."
+          },
+          "first_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 80,
+            "description": "Obligatorio para una persona nueva."
+          },
+          "last_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 80,
+            "description": "Obligatorio para una persona nueva."
+          },
+          "who": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "me",
+              "family",
+              null
+            ]
+          },
+          "relationship": {
+            "$ref": "#/components/schemas/Relationship"
+          },
+          "birth_date": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date"
+          },
+          "origin": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/AppointmentOrigin"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "accepts_privacy": {
+            "type": "boolean",
+            "description": "Debe ser true la primera vez (Ley N.º 29733)."
+          },
+          "accepts_promotions": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "promo_code": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 30
+          },
+          "campaign_slug": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 120
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 300
+          }
+        },
+        "additionalProperties": false
+      },
+      "BookingTreatment": {
+        "type": "object",
+        "required": [
+          "id",
+          "slug",
+          "name",
+          "summary",
+          "art",
+          "is_evaluation",
+          "duration_minutes",
+          "sessions_text",
+          "label",
+          "price",
+          "price_line"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "summary": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "art": {
+            "type": "string",
+            "description": "Clave de la ilustración del tratamiento."
+          },
+          "is_evaluation": {
+            "type": "boolean"
+          },
+          "duration_minutes": {
+            "type": "integer"
+          },
+          "sessions_text": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "label": {
+            "type": "string"
+          },
+          "price": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "required": [
+              "was",
+              "now"
+            ],
+            "properties": {
+              "was": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "now": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          },
+          "price_line": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "Campaign": {
+        "type": "object",
+        "required": [
+          "slug",
+          "name",
+          "summary",
+          "image_url",
+          "until",
+          "discount",
+          "discount_beside_name"
+        ],
+        "properties": {
+          "slug": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "summary": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "image_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "until": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "\"Hasta el 30 de noviembre\"."
+          },
+          "discount": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "\"20 % de descuento\"."
+          },
+          "discount_beside_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "treatment": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "required": [
+              "slug",
+              "name"
+            ],
+            "properties": {
+              "slug": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      "CancelRequest": {
+        "type": "object",
+        "required": [],
+        "properties": {
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Se guardan los primeros 250 caracteres."
+          }
+        },
+        "additionalProperties": false
+      },
+      "CasesData": {
+        "type": "object",
+        "required": [
+          "cases",
+          "treatments",
+          "selected"
+        ],
+        "properties": {
+          "cases": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SmileCase"
+            }
+          },
+          "treatments": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "slug",
+                "name"
+              ],
+              "properties": {
+                "slug": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "selected": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "ChangeData": {
+        "type": "object",
+        "required": [
+          "appointment",
+          "can_change",
+          "automatic",
+          "fixed_date",
+          "max_options",
+          "pending_request",
+          "days",
+          "date",
+          "day",
+          "slots"
+        ],
+        "properties": {
+          "appointment": {
+            "type": "object",
+            "required": [
+              "what",
+              "now",
+              "doctor"
+            ],
+            "properties": {
+              "what": {
+                "type": "string"
+              },
+              "now": {
+                "type": "string"
+              },
+              "doctor": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          },
+          "can_change": {
+            "type": "boolean"
+          },
+          "automatic": {
+            "type": "boolean",
+            "description": "true: el cambio es al instante; false: lo aprueba el consultorio."
+          },
+          "fixed_date": {
+            "type": "boolean",
+            "description": "Sesión con fecha coordinada con el doctor: siempre pasa por el consultorio."
+          },
+          "max_options": {
+            "type": "integer",
+            "description": "Cuántos horarios puede proponer cuando el cambio lo aprueba el consultorio."
+          },
+          "pending_request": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "days": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PickerDay"
+            }
+          },
+          "date": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date"
+          },
+          "day": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "slots": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Slot"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "ChangeRequest": {
+        "type": "object",
+        "required": [
+          "chosen"
+        ],
+        "properties": {
+          "chosen": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}$"
+            },
+            "minItems": 1,
+            "uniqueItems": true,
+            "description": "Uno (cambio al instante) o varios horarios propuestos, \"Y-m-d H:i\"."
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 250
+          }
+        },
+        "additionalProperties": false
+      },
+      "Clinic": {
+        "type": "object",
+        "required": [
+          "name",
+          "tagline",
+          "district",
+          "logo_url",
+          "address",
+          "directions_url",
+          "map_embed_url",
+          "whatsapp",
+          "phone",
+          "call_href",
+          "email",
+          "socials",
+          "reviews_url",
+          "google_rating",
+          "hours"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "tagline": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "district": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "logo_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "address": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "directions_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "map_embed_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "whatsapp": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "required": [
+              "number",
+              "display"
+            ],
+            "properties": {
+              "number": {
+                "type": "string",
+                "description": "Para wa.me, con código de país."
+              },
+              "display": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          },
+          "phone": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "required": [
+              "display",
+              "href"
+            ],
+            "properties": {
+              "display": {
+                "type": "string"
+              },
+              "href": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          },
+          "call_href": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "email": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "socials": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "network",
+                "url"
+              ],
+              "properties": {
+                "network": {
+                  "type": "string"
+                },
+                "url": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "reviews_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "google_rating": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "required": [
+              "rating",
+              "count",
+              "url"
+            ],
+            "properties": {
+              "rating": {
+                "type": "number"
+              },
+              "count": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "url": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "additionalProperties": false
+          },
+          "hours": {
+            "type": "object",
+            "required": [
+              "lines",
+              "note",
+              "status",
+              "is_open"
+            ],
+            "properties": {
+              "lines": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "days",
+                    "hours"
+                  ],
+                  "properties": {
+                    "days": {
+                      "type": "string",
+                      "description": "\"Lunes a viernes\"."
+                    },
+                    "hours": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": "\"9:00 a. m. – 1:00 p. m.\" o \"Cerrado\"."
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "note": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "status": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "\"Abierto ahora · cierra …\" o \"Cerrado ahora · abre …\"."
+              },
+              "is_open": {
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      "Closing": {
+        "type": "object",
+        "required": [
+          "title",
+          "text",
+          "whatsapp"
+        ],
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "text": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "whatsapp": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Condition": {
+        "type": "string",
+        "enum": [
+          "diabetes",
+          "hypertension",
+          "heart_disease",
+          "asthma",
+          "epilepsy",
+          "hepatitis",
+          "hiv",
+          "kidney_disease",
+          "thyroid",
+          "bleeding_disorder",
+          "anesthesia_reaction",
+          "osteoporosis_meds"
+        ],
+        "description": "App\\Models\\MedicalBackground::CONDITIONS."
+      },
+      "ContactData": {
+        "type": "object",
+        "required": [
+          "heading"
+        ],
+        "properties": {
+          "heading": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Doctor": {
+        "type": "object",
+        "required": [
+          "id",
+          "slug",
+          "name",
+          "specialty",
+          "cop_number",
+          "rne_number",
+          "photo_url",
+          "initials",
+          "bio_short",
+          "bio_html",
+          "education",
+          "accepts_online_booking"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "specialty": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "cop_number": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Colegiatura del Colegio Odontológico del Perú."
+          },
+          "rne_number": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Registro Nacional de Especialistas."
+          },
+          "photo_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "initials": {
+            "type": "string"
+          },
+          "bio_short": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "bio_html": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "education": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "accepts_online_booking": {
+            "type": "boolean"
+          },
+          "treatments": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "slug",
+                "name"
+              ],
+              "properties": {
+                "slug": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            },
+            "description": "Solo en la página del equipo."
+          }
+        },
+        "additionalProperties": false
+      },
+      "Error": {
+        "type": "object",
+        "description": "Un pedido que no se pudo atender. \"message\" ya viene en español y se muestra tal cual al paciente (App\\Support\\ApiErrorMessage). Con APP_DEBUG=true Laravel agrega el detalle técnico, por eso este objeto admite más campos.",
+        "required": [
+          "message"
+        ],
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "Qué pasó y qué hacer, en español."
+          }
+        }
+      },
+      "Faq": {
+        "type": "object",
+        "required": [
+          "id",
+          "question",
+          "answer_html"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "question": {
+            "type": "string"
+          },
+          "answer_html": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "FaqsData": {
+        "type": "object",
+        "required": [
+          "topics"
+        ],
+        "properties": {
+          "topics": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "name",
+                "treatment",
+                "faqs"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "treatment": {
+                  "type": [
+                    "object",
+                    "null"
+                  ],
+                  "required": [
+                    "slug",
+                    "art"
+                  ],
+                  "properties": {
+                    "slug": {
+                      "type": "string"
+                    },
+                    "art": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "faqs": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Faq"
+                  }
+                }
+              },
+              "additionalProperties": false
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "HealthData": {
+        "type": "object",
+        "description": "\"Antes de tu cita\": las preguntas de salud dichas para quien responde.",
+        "required": [
+          "patient_id",
+          "title",
+          "lead",
+          "questions",
+          "conditions_question",
+          "conditions",
+          "also",
+          "notes_hint"
+        ],
+        "properties": {
+          "patient_id": {
+            "type": "integer"
+          },
+          "title": {
+            "type": "string"
+          },
+          "lead": {
+            "type": "string"
+          },
+          "questions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "choice",
+                "detail",
+                "question",
+                "hint",
+                "label",
+                "placeholder"
+              ],
+              "properties": {
+                "choice": {
+                  "type": "string"
+                },
+                "detail": {
+                  "type": "string"
+                },
+                "question": {
+                  "type": "string"
+                },
+                "hint": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "placeholder": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "conditions_question": {
+            "type": "string"
+          },
+          "conditions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "key",
+                "label"
+              ],
+              "properties": {
+                "key": {
+                  "$ref": "#/components/schemas/Condition"
+                },
+                "label": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "also": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "key",
+                "label"
+              ],
+              "properties": {
+                "key": {
+                  "type": "string",
+                  "enum": [
+                    "is_pregnant",
+                    "is_breastfeeding",
+                    "smoker"
+                  ]
+                },
+                "label": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            },
+            "description": "Embarazo y lactancia salvo a hombres y niños; fumar salvo a niños."
+          },
+          "notes_hint": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "HealthRequest": {
+        "type": "object",
+        "required": [
+          "has_allergies",
+          "takes_medications"
+        ],
+        "properties": {
+          "has_allergies": {
+            "type": "string",
+            "enum": [
+              "no",
+              "yes"
+            ]
+          },
+          "allergies": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 300,
+            "description": "Obligatorio si has_allergies es \"yes\"."
+          },
+          "takes_medications": {
+            "type": "string",
+            "enum": [
+              "no",
+              "yes"
+            ]
+          },
+          "medications": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 300,
+            "description": "Obligatorio si takes_medications es \"yes\"."
+          },
+          "conditions": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/Condition"
+            }
+          },
+          "is_pregnant": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "is_breastfeeding": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "smoker": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "notes": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 500
+          }
+        },
+        "additionalProperties": false
+      },
+      "HomeData": {
+        "type": "object",
+        "required": [
+          "welcome",
+          "can_book",
+          "next_free",
+          "campaigns",
+          "treatments",
+          "treatments_count",
+          "shows_prices",
+          "specialty",
+          "doctor",
+          "other_doctors",
+          "cases",
+          "reviews",
+          "faqs"
+        ],
+        "properties": {
+          "welcome": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Welcome"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "can_book": {
+            "type": "boolean"
+          },
+          "next_free": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/NextFree"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "campaigns": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Campaign"
+            }
+          },
+          "treatments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Treatment"
+            }
+          },
+          "treatments_count": {
+            "type": "integer"
+          },
+          "shows_prices": {
+            "type": "boolean"
+          },
+          "specialty": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Treatment"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "doctor": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Doctor"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "other_doctors": {
+            "type": "integer"
+          },
+          "cases": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SmileCase"
+            }
+          },
+          "reviews": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Review"
+            }
+          },
+          "faqs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Faq"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "LinkData": {
+        "description": "Qué abre el enlace: \"expired\" (ya no vale), \"access\" (entrar a Mi cuenta) o \"appointment\" (una cita).",
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "const": "expired"
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "const": "access"
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "required": [
+              "kind",
+              "title",
+              "appointment"
+            ],
+            "properties": {
+              "kind": {
+                "const": "appointment"
+              },
+              "title": {
+                "type": "string"
+              },
+              "appointment": {
+                "$ref": "#/components/schemas/AppointmentCard"
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
+      "Message": {
+        "type": "object",
+        "required": [
+          "message"
+        ],
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "Lo que la web le dice al paciente: \"¡Listo! …\"."
+          }
+        },
+        "additionalProperties": false
+      },
+      "NextFree": {
+        "type": "object",
+        "description": "El próximo horario libre de un tratamiento, para reservar en un toque.",
+        "required": [
+          "title",
+          "date",
+          "day",
+          "times",
+          "treatment",
+          "promo"
+        ],
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "day": {
+            "type": "string",
+            "description": "\"Mañana, jueves 20 de noviembre\"."
+          },
+          "times": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "time",
+                "label"
+              ],
+              "properties": {
+                "time": {
+                  "type": "string",
+                  "description": "\"09:30\"."
+                },
+                "label": {
+                  "type": "string",
+                  "description": "\"9:30 a. m.\"."
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "treatment": {
+            "type": "object",
+            "required": [
+              "slug",
+              "name",
+              "duration_minutes"
+            ],
+            "properties": {
+              "slug": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "duration_minutes": {
+                "type": "integer"
+              }
+            },
+            "additionalProperties": false
+          },
+          "promo": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "OriginRequest": {
+        "type": "object",
+        "required": [
+          "origin"
+        ],
+        "properties": {
+          "origin": {
+            "type": "string",
+            "enum": [
+              "google",
+              "facebook",
+              "instagram",
+              "tiktok",
+              "whatsapp",
+              "recommendation",
+              "walk_in",
+              "other"
+            ],
+            "description": "Las opciones que se preguntan: todas menos \"campaign\" y \"referral\", que ya se saben."
+          }
+        },
+        "additionalProperties": false
+      },
+      "PageMeta": {
+        "type": "object",
+        "description": "Lo que el documento HTML pone en <head>.",
+        "required": [
+          "title",
+          "og_title",
+          "description",
+          "image",
+          "noindex",
+          "json_ld"
+        ],
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Título de la pestaña: \"Página · Consultorio\"."
+          },
+          "og_title": {
+            "type": "string",
+            "description": "Título al compartir."
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "image": {
+            "type": "string",
+            "description": "URL absoluta de la imagen al compartir."
+          },
+          "noindex": {
+            "type": "boolean",
+            "description": "true en las páginas personales (Mi cuenta, enlaces): Google no las indexa."
+          },
+          "json_ld": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "description": "Datos estructurados schema.org (Dentist, BreadcrumbList, FAQPage)."
+          }
+        },
+        "additionalProperties": false
+      },
+      "PageTexts": {
+        "type": "object",
+        "required": [
+          "kicker",
+          "icon",
+          "title",
+          "lead",
+          "photo_url",
+          "closing"
+        ],
+        "properties": {
+          "kicker": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "icon": {
+            "type": "string"
+          },
+          "title": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 3,
+            "maxItems": 3,
+            "description": "El título en tres partes: antes, lo que va en azul y después."
+          },
+          "lead": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "photo_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "closing": {
+            "$ref": "#/components/schemas/Closing"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PickerDay": {
+        "type": "object",
+        "required": [
+          "date",
+          "weekday",
+          "number",
+          "month",
+          "label"
+        ],
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "weekday": {
+            "type": "string",
+            "description": "\"Hoy\", \"Mañana\" o el día abreviado."
+          },
+          "number": {
+            "type": "integer"
+          },
+          "month": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PlanCard": {
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "state",
+          "tone",
+          "who",
+          "included_in",
+          "progress",
+          "payment",
+          "items_summary",
+          "items"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "title": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "tone": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "ok",
+              "bad",
+              null
+            ]
+          },
+          "who": {
+            "type": "string"
+          },
+          "included_in": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Plan que va dentro del 2x1 de otro familiar."
+          },
+          "progress": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "required": [
+              "percent",
+              "total",
+              "paid",
+              "remaining",
+              "owed",
+              "next"
+            ],
+            "properties": {
+              "percent": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 100
+              },
+              "total": {
+                "type": "string"
+              },
+              "paid": {
+                "type": "string"
+              },
+              "remaining": {
+                "type": "string"
+              },
+              "owed": {
+                "type": [
+                  "object",
+                  "null"
+                ],
+                "required": [
+                  "label",
+                  "amount",
+                  "late"
+                ],
+                "properties": {
+                  "label": {
+                    "type": "string"
+                  },
+                  "amount": {
+                    "type": "string"
+                  },
+                  "late": {
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "next": {
+                "type": [
+                  "object",
+                  "null"
+                ],
+                "required": [
+                  "amount",
+                  "day",
+                  "label"
+                ],
+                "properties": {
+                  "amount": {
+                    "type": "string"
+                  },
+                  "day": {
+                    "type": "string"
+                  },
+                  "label": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false
+          },
+          "payment": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "items_summary": {
+            "type": "string"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "label",
+                "state",
+                "done"
+              ],
+              "properties": {
+                "id": {
+                  "type": "integer"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "state": {
+                  "type": "string"
+                },
+                "done": {
+                  "type": "boolean"
+                }
+              },
+              "additionalProperties": false
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "PrivacyData": {
+        "type": "object",
+        "required": [
+          "clinic",
+          "address",
+          "whatsapp"
+        ],
+        "properties": {
+          "clinic": {
+            "type": "string"
+          },
+          "address": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "whatsapp": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "PromotionData": {
+        "type": "object",
+        "required": [
+          "campaign",
+          "by_evaluation",
+          "booking"
+        ],
+        "properties": {
+          "campaign": {
+            "type": "object",
+            "required": [
+              "slug",
+              "name",
+              "summary",
+              "image_url",
+              "until",
+              "discount",
+              "discount_beside_name",
+              "description_html",
+              "promo_code",
+              "has_slots_left",
+              "whatsapp_text",
+              "price",
+              "package"
+            ],
+            "properties": {
+              "slug": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "summary": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "image_url": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "until": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "\"Hasta el 30 de noviembre\"."
+              },
+              "discount": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "\"20 % de descuento\"."
+              },
+              "discount_beside_name": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "treatment": {
+                "type": [
+                  "object",
+                  "null"
+                ],
+                "required": [
+                  "slug",
+                  "name"
+                ],
+                "properties": {
+                  "slug": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "description_html": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "promo_code": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "has_slots_left": {
+                "type": "boolean"
+              },
+              "whatsapp_text": {
+                "type": "string"
+              },
+              "price": {
+                "type": [
+                  "object",
+                  "null"
+                ],
+                "required": [
+                  "normal",
+                  "now"
+                ],
+                "properties": {
+                  "normal": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "now": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "package": {
+                "type": [
+                  "object",
+                  "null"
+                ],
+                "required": [
+                  "items",
+                  "normal_price",
+                  "price",
+                  "savings",
+                  "for_two",
+                  "payment_options",
+                  "description"
+                ],
+                "properties": {
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "normal_price": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "price": {
+                    "type": "string"
+                  },
+                  "savings": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "for_two": {
+                    "type": "boolean",
+                    "description": "Paquete 2x1."
+                  },
+                  "payment_options": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "description": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false
+          },
+          "by_evaluation": {
+            "type": "boolean"
+          },
+          "booking": {
+            "type": "object",
+            "description": "Los parámetros con que se abre la reserva (?tratamiento=…&codigo=…).",
+            "properties": {
+              "tratamiento": {
+                "type": "string"
+              },
+              "codigo": {
+                "type": "string"
+              },
+              "promo": {
+                "type": "string"
+              },
+              "origen": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      "PromotionEnded": {
+        "type": "object",
+        "description": "Una promoción que terminó o no existe no da un error vacío: ofrece las vigentes.",
+        "required": [
+          "message",
+          "data",
+          "meta"
+        ],
+        "properties": {
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object",
+            "required": [
+              "ended",
+              "campaigns"
+            ],
+            "properties": {
+              "ended": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "El nombre de la promoción que terminó; null si no existe."
+              },
+              "campaigns": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Campaign"
+                }
+              }
+            },
+            "additionalProperties": false
+          },
+          "meta": {
+            "$ref": "#/components/schemas/PageMeta"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PromotionsData": {
+        "type": "object",
+        "required": [
+          "campaigns"
+        ],
+        "properties": {
+          "campaigns": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Campaign"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "Rejected": {
+        "type": "object",
+        "description": "Un 422 que puede venir de la validación (con \"errors\") o de una regla del consultorio (solo \"message\", por ejemplo \"Ese horario ya no está libre\").",
+        "required": [
+          "message"
+        ],
+        "properties": {
+          "message": {
+            "type": "string"
+          },
+          "errors": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "Relationship": {
+        "type": "string",
+        "enum": [
+          "self",
+          "child",
+          "parent",
+          "spouse",
+          "sibling",
+          "grandparent",
+          "grandchild",
+          "other"
+        ],
+        "description": "Parentesco con el titular del celular (App\\Enums\\PatientRelationship)."
+      },
+      "Review": {
+        "type": "object",
+        "required": [
+          "id",
+          "rating",
+          "body",
+          "author",
+          "source",
+          "url",
+          "date"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "rating": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "body": {
+            "type": "string"
+          },
+          "author": {
+            "type": "string",
+            "description": "Nombre corto: \"Lucía M.\"."
+          },
+          "source": {
+            "type": "string"
+          },
+          "url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "date": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "\"noviembre 2026\"."
+          }
+        },
+        "additionalProperties": false
+      },
+      "ReviewsData": {
+        "type": "object",
+        "required": [
+          "reviews"
+        ],
+        "properties": {
+          "reviews": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Review"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "Site": {
+        "type": "object",
+        "required": [
+          "clinic",
+          "home",
+          "sections",
+          "pages",
+          "closing",
+          "team_values",
+          "how_to_pay",
+          "year"
+        ],
+        "properties": {
+          "clinic": {
+            "$ref": "#/components/schemas/Clinic"
+          },
+          "home": {
+            "type": "object",
+            "required": [
+              "tagline",
+              "title",
+              "intro",
+              "about_html",
+              "hero_image_url"
+            ],
+            "properties": {
+              "tagline": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "title": {
+                "type": "object",
+                "required": [
+                  "strong",
+                  "thin",
+                  "accent"
+                ],
+                "properties": {
+                  "strong": {
+                    "type": "string"
+                  },
+                  "thin": {
+                    "type": "string"
+                  },
+                  "accent": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "intro": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "about_html": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "hero_image_url": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "additionalProperties": false
+          },
+          "sections": {
+            "type": "object",
+            "description": "Qué secciones tienen contenido publicado (el menú oculta las vacías).",
+            "required": [
+              "promotions",
+              "cases",
+              "reviews",
+              "faq"
+            ],
+            "properties": {
+              "promotions": {
+                "type": "boolean"
+              },
+              "cases": {
+                "type": "boolean"
+              },
+              "reviews": {
+                "type": "boolean"
+              },
+              "faq": {
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": false
+          },
+          "pages": {
+            "type": "object",
+            "description": "Encabezado y cierre editables de cada página.",
+            "required": [
+              "servicios",
+              "equipo",
+              "contacto",
+              "preguntas",
+              "promociones",
+              "casos",
+              "opiniones",
+              "cuenta",
+              "reservar"
+            ],
+            "properties": {
+              "servicios": {
+                "$ref": "#/components/schemas/PageTexts"
+              },
+              "equipo": {
+                "$ref": "#/components/schemas/PageTexts"
+              },
+              "contacto": {
+                "$ref": "#/components/schemas/PageTexts"
+              },
+              "preguntas": {
+                "$ref": "#/components/schemas/PageTexts"
+              },
+              "promociones": {
+                "$ref": "#/components/schemas/PageTexts"
+              },
+              "casos": {
+                "$ref": "#/components/schemas/PageTexts"
+              },
+              "opiniones": {
+                "$ref": "#/components/schemas/PageTexts"
+              },
+              "cuenta": {
+                "$ref": "#/components/schemas/PageTexts"
+              },
+              "reservar": {
+                "$ref": "#/components/schemas/PageTexts"
+              }
+            },
+            "additionalProperties": false
+          },
+          "closing": {
+            "$ref": "#/components/schemas/Closing"
+          },
+          "team_values": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "icon",
+                "title",
+                "text"
+              ],
+              "properties": {
+                "icon": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "text": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "how_to_pay": {
+            "type": "string"
+          },
+          "year": {
+            "type": "integer"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Slot": {
+        "type": "object",
+        "required": [
+          "time",
+          "label",
+          "doctor_id",
+          "suggested"
+        ],
+        "properties": {
+          "time": {
+            "type": "string",
+            "description": "\"09:30\"."
+          },
+          "label": {
+            "type": "string"
+          },
+          "doctor_id": {
+            "type": "integer"
+          },
+          "suggested": {
+            "type": "boolean",
+            "description": "Los demás van detrás de \"Ver más horarios\"."
+          }
+        },
+        "additionalProperties": false
+      },
+      "SlotPicker": {
+        "type": "object",
+        "description": "Los horarios libres de un día (\"days\" solo cuando se piden los días).",
+        "required": [
+          "date",
+          "day",
+          "slots"
+        ],
+        "properties": {
+          "days": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PickerDay"
+            }
+          },
+          "date": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date"
+          },
+          "day": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "slots": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Slot"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "SmileCase": {
+        "type": "object",
+        "description": "Un caso de antes y después que el paciente autorizó mostrar.",
+        "required": [
+          "id",
+          "title",
+          "before_url",
+          "after_url",
+          "description_html"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "title": {
+            "type": "string"
+          },
+          "before_url": {
+            "type": "string"
+          },
+          "after_url": {
+            "type": "string"
+          },
+          "description_html": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "treatment": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "required": [
+              "slug",
+              "name"
+            ],
+            "properties": {
+              "slug": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      "TeamData": {
+        "type": "object",
+        "required": [
+          "doctors"
+        ],
+        "properties": {
+          "doctors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Doctor"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "Treatment": {
+        "type": "object",
+        "required": [
+          "id",
+          "slug",
+          "name",
+          "summary",
+          "art",
+          "is_evaluation",
+          "duration_minutes",
+          "sessions_text",
+          "price"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "summary": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "art": {
+            "type": "string",
+            "description": "Clave de la ilustración del tratamiento."
+          },
+          "is_evaluation": {
+            "type": "boolean"
+          },
+          "duration_minutes": {
+            "type": "integer"
+          },
+          "sessions_text": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "price": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Precio referencial ya escrito, o null si el consultorio no lo publica."
+          }
+        },
+        "additionalProperties": false
+      },
+      "TreatmentData": {
+        "type": "object",
+        "required": [
+          "treatment",
+          "campaign",
+          "booking",
+          "next_free",
+          "doctors",
+          "faqs",
+          "cases",
+          "reviews",
+          "others"
+        ],
+        "properties": {
+          "treatment": {
+            "type": "object",
+            "required": [
+              "id",
+              "slug",
+              "name",
+              "summary",
+              "art",
+              "is_evaluation",
+              "duration_minutes",
+              "sessions_text",
+              "price",
+              "description_html",
+              "image_url"
+            ],
+            "properties": {
+              "id": {
+                "type": "integer"
+              },
+              "slug": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "summary": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "art": {
+                "type": "string",
+                "description": "Clave de la ilustración del tratamiento."
+              },
+              "is_evaluation": {
+                "type": "boolean"
+              },
+              "duration_minutes": {
+                "type": "integer"
+              },
+              "sessions_text": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "price": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "Precio referencial ya escrito, o null si el consultorio no lo publica."
+              },
+              "description_html": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "image_url": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "additionalProperties": false
+          },
+          "campaign": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "required": [
+              "slug",
+              "name",
+              "summary",
+              "image_url",
+              "until",
+              "discount",
+              "discount_beside_name",
+              "price",
+              "until_lower"
+            ],
+            "properties": {
+              "slug": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "summary": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "image_url": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "until": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "\"Hasta el 30 de noviembre\"."
+              },
+              "discount": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "\"20 % de descuento\"."
+              },
+              "discount_beside_name": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "treatment": {
+                "type": [
+                  "object",
+                  "null"
+                ],
+                "required": [
+                  "slug",
+                  "name"
+                ],
+                "properties": {
+                  "slug": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "price": {
+                "type": "string"
+              },
+              "until_lower": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          },
+          "booking": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "required": [
+              "treatment",
+              "promo",
+              "direct"
+            ],
+            "properties": {
+              "treatment": {
+                "type": "string"
+              },
+              "promo": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "direct": {
+                "type": "boolean",
+                "description": "false: se reserva primero la evaluación."
+              }
+            },
+            "additionalProperties": false
+          },
+          "next_free": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/NextFree"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "doctors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Doctor"
+            }
+          },
+          "faqs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Faq"
+            }
+          },
+          "cases": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SmileCase"
+            }
+          },
+          "reviews": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Review"
+            }
+          },
+          "others": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Treatment"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "TreatmentsData": {
+        "type": "object",
+        "required": [
+          "treatments",
+          "evaluation"
+        ],
+        "properties": {
+          "treatments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Treatment"
+            }
+          },
+          "evaluation": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "required": [
+              "slug"
+            ],
+            "properties": {
+              "slug": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      "ValidationError": {
+        "type": "object",
+        "description": "Datos que no pasaron la validación de Laravel (422).",
+        "required": [
+          "message",
+          "errors"
+        ],
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "El primer error, en español."
+          },
+          "errors": {
+            "type": "object",
+            "description": "Por cada campo, sus mensajes.",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "Welcome": {
+        "type": "object",
+        "description": "El saludo del inicio al celular recordado: sus citas, las sesiones que faltan y los controles que tocan.",
+        "required": [
+          "name",
+          "appointments",
+          "more",
+          "sessions",
+          "checkups"
+        ],
+        "properties": {
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "appointments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AppointmentCard"
+            }
+          },
+          "more": {
+            "type": "integer"
+          },
+          "sessions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "patient_id",
+                "kicker",
+                "title",
+                "done",
+                "total",
+                "note",
+                "requested",
+                "button"
+              ],
+              "properties": {
+                "patient_id": {
+                  "type": "integer"
+                },
+                "kicker": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "done": {
+                  "type": "integer"
+                },
+                "total": {
+                  "type": "integer"
+                },
+                "note": {
+                  "type": "string"
+                },
+                "requested": {
+                  "type": "boolean"
+                },
+                "button": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "checkups": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "patient_id",
+                "kicker",
+                "title",
+                "note",
+                "url",
+                "button"
+              ],
+              "properties": {
+                "patient_id": {
+                  "type": "integer"
+                },
+                "kicker": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "note": {
+                  "type": "string"
+                },
+                "url": {
+                  "type": "string"
+                },
+                "button": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  }
+}

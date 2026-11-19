@@ -206,7 +206,7 @@ export function bookedAppointment(changes: Partial<BookedAppointment> = {}): Boo
     whatsapp_message: 'Hola, acabo de reservar una cita para el miércoles 4 de noviembre a las 9:00 a. m.',
     origins: [
       { value: 'facebook', label: 'Facebook' },
-      { value: 'friend', label: 'Un conocido' },
+      { value: 'recommendation', label: 'Recomendación' },
     ],
     origin_url: '/api/v1/booking/appointments/9/origin?signature=abc',
     ...changes,

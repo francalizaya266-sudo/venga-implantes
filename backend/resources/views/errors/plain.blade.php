@@ -24,7 +24,7 @@
         .error-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 24px; }
         .btn { display: inline-flex; align-items: center; justify-content: center; min-height: 52px; padding: 12px 24px; border: 0; border-radius: 999px; font: 650 1.0625rem/1.2 inherit; font-family: inherit; text-decoration: none; cursor: pointer; background: #0e2f6b; color: #fff; }
         .btn.quiet { background: #eef3fa; color: #0c1a2e; }
-        .btn.whatsapp { background: #128c4b; }
+        .btn.whatsapp { background: #11824a; }
     </style>
 </head>
 <body>

@@ -338,8 +338,22 @@ class BookingControllerTest extends TestCase
         $this->doctorOffering($endodontics);
 
         $this->book($this->booking($endodontics))->assertUnprocessable();
+        // Tampoco ofrece días ni horarios para él.
+        $this->getJson(route('api.v1.booking.days', ['treatment' => $endodontics->id]))->assertNotFound();
+        $this->getJson(route('api.v1.booking.slots', ['treatment' => $endodontics->id, 'date' => '2026-11-02']))->assertNotFound();
 
         $this->assertDatabaseCount('appointments', 0);
+    }
+
+    public function test_the_free_times_are_asked_for_a_day_written_as_a_date(): void
+    {
+        $cleaning = Treatment::factory()->create();
+
+        foreach ([[], ['date' => 'mañana'], ['date' => '02/11/2026']] as $day) {
+            $this->getJson(route('api.v1.booking.slots', ['treatment' => $cleaning->id, ...$day]))
+                ->assertUnprocessable()
+                ->assertJsonValidationErrors('date');
+        }
     }
 
     public function test_a_remembered_phone_books_for_the_family_without_typing_the_number(): void

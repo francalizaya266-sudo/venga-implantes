@@ -77,6 +77,8 @@ class LinkController extends Controller
 
     public function cancel(Request $request, string $token): JsonResponse
     {
+        $request->validate(['reason' => ['nullable', 'string']]);
+
         $link = $this->act($request, $token);
 
         try {

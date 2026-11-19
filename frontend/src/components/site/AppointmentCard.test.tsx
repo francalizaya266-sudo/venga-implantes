@@ -62,13 +62,20 @@ describe('AppointmentCard', () => {
     );
   });
 
-  it('says what the API answered when the appointment can no longer be confirmed', async () => {
-    mockApi({ [`POST ${CONFIRM}`]: { status: 409, body: { message: 'Esta cita ya no se puede confirmar.' } } });
+  it('says what the API answered when the link stopped working', async () => {
+    mockApi({
+      [`POST ${CONFIRM}`]: {
+        status: 404,
+        body: { message: 'No encontramos lo que buscas. Puede que el enlace esté incompleto o ya no exista.' },
+      },
+    });
     const { user } = renderCard();
 
     await user.click(screen.getByRole('button', { name: 'Confirmar asistencia' }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('Esta cita ya no se puede confirmar.');
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'No encontramos lo que buscas. Puede que el enlace esté incompleto o ya no exista.',
+    );
   });
 
   it('asks to check the connection when the request does not even arrive', async () => {

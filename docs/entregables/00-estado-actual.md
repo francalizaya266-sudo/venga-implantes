@@ -112,6 +112,8 @@ Leyenda: **Cubierta** = la evidencia existe y es verificable; **Parcial** = hay 
 | CE0235 Distribuido con servicios interoperables | Falta | Integración con WhatsApp (wa.me hoy, API de Meta preparada en `CloudApiChannel`). | Un servicio propio separado, con API, prueba de integración y de resiliencia. | ~~FASE 3: servicio de IA de inasistencias (FastAPI + Docker).~~ Descartado el 19/11/2026. FASE 3: documentar la integración con RENIEC (Decolecta), Nager.Date y WhatsApp, con sus pruebas de falla. |
 | CE0236 Móvil | Falta | La web es mobile-first, pero no es una app. | App móvil que consuma la API. | ~~FASE 3: app móvil.~~ Descartada el 19/11/2026 (ver "Decisiones del estudiante"). |
 
+**Avance de la FASE 3 (19/11/2026).** CE0233 queda cubierta con el documento técnico del E3 y una reserva capturada de punta a punta, de la web al panel. CE0234 queda cubierta salvo la URL de producción: la API está documentada en `docs/api/openapi.json`, cada respuesta de las pruebas del backend y de la web se compara con ese contrato, y el despliegue en Azure está escrito como código en `infra/` `[PENDIENTE – estudiante: URL]`. CE0235 sigue sin un servicio propio separado (decisión del 19/11/2026); el E3 documenta la integración con Decolecta, Nager.Date y la API de WhatsApp, cada una con tiempo de espera, alternativa y pruebas de falla.
+
 ### E4 · CE024 Calidad de Software
 
 *Tabla 16. Evidencias de CE024 (E4).*

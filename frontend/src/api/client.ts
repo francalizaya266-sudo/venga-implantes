@@ -18,7 +18,8 @@ export class ApiError extends Error {
   readonly body: ErrorBody;
 
   constructor(status: number, body: ErrorBody) {
-    super(body.message ?? `La petición falló (${status}).`);
+    // Un mensaje vacío tampoco le dice nada al paciente: se usa el de respaldo.
+    super(body.message || `La petición falló (${status}).`);
     this.name = 'ApiError';
     this.status = status;
     this.body = body;
