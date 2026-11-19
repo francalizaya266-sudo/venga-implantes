@@ -1,0 +1,10 @@
+%%{init: {"flowchart": {"nodeSpacing": 14, "rankSpacing": 34, "padding": 10, "wrappingWidth": 400}}}%%
+flowchart TB
+  raiz["<b>Sistema web de Clínica Vega Implant</b>"]
+  g["<b>Gestión</b><br/>Charter y backlog<br/>Sprints S1 a S4<br/>Seguimiento con PR y CI"]
+  r["<b>Requerimientos</b><br/><b>y diseño (E1)</b><br/>87 RF y 12 HU<br/>Prototipo y validación<br/>C4 y 14 ADR"]
+  d["<b>Plataforma</b><br/><b>de datos (E2)</b><br/>Modelo y migraciones<br/>Objetos de MySQL<br/>Usuarios y copias"]
+  c["<b>Construcción (E3)</b><br/>Web del paciente<br/>Panel del personal<br/>API y servicios externos"]
+  q["<b>Calidad (E4)</b><br/>Pruebas y cobertura<br/>Revisión y métricas<br/>Auditoría y mejora"]
+  o["<b>Despliegue</b><br/><b>y operación</b><br/>Azure como código<br/>Pipeline CI/CD<br/>Monitoreo y respaldo"]
+  raiz --> g & r & d & c & q & o

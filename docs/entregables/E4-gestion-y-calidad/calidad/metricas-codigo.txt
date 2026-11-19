@@ -1,0 +1,63 @@
+clases                            482
+metodos                           2935
+complejidad_media                 2.87
+complejidad_p90                   6
+complejidad_maxima                41
+metodos_con_complejidad_hasta_5   87.7
+lineas_media_por_metodo           12.9
+
+Método largo (> 60 líneas): 73
+  ConsultationForm::addPackageAction  129 líneas  CC 39  0 parám.  backend/app/Filament/Resources/Consultations/Schemas/ConsultationForm.php:1164
+  ConsultationForm::configure  360 líneas  CC 38  1 parám.  backend/app/Filament/Resources/Consultations/Schemas/ConsultationForm.php:103
+  FindingsDictation::read  107 líneas  CC 33  5 parám.  backend/app/Services/Clinical/FindingsDictation.php:155
+  Agenda::rail  82 líneas  CC 28  0 parám.  backend/app/Filament/Pages/Agenda.php:556
+  TreatmentPlanForm::configure  179 líneas  CC 27  3 parám.  backend/app/Filament/Resources/Patients/Schemas/TreatmentPlanForm.php:39
+  MedicationCheck::warnings  61 líneas  CC 27  2 parám.  backend/app/Services/Clinical/MedicationCheck.php:43
+  SignPlanAction::make  133 líneas  CC 25  0 parám.  backend/app/Filament/Actions/SignPlanAction.php:39
+  WaitlistEntriesTable::configure  92 líneas  CC 24  1 parám.  backend/app/Filament/Resources/WaitlistEntries/Tables/WaitlistEntriesTable.php:27
+  SlotPicker::fields  161 líneas  CC 21  1 parám.  backend/app/Filament/Support/SlotPicker.php:55
+  AppointmentService::bookFromStaff  78 líneas  CC 21  6 parám.  backend/app/Services/Booking/AppointmentService.php:168
+  BillingService::previewConsultation  99 líneas  CC 21  4 parám.  backend/app/Services/Billing/BillingService.php:88
+  PromotionController::show  73 líneas  CC 21  3 parám.  backend/app/Http/Controllers/Api/V1/Site/PromotionController.php:47
+
+Método complejo (complejidad > 10): 102
+  TreatmentRisks::for  45 líneas  CC 41  3 parám.  backend/app/Services/Clinical/TreatmentRisks.php:20
+  ConsultationForm::addPackageAction  129 líneas  CC 39  0 parám.  backend/app/Filament/Resources/Consultations/Schemas/ConsultationForm.php:1164
+  ConsultationForm::configure  360 líneas  CC 38  1 parám.  backend/app/Filament/Resources/Consultations/Schemas/ConsultationForm.php:103
+  FindingsDictation::read  107 líneas  CC 33  5 parám.  backend/app/Services/Clinical/FindingsDictation.php:155
+  DoctorForm::overlappingRanges  30 líneas  CC 31  1 parám.  backend/app/Filament/Resources/Doctors/Schemas/DoctorForm.php:179
+  Agenda::rail  82 líneas  CC 28  0 parám.  backend/app/Filament/Pages/Agenda.php:556
+  TreatmentPlanForm::configure  179 líneas  CC 27  3 parám.  backend/app/Filament/Resources/Patients/Schemas/TreatmentPlanForm.php:39
+  MedicationCheck::warnings  61 líneas  CC 27  2 parám.  backend/app/Services/Clinical/MedicationCheck.php:43
+  CreateAppointmentAction::defaults  46 líneas  CC 26  1 parám.  backend/app/Filament/Actions/CreateAppointmentAction.php:174
+  ChangeHistory::subject  32 líneas  CC 25  1 parám.  backend/app/Filament/Support/ChangeHistory.php:287
+  ChangeHistory::value  29 líneas  CC 25  3 parám.  backend/app/Filament/Support/ChangeHistory.php:439
+  PatientSummary::nextStep  56 líneas  CC 25  3 parám.  backend/app/Filament/Support/PatientSummary.php:63
+
+Lista larga de parámetros (> 5): 29
+  AppointmentService::bookFromStaff  78 líneas  CC 21  6 parám.  backend/app/Services/Booking/AppointmentService.php:168
+  ConsentService::fill  30 líneas  CC 16  7 parám.  backend/app/Services/Clinical/ConsentService.php:162
+  AvailabilityService::slotsFor  57 líneas  CC 14  6 parám.  backend/app/Services/Agenda/AvailabilityService.php:42
+  TreatmentPlanService::addPackageToDraft  30 líneas  CC 10  6 parám.  backend/app/Services/Clinical/TreatmentPlanService.php:377
+  BillingService::charge  40 líneas  CC 10  7 parám.  backend/app/Services/Billing/BillingService.php:251
+  GapFinder::nextSlots  26 líneas  CC 8  7 parám.  backend/app/Services/Agenda/GapFinder.php:106
+  PageMeta::for  15 líneas  CC 8  6 parám.  backend/app/Services/Web/PageMeta.php:24
+  InventoryService::take  37 líneas  CC 8  6 parám.  backend/app/Services/Inventory/InventoryService.php:109
+  ClinicalFileService::store  39 líneas  CC 7  7 parám.  backend/app/Services/Clinical/ClinicalFileService.php:34
+  HomeController::__invoke  30 líneas  CC 6  6 parám.  backend/app/Http/Controllers/Api/V1/Site/HomeController.php:42
+  OdontogramChart::mark  18 líneas  CC 5  6 parám.  backend/app/Livewire/OdontogramChart.php:116
+  OdontogramService::prepare  28 líneas  CC 5  7 parám.  backend/app/Services/Clinical/OdontogramService.php:159
+
+Clase grande (> 500 líneas): 12
+  App\Filament\Resources\Consultations\Schemas\ConsultationForm  1336 líneas  46 métodos  backend/app/Filament/Resources/Consultations/Schemas/ConsultationForm.php
+  App\Filament\Pages\Agenda  1289 líneas  76 métodos  backend/app/Filament/Pages/Agenda.php
+  App\Services\Clinical\TreatmentPlanService  1099 líneas  47 métodos  backend/app/Services/Clinical/TreatmentPlanService.php
+  App\Services\Booking\AppointmentService  973 líneas  35 métodos  backend/app/Services/Booking/AppointmentService.php
+  App\Filament\Support\SlotPicker  853 líneas  45 métodos  backend/app/Filament/Support/SlotPicker.php
+  App\Filament\Actions\AppointmentActions  771 líneas  45 métodos  backend/app/Filament/Actions/AppointmentActions.php
+  App\Services\Billing\BillingService  638 líneas  21 métodos  backend/app/Services/Billing/BillingService.php
+  App\Services\Inventory\InventoryService  595 líneas  26 métodos  backend/app/Services/Inventory/InventoryService.php
+  App\Livewire\OdontogramChart  575 líneas  31 métodos  backend/app/Livewire/OdontogramChart.php
+  App\Filament\Widgets\FollowUpsToday  563 líneas  25 métodos  backend/app/Filament/Widgets/FollowUpsToday.php
+  App\Filament\Resources\Appointments\Schemas\AppointmentInfolist  537 líneas  21 métodos  backend/app/Filament/Resources/Appointments/Schemas/AppointmentInfolist.php
+  App\Filament\Resources\Treatments\TreatmentResource  524 líneas  18 métodos  backend/app/Filament/Resources/Treatments/TreatmentResource.php

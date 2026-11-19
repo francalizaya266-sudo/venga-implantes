@@ -125,6 +125,8 @@ Leyenda: **Cubierta** = la evidencia existe y es verificable; **Parcial** = hay 
 | CE0243 Gestión ágil del proyecto | Falta | Historial real: 275 commits y 97 PR en 4 semanas con actividad (22/10 a 18/11/2026). | Project Charter, Product Backlog, Sprint Backlogs, métricas, retrospectivas y comparación con OpenUP. | FASE 4: sprints reconstruidos desde los PR con sus fechas reales. |
 | CE0244 Aseguramiento y auditoría de la calidad | Falta | Pint, ESLint, Prettier y TypeScript en CI; refactorizaciones reales en el historial (por ejemplo `46395b0` y `e0f8eb2`). | Matriz ISO/IEC 25010, checklists de revisión, registro de code smells y deuda, checklist CMMI/SCAMPI con ISO/IEC 29110 y plan de mejora. | FASE 4: matriz y checklists con valores medidos; Larastan para hallar deuda. |
 
+**Avance de la FASE 4 (19/11/2026).** CE0241 queda cubierta: el backend corre 1 096 casos con 96,06 % de líneas cubiertas (pcov) y la CI falla si la cobertura baja de 90 %; la web corre 141 pruebas, sin cobertura medida porque `@vitest/coverage-v8` es una dependencia nueva que espera aprobación. CE0242 queda cubierta en el código: el despliegue sale solo después de una CI en verde en `main`, se puede volver a la versión anterior con el mismo workflow, un segundo workflow vigila `/up` (que ahora también consulta la base) y los logs de producción salen en JSON con un id por petición; la publicación en verde, las alertas y las capturas de producción quedan `[PENDIENTE – Jhoel]`. CE0243 queda cubierta con el Charter, la EDT, el backlog por épica y cuatro sprints reconstruidos de los 115 PR fusionados, más la comparación con OpenUP; las retrospectivas son borradores `[PENDIENTE – equipo: validar]`. CE0244 queda cubierta con la matriz ISO/IEC 25010 medida, el registro de code smells y deuda (14 partidas), cinco refactorizaciones reales con su efecto medido, la autoevaluación CMMI/SCAMPI (nivel 1, con prácticas de los niveles 2 y 3 en curso), el checklist ISO/IEC 29110 y un plan de mejora de 10 acciones. Larastan no se instaló (dependencia nueva): la complejidad se mide con un script propio sin dependencias, `E4-gestion-y-calidad/calidad/medir-codigo.php`.
+
 ### Resumen
 
 *Tabla 17. Resumen por entregable.*
@@ -171,3 +173,5 @@ Cambios del 19/11/2026:
 - `[PENDIENTE – estudiante]` Sección (`seccion-…`) y número de grupo (`grupo-n-nombre`).
 - `[PENDIENTE – estudiante]` URL del despliegue en Azure, cuando exista.
 - `[PENDIENTE – estudiante]` Validación con el Dr. Vega y recepción (actas y firmas, en FASE 1).
+- `[PENDIENTE – Jhoel]` Evidencia de producción del E4: publicación y vuelta atrás en verde, una corrida de "Vigilar producción", alertas de Azure Monitor y Wazuh (capturas).
+- `[PENDIENTE – equipo]` Validar las retrospectivas y el Charter del E4, y aprobar o no `@vitest/coverage-v8` y Larastan.
