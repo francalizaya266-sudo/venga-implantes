@@ -1,5 +1,5 @@
 @use('Illuminate\Support\Str')
-{{-- Al terminar la atención: el presupuesto por aceptar, cobrar (o avisar a recepción) y la próxima sesión, cada cosa con su botón. --}}
+{{-- Al terminar la atención: el presupuesto por aceptar, cobrar (o pasárselo a recepción) y la próxima sesión, cada cosa con su botón. --}}
 <div class="closeout">
     @foreach (['plan' => ['heroicon-o-clipboard-document-list', 'Plan de tratamiento'], 'payment' => ['heroicon-o-banknotes', 'Cobro'], 'next' => ['heroicon-o-calendar-days', 'Próxima cita']] as $key => [$icon, $kicker])
         @php($row = $closeOut[$key])
@@ -14,7 +14,7 @@
                     <span class="pt-step-detail closeout-options">Formas de pago, se elige al firmar: {{ collect($row['options'])->map(fn ($option) => Str::lcfirst(rtrim($option, '.')))->implode(' · ') }}</span>
                 @endif
             </div>
-            @if (($row['links'] ?? []) !== [] || ($row['action'] ?? null) !== null || ($row['url'] ?? null) !== null)
+            @if (($row['links'] ?? []) !== [] || ($row['secondary'] ?? null) !== null || ($row['action'] ?? null) !== null || ($row['url'] ?? null) !== null)
                 <div class="closeout-actions">
                     @foreach ($row['links'] ?? [] as $link)
                         @if (isset($link['url']))
@@ -23,6 +23,9 @@
                             <x-filament::link tag="button" wire:click="mountAction('{{ $link['action'] }}')" size="sm" color="gray">{{ $link['label'] }}</x-filament::link>
                         @endif
                     @endforeach
+                    @if (($row['secondary'] ?? null) !== null)
+                        <x-filament::button size="sm" color="gray" class="pt-step-button" wire:click="mountAction('{{ $row['secondary']['action'] }}')">{{ $row['secondary']['label'] }}</x-filament::button>
+                    @endif
                     @if (($row['action'] ?? null) !== null)
                         <x-filament::button size="sm" class="pt-step-button" wire:click="mountAction('{{ $row['action'] }}')">{{ $row['button'] }}</x-filament::button>
                     @elseif (($row['url'] ?? null) !== null)

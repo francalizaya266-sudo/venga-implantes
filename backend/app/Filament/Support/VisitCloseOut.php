@@ -3,7 +3,9 @@
 namespace App\Filament\Support;
 
 use App\Enums\TreatmentPlanStatus;
+use App\Enums\UserRole;
 use App\Filament\Resources\Appointments\AppointmentResource;
+use App\Filament\Resources\Patients\PatientResource;
 use App\Filament\Resources\Patients\RelationManagers\TreatmentPlansRelationManager;
 use App\Models\Appointment;
 use App\Models\Charge;
@@ -14,18 +16,22 @@ use App\Models\TreatmentPlanItem;
 use App\Models\User;
 use App\Services\Clinical\TreatmentPlanService;
 use App\Services\Patients\PatientInsights;
+use App\Services\StaffAlerts;
 use App\Support\Money;
 use Illuminate\Support\Facades\Cache;
 
 /**
  * Lo que sigue al terminar la atención, en una tarjeta arriba de la atención terminada: el presupuesto que
- * se armó (para que lo acepte y firme, o se lo lleve impreso o por WhatsApp), cobrar (o avisar a recepción,
- * si quien atendió no maneja la caja) y la próxima sesión con su fecha sugerida.
+ * se armó (para que lo acepte y firme, o se lo lleve impreso o por WhatsApp), cobrar (o pasárselo a recepción)
+ * y la próxima sesión con su fecha sugerida.
+ *
+ * El doctor no maneja la caja: al terminar, si el paciente debe algo, recepción se entera sola. La administradora
+ * que también atiende elige: cobra ella misma o se lo pasa a recepción.
  */
 final class VisitCloseOut
 {
     /**
-     * @return array{plan: array{label: string, detail: string, button: string|null, action: string|null, done: bool, links: list<array{label: string, url?: string, action?: string}>, options: list<string>}|null, payment: array{label: string, detail: string, button: string|null, action: string|null, done: bool}, next: array{label: string, detail: string, url: string|null, done: bool}}|null
+     * @return array{plan: array{label: string, detail: string, button: string|null, action: string|null, done: bool, links: list<array{label: string, url?: string, action?: string}>, options: list<string>}|null, payment: array{label: string, detail: string, button: string|null, action: string|null, done: bool, secondary: array{label: string, action: string}|null}, next: array{label: string, detail: string, url: string|null, done: bool}}|null
      */
     public static function viewData(Consultation $consultation, User $user): ?array
     {
@@ -66,6 +72,43 @@ final class VisitCloseOut
     public static function markReceptionNotified(Consultation $consultation): void
     {
         Cache::put(self::notifiedKey($consultation), true, now()->endOfDay());
+    }
+
+    /**
+     * Le pasa el cobro a recepción: le llega el aviso (en pantalla y en la campana) con el botón para cobrarle, y
+     * la tarjeta queda en "Recepción ya sabe que tiene que cobrarle".
+     */
+    public static function handToReception(Consultation $consultation, User $by): void
+    {
+        $patient = $consultation->patient;
+
+        app(StaffAlerts::class)->toReception(
+            $patient->full_name.' terminó su atención: cobrarle',
+            Money::balance($patient->balance()).' · atendió '.$consultation->doctor->name,
+            $by,
+            ['label' => 'Cobrar', 'url' => $consultation->appointment
+                ? AppointmentResource::getUrl('view', ['record' => $consultation->appointment])
+                : PatientResource::getUrl('view', ['record' => $patient])],
+        );
+
+        self::markReceptionNotified($consultation);
+    }
+
+    /**
+     * Al terminar la atención: si quien atendió no maneja la caja y el paciente debe algo, recepción se entera sin
+     * que el doctor tenga que tocar nada.
+     *
+     * @return bool Si se le pasó el cobro a recepción.
+     */
+    public static function handToReceptionAfterClosing(Consultation $consultation, User $by): bool
+    {
+        if ($by->can('create', Payment::class) || $consultation->patient->balance() <= 0) {
+            return false;
+        }
+
+        self::handToReception($consultation, $by);
+
+        return true;
     }
 
     /** @return array{label: string, detail: string, button: string|null, action: string|null, done: bool, links: list<array{label: string, url?: string, action?: string}>, options: list<string>}|null */
@@ -129,7 +172,7 @@ final class VisitCloseOut
             ->first();
     }
 
-    /** @return array{label: string, detail: string, button: string|null, action: string|null, done: bool} */
+    /** @return array{label: string, detail: string, button: string|null, action: string|null, done: bool, secondary: array{label: string, action: string}|null} */
     private static function payment(Consultation $consultation, User $user): array
     {
         $charged = Charge::query()->valid()->where('consultation_id', $consultation->getKey())->get();
@@ -139,18 +182,39 @@ final class VisitCloseOut
             : 'Se cargó '.Money::format($charged->sum(fn (Charge $charge) => $charge->net())).': '.$charged->pluck('description')->implode(' · ');
 
         if ($balance <= 0) {
-            return ['label' => 'No tiene nada por pagar', 'detail' => $detail, 'button' => null, 'action' => null, 'done' => true];
+            return ['label' => 'No tiene nada por pagar', 'detail' => $detail, 'button' => null, 'action' => null, 'done' => true, 'secondary' => null];
         }
 
         $label = 'Debe '.Money::format($balance);
+        $notified = self::receptionNotified($consultation);
 
+        // Quien maneja la caja cobra ahí mismo. La administradora, además, puede pasárselo a recepción.
         if ($user->can('create', Payment::class)) {
-            return ['label' => $label, 'detail' => $detail, 'button' => 'Cobrar ahora', 'action' => 'collect', 'done' => false];
+            return [
+                'label' => $label,
+                'detail' => $notified ? 'Recepción ya sabe que tiene que cobrarle.' : $detail,
+                'button' => 'Cobrar ahora',
+                'action' => 'collect',
+                'done' => $notified,
+                'secondary' => ! $notified && $user->isAdmin() && self::hasReception($user) ? ['label' => 'Pasar a recepción', 'action' => 'notifyReception'] : null,
+            ];
         }
 
-        return self::receptionNotified($consultation)
-            ? ['label' => $label, 'detail' => 'Recepción ya sabe que tiene que cobrarle.', 'button' => null, 'action' => null, 'done' => true]
-            : ['label' => $label, 'detail' => $detail, 'button' => 'Avisar a recepción', 'action' => 'notifyReception', 'done' => false];
+        // El doctor no cobra. Recepción ya se enteró al terminar; el botón queda por si no fue así (por ejemplo,
+        // si el cargo se agregó después).
+        return $notified
+            ? ['label' => $label, 'detail' => 'Recepción ya sabe que tiene que cobrarle.', 'button' => null, 'action' => null, 'done' => true, 'secondary' => null]
+            : ['label' => $label, 'detail' => $detail, 'button' => 'Avisar a recepción', 'action' => 'notifyReception', 'done' => false, 'secondary' => null];
+    }
+
+    /** Alguien de recepción (activo, y que no sea quien mira) para pasarle el cobro. */
+    private static function hasReception(User $except): bool
+    {
+        return User::query()
+            ->where('is_active', true)
+            ->where('role', UserRole::Reception)
+            ->whereKeyNot($except->getKey())
+            ->exists();
     }
 
     /**

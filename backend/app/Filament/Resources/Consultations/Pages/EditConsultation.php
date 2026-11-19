@@ -12,6 +12,7 @@ use App\Filament\Resources\Consultations\ConsultationResource;
 use App\Filament\Resources\Consultations\Schemas\ConsultationForm;
 use App\Filament\Resources\Consultations\Schemas\SuppliesUsedField;
 use App\Filament\Support\Notify;
+use App\Filament\Support\VisitCloseOut;
 use App\Models\ClinicalTemplate;
 use App\Models\Consultation;
 use App\Models\Supply;
@@ -306,8 +307,13 @@ class EditConsultation extends EditRecord
                     return;
                 }
 
+                // Si quien atendió no cobra, recepción se entera sola de que tiene que cobrarle.
+                $handedToReception = VisitCloseOut::handToReceptionAfterClosing($consultation, auth()->user());
+
                 // Arriba de la atención terminada queda lo que sigue: cobrar y agendar la próxima sesión.
-                Notification::make()->success()->title('Atención terminada')->send();
+                Notification::make()->success()->title('Atención terminada')
+                    ->body($handedToReception ? 'Recepción ya sabe que tiene que cobrarle.' : null)
+                    ->send();
 
                 $this->redirect(ConsultationResource::getUrl('view', ['record' => $consultation]));
             });
