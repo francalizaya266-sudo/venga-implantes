@@ -1,0 +1,26 @@
+%%{init: {"sequence": {"actorMargin": 30, "width": 110, "height": 52, "messageMargin": 10, "boxMargin": 4, "noteMargin": 4, "mirrorActors": false}}}%%
+sequenceDiagram
+  autonumber
+  actor R as Recepción
+  actor D as Doctor
+  participant A as Appointment<br/>Service
+  participant CS as Consultation<br/>Service
+  participant TP as TreatmentPlan<br/>Service
+  participant B as Billing<br/>Service
+  participant I as Inventory<br/>Service
+  R->>A: markArrived(): "En sala"
+  A-->>D: aviso: su paciente espera
+  D->>CS: startFromAppointment()
+  Note over CS: solo el doctor de la cita
+  CS->>A: markStarted(): "En atención"
+  CS-->>D: plantilla y odontograma anterior
+  D->>CS: motivo, odontograma, diagnóstico, receta
+  D->>CS: closingChecks()
+  CS-->>D: lo que suele olvidarse
+  D->>CS: close()
+  Note over CS,I: una transacción
+  CS->>TP: syncConsultation()
+  CS->>A: markCompleted(): "Atendida"
+  CS->>B: chargeConsultation()
+  CS->>I: useForConsultation()
+  CS-->>R: cobrar y próxima sesión sugerida

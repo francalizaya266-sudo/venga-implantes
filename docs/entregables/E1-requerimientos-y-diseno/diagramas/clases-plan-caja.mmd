@@ -1,0 +1,45 @@
+classDiagram
+  direction TB
+  class Patient {
+    +balance() float
+  }
+  class Appointment {
+    +status: AppointmentStatus
+  }
+  class TreatmentPlan {
+    +status: TreatmentPlanStatus
+    +payment_mode: PlanPaymentMode
+    +proposed_at, accepted_at
+  }
+  class TreatmentPlanItem {
+    +tooth, surfaces
+    +unit_price, discount
+    +sessions_planned, sessions_done
+    +status: PlanItemStatus
+    +accepted_at
+  }
+  class TreatmentPlanInstallment {
+    +number, due_on
+    +amount
+  }
+  class TreatmentPlanSignature
+  class Charge {
+    +amount, discount
+    +suggested_amount
+    +voided_at, void_reason
+  }
+  class Payment {
+    +amount
+    +method: PaymentMethod
+    +paid_at
+    +voided_at, void_reason
+  }
+  Patient "1" --> "*" TreatmentPlan
+  TreatmentPlan "1" --> "1..*" TreatmentPlanItem
+  TreatmentPlan "1" --> "*" TreatmentPlanInstallment
+  TreatmentPlan "1" --> "*" TreatmentPlanSignature
+  TreatmentPlanItem "1" --> "*" Appointment : sesiones
+  Patient "1" --> "*" Charge
+  Patient "1" --> "*" Payment
+  Charge "*" --> "0..1" Appointment
+  TreatmentPlanInstallment "1" --> "0..1" Charge

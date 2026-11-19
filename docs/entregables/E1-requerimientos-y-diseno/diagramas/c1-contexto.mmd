@@ -1,0 +1,14 @@
+%%{init: {"flowchart": {"nodeSpacing": 22, "rankSpacing": 36, "padding": 8}}}%%
+flowchart TB
+  pac(["<b>Paciente o familiar</b><br/>reserva y revisa<br/>sus citas y pagos"])
+  rec(["<b>Recepción</b><br/>agenda, avisos,<br/>caja e inventario"])
+  doc(["<b>Doctor</b><br/>agenda propia,<br/>historia clínica"])
+  adm(["<b>Administrador</b><br/>configuración,<br/>reportes, copias"])
+  sis["<b>Sistema web de Clínica Vega Implant</b><br/>web del paciente, panel interno,<br/>API /api/v1 y tareas programadas"]
+  wa["<b>WhatsApp</b><br/>etapa 1: wa.me<br/>etapa 2: API de Meta"]
+  mail["<b>Correo SMTP</b><br/>recuperar<br/>contraseñas"]
+  goo["<b>Google</b><br/>búsqueda, Maps<br/>y opiniones"]
+  cal["<b>Calendario</b><br/>del paciente<br/>(.ics)"]
+  pac & rec & doc & adm -- "HTTPS" --> sis
+  sis --> wa & mail & goo & cal
+  wa -. "mensaje con<br/>enlace personal" .-> pac

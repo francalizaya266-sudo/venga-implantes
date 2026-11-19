@@ -1,0 +1,33 @@
+%%{init: {"flowchart": {"nodeSpacing": 22, "rankSpacing": 36, "padding": 8}}}%%
+flowchart TB
+  subgraph entradas["Entradas:&nbsp;validan,&nbsp;autorizan&nbsp;y&nbsp;responden"]
+    direction TB
+    apic["<b>API v1</b><br/>13 controladores,<br/>3 Form Requests,<br/>10 API Resources"]
+    spac["<b>SpaController</b><br/>SpaDocument,<br/>PageMeta,<br/>StructuredData"]
+    fil["<b>Panel Filament</b><br/>recursos, páginas,<br/>widgets, acciones<br/>(CheckoutAction)"]
+    cmd["<b>Comandos</b><br/>recordatorios,<br/>cuotas, WhatsApp,<br/>respaldo"]
+    mw["<b>Middleware</b><br/>SecurityHeaders,<br/>throttle, Keep-<br/>RemindersUpToDate"]
+  end
+  subgraph dominio["Servicios&nbsp;de&nbsp;dominio&nbsp;·&nbsp;app/Services&nbsp;(clases&nbsp;por&nbsp;módulo)"]
+    direction TB
+    booking["<b>Booking</b> (9)<br/>AppointmentService,<br/>WebAvailability,<br/>WaitlistService<br/>→ Agenda, WhatsApp"]
+    agenda["<b>Agenda</b> (5)<br/>AvailabilityService,<br/>GapFinder,<br/>BlockScheduler,<br/>LearnedDurations"]
+    access["<b>Access</b> (3)<br/>MagicLinkService,<br/>DeviceService,<br/>PatientAccess"]
+    wa["<b>WhatsApp</b> (3)<br/>WhatsAppOutbox,<br/>CloudApiChannel<br/>→ API de Meta"]
+    clinical["<b>Clinical</b> (12)<br/>Consultation,<br/>Odontogram,<br/>TreatmentPlan,<br/>Prescription, Consent<br/>→ Billing, Inventory"]
+    billing["<b>Billing</b> (3)<br/>BillingService,<br/>CashClosing,<br/>PaymentReceipt"]
+    inv["<b>Inventory</b> (4)<br/>InventoryService,<br/>SupplyForecast"]
+    otros["<b>Patients</b> (2),<br/><b>Reports</b> (7),<br/><b>Dashboard</b> (6),<br/><b>Web</b> (9), <b>Backup</b> (3),<br/>StaffAlerts"]
+    booking ~~~ clinical
+    agenda ~~~ billing
+    access ~~~ inv
+    wa ~~~ otros
+  end
+  subgraph soporte["Soporte"]
+    direction TB
+    pol["<b>35 Policies</b><br/>roles y<br/>Ley N.º 29733"]
+    en["<b>40 Enums</b><br/>estados y<br/>catálogos"]
+    mod["<b>58 modelos</b><br/>Auditable (40),<br/>SoftDeletes (15)"]
+    db[("<b>MySQL</b>")]
+  end
+  entradas --> dominio --> soporte

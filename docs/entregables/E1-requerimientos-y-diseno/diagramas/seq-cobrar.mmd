@@ -1,0 +1,25 @@
+%%{init: {"sequence": {"actorMargin": 30, "width": 110, "height": 52, "messageMargin": 10, "boxMargin": 4, "noteMargin": 4, "mirrorActors": false}}}%%
+sequenceDiagram
+  autonumber
+  actor R as Recepción
+  participant K as Checkout<br/>Action
+  participant P as Charge<br/>Policy
+  participant B as Billing<br/>Service
+  participant DB as MySQL
+  participant RC as Payment<br/>Receipt
+  R->>K: "Cobrar"
+  K->>P: can('create', Charge)
+  P-->>K: sí (el doctor no cobra)
+  K->>B: chargeDueInstallments()
+  K->>B: chargesFor() y unpaidCharges()
+  B-->>K: lo de la cita y el saldo anterior
+  R->>K: corrige, descuento, medio y monto
+  Note over K: descuento no mayor al precio, caja del día abierta
+  K->>DB: BEGIN
+  K->>B: reviseCharges()
+  K->>B: registerPayment()
+  B->>DB: pago y quién lo recibió
+  K->>DB: COMMIT
+  K-->>R: saldo, constancia y próxima cita
+  R->>RC: ver constancia
+  RC-->>R: borrador de WhatsApp con la constancia

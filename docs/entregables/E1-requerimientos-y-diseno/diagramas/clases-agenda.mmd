@@ -1,0 +1,73 @@
+classDiagram
+  direction TB
+  class Patient {
+    +first_name, last_name
+    +document_type: DocumentType
+    +birth_date
+    +relationship: PatientRelationship
+    +guardian_name
+    +balance() float
+    +hasActiveTreatment() bool
+  }
+  class Doctor {
+    +name, cop_number
+    +agenda_color
+    +accepts_online_booking: bool
+    +is_active: bool
+    +durationFor(Treatment) int
+  }
+  class User {
+    +email
+    +role: UserRole
+    +is_dentist: bool
+    +is_active: bool
+    +canSeeClinical() bool
+    +managesAllAgendas() bool
+  }
+  class Treatment {
+    +name, price_from
+    +duration_minutes, buffer_minutes
+    +online_bookable: bool
+    +kind: TreatmentKind
+    +checkup_months
+  }
+  class Appointment {
+    +starts_at, ends_at
+    +buffer_minutes
+    +status: AppointmentStatus
+    +booked_via: BookingChannel
+    +fixed_date: bool
+    +is_overbooked: bool
+    +series_id
+    +logEvent(event, actor)
+  }
+  class DoctorSchedule {
+    +weekday
+    +starts_at, ends_at
+    +valid_from, valid_until
+  }
+  class ScheduleBlock {
+    +type: ScheduleBlockType
+    +starts_at, ends_at
+    +reason
+  }
+  class RescheduleRequest {
+    +status: RescheduleRequestStatus
+    +requested_by: RequestedBy
+    +reason
+  }
+  class WaitlistEntry {
+    +earliest_date, latest_date
+    +preferred_period: DayPeriod
+    +status: WaitlistStatus
+    +held_until
+  }
+  Patient "1" --> "*" Appointment
+  Doctor "1" --> "*" Appointment
+  Treatment "1" --> "*" Appointment
+  Doctor "*" -- "*" Treatment : realiza
+  User "1" --> "0..1" Doctor
+  Doctor "1" --> "*" DoctorSchedule
+  Doctor "0..1" --> "*" ScheduleBlock : null = toda la clínica
+  Appointment "1" --> "*" RescheduleRequest
+  Patient "1" --> "*" WaitlistEntry

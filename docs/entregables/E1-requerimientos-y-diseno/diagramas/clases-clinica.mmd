@@ -1,0 +1,51 @@
+classDiagram
+  direction TB
+  class Patient {
+    +balance() float
+  }
+  class Appointment {
+    +status: AppointmentStatus
+  }
+  class Consultation {
+    +attended_at, closed_at
+    +chief_complaint
+    +clinical_exam
+    +diagnosis_notes
+    +procedures
+  }
+  class MedicalBackground {
+    +allergies, conditions
+    +medications, surgeries
+    +is_pregnant, smoker
+  }
+  class Odontogram {
+    +type: OdontogramType
+    +dentition: Dentition
+  }
+  class OdontogramEntry {
+    +tooth, surface
+    +state: ToothState
+    +abbreviation
+  }
+  class Prescription {
+    +issued_at
+    +indications
+  }
+  class Consent {
+    +body_snapshot
+    +signer_name, signature_path
+    +signed_at, revoked_at
+  }
+  class AuditLog {
+    +event, auditable
+    +old_values, new_values
+    +user_id, ip_address
+  }
+  Patient "1" --> "0..1" MedicalBackground
+  Patient "1" --> "*" Consultation
+  Appointment "0..1" --> "0..1" Consultation
+  Consultation "1" --> "0..1" Odontogram
+  Odontogram "1" --> "*" OdontogramEntry
+  Consultation "1" --> "*" Prescription
+  Patient "1" --> "*" Consent
+  Consultation "1" --> "*" AuditLog : Auditable, igual que otros 39 modelos
