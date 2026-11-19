@@ -75,21 +75,21 @@ Las variables del `.env` están en la tabla 11 del documento. En producción, `i
 ## Publicar una versión en Azure {-}
 
 1. Unir el cambio a `main` con la CI en verde.
-2. En GitHub, **Actions → Desplegar en Azure → Run workflow** (producción debe estar encendida: `bash infra/desplegar.sh encender`).
+2. Con la variable `DESPLIEGUE_AUTOMATICO=true`, el workflow corre solo cuando las pruebas de `main` pasan. Si no, en GitHub, **Actions → Desplegar en Azure → Run workflow** con la acción `publicar` (producción debe estar encendida: `bash infra/desplegar.sh encender`).
 3. El workflow compila la web, sube el paquete a Blob y corre `deploy-app.sh` en `vm-app`, que deja la versión en `/var/www/vega/releases/<fecha>`, migra la base y cambia el enlace `current`. Al final pide `/up`.
 
 La primera vez, la infraestructura se crea siguiendo las fases de `infra/README.md` (red, MySQL, Key Vault, VM, proxy y copias).
 
 ## Volver a la versión anterior {-}
 
-En `vm-app` quedan las últimas cinco versiones. Si la nueva falla: `sudo ln -sfn /var/www/vega/releases/<anterior> /var/www/vega/current` y `sudo systemctl reload php8.3-fpm nginx`, lo mismo que hace `deploy-app.sh` al final. Si la versión nueva había migrado la base, primero se restaura la copia de antes de publicar (anexo E del E2).
+En `vm-app` quedan las últimas cinco versiones. Si la nueva falla: **Actions → Desplegar en Azure → Run workflow** con la acción `volver` (sin versión vuelve a la anterior; con una, por ejemplo `20261119083000`, a esa). El workflow corre `infra/scripts/volver-version.sh` en `vm-app`, que rearma las cachés de esa versión, cambia el enlace `current`, recarga PHP-FPM y Nginx, y después pide `/up`. En la VM, `sudo bash volver-version.sh --lista` muestra las versiones guardadas. La base no se toca: si la versión nueva había migrado, primero se restaura la copia de antes de publicar (anexo E del E2).
 
 ## Operar {-}
 
 - **Cron.** Un solo cron para Laravel, que `deploy-app.sh` deja en `/etc/cron.d/vega`: `* * * * * www-data php /var/www/vega/current/artisan schedule:run`. `php artisan schedule:list` muestra las 10 tareas y su próxima ejecución.
 - **Avisos.** Con `click_to_chat`, recepción los envía desde **Avisos**. Con `cloud_api`, `whatsapp:enviar` los manda cada 5 minutos; los que fallan quedan con su motivo en la misma pantalla.
 - **Copias.** `respaldo:crear` corre a las 3:00 y guarda las últimas `BACKUPS_KEEP`; `backup-to-blob.sh` las sube a Blob. El administrador las ve y descarga en **Configuración → Copias de seguridad**.
-- **Salud.** `/up` responde 200 si la aplicación arranca (lo revisa UptimeRobot); los errores van a `storage/logs` y, en Azure, a Azure Monitor.
+- **Salud.** `/up` responde 200 si la aplicación arranca y la base de datos contesta; el workflow **Vigilar producción** la pide cada 15 minutos y avisa por correo si falla. Con `LOG_STACK=json`, los registros van a `storage/logs/eventos-*.log` con el identificador de la petición (cabecera `X-Request-Id`), la ruta y el usuario, y Wazuh los lee (E4, sección 2.4).
 
 ## Errores conocidos {-}
 
