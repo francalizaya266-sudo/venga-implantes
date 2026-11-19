@@ -314,7 +314,7 @@ MYSQL_HOST=… MYSQL_PORT=… CLAVE_APP=… CLAVE_REPORTES=… bash docs/entrega
 bash docs/entregables/CE02-ingenieria-de-software/generar-word.sh                                   # Word y PDF de todos los entregables
 ```
 
-Las imágenes `.png` de los diagramas se exportan de cada `.mmd` con Mermaid 11.12 y su layout ELK (`@mermaid-js/layout-elk` 0.2); en GitHub, los `.mmd` se ven directamente.
+Las imágenes `.png` de los diagramas se exportan de cada `.mmd` con Mermaid 11.12 y su layout ELK (`@mermaid-js/layout-elk` 0.2), con los colores de `plantilla/tema-diagramas.json` (los mismos de todos los Word); en GitHub, los `.mmd` se ven directamente.
 
 [[PAGINA]]
 
