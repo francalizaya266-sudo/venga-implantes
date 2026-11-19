@@ -12,7 +12,7 @@
 
 **Aseguramiento y auditoría.** La matriz ISO/IEC 25010 tiene 16 métricas con meta y valor medido. Hay seis instrumentos de aseguramiento, entre ellos una plantilla de PR nueva con nueve puntos de revisión. Se midieron 2 935 métodos: la complejidad ciclomática media es de 2,87, y 102 métodos pasan de 10. Se hicieron cinco refactorizaciones reales, una de ellas en este entregable, que baja la reserva web de complejidad 31 a 15. Larastan, nuevo en la CI, encontró tres fallas que nadie había notado, ya corregidas con su prueba. La autoevaluación CMMI (SCAMPI C, no oficial) ubica al proceso en el **nivel 1 con prácticas de nivel 2 y 3 en marcha**: la ingeniería y la gestión de configuración son fuertes, y la planificación y la medición, débiles. El plan de mejora tiene once acciones con responsable y fecha, y dos ya están cumplidas (sección 4).
 
-**Lo que falta para cerrar.** La primera publicación en verde y las capturas de producción, que dependen de encender Azure (sección 2.3). También faltan las retrospectivas validadas por el equipo, la confirmación de roles y responsables, y la sustentación.
+**Lo que falta para cerrar.** La primera publicación en verde y las capturas de producción, que dependen de encender Azure (sección 2.3). También faltan el rol de Joselyn y la sustentación.
 
 # Pruebas
 
@@ -188,7 +188,7 @@ El Charter se escribió al cierre, con lo que el proyecto ya había decidido y r
 | Campo | Contenido |
 | --- | --- |
 | Proyecto | Sistema web de Clínica Vega Implant (Jr. Apurímac 648, Juliaca) |
-| Patrocinador y cliente | Dr. Vega, administrador y odontólogo de la clínica `[PENDIENTE – estudiante: nombre completo y firma]` |
+| Patrocinador y cliente | Dr. Jassmanny Neil Vega Jaen, administrador y odontólogo de la clínica `[PENDIENTE – firma]` |
 | Problema | Los pacientes reservan llamando, la agenda de cada doctor se cruza, y la historia clínica, los presupuestos y los cobros están en lugares distintos. |
 | Objetivo general | Que la clínica reserve, atienda y cobre en un solo sistema web, con los datos de salud protegidos según la Ley N.º 29733. |
 | Objetivos medibles | O1: el paciente reserva en línea en tres pasos, sin llamar (HU-01). O2: ninguna reserva cruza otra (RNF-REN-01, con prueba). O3: historia clínica, presupuestos y cobros en el mismo sistema (HU-07 a HU-11). O4: cada rol ve solo lo suyo (35 políticas). O5: el sistema queda en Azure con CI/CD, monitoreo y vuelta atrás. |
@@ -272,11 +272,11 @@ La medida de velocidad es el número de PR, porque no se estimó en puntos de hi
 
 | Ceremonia | Cómo se hizo | Evidencia | Estado |
 | --- | --- | --- | --- |
-| Planificación del sprint | Cada semana tuvo un objetivo, partido en PR pequeños por etapas ("Agenda, etapa 1 a 3", "Tandas 1 a 9") | Títulos y fechas de los PR (anexo C) | Reconstruida; `[PENDIENTE – estudiante: confirmar con el equipo]` |
-| Scrum diario | `[PENDIENTE – estudiante: cómo se coordinaba el equipo, por ejemplo un grupo de WhatsApp o una llamada]` | | Sin evidencia escrita |
+| Planificación del sprint | Cada semana tuvo un objetivo, partido en PR pequeños por etapas ("Agenda, etapa 1 a 3", "Tandas 1 a 9") | Títulos y fechas de los PR (anexo C) | Reconstruida y confirmada por el equipo |
+| Scrum diario | El equipo se coordinó por un grupo de WhatsApp, por llamadas y en reuniones en la universidad | | Sin evidencia escrita |
 | Refinamiento | Revisiones del sistema que alimentaron el backlog: #41 (borrar sin romper la agenda), #74 (ocho correcciones de agenda), #77 (21 fallas de configuración) | PR de esas revisiones | Hecho |
 | Revisión del sprint | Cada PR dice qué cambia y cómo se probó, y se fusiona con la CI en verde. La demostración con la clínica no quedó registrada | 112 de 115 PR | `[PENDIENTE – estudiante: demostración con el Dr. Vega]` |
-| Retrospectiva | Borradores escritos a partir de los datos de cada sprint (anexo C) | | `[PENDIENTE – validar con el estudiante]` |
+| Retrospectiva | Hubo retrospectivas en algunos sprints, sin registro en el repositorio. Los borradores del anexo C salen de los datos de cada sprint y el equipo los revisó | Anexo C | Parcial |
 
 ## Comparación y adaptación frente a OpenUP
 
@@ -403,7 +403,7 @@ En **ISO/IEC 29110**, perfil básico, los seis procesos de implementación (SI.1
 
 ## Plan de mejora de la calidad del software
 
-Cada acción ataca un hallazgo de la auditoría o de la matriz, y tiene una métrica que dice si funcionó (tabla 19). `[PENDIENTE – estudiante: confirmar responsables y fechas]`
+Cada acción ataca un hallazgo de la auditoría o de la matriz, y tiene una métrica que dice si funcionó (tabla 19). El equipo revisó los responsables y plazos el 19/11/2026.
 
 *Tabla 19. Plan de mejora.*
 
@@ -411,7 +411,7 @@ Cada acción ataca un hallazgo de la auditoría o de la matriz, y tiene una mét
 | --: | --- | --- | --- | --- | --- |
 | 1 | PP y PMC parciales | Estimar el backlog en puntos y escribir el objetivo de cada sprint al empezarlo | Fran | Sprint siguiente | Cada sprint tiene un plan y una velocidad en puntos |
 | 2 | Retrospectivas sin registro | Retrospectiva de 30 min al cerrar cada sprint, con acta en el repositorio | Todo el equipo | Cada viernes | Cuatro actas seguidas |
-| 3 | VAL y RD sin actas | Validar con el Dr. Vega y la recepcionista con el guion del E1 | Joselyn `[PENDIENTE]` | Antes de la sustentación | Actas firmadas en el anexo B del E1 |
+| 3 | VAL y RD sin actas | Validar con el Dr. Vega y la recepcionista con el guion del E1 | Joselyn | Antes de la sustentación | Actas firmadas en el anexo B del E1 |
 | 4 | Sin análisis estático de PHP | Larastan en la CI, con línea base de la deuda actual | Fran | Cumplida el 19/11 (PR #20) | Nivel 5 sin avisos nuevos; tres fallas reales corregidas |
 | 5 | La web no mide cobertura | `@vitest/coverage-v8` en la CI con un mínimo | Fran | Cumplida el 19/11 (PR #20) | 90,5 % de las líneas; la CI exige 85 % |
 | 6 | Producción sin evidencia de operación | Publicar, volver y vigilar en Azure; activar las variables | Jhoel | Al encender producción | Dos ejecuciones en verde y una semana de vigilancia |

@@ -392,7 +392,7 @@ Estas evidencias se toman con producción encendida. Ninguna debe mostrar claves
 | --- | --- |
 | Nombre | Sistema web de Clínica Vega Implant |
 | Organización | Clínica Vega Implant, Jr. Apurímac 648, Juliaca |
-| Patrocinador | Dr. Vega, administrador y odontólogo `[PENDIENTE – estudiante: nombre completo]` |
+| Patrocinador | Dr. Jassmanny Neil Vega Jaen, administrador y odontólogo |
 | Equipo | Fran Franklin Calizaya Apaza, Jhoel Hairton Apaza Quispe y Joselyn Yucra Mamani (UPeU, campus Juliaca, ciclo 10) |
 | Justificación | La clínica atiende con dos doctores y una recepcionista. Las reservas por llamada ocupan a recepción, las agendas se cruzan, y la historia clínica, los presupuestos y los cobros no se ven juntos. Además, los datos de salud deben protegerse según la Ley N.º 29733. |
 | Objetivo general | Que la clínica reserve, atienda y cobre en un solo sistema web, con los datos de salud protegidos. |
@@ -447,7 +447,7 @@ Estas evidencias se toman con producción encendida. Ninguna debe mostrar claves
 | R6 | Una prueba inestable bloquea `main` | Media | Bajo | Mitigar: corregir la causa | Fran | Ocurrió y se corrigió |
 | R7 | Una sola persona integra todo | Alta | Medio | Mitigar: plantilla de PR y revisión de un segundo integrante | Todo el equipo | Abierto (plan de mejora) |
 | R8 | Se acaba el crédito de Azure antes de la sustentación | Media | Alto | Mitigar: apagar producción fuera de las demostraciones, alertas de presupuesto | Jhoel | Abierto |
-| R9 | La clínica no valida a tiempo | Media | Medio | Mitigar: guion de validación listo por rol (E1) | Joselyn `[PENDIENTE]` | Abierto |
+| R9 | La clínica no valida a tiempo | Media | Medio | Mitigar: guion de validación listo por rol (E1) | Joselyn | Abierto |
 
 *Tabla C6. EDT con sus paquetes de trabajo y su evidencia.*
 
@@ -632,7 +632,7 @@ Cada Sprint Backlog es la lista de PR fusionados en esa semana, con la hora de L
 
 ## Retrospectivas {-}
 
-`[PENDIENTE – validar con el estudiante]` Estos borradores salen de los datos de cada sprint. Lo que pasó es un hecho del historial. Lo que se aprendió es una propuesta que el equipo debe confirmar o corregir en la reunión de retrospectiva.
+Estos borradores salen de los datos de cada sprint. Lo que pasó es un hecho del historial. Lo que se aprendió es una propuesta, y el equipo la revisó el 19/11/2026 y la dejó como está.
 
 *Tabla C12. Borradores de retrospectiva.*
 
@@ -643,7 +643,7 @@ Cada Sprint Backlog es la lista de PR fusionados en esa semana, con la hora de L
 | S3 | Tres revisiones por módulo (agenda, configuración y web) y dos refactorizaciones (#75 y #78); las pruebas llegaron a 941 | 16 PR de la web en un día (#82 a #97), casi todos ajustes visuales frente a la maqueta | Acordar la maqueta con la clínica antes de construir la pantalla |
 | S4 | 13 PR salieron de ramas del equipo (Fran y Jhoel); la CI detectó la dependencia de `APP_DEBUG` antes de fusionar | Una prueba inestable llegó a `main`; el primer despliegue esperó 14 min por una falla de red | Esperas acotadas (hecho) y un ensayo de despliegue antes de la semana de entrega |
 
-`[PENDIENTE – estudiante: fecha, asistentes y acuerdos de cada retrospectiva]`
+El equipo hizo retrospectivas en algunos sprints, pero no quedaron registradas en el repositorio, así que aquí no hay fecha, asistentes ni acuerdos que citar. La acción 2 del plan de mejora (tabla 19 del documento) lo corrige.
 
 # Anexo D. Matriz de calidad y checklists de auditoría
 
@@ -729,7 +729,7 @@ Calificación por práctica específica (SCAMPI C): TI totalmente, MI mayormente
 
 ## Registro de deuda técnica {-}
 
-El esfuerzo es una estimación del equipo (S: horas, M: un día, L: varios días) `[PENDIENTE – validar con el estudiante]`. Las decisiones son: pagar ahora, pagar al tocar el código o aceptar con motivo.
+El esfuerzo es una estimación del equipo (S: horas, M: un día, L: varios días), revisada el 19/11/2026. Las decisiones son: pagar ahora, pagar al tocar el código o aceptar con motivo.
 
 *Tabla D4. Deuda técnica.*
 

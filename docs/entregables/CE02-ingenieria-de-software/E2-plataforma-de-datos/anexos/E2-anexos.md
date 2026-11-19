@@ -193,7 +193,7 @@ Lo que solo puede mostrarse desde el servidor de Azure o desde una herramienta c
 | 7 | `[PENDIENTE – estudiante: slow_query_log activo y métrica de almacenamiento]` | Azure, Parámetros del servidor y Supervisión | 4.4 |
 | 8 | `[PENDIENTE – estudiante: TLS obligatorio y acceso privado]` | Azure, Redes y Seguridad del servidor | 4.5 |
 | 9 | `[PENDIENTE – estudiante: observaciones del Dr. Vega y de recepción sobre el diccionario de Caja y Pacientes]` | Reunión con la clínica | 1.1 |
-| 10 | `[PENDIENTE – estudiante: constancia de inscripción del banco de datos de pacientes]` | Autoridad Nacional de Protección de Datos Personales | 4.5 |
+| 10 | Constancia de inscripción del banco de datos de pacientes: no hay, porque la clínica aún no lo inscribe (19/11/2026) | Autoridad Nacional de Protección de Datos Personales | 4.5 |
 
 # Anexo E. Documentación técnica de administración
 
