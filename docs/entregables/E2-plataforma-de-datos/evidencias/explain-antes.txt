@@ -1,0 +1,103 @@
+EXPLAIN y EXPLAIN ANALYZE de las 6 consultas más usadas, ANTES de la migración 2026_11_18_210452_add_indexes_for_frequent_queries.
+MySQL 8.0.46 local con los datos de demostración (861 citas, 755 cargos, 727 pagos, 262 pacientes), 18/11/2026.
+Consultas: el SQL que arma Laravel en cada servicio, con sus valores (sql/consultas-medidas.sql).
+Al final, el tiempo de las 5 corridas de EXPLAIN ANALYZE de cada consulta (actual time=primera fila..última fila, en ms).
+
+-- Q1 Agenda de hoy (widget "Agenda de hoy", DoctorDay, Tray, WalkIn: whereDate('starts_at', today()))
++----+-------------+--------------+------------+------+-------------------------------------+------+---------+------+------+----------+-------------+
+| id | select_type | table        | partitions | type | possible_keys                       | key  | key_len | ref  | rows | filtered | Extra       |
++----+-------------+--------------+------------+------+-------------------------------------+------+---------+------+------+----------+-------------+
+|  1 | SIMPLE      | appointments | NULL       | ALL  | appointments_status_starts_at_index | NULL | NULL    | NULL |  861 |     9.71 | Using where |
++----+-------------+--------------+------------+------+-------------------------------------+------+---------+------+------+----------+-------------+
+-> Filter: ((cast(appointments.starts_at as date) = '2026-11-18') and (appointments.`status` <> 'cancelled') and (appointments.deleted_at is null))  (cost=88.1 rows=83.6) (actual time=0.0327..1.51 rows=5 loops=1)
+    -> Table scan on appointments  (cost=88.1 rows=861) (actual time=0.0286..1.36 rows=861 loops=1)
+
+
+-- Q2 Saldos por cobrar (OwingBalances: Patient::owing()->withBalance())
++----+--------------------+----------+------------+------+-------------------------------------+-------------------------------------+---------+-------------------------+------+----------+-------------+
+| id | select_type        | table    | partitions | type | possible_keys                       | key                                 | key_len | ref                     | rows | filtered | Extra       |
++----+--------------------+----------+------------+------+-------------------------------------+-------------------------------------+---------+-------------------------+------+----------+-------------+
+|  1 | PRIMARY            | patients | NULL       | ALL  | NULL                                | NULL                                | NULL    | NULL                    |  262 |    10.00 | Using where |
+|  5 | DEPENDENT SUBQUERY | p        | NULL       | ref  | payments_patient_id_paid_at_index   | payments_patient_id_paid_at_index   | 8       | consultorio.patients.id |    3 |    10.00 | Using where |
+|  4 | DEPENDENT SUBQUERY | c        | NULL       | ref  | charges_patient_id_charged_at_index | charges_patient_id_charged_at_index | 8       | consultorio.patients.id |    3 |    10.00 | Using where |
+|  3 | DEPENDENT SUBQUERY | p        | NULL       | ref  | payments_patient_id_paid_at_index   | payments_patient_id_paid_at_index   | 8       | consultorio.patients.id |    3 |    10.00 | Using where |
+|  2 | DEPENDENT SUBQUERY | c        | NULL       | ref  | charges_patient_id_charged_at_index | charges_patient_id_charged_at_index | 8       | consultorio.patients.id |    3 |    10.00 | Using where |
++----+--------------------+----------+------------+------+-------------------------------------+-------------------------------------+---------+-------------------------+------+----------+-------------+
+-> Filter: ((((select #4) - (select #5)) > 0) and (patients.deleted_at is null))  (cost=27.2 rows=26.2) (actual time=0.103..3.87 rows=99 loops=1)
+    -> Table scan on patients  (cost=27.2 rows=262) (actual time=0.0326..0.331 rows=262 loops=1)
+    -> Select #4 (subquery in condition; dependent)
+        -> Aggregate: sum((c.amount - c.discount))  (cost=0.875 rows=1) (actual time=0.00625..0.00629 rows=1 loops=262)
+            -> Filter: (c.voided_at is null)  (cost=0.842 rows=0.324) (actual time=0.00359..0.00539 rows=2.88 loops=262)
+                -> Index lookup on c using charges_patient_id_charged_at_index (patient_id=patients.id)  (cost=0.842 rows=3.24) (actual time=0.0034..0.00497 rows=2.88 loops=262)
+    -> Select #5 (subquery in condition; dependent)
+        -> Aggregate: sum(p.amount)  (cost=0.85 rows=1) (actual time=0.00582..0.00585 rows=1 loops=262)
+            -> Filter: (p.voided_at is null)  (cost=0.818 rows=0.315) (actual time=0.00387..0.0052 rows=2.77 loops=262)
+                -> Index lookup on p using payments_patient_id_paid_at_index (patient_id=patients.id)  (cost=0.818 rows=3.15) (actual time=0.0037..0.00483 rows=2.77 loops=262)
+-> Select #2 (subquery in projection; dependent)
+    -> Aggregate: sum((c.amount - c.discount))  (cost=0.875 rows=1) (actual time=0.00778..0.00781 rows=1 loops=99)
+        -> Filter: (c.voided_at is null)  (cost=0.842 rows=0.324) (actual time=0.00364..0.00649 rows=4.66 loops=99)
+            -> Index lookup on c using charges_patient_id_charged_at_index (patient_id=patients.id)  (cost=0.842 rows=3.24) (actual time=0.00345..0.00594 rows=4.66 loops=99)
+-> Select #3 (subquery in projection; dependent)
+    -> Aggregate: sum(p.amount)  (cost=0.85 rows=1) (actual time=0.00702..0.00706 rows=1 loops=99)
+        -> Filter: (p.voided_at is null)  (cost=0.818 rows=0.315) (actual time=0.00389..0.00627 rows=4.37 loops=99)
+            -> Index lookup on p using payments_patient_id_paid_at_index (patient_id=patients.id)  (cost=0.818 rows=3.15) (actual time=0.00373..0.00578 rows=4.37 loops=99)
+
+
+-- Q3 Realizado del mes (EarningsReport::produced)
++----+-------------+---------+------------+------+---------------+------+---------+------+------+----------+-------------+
+| id | select_type | table   | partitions | type | possible_keys | key  | key_len | ref  | rows | filtered | Extra       |
++----+-------------+---------+------------+------+---------------+------+---------+------+------+----------+-------------+
+|  1 | SIMPLE      | charges | NULL       | ALL  | NULL          | NULL | NULL    | NULL |  755 |     1.11 | Using where |
++----+-------------+---------+------------+------+---------------+------+---------+------+------+----------+-------------+
+-> Aggregate: sum((charges.amount - charges.discount))  (cost=78.3 rows=1) (actual time=0.576..0.576 rows=1 loops=1)
+    -> Filter: ((charges.voided_at is null) and (charges.charged_at between '2026-10-01 00:00:00' and '2026-10-31 23:59:59'))  (cost=77.5 rows=8.39) (actual time=0.0743..0.559 rows=74 loops=1)
+        -> Table scan on charges  (cost=77.5 rows=755) (actual time=0.0655..0.263 rows=755 loops=1)
+
+
+-- Q4 Realizado por doctor (EarningsReport::byDoctor)
++----+-------------+---------+------------+-------+---------------------------+---------------------------+---------+------+------+----------+-------------+
+| id | select_type | table   | partitions | type  | possible_keys             | key                       | key_len | ref  | rows | filtered | Extra       |
++----+-------------+---------+------------+-------+---------------------------+---------------------------+---------+------+------+----------+-------------+
+|  1 | SIMPLE      | charges | NULL       | index | charges_doctor_id_foreign | charges_doctor_id_foreign | 9       | NULL |  755 |     1.11 | Using where |
++----+-------------+---------+------------+-------+---------------------------+---------------------------+---------+------+------+----------+-------------+
+-> Group aggregate: sum((charges.amount - charges.discount))  (cost=78.3 rows=2.9) (actual time=1.57..1.57 rows=1 loops=1)
+    -> Filter: ((charges.voided_at is null) and (charges.charged_at between '2026-10-01 00:00:00' and '2026-10-31 23:59:59'))  (cost=77.5 rows=8.39) (actual time=0.141..1.54 rows=74 loops=1)
+        -> Index scan on charges using charges_doctor_id_foreign  (cost=77.5 rows=755) (actual time=0.131..1.14 rows=755 loops=1)
+
+
+-- Q5 Costo de materiales del mes (EarningsReport::materialsCost)
++----+-------------+-----------------+------------+------+---------------+------+---------+------+------+----------+-------------+
+| id | select_type | table           | partitions | type | possible_keys | key  | key_len | ref  | rows | filtered | Extra       |
++----+-------------+-----------------+------------+------+---------------+------+---------+------+------+----------+-------------+
+|  1 | SIMPLE      | stock_movements | NULL       | ALL  | NULL          | NULL | NULL    | NULL |  300 |     3.33 | Using where |
++----+-------------+-----------------+------------+------+---------------+------+---------+------+------+----------+-------------+
+-> Aggregate: sum((-(stock_movements.quantity) * coalesce(stock_movements.unit_cost,0)))  (cost=32 rows=1) (actual time=0.515..0.515 rows=1 loops=1)
+    -> Filter: ((stock_movements.`type` in ('use','return','write_off')) and (stock_movements.created_at between '2026-11-01 00:00:00' and '2026-11-30 23:59:59'))  (cost=31 rows=10) (actual time=0.218..0.459 rows=191 loops=1)
+        -> Table scan on stock_movements  (cost=31 rows=300) (actual time=0.0937..0.208 rows=300 loops=1)
+
+
+-- Q6 Quién cobró ese día (CashClosing::receivers)
++----+-------------+----------+------------+------+--------------------------------------+------+---------+------+------+----------+---------------------------------------------------------------+
+| id | select_type | table    | partitions | type | possible_keys                        | key  | key_len | ref  | rows | filtered | Extra                                                         |
++----+-------------+----------+------------+------+--------------------------------------+------+---------+------+------+----------+---------------------------------------------------------------+
+|  1 | SIMPLE      | users    | NULL       | ALL  | PRIMARY                              | NULL | NULL    | NULL |    2 |   100.00 | Using where; Using temporary; Using filesort                  |
+|  1 | SIMPLE      | payments | NULL       | ALL  | payments_received_by_user_id_foreign | NULL | NULL    | NULL |  727 |   100.00 | Using where; FirstMatch(users); Using join buffer (hash join) |
++----+-------------+----------+------------+------+--------------------------------------+------+---------+------+------+----------+---------------------------------------------------------------+
+-> Sort: users.`name`  (actual time=0.325..0.326 rows=1 loops=1)
+    -> Stream results  (cost=27123 rows=1454) (actual time=0.313..0.315 rows=1 loops=1)
+        -> Hash semijoin (payments.received_by_user_id = users.id)  (cost=27123 rows=1454) (actual time=0.31..0.311 rows=1 loops=1)
+            -> Filter: (users.id is not null)  (cost=0.45 rows=2) (actual time=0.014..0.0149 rows=2 loops=1)
+                -> Table scan on users  (cost=0.45 rows=2) (actual time=0.0133..0.014 rows=2 loops=1)
+            -> Hash
+                -> Filter: (cast(payments.paid_at as date) = '2026-11-16')  (cost=26976 rows=727) (actual time=0.282..0.283 rows=2 loops=1)
+                    -> Table scan on payments  (cost=26976 rows=727) (actual time=0.037..0.231 rows=727 loops=1)
+
+
+
+Tiempos de 5 corridas:
+Q1: actual time=0.0268..0.902 actual time=0.029..0.94 actual time=0.0254..0.968 actual time=0.0268..0.92 actual time=0.0327..1.51 
+Q2: actual time=0.129..3.74 actual time=0.0948..3.95 actual time=0.134..3.7 actual time=0.0955..3.81 actual time=0.103..3.87 
+Q3: actual time=0.563..0.563 actual time=0.518..0.518 actual time=0.547..0.547 actual time=0.507..0.508 actual time=0.576..0.576 
+Q4: actual time=1.11..1.11 actual time=1.1..1.1 actual time=1.08..1.08 actual time=1.19..1.19 actual time=1.57..1.57 
+Q5: actual time=0.468..0.468 actual time=0.331..0.331 actual time=0.383..0.383 actual time=0.352..0.352 actual time=0.515..0.515 
+Q6: actual time=0.333..0.333 actual time=0.351..0.351 actual time=0.289..0.289 actual time=0.307..0.307 actual time=0.325..0.326 

@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Services\Backup\DatabaseBackup;
+use App\Services\Database\DatabaseObjects;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
@@ -11,7 +12,7 @@ use Illuminate\Console\Command;
 #[Description('Reemplaza toda la base de datos por una copia de seguridad')]
 class RestoreBackup extends Command
 {
-    public function handle(DatabaseBackup $backup): int
+    public function handle(DatabaseBackup $backup, DatabaseObjects $objects): int
     {
         $file = $this->argument('archivo') ?? ($backup->list()[0]['file'] ?? null);
 
@@ -29,9 +30,19 @@ class RestoreBackup extends Command
             return self::FAILURE;
         }
 
+        $auditTrail = $objects->auditTrail();
         $statements = $backup->restore($name);
 
         $this->info("Base de datos restaurada desde {$file} ({$statements} sentencias).");
+
+        // La copia guarda tablas y datos; los triggers se fueron con DROP TABLE y las vistas y funciones son del código.
+        if ($objects->install() > 0) {
+            $this->info('También se volvieron a crear las vistas, funciones, procedimientos y triggers de MySQL.');
+        }
+
+        if (($kept = $objects->restoreAuditTrail($auditTrail)) > 0) {
+            $this->info("La bitácora de pagos conserva {$kept} anotaciones de después de la copia.");
+        }
 
         return self::SUCCESS;
     }

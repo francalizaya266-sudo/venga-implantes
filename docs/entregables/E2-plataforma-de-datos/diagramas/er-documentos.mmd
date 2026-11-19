@@ -1,0 +1,72 @@
+---
+config:
+  layout: elk
+---
+erDiagram
+  direction LR
+  prescriptions {
+    bigint id PK
+    bigint patient_id FK
+    bigint doctor_id FK
+    bigint consultation_id FK
+  }
+  prescription_items {
+    bigint id PK
+    bigint prescription_id FK
+  }
+  consent_templates {
+    bigint id PK
+    bigint treatment_id FK
+  }
+  consents {
+    bigint id PK
+    bigint patient_id FK
+    bigint consent_template_id FK
+    bigint treatment_id FK
+    bigint doctor_id FK
+    bigint clinical_file_id FK
+  }
+  clinical_files {
+    bigint id PK
+    bigint patient_id FK
+    bigint consultation_id FK
+    bigint uploaded_by_user_id FK
+  }
+  lab_orders {
+    bigint id PK
+    bigint patient_id FK
+    bigint doctor_id FK
+    bigint expense_id FK
+    bigint created_by_user_id FK
+  }
+  clinical_templates {
+    bigint id PK
+    bigint treatment_id FK
+    bigint user_id FK
+  }
+  text_snippets {
+    bigint id PK
+    bigint user_id FK
+  }
+  text_snippet_usages {
+    bigint id PK
+    bigint text_snippet_id FK, UK
+    bigint user_id FK, UK
+  }
+  consultations |o--o{ prescriptions : ""
+  doctors ||--o{ prescriptions : ""
+  patients ||--o{ prescriptions : ""
+  prescriptions ||--o{ prescription_items : ""
+  treatments |o--o{ consent_templates : ""
+  clinical_files |o--o{ consents : ""
+  consent_templates |o--o{ consents : ""
+  doctors |o--o{ consents : ""
+  patients ||--o{ consents : ""
+  treatments |o--o{ consents : ""
+  consultations |o--o{ clinical_files : ""
+  patients ||--o{ clinical_files : ""
+  doctors |o--o{ lab_orders : ""
+  expenses |o--o{ lab_orders : ""
+  patients ||--o{ lab_orders : ""
+  treatments |o--o{ clinical_templates : ""
+  text_snippets ||--o{ text_snippet_usages : ""

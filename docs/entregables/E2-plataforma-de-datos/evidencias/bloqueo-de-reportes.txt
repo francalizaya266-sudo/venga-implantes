@@ -1,0 +1,9 @@
+Bloqueo de consultorio_reportes tras 5 claves erradas (FAILED_LOGIN_ATTEMPTS 5 PASSWORD_LOCK_TIME 1 de seguridad.sql),
+MySQL 8.0.46 local, 19/11/2026. Cada intento: mysql -u consultorio_reportes -e "SELECT COUNT(*) FROM v_saldo_paciente".
+
+1) Cinco intentos con claves erradas y luego uno con la clave correcta:
+ERROR 3955 (HY000): Access denied for user 'consultorio_reportes'@'127.0.0.1'. Account is blocked for 1 day(s) (1 day(s) remaining) due to 5 consecutive failed logins.
+
+2) Como root, el ALTER USER … FAILED_LOGIN_ATTEMPTS 5 PASSWORD_LOCK_TIME 1 de seguridad.sql (con la misma clave) y otra
+   vez la clave correcta:
+262

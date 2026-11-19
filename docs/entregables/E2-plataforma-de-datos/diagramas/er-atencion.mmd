@@ -1,0 +1,59 @@
+---
+config:
+  layout: elk
+---
+erDiagram
+  direction TB
+  medical_backgrounds {
+    bigint id PK
+    bigint patient_id FK, UK
+    bigint updated_by_user_id FK
+  }
+  consultations {
+    bigint id PK
+    bigint patient_id FK
+    bigint doctor_id FK
+    bigint appointment_id FK
+  }
+  icd10_codes {
+    bigint id PK
+    varchar code UK
+  }
+  consultation_diagnoses {
+    bigint id PK
+    bigint consultation_id FK
+    bigint icd10_code_id FK
+  }
+  consultation_treatments {
+    bigint id PK
+    bigint consultation_id FK, UK
+    bigint treatment_id FK, UK
+  }
+  odontogram_conditions {
+    bigint id PK
+    varchar code UK
+  }
+  odontograms {
+    bigint id PK
+    bigint patient_id FK
+    bigint consultation_id FK
+    bigint doctor_id FK
+  }
+  odontogram_entries {
+    bigint id PK
+    bigint odontogram_id FK
+    bigint odontogram_condition_id FK
+  }
+  patients ||--o| medical_backgrounds : ""
+  appointments |o--o{ consultations : ""
+  doctors ||--o{ consultations : ""
+  patients ||--o{ consultations : ""
+  consultations ||--o{ consultation_diagnoses : ""
+  icd10_codes |o--o{ consultation_diagnoses : ""
+  consultations ||--o{ consultation_treatments : ""
+  treatments ||--o{ consultation_treatments : ""
+  consultations |o--o{ odontograms : ""
+  doctors |o--o{ odontograms : ""
+  patients ||--o{ odontograms : ""
+  odontogram_conditions ||--o{ odontogram_entries : ""
+  odontograms ||--o{ odontogram_entries : ""

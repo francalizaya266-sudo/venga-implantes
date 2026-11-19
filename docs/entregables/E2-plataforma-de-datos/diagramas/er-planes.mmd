@@ -1,0 +1,59 @@
+---
+config:
+  layout: elk
+---
+erDiagram
+  direction LR
+  treatment_packages {
+    bigint id PK
+    bigint created_by_user_id FK
+  }
+  treatment_package_items {
+    bigint id PK
+    bigint treatment_package_id FK
+    bigint treatment_id FK
+  }
+  treatment_plans {
+    bigint id PK
+    bigint patient_id FK
+    bigint doctor_id FK
+    bigint consultation_id FK
+    bigint included_in_plan_id FK
+    bigint campaign_id FK
+  }
+  treatment_plan_items {
+    bigint id PK
+    bigint treatment_plan_id FK
+    bigint treatment_id FK
+    bigint treatment_package_id FK
+  }
+  consultation_plan_items {
+    bigint id PK
+    bigint consultation_id FK, UK
+    bigint treatment_plan_item_id FK, UK
+  }
+  treatment_plan_signatures {
+    bigint id PK
+    bigint treatment_plan_id FK
+    bigint created_by_user_id FK
+  }
+  treatment_plan_installments {
+    bigint id PK
+    bigint treatment_plan_id FK
+    bigint charge_id FK
+  }
+  treatments ||--o{ treatment_package_items : ""
+  treatment_packages ||--o{ treatment_package_items : ""
+  campaigns |o--o{ treatment_plans : ""
+  consultations |o--o{ treatment_plans : ""
+  doctors ||--o{ treatment_plans : ""
+  treatment_plans |o--o{ treatment_plans : ""
+  patients ||--o{ treatment_plans : ""
+  treatments |o--o{ treatment_plan_items : ""
+  treatment_packages |o--o{ treatment_plan_items : ""
+  treatment_plans ||--o{ treatment_plan_items : ""
+  consultations ||--o{ consultation_plan_items : ""
+  treatment_plan_items ||--o{ consultation_plan_items : ""
+  treatment_plans ||--o{ treatment_plan_signatures : ""
+  charges |o--o{ treatment_plan_installments : ""
+  treatment_plans ||--o{ treatment_plan_installments : ""

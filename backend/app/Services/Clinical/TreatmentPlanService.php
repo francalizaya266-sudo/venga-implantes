@@ -415,7 +415,8 @@ final class TreatmentPlanService
             return;
         }
 
-        $packageIds = $plan->items()->whereNotNull('treatment_package_id')->distinct()->pluck('treatment_package_id');
+        // Sin el orden de items(): MySQL no acepta DISTINCT ordenando por columnas que no se piden (error 3065).
+        $packageIds = $plan->items()->reorder()->whereNotNull('treatment_package_id')->distinct()->pluck('treatment_package_id');
 
         $campaignId = $packageIds->isEmpty() ? null : Appointment::query()
             ->where('patient_id', $plan->patient_id)

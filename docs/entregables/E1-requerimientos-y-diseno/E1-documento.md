@@ -591,7 +591,7 @@ Cada decisión sigue el formato de Michael Nygard: contexto, opciones, decisión
 - **Contexto:** datos relacionales con reglas fuertes (una cita, un doctor y un paciente; pagos y cargos) y un hosting que ofrezca el motor.
 - **Opciones:** (a) MySQL o MariaDB; (b) PostgreSQL; (c) SQLite.
 - **Decisión:** (a) MySQL 8 en producción (MySQL Flexible Server en Azure) y SQLite en memoria para las pruebas.
-- **Consecuencias:** de las 11 llaves foráneas hacia el paciente, 10 usan `restrictOnDelete`: un paciente con historia no se puede borrar. Las vistas y procedimientos de la FASE 2 serán solo para MySQL, para no romper las pruebas en SQLite.
+- **Consecuencias:** de las 19 llaves foráneas hacia el paciente, las 10 de historia clínica y dinero usan `restrictOnDelete`: un paciente con historia no se puede borrar (cifra corregida en el E2, sección 1.3). Las vistas y procedimientos de la FASE 2 serán solo para MySQL, para no romper las pruebas en SQLite.
 
 ### ADR-06. Un solo servidor con un cron cada minuto
 

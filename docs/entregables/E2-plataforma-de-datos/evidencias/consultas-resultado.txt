@@ -1,0 +1,196 @@
+Resultado de consultas.sql sobre la base de demostración (DemoSeeder).
+Corrido el 18/11/2026 a las 21:46 (hora de Lima), MySQL 8.0.46.
+
+C01. ¿Cuántos pacientes tiene cada cuenta (celular)? Una cuenta puede tener a la familia a cargo.
+Usuario: consultorio_app
++------------------------+---------+
+| pacientes_en_la_cuenta | cuentas |
++------------------------+---------+
+|                      1 |     259 |
+|                      3 |       1 |
++------------------------+---------+
+
+C02. ¿Cómo le fue a cada doctor en los últimos 90 días? Citas atendidas, inasistencias y su porcentaje.
+Usuario: consultorio_app
++------------------------------+-------+-----------+------------+------------+------------------+
+| doctor                       | citas | atendidas | no_asistio | canceladas | pct_inasistencia |
++------------------------------+-------+-----------+------------+------------+------------------+
+| Dr. Jassmanny Neil Vega Jaen |   229 |       204 |         18 |          7 |              8.1 |
++------------------------------+-------+-----------+------------+------------+------------------+
+
+C03. ¿Qué tratamientos se reservan más y por dónde llegan (web o recepción)?
+Usuario: consultorio_app
++--------------------------------+-------+------------+---------------+---------+
+| tratamiento                    | citas | por_la_web | por_recepcion | pct_web |
++--------------------------------+-------+------------+---------------+---------+
+| Evaluación o primera consulta  |   247 |        144 |           103 |    58.3 |
+| Limpieza dental                |   212 |        113 |            99 |    53.3 |
+| Curación con resina            |   163 |        112 |            51 |    68.7 |
+| Extracción simple              |    96 |         48 |            47 |    50.0 |
+| Endodoncia                     |    41 |         22 |            19 |    53.7 |
+| Implante                       |    40 |         23 |            17 |    57.5 |
+| Blanqueamiento                 |    36 |         18 |            18 |    50.0 |
++--------------------------------+-------+------------+---------------+---------+
+
+C04. ¿Cuánto se cobró cada mes y con qué medio de pago? (últimos 6 meses, sin pagos anulados)
+Usuario: consultorio_app
++---------+----------+----------+----------+---------+---------+---------------+
+| mes     | cobrado  | efectivo | yape     | plin    | tarjeta | transferencia |
++---------+----------+----------+----------+---------+---------+---------------+
+| 2026-06 | 15629.00 |  5030.00 |  5790.00 | 3122.00 | 1487.00 |        200.00 |
+| 2026-07 | 15580.00 |  3510.00 |  8160.00 | 1970.00 | 1690.00 |        250.00 |
+| 2026-08 | 18784.00 |  2905.00 |  4590.00 | 1907.00 | 8162.00 |       1220.00 |
+| 2026-09 | 19390.00 |  3370.00 | 11915.00 |  640.00 | 3275.00 |        190.00 |
+| 2026-10 | 17140.00 |  2240.00 |  7050.00 | 5225.00 | 1975.00 |        650.00 |
+| 2026-11 |  5035.00 |  1320.00 |  1740.00 |  200.00 |  590.00 |       1185.00 |
++---------+----------+----------+----------+---------+---------+---------------+
+
+C05. ¿Quiénes son los 10 pacientes que más deben? Saldo = cargos válidos − pagos válidos, como en app/Services/Billing (la vista v_saldo_paciente de C06 da lo mismo).
+Usuario: consultorio_app
++-------------+------------------------------+----------+---------+---------+
+| paciente_id | paciente                     | cargado  | pagado  | saldo   |
++-------------+------------------------------+----------+---------+---------+
+|          12 | María Fernanda Osorio Garay  | 13640.00 | 8042.00 | 5598.00 |
+|          39 | Emilio Gallegos Valverde     |  8250.00 | 6200.00 | 2050.00 |
+|          69 | Matías Ozuna Díaz            |  4390.00 | 2340.00 | 2050.00 |
+|          19 | Matthew Henríquez Quiñones   |  4390.00 | 2560.00 | 1830.00 |
+|          13 | Sofía Verduzco Fajardo       |  8310.00 | 6500.00 | 1810.00 |
+|          28 | María Paula Girón Alvarado   |  4840.00 | 3030.00 | 1810.00 |
+|          18 | Fabiana Grijalva Santillán   |  4120.00 | 2320.00 | 1800.00 |
+|          50 | Santino Ceballos Zambrano    |  7170.00 | 5370.00 | 1800.00 |
+|          16 | Alejandro López Madrigal     |  4390.00 | 2620.00 | 1770.00 |
+|         134 | Mario Gamez Bonilla          |  3970.00 | 2200.00 | 1770.00 |
++-------------+------------------------------+----------+---------+---------+
+
+C06. ¿Cuánto dinero está por cobrar en total? (vista v_saldo_paciente)
+Usuario: consultorio_reportes
++---------------------+------------+----------------+-------------+
+| pacientes_que_deben | por_cobrar | deuda_promedio | deuda_mayor |
++---------------------+------------+----------------+-------------+
+|                  99 |   49740.00 |         502.42 |     5598.00 |
++---------------------+------------+----------------+-------------+
+
+C07. ¿Qué tan antigua es la deuda? Lo que falta pagar de cada cargo, por tramos de días desde que se cargó (vista v_cargos_pendientes, que reparte los pagos del más antiguo al más nuevo).
+Usuario: consultorio_reportes
++---------------------+--------+-----------+-----------+
+| antiguedad          | cargos | pacientes | por_pagar |
++---------------------+--------+-----------+-----------+
+| 1. Hasta 30 días    |     29 |        27 |   5315.00 |
+| 2. De 31 a 60 días  |     28 |        27 |   5176.00 |
+| 3. De 61 a 90 días  |     20 |        19 |  10269.00 |
+| 4. Más de 90 días   |     83 |        49 |  28980.00 |
++---------------------+--------+-----------+-----------+
+
+C08. ¿Cómo está la agenda de hoy? (vista v_agenda_del_dia: sin canceladas, con el saldo de cada paciente)
+Usuario: consultorio_reportes
++-------+---------+------------------------------+----------------------------+--------------------------------+------------+----------------+----------------+
+| hora  | termina | doctor                       | paciente                   | tratamiento                    | estado     | paciente_nuevo | saldo_paciente |
++-------+---------+------------------------------+----------------------------+--------------------------------+------------+----------------+----------------+
+| 09:00 | 09:45   | Dr. Jassmanny Neil Vega Jaen | María Quispe Huamán        | Limpieza dental                | Confirmada |              0 |          40.00 |
+| 10:00 | 10:30   | Dr. Jassmanny Neil Vega Jaen | Mariangel Correa Maldonado | Evaluación o primera consulta  | En sala    |              1 |           0.00 |
+| 11:00 | 11:45   | Dr. Jassmanny Neil Vega Jaen | Jimena Pulido Reyes        | Limpieza dental                | Atendida   |              0 |         120.00 |
+| 12:00 | 12:45   | Dr. Jassmanny Neil Vega Jaen | Thiago Sanches Serrano     | Extracción simple              | Confirmada |              0 |           0.00 |
+| 15:00 | 16:00   | Dr. Jassmanny Neil Vega Jaen | Hugo Zarate Osorio         | Curación con resina            | Pendiente  |              0 |           0.00 |
++-------+---------+------------------------------+----------------------------+--------------------------------+------------+----------------+----------------+
+
+C09. ¿Qué materiales costaron más en los últimos 3 meses? (vista v_consumo_materiales)
+Usuario: consultorio_reportes
++-------------------------------+-------------------------+---------+-------+--------+
+| material                      | categoria               | unidad  | usado | costo  |
++-------------------------------+-------------------------+---------+-------+--------+
+| Implante dental               | Implantes               | unidad  |  1.00 | 450.00 |
+| Kit de blanqueamiento         | Otros                   | kit     |  4.00 | 380.00 |
+| Resina compuesta A2           | Resinas y restauración  | g       |  5.00 |  90.00 |
+| Lidocaína 2 % con epinefrina  | Anestésicos             | carpule | 25.00 |  70.00 |
+| Sutura reabsorbible 4-0       | Cirugía                 | unidad  |  4.00 |  56.00 |
+| Adhesivo dental               | Resinas y restauración  | ml      |  1.00 |  32.00 |
+| Pasta profiláctica            | Prevención y limpieza   | g       | 70.00 |  24.50 |
+| Guantes de nitrilo            | Bioseguridad            | par     | 50.00 |  22.50 |
++-------------------------------+-------------------------+---------+-------+--------+
+
+C10. ¿Qué materiales hay que pedir? Existencias en el mínimo o debajo, con su proveedor.
+Usuario: consultorio_app
++-----------------------+--------+-------+--------+-----------------------+
+| material              | unidad | hay   | minimo | proveedor             |
++-----------------------+--------+-------+--------+-----------------------+
+| Ligaduras elásticas   | unidad | 70.00 | 100.00 | Depósito Dental Lima  |
+| Resina compuesta A2   | g      |  6.00 |   8.00 | Dental Sur            |
+| Kit de blanqueamiento | kit    |  2.00 |   2.00 | Dental Sur            |
++-----------------------+--------+-------+--------+-----------------------+
+
+C11. ¿Cada cuánto vuelven los pacientes? Días entre una atención y la siguiente (función de ventana LAG), según el tratamiento de la segunda.
+Usuario: consultorio_app
++--------------------------------+----------+---------------+-------------+-------------+
+| tratamiento                    | regresos | dias_promedio | dias_minimo | dias_maximo |
++--------------------------------+----------+---------------+-------------+-------------+
+| Limpieza dental                |      185 |          44.1 |           0 |         264 |
+| Curación con resina            |      148 |          39.6 |           0 |         214 |
+| Extracción simple              |       88 |          37.1 |           0 |         253 |
+| Endodoncia                     |       35 |          33.2 |           0 |         169 |
+| Implante                       |       34 |          26.9 |           1 |         115 |
+| Blanqueamiento                 |       30 |          40.2 |           4 |         110 |
+| Evaluación o primera consulta  |        2 |           0.0 |           0 |           0 |
++--------------------------------+----------+---------------+-------------+-------------+
+
+C12. ¿A quiénes hay que volver a llamar? Pacientes atendidos alguna vez, sin atención en los últimos 6 meses y sin cita futura (CTE y NOT EXISTS).
+Usuario: consultorio_app
++-------------------------+---------------------+---------------------+
+| pacientes_por_recuperar | la_mas_antigua      | atenciones_promedio |
++-------------------------+---------------------+---------------------+
+|                      17 | 2026-02-23 15:00:00 |                 4.5 |
++-------------------------+---------------------+---------------------+
+
+C13. ¿Qué cambió en el sistema esta semana y quién lo hizo? (bitácora audit_logs de la aplicación)
+Usuario: consultorio_app
++----------------+---------+--------------------+---------+
+| que            | evento  | quien              | cambios |
++----------------+---------+--------------------+---------+
+| Appointment    | created | Sistema o paciente |     861 |
+| Appointment    | updated | Sistema o paciente |     852 |
+| Charge         | created | Sistema o paciente |     755 |
+| Patient        | updated | Sistema o paciente |     754 |
+| Payment        | created | Sistema o paciente |     727 |
+| Patient        | created | Sistema o paciente |     262 |
+| Account        | created | Sistema o paciente |     260 |
+| Supply         | updated | Sistema o paciente |      24 |
+| Supply         | created | Sistema o paciente |      23 |
+| DoctorSchedule | created | Sistema o paciente |      12 |
++----------------+---------+--------------------+---------+
+
+C14. Cierre de caja del 12/11/2026 (procedimiento sp_cierre_caja: resumen y cobrado por medio de pago).
+Usuario: consultorio_reportes
++------------+-------+---------+----------+--------+--------------------+------------------+-----------+----------+----------+---------------+---------+-------+-----------------------------+------------------+------------+
+| fecha      | pagos | cobrado | efectivo | gastos | gastos_en_efectivo | efectivo_en_caja | pendiente | esperado | anulados | monto_anulado | cerrado | fondo | efectivo_esperado_al_cerrar | efectivo_contado | diferencia |
++------------+-------+---------+----------+--------+--------------------+------------------+-----------+----------+----------+---------------+---------+-------+-----------------------------+------------------+------------+
+| 2026-11-12 |     3 | 1500.00 |     0.00 |   0.00 |               0.00 |             0.00 |    470.00 |  1970.00 |        0 |          0.00 |       0 |  NULL |                        NULL |             NULL |       NULL |
++------------+-------+---------+----------+--------+--------------------+------------------+-----------+----------+----------+---------------+---------+-------+-----------------------------+------------------+------------+
++----------+---------------+-------+---------+
+| medio    | medio_de_pago | pagos | cobrado |
++----------+---------------+-------+---------+
+| cash     | Efectivo      |     0 |    0.00 |
+| yape     | Yape          |     2 | 1050.00 |
+| transfer | Transferencia |     1 |  450.00 |
++----------+---------------+-------+---------+
+
+C15. Reporte de ingresos de octubre de 2026 (procedimiento sp_reporte_mensual_ingresos: resumen, por doctor y por medio de pago).
+Usuario: consultorio_reportes
++---------+----------+-------+-----------+--------+------------+----------+----------------+
+| mes     | cobrado  | pagos | realizado | gastos | materiales | queda    | por_cobrar_hoy |
++---------+----------+-------+-----------+--------+------------+----------+----------------+
+| 2026-10 | 17140.00 |    73 |  20390.00 |   0.00 |     671.59 | 16468.41 |       49740.00 |
++---------+----------+-------+-----------+--------+------------+----------+----------------+
++------------------------------+-----------+----------+
+| doctor                       | realizado | cobrado  |
++------------------------------+-----------+----------+
+| Dr. Jassmanny Neil Vega Jaen |  20390.00 | 17140.00 |
++------------------------------+-----------+----------+
++----------+---------------+---------+-------+------------+
+| medio    | medio_de_pago | cobrado | pagos | porcentaje |
++----------+---------------+---------+-------+------------+
+| yape     | Yape          | 7050.00 |    17 |       41.1 |
+| plin     | Plin          | 5225.00 |    15 |       30.5 |
+| cash     | Efectivo      | 2240.00 |    22 |       13.1 |
+| card     | Tarjeta       | 1975.00 |    13 |       11.5 |
+| transfer | Transferencia |  650.00 |     6 |        3.8 |
++----------+---------------+---------+-------+------------+
+

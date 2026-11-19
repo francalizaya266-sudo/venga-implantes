@@ -12,6 +12,12 @@
             <directory>tests/Feature</directory>
         </testsuite>
     </testsuites>
+    <groups>
+        <exclude>
+            <!-- Necesitan MySQL: las corre el job "mysql" de CI (php artisan test con la opción group=mysql). -->
+            <group>mysql</group>
+        </exclude>
+    </groups>
     <source>
         <include>
             <directory>app</directory>

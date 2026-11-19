@@ -1,0 +1,28 @@
+Quién puede crear las vistas, funciones, procedimientos y triggers (php artisan bd:objetos como consultorio_despliegue).
+
+1) Con log_bin_trust_function_creators = 0 (registro binario activo, como viene MySQL 8):
+  SQLSTATE[HY000]: General error: 1419 You do not have the SUPER privilege and binary logging is enabled (you *might* want to use the less safe log_bin_trust_function_creators variable) (Connection: mysql, Host: 127.0.0.1, Port: 3307, Database: consultorio, SQ
+
+2) Con log_bin_trust_function_creators = 1:
+Listos: 6 funciones, 5 vistas, 2 procedimientos y 2 triggers (25 sentencias).
+
+3) Dueño (DEFINER) de cada objeto creado:
++--------------+-----------------------------+--------------------------+
+| ROUTINE_TYPE | ROUTINE_NAME                | DEFINER                  |
++--------------+-----------------------------+--------------------------+
+| FUNCTION     | fn_ahora_lima               | consultorio_despliegue@% |
+| FUNCTION     | fn_categoria_material       | consultorio_despliegue@% |
+| FUNCTION     | fn_estado_cita              | consultorio_despliegue@% |
+| FUNCTION     | fn_hoy_lima                 | consultorio_despliegue@% |
+| FUNCTION     | fn_medio_pago               | consultorio_despliegue@% |
+| FUNCTION     | fn_saldo_paciente           | consultorio_despliegue@% |
+| PROCEDURE    | sp_cierre_caja              | consultorio_despliegue@% |
+| PROCEDURE    | sp_reporte_mensual_ingresos | consultorio_despliegue@% |
+| TRIGGER      | trg_pagos_auditar_cambio    | consultorio_despliegue@% |
+| TRIGGER      | trg_pagos_auditar_borrado   | consultorio_despliegue@% |
+| VIEW         | v_saldo_paciente            | consultorio_despliegue@% |
+| VIEW         | v_agenda_del_dia            | consultorio_despliegue@% |
+| VIEW         | v_cargos_pendientes         | consultorio_despliegue@% |
+| VIEW         | v_deuda_vencida             | consultorio_despliegue@% |
+| VIEW         | v_consumo_materiales        | consultorio_despliegue@% |
++--------------+-----------------------------+--------------------------+

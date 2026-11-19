@@ -1,0 +1,37 @@
+Salida de seguridad.sql corrido por root (después de migrar) en el MySQL 8.0.46 local, 18/11/2026.
+
++------------------------------------------------+
+| vistas_de_reportes                             |
++------------------------------------------------+
+| Permisos de reportes dados sobre las 5 vistas. |
++------------------------------------------------+
++----------------------------------------------------------------------------------+
+| Grants for consultorio_app@%                                                     |
++----------------------------------------------------------------------------------+
+| GRANT USAGE ON *.* TO `consultorio_app`@`%`                                      |
+| GRANT SELECT, INSERT, UPDATE, DELETE ON `consultorio`.* TO `consultorio_app`@`%` |
++----------------------------------------------------------------------------------+
++------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Grants for consultorio_despliegue@%                                                                                                                                                                                                            |
++------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| GRANT USAGE ON *.* TO `consultorio_despliegue`@`%`                                                                                                                                                                                             |
+| GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, DROP, REFERENCES, INDEX, ALTER, CREATE TEMPORARY TABLES, LOCK TABLES, EXECUTE, CREATE VIEW, SHOW VIEW, CREATE ROUTINE, ALTER ROUTINE, TRIGGER ON `consultorio`.* TO `consultorio_despliegue`@`%` |
++------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
++------------------------------------------------------------------------------------+
+| Grants for consultorio_reportes@%                                                  |
++------------------------------------------------------------------------------------+
+| GRANT USAGE ON *.* TO `consultorio_reportes`@`%`                                   |
+| GRANT EXECUTE ON `consultorio`.* TO `consultorio_reportes`@`%`                     |
+| GRANT SELECT ON `consultorio`.`v_agenda_del_dia` TO `consultorio_reportes`@`%`     |
+| GRANT SELECT ON `consultorio`.`v_cargos_pendientes` TO `consultorio_reportes`@`%`  |
+| GRANT SELECT ON `consultorio`.`v_consumo_materiales` TO `consultorio_reportes`@`%` |
+| GRANT SELECT ON `consultorio`.`v_deuda_vencida` TO `consultorio_reportes`@`%`      |
+| GRANT SELECT ON `consultorio`.`v_saldo_paciente` TO `consultorio_reportes`@`%`     |
++------------------------------------------------------------------------------------+
++-----------------------------------------------------------------------------------+
+| Grants for consultorio_respaldo@%                                                 |
++-----------------------------------------------------------------------------------+
+| GRANT USAGE ON *.* TO `consultorio_respaldo`@`%`                                  |
+| GRANT SHOW_ROUTINE ON *.* TO `consultorio_respaldo`@`%`                           |
+| GRANT SELECT, SHOW VIEW, TRIGGER ON `consultorio`.* TO `consultorio_respaldo`@`%` |
++-----------------------------------------------------------------------------------+

@@ -1,0 +1,26 @@
+---
+config:
+  layout: elk
+---
+erDiagram
+  direction LR
+  faqs {
+    bigint id PK
+    bigint treatment_id FK
+  }
+  reviews {
+    bigint id PK
+    bigint treatment_id FK
+  }
+  smile_cases {
+    bigint id PK
+    bigint treatment_id FK
+    bigint doctor_id FK
+    bigint patient_id FK
+    bigint consent_confirmed_by_user_id FK
+  }
+  treatments |o--o{ faqs : ""
+  treatments |o--o{ reviews : ""
+  doctors |o--o{ smile_cases : ""
+  patients |o--o{ smile_cases : ""
+  treatments |o--o{ smile_cases : ""

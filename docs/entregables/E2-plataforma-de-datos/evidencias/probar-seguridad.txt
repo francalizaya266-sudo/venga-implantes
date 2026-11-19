@@ -1,0 +1,23 @@
+OK     consultorio_app puede: SELECT COUNT(*) FROM patients
+OK     consultorio_app puede: UPDATE settings SET updated_at = updated_at WHERE 1 = 0
+OK     consultorio_app no puede: CREATE TABLE prueba_seguridad (id INT) -> CREATE command denied to user 'consultorio_app'@'127.0.0.1' for table 'prueba_seguridad'
+OK     consultorio_app no puede: DROP TABLE payment_audit_logs -> DROP command denied to user 'consultorio_app'@'127.0.0.1' for table 'payment_audit_logs'
+OK     consultorio_app no puede: DROP TRIGGER trg_pagos_auditar_cambio -> TRIGGER command denied to user 'consultorio_app'@'127.0.0.1' for table 'payments'
+OK     consultorio_app no puede: CREATE USER 'intruso'@'%' IDENTIFIED BY 'intruso-123' -> Access denied; you need (at least one of) the CREATE USER privilege(s) for this operation
+OK     consultorio_reportes puede: SELECT COUNT(*) FROM v_saldo_paciente
+OK     consultorio_reportes puede: SELECT COUNT(*) FROM v_deuda_vencida
+OK     consultorio_reportes puede: CALL sp_reporte_mensual_ingresos(2026, 10)
+OK     consultorio_reportes puede: CALL sp_cierre_caja(fn_hoy_lima(), NULL)
+OK     consultorio_reportes no puede: SELECT COUNT(*) FROM patients -> SELECT command denied to user 'consultorio_reportes'@'127.0.0.1' for table 'patients'
+OK     consultorio_reportes no puede: SELECT COUNT(*) FROM medical_backgrounds -> SELECT command denied to user 'consultorio_reportes'@'127.0.0.1' for table 'medical_backgrounds'
+OK     consultorio_reportes no puede: SELECT COUNT(*) FROM payments -> SELECT command denied to user 'consultorio_reportes'@'127.0.0.1' for table 'payments'
+OK     consultorio_reportes no puede: DELETE FROM payments -> DELETE command denied to user 'consultorio_reportes'@'127.0.0.1' for table 'payments'
+OK     consultorio_respaldo puede: mysqldump con tablas, vistas, procedimientos y triggers (2181350 bytes)
+OK     consultorio_respaldo no puede: UPDATE settings SET updated_at = updated_at -> UPDATE command denied to user 'consultorio_respaldo'@'127.0.0.1' for table 'settings'
+OK     consultorio_respaldo no puede: DROP TABLE settings -> DROP command denied to user 'consultorio_respaldo'@'127.0.0.1' for table 'settings'
+OK     consultorio_despliegue puede: CREATE TABLE prueba_seguridad (id INT); DROP TABLE prueba_seguridad
+OK     consultorio_despliegue puede: CREATE OR REPLACE VIEW prueba_seguridad AS SELECT 1 AS uno; DROP VIEW prueba_seguridad
+OK     consultorio_despliegue no puede: CREATE USER 'intruso'@'%' IDENTIFIED BY 'intruso-123' -> Access denied; you need (at least one of) the CREATE USER privilege(s) for this operation
+OK     consultorio_despliegue no puede: CREATE DATABASE otra_base -> Access denied for user 'consultorio_despliegue'@'%' to database 'otra_base'
+OK     consultorio_despliegue no puede: GRANT SELECT ON consultorio.* TO 'consultorio_reportes'@'%' -> Access denied for user 'consultorio_despliegue'@'%' to database 'consultorio'
+Todo como se esperaba.

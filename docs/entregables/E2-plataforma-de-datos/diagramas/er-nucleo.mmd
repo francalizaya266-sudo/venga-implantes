@@ -1,0 +1,31 @@
+---
+config:
+  layout: elk
+---
+erDiagram
+  direction TB
+  accounts |o--o{ patients : ""
+  patients |o--o{ patients : ""
+  doctors ||--o{ appointments : ""
+  patients ||--o{ appointments : ""
+  treatments ||--o{ appointments : ""
+  treatment_plan_items |o--o{ appointments : ""
+  appointments |o--o{ consultations : ""
+  doctors ||--o{ consultations : ""
+  patients ||--o{ consultations : ""
+  consultations |o--o{ treatment_plans : ""
+  doctors ||--o{ treatment_plans : ""
+  treatment_plans |o--o{ treatment_plans : ""
+  patients ||--o{ treatment_plans : ""
+  treatments |o--o{ treatment_plan_items : ""
+  treatment_plans ||--o{ treatment_plan_items : ""
+  appointments |o--o{ charges : ""
+  consultations |o--o{ charges : ""
+  doctors |o--o{ charges : ""
+  patients ||--o{ charges : ""
+  treatments |o--o{ charges : ""
+  treatment_plan_items |o--o{ charges : ""
+  appointments |o--o{ payments : ""
+  doctors |o--o{ payments : ""
+  patients ||--o{ payments : ""
+  treatments |o--o{ payments : ""

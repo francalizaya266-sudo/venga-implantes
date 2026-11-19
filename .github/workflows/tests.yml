@@ -36,6 +36,116 @@ jobs:
       - name: Pruebas
         run: php artisan test
 
+  # Las vistas, funciones, procedimientos y triggers de database/sql/mysql solo existen en MySQL: aquí se prueban
+  # con un MySQL 8 de verdad, junto con toda la suite, los usuarios de seguridad.sql y una copia restaurada con el
+  # tiempo medido.
+  mysql:
+    name: Base de datos (MySQL 8)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          # Base que nace y muere con este job, sin datos reales: estas claves no protegen nada.
+          MYSQL_ROOT_PASSWORD: solo-para-ci
+          MYSQL_DATABASE: consultorio
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -psolo-para-ci"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=30
+    env:
+      DB_CONNECTION: mysql
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3306
+      MYSQL_HOST: 127.0.0.1
+      MYSQL_PORT: 3306
+      MYSQL_PWD_ROOT: solo-para-ci
+      CLAVE_APP: ci-app-solo-prueba
+      CLAVE_DESPLIEGUE: ci-despliegue-solo-prueba
+      CLAVE_REPORTES: ci-reportes-solo-prueba
+      CLAVE_RESPALDO: ci-respaldo-solo-prueba
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, intl, pdo_mysql, zip, gd, exif
+          coverage: none
+
+      - name: Instalar dependencias
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Preparar entorno
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+          mysql --version
+          # En Azure se activa en Parámetros del servidor: sin esto, un usuario sin SUPER no crea funciones ni triggers.
+          mysql -h 127.0.0.1 -uroot -p"$MYSQL_PWD_ROOT" -e "SET GLOBAL log_bin_trust_function_creators = 1; CREATE DATABASE consultorio_pruebas CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+
+      - name: Pruebas de vistas, funciones, procedimientos y triggers
+        run: php artisan test --group=mysql
+        env:
+          DB_DATABASE: consultorio_pruebas
+          DB_USERNAME: root
+          DB_PASSWORD: solo-para-ci
+
+      # Toda la suite otra vez, ahora sobre el motor de producción: SQLite deja pasar consultas que MySQL rechaza
+      # (así apareció el DISTINCT con ORDER BY de TreatmentPlanService::linkCampaign, error 3065).
+      - name: Suite completa sobre MySQL 8
+        run: php artisan test
+        env:
+          DB_DATABASE: consultorio_pruebas
+          DB_USERNAME: root
+          DB_PASSWORD: solo-para-ci
+
+      - name: Crear los usuarios (seguridad.sql, antes de migrar)
+        run: |
+          ( echo "SET @clave_app='$CLAVE_APP', @clave_despliegue='$CLAVE_DESPLIEGUE', @clave_reportes='$CLAVE_REPORTES', @clave_respaldo='$CLAVE_RESPALDO';"
+            cat database/sql/seguridad.sql ) | mysql -h 127.0.0.1 -uroot -p"$MYSQL_PWD_ROOT" consultorio
+
+      - name: Migrar y cargar los datos de demostración con el usuario de despliegue
+        run: |
+          php artisan migrate --force
+          APP_ENV=local php artisan db:seed --force
+          php artisan bd:objetos
+        env:
+          DB_DATABASE: consultorio
+          DB_USERNAME: consultorio_despliegue
+          DB_PASSWORD: ${{ env.CLAVE_DESPLIEGUE }}
+
+      - name: Dar a reportes las vistas (seguridad.sql otra vez) y comprobar cada usuario
+        run: |
+          ( echo "SET @clave_app='$CLAVE_APP', @clave_despliegue='$CLAVE_DESPLIEGUE', @clave_reportes='$CLAVE_REPORTES', @clave_respaldo='$CLAVE_RESPALDO';"
+            cat database/sql/seguridad.sql ) | mysql -h 127.0.0.1 -uroot -p"$MYSQL_PWD_ROOT" consultorio
+          bash database/sql/probar-seguridad.sh
+
+      - name: Copia y restauración cronometradas
+        run: |
+          root() { mysql -h 127.0.0.1 -uroot -p"$MYSQL_PWD_ROOT" consultorio -N -e "$1"; }
+          DB_USERNAME=consultorio_app DB_PASSWORD="$CLAVE_APP" php artisan respaldo:crear
+          pagos=$(root "SELECT COUNT(*) FROM payments")
+          # Un daño hecho por fuera de la aplicación: el trigger lo anota en la bitácora.
+          root "DELETE FROM payments ORDER BY id LIMIT 10; UPDATE patients SET first_name = 'DAÑADO';"
+          inicio=$(date +%s%N)
+          DB_USERNAME=consultorio_despliegue DB_PASSWORD="$CLAVE_DESPLIEGUE" php artisan respaldo:restaurar --force
+          echo "Restauración: $(( ($(date +%s%N) - inicio) / 1000000 )) ms"
+          test "$(root "SELECT COUNT(*) FROM payments")" = "$pagos"
+          test "$(root "SELECT COUNT(*) FROM patients WHERE first_name = 'DAÑADO'")" = "0"
+          test "$(root "SELECT COUNT(*) FROM payment_audit_logs WHERE event = 'deleted'")" = "10"
+          test "$(root "SELECT COUNT(*) FROM information_schema.triggers WHERE trigger_schema = 'consultorio'")" = "2"
+          bash database/sql/probar-seguridad.sh
+        env:
+          DB_DATABASE: consultorio
+
   frontend:
     name: Frontend (React)
     runs-on: ubuntu-latest
@@ -72,7 +182,7 @@ jobs:
   paquete:
     name: Paquete para el hosting
     if: github.event_name == 'push'
-    needs: [backend, frontend]
+    needs: [backend, mysql, frontend]
     runs-on: ubuntu-latest
 
     steps:

@@ -1,0 +1,42 @@
+---
+config:
+  layout: elk
+---
+erDiagram
+  direction LR
+  treatments {
+    bigint id PK
+    varchar slug UK
+  }
+  doctors {
+    bigint id PK
+    bigint user_id FK, UK
+    varchar slug UK
+  }
+  doctor_treatment {
+    bigint id PK
+    bigint doctor_id FK, UK
+    bigint treatment_id FK, UK
+  }
+  doctor_schedules {
+    bigint id PK
+    bigint doctor_id FK
+  }
+  schedule_blocks {
+    bigint id PK
+    bigint doctor_id FK
+    bigint created_by_user_id FK
+  }
+  campaigns {
+    bigint id PK
+    varchar slug UK
+    bigint treatment_id FK
+    bigint treatment_package_id FK
+    varchar promo_code UK
+  }
+  doctors ||--o{ doctor_treatment : ""
+  treatments ||--o{ doctor_treatment : ""
+  doctors ||--o{ doctor_schedules : ""
+  doctors |o--o{ schedule_blocks : ""
+  treatments |o--o{ campaigns : ""
+  treatment_packages |o--o{ campaigns : ""
