@@ -16,8 +16,6 @@ use App\Models\Consultation;
 use App\Services\Clinical\ConsultationService;
 use App\Services\Clinical\PrescriptionService;
 use App\Services\Clinical\TreatmentPlanService;
-use App\Services\StaffAlerts;
-use App\Support\Money;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
@@ -96,25 +94,14 @@ class ViewConsultation extends ViewRecord
         ];
     }
 
-    /** Quien atendió no maneja la caja: avisa a recepción que el paciente sale y tiene que pagar. */
+    /** Le pasa el cobro a recepción: el doctor, que no maneja la caja, o la administradora que prefiere no cobrar ella. */
     public function notifyReceptionAction(): Action
     {
         return Action::make('notifyReception')
-            ->label('Avisar a recepción')
+            ->label('Pasar a recepción')
             ->visible(fn () => $this->getConsultation()->closed_at !== null)
             ->action(function () {
-                $consultation = $this->getConsultation();
-                $patient = $consultation->patient;
-
-                app(StaffAlerts::class)->toReception(
-                    $patient->full_name.' terminó su atención: cobrarle',
-                    Money::balance($patient->balance()).' · atendió '.$consultation->doctor->name,
-                    auth()->user(),
-                    ['label' => 'Cobrar', 'url' => $consultation->appointment
-                        ? AppointmentResource::getUrl('view', ['record' => $consultation->appointment])
-                        : PatientResource::getUrl('view', ['record' => $patient])],
-                );
-                VisitCloseOut::markReceptionNotified($consultation);
+                VisitCloseOut::handToReception($this->getConsultation(), auth()->user());
 
                 Notification::make()->success()->title('Listo: recepción ya sabe que tiene que cobrarle')->send();
             });
