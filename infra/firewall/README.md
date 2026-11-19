@@ -14,7 +14,10 @@ Cada red tiene un `vm-fw`: una VM Ubuntu 24.04 con dos tarjetas, configurada sol
 | --- | --- | --- |
 | WAN (`eth0`) | 10.20.0.4 + IP pública | 10.10.0.4 + IP pública |
 | LAN (`eth1`) | 10.20.1.4 | 10.10.1.4 |
-| Entrada desde internet | 80 y 443 → proxy; 2200 SSH del firewall; 2222/2223 SSH de instalación | 2200 SSH del firewall (también jump host); 22 y 3306 → honeypot |
+| Entrada desde internet | 80 y 443 → proxy; 2200 SSH del firewall | 2200 SSH del firewall (también jump host); 22 y 3306 → honeypot |
+
+El NAT de destino solo se aplica a lo que llega a la IP de la WAN (`WAN_IP`), no a lo que entra por la VPN: si no,
+una conexión de producción al puerto 22 de la sede terminaría en el honeypot.
 
 ## Cambiar una regla
 

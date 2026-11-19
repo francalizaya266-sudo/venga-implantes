@@ -9,6 +9,8 @@ flush ruleset
 
 define WAN = "eth0"
 define LAN = "eth1"
+# IP privada de la WAN: el NAT de destino solo aplica a lo que llega a esta IP, no a lo que entra por la VPN.
+define WAN_IP = 10.10.0.4
 define INTERNAS = 10.10.0.0/16
 define MGMT = 10.10.10.0/24
 define PERSONAL = 10.10.30.0/24
@@ -51,8 +53,9 @@ table inet filtro {
         ip saddr $DMZ ip daddr $WAZUH tcp dport { 1514, 1515 } accept
         ip saddr $DMZ ip daddr { $INTERNAS, $PROD } log prefix "fw-dmz-bloqueo " level info drop
 
-        # Recepción: el panel de producción por la VPN; no administra servidores.
+        # Recepción: el panel de producción por la VPN y sus logs al SIEM; no administra servidores.
         ip saddr $PERSONAL ip daddr $PROXY_PROD tcp dport { 80, 443 } accept
+        ip saddr $PERSONAL ip daddr $WAZUH tcp dport { 1514, 1515 } accept
         ip saddr $PERSONAL ip daddr { $MGMT, $SERVIDORES } log prefix "fw-personal-bloqueo " level info drop
 
         # El jump host administra todo, en la sede y en producción.
@@ -78,7 +81,7 @@ table inet filtro {
 table ip nat {
     chain destino {
         type nat hook prerouting priority dstnat;
-        iifname $WAN tcp dport { 22, 3306 } dnat to $HONEYPOT
+        iifname $WAN ip daddr $WAN_IP tcp dport { 22, 3306 } dnat to $HONEYPOT
     }
 
     chain origen {
