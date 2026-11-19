@@ -14,6 +14,7 @@ use App\Filament\Resources\ScheduleBlocks\ScheduleBlockActions;
 use App\Filament\Resources\WaitlistEntries\WaitlistEntryActions;
 use App\Filament\Resources\WaitlistEntries\WaitlistEntryResource;
 use App\Filament\Support\ClinicalAlerts;
+use App\Filament\Support\MenuPending;
 use App\Filament\Support\Notify;
 use App\Filament\Support\VisitFlags;
 use App\Models\Appointment;
@@ -67,6 +68,22 @@ class Agenda extends Page
     protected static ?int $navigationSort = 1;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCalendar;
+
+    /** Lo que espera en la agenda: citas de hoy y mañana por confirmar y cambios de horario pedidos. */
+    public static function getNavigationBadge(): ?string
+    {
+        return MenuPending::badge(MenuPending::agenda());
+    }
+
+    public static function getNavigationBadgeColor(): string
+    {
+        return 'warning';
+    }
+
+    public static function getNavigationBadgeTooltip(): ?string
+    {
+        return MenuPending::tooltip(MenuPending::agenda());
+    }
 
     #[Url]
     public string $date = '';

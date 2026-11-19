@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Payments;
 use App\Filament\Concerns\HasSpanishLabels;
 use App\Filament\Resources\Payments\Pages\ManagePayments;
 use App\Filament\Resources\Payments\Tables\PaymentsTable;
+use App\Filament\Support\MenuPending;
 use App\Models\Payment;
 use BackedEnum;
 use Filament\Resources\Resource;
@@ -30,6 +31,22 @@ class PaymentResource extends Resource
     protected static ?int $navigationSort = 3;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBanknotes;
+
+    /** Lo que espera en caja: a quiénes falta cobrarles lo de hoy. */
+    public static function getNavigationBadge(): ?string
+    {
+        return MenuPending::badge(MenuPending::cash());
+    }
+
+    public static function getNavigationBadgeColor(): string
+    {
+        return 'warning';
+    }
+
+    public static function getNavigationBadgeTooltip(): ?string
+    {
+        return MenuPending::tooltip(MenuPending::cash());
+    }
 
     public static function table(Table $table): Table
     {
