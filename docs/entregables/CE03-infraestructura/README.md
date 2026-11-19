@@ -16,9 +16,9 @@ y resultados de pruebas de red (S2-E2). Salen de `datos.py`, igual que las tabla
 
 ## Presentaciones
 
-`presentaciones/` tiene una presentación por informe (PowerPoint y PDF), en azul y amarillo UPeU, repartida entre
-los tres integrantes: el círculo amarillo de cada diapositiva dice quién la expone y las notas del orador lo que se
-dice. Se arman con `node presentaciones/generar-ppt.js` (dependencias al inicio del script) y el PDF con
+`presentaciones/CE03-Infraestructura-Tecnologica` (PowerPoint y PDF) resume los cinco informes en una sola
+exposición de 14 diapositivas, en azul y amarillo UPeU, repartida entre los tres integrantes: el círculo amarillo de
+cada diapositiva dice quién la expone y las notas del orador lo que se dice. Se arman con `node presentaciones/generar-ppt.js` (dependencias al inicio del script) y el PDF con
 `presentaciones/exportar-pdf.ps1` (PowerPoint en Windows).
 
 ## Equivalencia tecnológica
