@@ -25,7 +25,7 @@ Azure no trae una imagen oficial de OPNsense. La forma probada es la plantilla c
    | Red virtual existente | `vnet-vega` | `vnet-clinica` |
    | Subred no confiable (WAN) | `snet-wan` | `snet-wan` |
    | Subred confiable (LAN) | `snet-lan` | `snet-lan` |
-   | Tamaño | `Standard_B1ms` (sube a `B2s` si Suricata en IPS se queda corto) | `Standard_B1ms` |
+   | Tamaño | `Standard_B2ats_v2` (sube a `Standard_B2als_v2` si Suricata en IPS se queda corto de memoria) | `Standard_B2ats_v2` |
    | Usuario y contraseña | Nuevos, en **1Password** | Nuevos, en **1Password** |
 
 3. En el portal: **VM de OPNsense → Redes → tarjeta LAN → Configuraciones de IP** y fija la IP privada

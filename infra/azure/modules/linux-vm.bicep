@@ -12,7 +12,7 @@ param subnetId string
 @description('IP privada fija dentro de la subred.')
 param privateIp string
 
-param size string = 'Standard_B1s'
+param size string = 'Standard_B2ats_v2'
 
 param adminUsername string
 

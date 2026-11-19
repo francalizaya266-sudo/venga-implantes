@@ -116,8 +116,16 @@ Las fases de abajo explican qué hace cada orden por dentro, para el informe y p
 ## Fase 0 · Cuentas y accesos (1 a 2 días)
 
 1. Dos integrantes activan **Azure for Students** con el correo de la universidad (azure.microsoft.com/free/students).
-2. Revisen qué regiones permite cada suscripción (`az account list-locations -o table`). Si `brazilsouth` no está,
-   usen `eastus2`. Las dos redes pueden estar en regiones distintas.
+2. Revisen qué regiones permite cada suscripción (Azure for Students las limita por política):
+
+   ```bash
+   az policy assignment list --disable-scope-strict-match --query "[].parameters.listOfAllowedLocations.value" -o tsv
+   ```
+
+   El proyecto usa **`chilecentral`**, la más cercana a Perú. Como es una región nueva, no tiene la serie B v1
+   (`B1s`, `B1ms`): las plantillas usan la **serie B v2** (`Standard_B2ats_v2`, 2 vCPU y 1 GiB con 2 GiB de swap;
+   `Standard_B2als_v2`, 2 vCPU y 4 GiB, solo para Wazuh). Si cambian de región, revisen que tenga esos tamaños:
+   `az vm list-skus -l REGION --resource-type virtualMachines --query "[?starts_with(name,'Standard_B')].name" -o tsv`.
 3. **MFA** en todas las cuentas. Cada dueño invita a los demás como Colaborador de su grupo de recursos.
 4. Bóveda del equipo en **1Password**.
 5. Dominio **.TECH** del Student Pack.
@@ -132,7 +140,7 @@ Las fases de abajo explican qué hace cada orden por dentro, para el informe y p
 9. Alerta de presupuesto en cada suscripción:
 
    ```bash
-   az deployment sub create -l brazilsouth -f infra/azure/presupuesto.bicep \
+   az deployment sub create -l chilecentral -f infra/azure/presupuesto.bicep \
      -p alertEmail='correo-del-equipo@...' startDate="$(date +%Y-%m-01)"
    ```
 
@@ -148,7 +156,7 @@ verdad: si cambia una IP, cámbienla aquí, en los diagramas y en el E1.
 
 ```bash
 az account set --subscription "SUSCRIPCION-PRODUCCION"
-az group create -n rg-vega-prod -l brazilsouth
+az group create -n rg-vega-prod -l chilecentral
 
 export SSH_PUBLIC_KEY="$(cat ~/.ssh/vega.pub)"
 export ADMIN_SOURCE_IPS="TU_IP/32,$(curl -s https://ifconfig.me)/32"
@@ -265,7 +273,7 @@ En vm-app: `sudo /opt/vega/backup-to-blob.sh`.
 
 ```bash
 az account set --subscription "SUSCRIPCION-SEDE"
-az group create -n rg-vega-clinica -l brazilsouth
+az group create -n rg-vega-clinica -l chilecentral
 export DEPLOY_VMS=false
 az deployment group create -g rg-vega-clinica \
   -f infra/azure/clinica/main.bicep -p infra/azure/clinica/clinica.bicepparam
@@ -285,7 +293,10 @@ Todas se apagan solas a las 20:00. Para encenderlas en una sesión de laboratori
 az vm start --ids $(az vm list -g rg-vega-clinica --query "[].id" -o tsv)
 ```
 
-Si Azure avisa que superaste la cuota de vCPU, enciéndelas por turnos.
+**Cuota de vCPU.** Cada VM de la serie B v2 usa 2 vCPU, y Azure for Students suele dar pocas por región
+(`preparar` las muestra). La sede tiene 6 VM (12 vCPU): si la cuota no alcanza, el despliegue de `sede vms` falla
+con `QuotaExceeded`. En ese caso, enciéndelas por turnos según la prueba (por ejemplo OPNsense + recepción para la
+VPN; OPNsense + Wazuh + honeypot para seguridad) con `az vm start -g rg-vega-clinica -n NOMBRE`, y apaga las demás.
 
 ### Acceso desde tu PC
 

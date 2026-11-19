@@ -4,6 +4,12 @@ timezone: America/Lima
 package_update: true
 package_upgrade: true
 
+# 1 GiB de RAM: el swap evita que Composer o un pico de PHP agoten la memoria.
+swap:
+  filename: /swapfile
+  size: 2G
+  maxsize: 2G
+
 packages:
   - mysql-server
   - curl

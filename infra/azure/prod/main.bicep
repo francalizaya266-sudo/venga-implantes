@@ -50,9 +50,10 @@ param firewallLanIp string = '10.20.1.4'
 @description('false en la primera pasada; true cuando OPNsense ya está funcionando.')
 param deployVms bool = false
 
-param appVmSize string = 'Standard_B1ms'
+@description('B2ats_v2: 2 vCPU y 1 GiB (más 2 GiB de swap). Si queda corta, Standard_B2als_v2 (4 GiB).')
+param appVmSize string = 'Standard_B2ats_v2'
 
-param proxyVmSize string = 'Standard_B1s'
+param proxyVmSize string = 'Standard_B2ats_v2'
 
 @description('Apagado diario de vm-proxy y vm-app (HHmm, hora de Lima) para ahorrar crédito; vacío = siempre encendidas. Se encienden con az vm start.')
 param autoShutdownTime string = ''
