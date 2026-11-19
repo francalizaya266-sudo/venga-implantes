@@ -128,6 +128,7 @@ La web le pide todo a Laravel en `/api/v1`, dentro del mismo dominio. `php artis
 - **Reserva web al instante** si el horario está libre. Queda *pendiente* hasta que el paciente confirma con su enlace; el día anterior, si no confirmó, se marca *sin confirmar* para que recepción llame.
 - **Topes:** 2 citas web futuras por paciente y un tope por celular (configurable). Recepción puede bloquear números.
 - **Primera cita** en la web (evaluación o tratamiento simple). Las siguientes las programa el doctor; un paciente con plan en curso no reserva sesiones solo.
+- **Mi cuenta sin contraseñas:** el celular queda recordado al tocar el enlace personal que llega por WhatsApp, o al reservar la primera cita con un número que el consultorio no tenía. Ese celular queda sin verificar hasta que toque un enlace: sus reservas no cuentan como hechas desde el celular de la familia, y si el dueño del número toca un enlace desde otro celular, deja de estar recordado. Las citas pasadas, los pagos y los datos siempre piden un enlace nuevo.
 - **Cambios de horario:** con más de 24 h, mismo doctor y tratamiento, el cambio es automático; si no (o la sesión tiene *fecha fija*), el paciente propone hasta 3 horarios y recepción o el doctor aprueba uno.
 - **Cancelación** directa hasta el plazo que define el consultorio; después, debe comunicarse.
 - **Doctores** solo manejan su propia agenda; cada cambio prepara el aviso al paciente y alerta a recepción.

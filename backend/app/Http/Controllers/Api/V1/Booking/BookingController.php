@@ -9,6 +9,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\StoreBookingRequest;
 use App\Http\Resources\V1\SlotPickerResource;
 use App\Http\Resources\V1\TreatmentResource;
+use App\Models\Account;
 use App\Models\Appointment;
 use App\Models\Campaign;
 use App\Models\Doctor;
@@ -175,6 +176,9 @@ class BookingController extends Controller
             return $this->problem('No encontramos a esa persona en este celular. Elige de nuevo para quién es la cita.');
         }
 
+        // Un número que el consultorio no tenía: la cuenta nace con esta reserva y este celular queda recordado.
+        $newNumber = $device === null && Account::withTrashed()->where('phone', Phone::normalize($data['phone']))->doesntExist();
+
         try {
             $appointment = $appointments->bookFromWeb(new WebBookingData(
                 doctorId: $slot['doctor_id'],
@@ -202,6 +206,11 @@ class BookingController extends Controller
         RateLimiter::hit($limiter, 3600);
 
         $appointment->load(['patient.account', 'doctor', 'treatment', 'campaign']);
+
+        if ($newNumber) {
+            $this->access->rememberNewcomer($appointment->patient->account, $request);
+        }
+
         $asksOrigin = $this->asksOrigin($appointment, $device);
         $day = Dates::day($appointment->starts_at->toImmutable());
         $hour = Dates::time($appointment->starts_at->format('H:i'));
@@ -212,7 +221,7 @@ class BookingController extends Controller
             'who' => $appointment->patient->full_name.' · con '.$appointment->doctor->name,
             'price_line' => CampaignText::price($appointment->treatment, $appointment->campaign),
             'phone' => Phone::display($appointment->patient->account->phone),
-            'remembered' => $device !== null,
+            'remembered' => $device !== null || $newNumber,
             // La cita como archivo para el calendario del celular. La dirección va firmada: solo la tiene quien reservó.
             'calendar_url' => URL::signedRoute('site.booking.calendar', ['appointment' => $appointment->getKey()], absolute: false),
             // Para escribir al consultorio con la reserva ya contada.
@@ -241,7 +250,8 @@ class BookingController extends Controller
 
     private function asksOrigin(Appointment $appointment, ?RememberedDevice $device): bool
     {
-        return $device === null && $appointment->origin === null && $appointment->patient->origin === null;
+        // El celular que quedó recordado con esta misma reserva (un número nuevo) todavía no lo dijo.
+        return ($device === null || ! $device->isVerified()) && $appointment->origin === null && $appointment->patient->origin === null;
     }
 
     /** @return Collection<int, AppointmentOrigin> Campaña y referido no se preguntan: los pone el sistema. */

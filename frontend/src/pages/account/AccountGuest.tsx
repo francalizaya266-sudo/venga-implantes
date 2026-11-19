@@ -97,10 +97,11 @@ export function AccountGuest({ clinic }: { clinic: Clinic }) {
         </form>
       )}
 
-      {/* Quien nunca reservó no tiene cuenta todavía: una línea basta, sin otro bloque que compita con el formulario. */}
+      {/* Quien nunca reservó no tiene cuenta todavía: una línea basta, sin otro bloque que compita con el formulario. Con
+          su primera reserva, este celular queda recordado sin esperar el enlace. */}
       <p className="muted">
-        ¿Aún no tienes citas con nosotros? <AppLink href={paths.booking()}>Reserva la primera</AppLink> y con su enlace
-        de WhatsApp este celular queda recordado.
+        ¿Aún no tienes citas con nosotros? <AppLink href={paths.booking()}>Reserva la primera</AppLink> y entras a Mi
+        cuenta al instante, sin esperar ningún enlace.
       </p>
     </section>
   );

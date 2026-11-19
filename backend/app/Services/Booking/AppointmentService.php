@@ -79,8 +79,11 @@ class AppointmentService
 
         $phone = Phone::normalize($data->phone);
         $recognized = $device !== null && $device->account->phone === $phone;
+        // El celular que entró sin enlace (su primera reserva) elige a su familia, pero lo que reserva no cuenta como
+        // hecho desde el celular de la familia hasta que toque un enlace del número.
+        $fromVerifiedDevice = $recognized && $device->isVerified();
 
-        return DB::transaction(function () use ($data, $doctor, $treatment, $phone, $recognized) {
+        return DB::transaction(function () use ($data, $doctor, $treatment, $phone, $recognized, $fromVerifiedDevice) {
             $account = Account::withTrashed()->firstOrCreate(['phone' => $phone]);
 
             if ($account->trashed()) {
@@ -136,7 +139,7 @@ class AppointmentService
                 'campaign_id' => $campaign?->hasSlotsLeft() ? $campaign->getKey() : null,
                 'promo_code' => $data->promoCode,
                 'is_new_patient' => ! $patient->appointments()->where('status', AppointmentStatus::Completed)->exists(),
-                'from_verified_device' => $recognized,
+                'from_verified_device' => $fromVerifiedDevice,
                 'patient_note' => $data->note,
             ]);
 

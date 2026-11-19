@@ -33,7 +33,7 @@ class HealthControllerTest extends TestCase
         $this->account = Account::factory()->verified()->create(['phone' => '+51987654321']);
         $this->mother = Patient::factory()->for($this->account)->create(['first_name' => 'Rosa', 'sex' => Sex::Female]);
         $this->child = Patient::factory()->dependentOf($this->account)->create(['first_name' => 'Mateo', 'birth_date' => '2019-05-01']);
-        RememberedDevice::create(['account_id' => $this->account->id, 'token_hash' => hash('sha256', 'este-celular'), 'expires_at' => now()->addMonth()]);
+        RememberedDevice::create(['account_id' => $this->account->id, 'token_hash' => hash('sha256', 'este-celular'), 'expires_at' => now()->addMonth(), 'verified_at' => now()]);
         $this->withCookie(DeviceService::COOKIE, 'este-celular');
     }
 
@@ -120,7 +120,7 @@ class HealthControllerTest extends TestCase
     public function test_another_phone_cannot_see_or_fill_the_health_of_this_family(): void
     {
         $other = Account::factory()->verified()->create(['phone' => '+51912345678']);
-        RememberedDevice::create(['account_id' => $other->id, 'token_hash' => hash('sha256', 'otro-celular'), 'expires_at' => now()->addMonth()]);
+        RememberedDevice::create(['account_id' => $other->id, 'token_hash' => hash('sha256', 'otro-celular'), 'expires_at' => now()->addMonth(), 'verified_at' => now()]);
         $this->withCookie(DeviceService::COOKIE, 'otro-celular');
 
         $this->getJson(route('api.v1.account.patients.health', $this->child))->assertForbidden();

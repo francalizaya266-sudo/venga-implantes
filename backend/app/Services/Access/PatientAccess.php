@@ -52,12 +52,28 @@ class PatientAccess
     public function actWithLink(Request $request, MagicLink $link): void
     {
         $this->links->consume($link);
+        $device = $this->device($request);
 
-        if ($this->device($request)?->account_id !== $link->account_id) {
+        if ($device?->account_id === $link->account_id) {
+            $this->devices->verify($device);
+        } else {
+            // El enlace llega al WhatsApp del número: quien lo toca es su dueño. Si alguien había reservado con ese
+            // número desde otro celular, ese celular deja de estar recordado.
+            $this->devices->forgetUnverified($link->account);
             $this->devices->remember($link->account, $request);
         }
 
         $this->devices->elevate();
+    }
+
+    /**
+     * Primera reserva con un número que el consultorio no tenía: la cuenta nace con lo que escribió este celular, así
+     * que queda recordado al instante y entra a Mi cuenta sin esperar el enlace. Queda sin verificar hasta que toque
+     * uno: sus reservas no cuentan como hechas desde el celular de la familia.
+     */
+    public function rememberNewcomer(Account $account, Request $request): void
+    {
+        $this->devices->remember($account, $request, verified: false);
     }
 
     /**

@@ -206,12 +206,27 @@ class AppointmentServiceTest extends TestCase
         $doctor = $this->doctorOffering($treatment);
         $account = Account::factory()->verified()->create(['phone' => '+51987654321']);
         $child = Patient::factory()->dependentOf($account)->create();
-        $device = RememberedDevice::create(['account_id' => $account->id, 'token_hash' => str_repeat('a', 64), 'expires_at' => now()->addMonth()]);
+        $device = RememberedDevice::create(['account_id' => $account->id, 'token_hash' => str_repeat('a', 64), 'expires_at' => now()->addMonth(), 'verified_at' => now()]);
 
         $appointment = $this->service()->bookFromWeb($this->webBooking($doctor, $treatment, '2026-11-03 10:00', ['patientId' => $child->id]), $device);
 
         $this->assertTrue($appointment->patient->is($child));
         $this->assertTrue($appointment->from_verified_device);
+    }
+
+    public function test_a_phone_remembered_by_its_first_booking_books_for_its_family_without_counting_as_verified(): void
+    {
+        $this->freezeMonday();
+        $treatment = Treatment::factory()->evaluation()->create();
+        $doctor = $this->doctorOffering($treatment);
+        $account = Account::factory()->create(['phone' => '+51987654321']);
+        $child = Patient::factory()->dependentOf($account)->create();
+        $device = RememberedDevice::create(['account_id' => $account->id, 'token_hash' => str_repeat('b', 64), 'expires_at' => now()->addMonth()]);
+
+        $appointment = $this->service()->bookFromWeb($this->webBooking($doctor, $treatment, '2026-11-03 10:00', ['patientId' => $child->id]), $device);
+
+        $this->assertTrue($appointment->patient->is($child));
+        $this->assertFalse($appointment->from_verified_device);
     }
 
     public function test_patients_in_treatment_cannot_book_sessions_on_the_web(): void

@@ -51,7 +51,7 @@ class AccountControllerTest extends TestCase
 
     private function rememberDevice(?Account $account = null, string $token = 'este-celular'): static
     {
-        RememberedDevice::create(['account_id' => ($account ?? $this->account)->id, 'token_hash' => hash('sha256', $token), 'expires_at' => now()->addMonth()]);
+        RememberedDevice::create(['account_id' => ($account ?? $this->account)->id, 'token_hash' => hash('sha256', $token), 'expires_at' => now()->addMonth(), 'verified_at' => now()]);
 
         return $this->withCookie(DeviceService::COOKIE, $token);
     }
