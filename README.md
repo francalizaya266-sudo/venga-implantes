@@ -111,7 +111,7 @@ De aquí en adelante, las carpetas y los comandos son dentro de `backend/`.
 
 ## La API de la web
 
-La web le pide todo a Laravel en `/api/v1`, dentro del mismo dominio. `php artisan route:list --path=api` muestra la lista completa.
+La web le pide todo a Laravel en `/api/v1`, dentro del mismo dominio. El contrato completo, con cada ruta, sus parámetros, sus respuestas y sus errores, está en [`docs/api/openapi.json`](docs/api/openapi.json) (OpenAPI 3.1); las pruebas del backend y de la web comparan cada respuesta con él, así que no se puede cambiar una sin actualizarlo.
 
 | Grupo | Para qué |
 | --- | --- |

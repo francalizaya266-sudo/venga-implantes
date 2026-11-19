@@ -58,3 +58,11 @@ INDICE=2 SEGUIDAS=1 generar CE022-S2-E2-Plataforma-de-Datos-del-Sistema.docx E2-
 INDICE=2 generar CE022-S2-E2-Plataforma-de-Datos-del-Sistema-Anexos.docx \
   E2-plataforma-de-datos/anexos/E2-anexos-metadatos.yaml E2-plataforma-de-datos/anexos/E2-diccionario.md \
   E2-plataforma-de-datos/anexos/E2-anexos.md
+
+# FASE 3: E3, sistema de software funcional integrado (CE023: CE0233 y CE0234).
+INDICE=2 SEGUIDAS=1 generar CE023-S2-E3-Sistema-de-Software-Funcional-Integrado.docx E3-sistema-funcional/E3-metadatos.yaml \
+  E3-sistema-funcional/E3-documento.md
+
+# Anexos del E3: repositorio, manual técnico, capturas, evidencia de despliegue y ejecución, y sustentación.
+INDICE=2 generar CE023-S2-E3-Sistema-de-Software-Funcional-Integrado-Anexos.docx \
+  E3-sistema-funcional/anexos/E3-anexos-metadatos.yaml E3-sistema-funcional/anexos/E3-anexos.md
