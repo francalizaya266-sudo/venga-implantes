@@ -1,4 +1,4 @@
-// Arma la presentación única de CE03, ordenada por la rúbrica de cada entregable y repartida entre los tres
+// Arma la presentación única de CE03 (lo que se hizo en cada entregable, con cifras reales), repartida entre los tres
 // integrantes, con los colores de la UPeU (azul y amarillo). Los datos salen de los informes y de evidencias/.
 //
 //   npm install pptxgenjs@3.12.0 react-icons@5.4.0 react@18.3.1 react-dom@18.3.1 sharp@0.33.5
@@ -91,11 +91,11 @@ function nuevaPresentacion(titulo) {
     slideNumber: { x: 12.2, y: 6.98, w: 0.6, h: 0.3, fontSize: 10, color: C.accent4, align: "right" },
   });
   pres.defineSlideMaster({
-    title: "ENTREGABLE",
+    title: "PARTE",
     background: { color: AZUL },
     objects: [
-      { placeholder: { options: { name: "title", type: "title", x: 0.6, y: 0.35, w: 9.6, h: 0.85, fontSize: 30, bold: true, color: C.background1, valign: "middle", align: "left", margin: 0 }, text: "" } },
-      { placeholder: { options: { name: "body", type: "body", x: 0.6, y: 1.2, w: 9.6, h: 0.45, fontSize: 16, color: C.accent2, margin: 0 }, text: "" } },
+      { placeholder: { options: { name: "title", type: "title", x: 0.8, y: 2.3, w: 11.0, h: 1.8, fontSize: 40, bold: true, color: C.background1, valign: "bottom", align: "left", margin: 0 }, text: "" } },
+      { placeholder: { options: { name: "body", type: "body", x: 0.8, y: 4.25, w: 11.0, h: 0.6, fontSize: 20, color: C.accent2, margin: 0 }, text: "" } },
     ],
     slideNumber: { x: 12.2, y: 6.98, w: 0.6, h: 0.3, fontSize: 10, color: C.background2, align: "right" },
   });
@@ -120,16 +120,16 @@ function expositor(pres, slide, iniciales) {
     { x: 9.4, y: 0.42, w: 2.6, h: 0.68, fontSize: 11, color: GRIS, align: "right", valign: "middle", margin: 0, isTextBox: true, objectName: "Expositor nombre" });
 }
 
-function contenido(pres, seccion, titulo, iniciales, notas, criterio) {
+function contenido(pres, seccion, titulo, iniciales, notas, entregable) {
   const C = pres.SchemeColor;
   const slide = pres.addSlide({ masterName: "CONTENIDO", sectionTitle: seccion });
   slide.addText(titulo, { placeholder: "title" });
   if (iniciales) expositor(pres, slide, iniciales);
   if (notas) slide.addNotes(notas);
-  // El criterio de la rúbrica que cubre esta diapositiva, al pie, para que el jurado lo ubique.
-  if (criterio) {
-    slide.addShape(pres.shapes.ROUNDED_RECTANGLE, { x: 4.55, y: 6.93, w: 7.5, h: 0.38, rectRadius: 0.19, fill: { color: C.accent2 }, line: { color: C.accent2 }, objectName: "Criterio de la rúbrica" });
-    slide.addText("Rúbrica  ·  " + criterio, { x: 4.55, y: 6.93, w: 7.5, h: 0.38, fontSize: 11, bold: true, color: C.text2, align: "center", valign: "middle", margin: 0, isTextBox: true });
+  // El entregable al que pertenece esta diapositiva, al pie, para ubicarse.
+  if (entregable) {
+    slide.addShape(pres.shapes.ROUNDED_RECTANGLE, { x: 4.55, y: 6.93, w: 7.5, h: 0.38, rectRadius: 0.19, fill: { color: C.accent2 }, line: { color: C.accent2 }, objectName: "Etiqueta del entregable" });
+    slide.addText(entregable, { x: 4.55, y: 6.93, w: 7.5, h: 0.38, fontSize: 11, bold: true, color: C.text2, align: "center", valign: "middle", margin: 0, isTextBox: true });
   }
   return slide;
 }
@@ -236,38 +236,19 @@ function cierre(pres, titulo, puntos, notas) {
 }
 
 
-// Portada de cada entregable: sus criterios de la rúbrica, el peso y en qué diapositivas se cubre cada uno.
-// criterios: [nombre, peso, cantidad de diapositivas (número) o texto]
-function entregable(pres, seccion, titulo, subtitulo, iniciales, criterios, notas) {
+// Portada de cada parte: número, nombre del entregable, semestre y quién lo expone. Solo el título, sin tablas.
+function parte(pres, seccion, numero, titulo, subtitulo, iniciales, notas) {
   const C = pres.SchemeColor;
   pres.addSection({ title: seccion });
-  const slide = pres.addSlide({ masterName: "ENTREGABLE", sectionTitle: seccion });
+  const slide = pres.addSlide({ masterName: "PARTE", sectionTitle: seccion });
+  slide.addText(numero, { x: 0.8, y: 1.0, w: 3, h: 1.2, fontSize: 60, bold: true, color: C.accent2, margin: 0, valign: "bottom", isTextBox: true });
   slide.addText(titulo, { placeholder: "title" });
   slide.addText(subtitulo, { placeholder: "body" });
   const p = PERSONAS[iniciales];
-  slide.addShape(pres.shapes.OVAL, { x: 12.15, y: 0.45, w: 0.62, h: 0.62, fill: { color: C.accent2 }, line: { color: C.accent2 } });
-  slide.addText(iniciales, { x: 12.15, y: 0.45, w: 0.62, h: 0.62, fontSize: 15, bold: true, color: C.text2, align: "center", valign: "middle", margin: 0, isTextBox: true });
-  slide.addText([{ text: p.nombre, options: { bold: true, breakLine: true } }, { text: p.rol }],
-    { x: 9.4, y: 0.42, w: 2.6, h: 0.68, fontSize: 11, color: C.background2, align: "right", valign: "middle", margin: 0, isTextBox: true });
-  let siguiente = pres.numero + 1;
-  const filas = [["Criterio de la rúbrica", "Peso", "Dónde"]];
-  for (const [nombre, peso, n] of criterios) {
-    let donde = n;
-    if (Array.isArray(n)) {
-      // Diapositivas contadas desde esta portada (1 = la que sigue).
-      const numeros = n.map((o) => pres.numero + o);
-      donde = numeros.length === 1 ? `Diapositiva ${numeros[0]}` : `Diapositivas ${numeros.slice(0, -1).join(", ")} y ${numeros.at(-1)}`;
-    } else if (typeof n === "number") {
-      donde = n === 1 ? `Diapositiva ${siguiente}` : `Diapositivas ${siguiente} a ${siguiente + n - 1}`;
-      siguiente += n;
-    }
-    filas.push([nombre, peso, donde]);
-  }
-  const alto = Math.min(0.5, 4.9 / filas.length);
-  slide.addTable(filas.map((fila, i) => fila.map((t, j) => ({ text: t, options: i === 0
-    ? { bold: true, color: C.text2, fill: { color: C.accent2 }, fontSize: 15 }
-    : { color: C.text1, fill: { color: i % 2 ? C.background1 : C.background2 }, fontSize: 15, bold: j === 1, align: j === 1 ? "center" : "left" } }))),
-  { x: 0.6, y: 1.95, w: 12.1, colW: [6.6, 1.5, 4.0], rowH: alto, border: { type: "solid", pt: 0.5, color: "8EA2C6" }, margin: [3, 8, 3, 8], valign: "middle" });
+  slide.addShape(pres.shapes.OVAL, { x: 0.8, y: 5.5, w: 0.75, h: 0.75, fill: { color: C.accent2 }, line: { color: C.accent2 } });
+  slide.addText(iniciales, { x: 0.8, y: 5.5, w: 0.75, h: 0.75, fontSize: 17, bold: true, color: C.text2, align: "center", valign: "middle", margin: 0, isTextBox: true });
+  slide.addText([{ text: "Expone " + p.nombre, options: { bold: true, breakLine: true } }, { text: p.rol }],
+    { x: 1.75, y: 5.45, w: 6, h: 0.85, fontSize: 15, color: C.background1, valign: "middle", margin: 0, isTextBox: true });
   slide.addNotes(notas);
 }
 
@@ -288,29 +269,28 @@ const RIESGOS = [["R01", 20, 8], ["R02", 16, 8], ["R03", 15, 5], ["R04", 15, 4],
   ["R09", 9, 4], ["R10", 12, 6], ["R11", 12, 6], ["R12", 8, 3], ["R13", 12, 6], ["R14", 6, 2], ["R15", 10, 5], ["R16", 8, 4]];
 
 // ======================================================================================================
-// Presentación única de CE03 en 25 diapositivas, ordenada por la rúbrica: cada entregable abre con sus criterios
-// y sigue con tres diapositivas que cubren dos o más criterios cada una.
+// Presentación única de CE03 en 25 diapositivas: lo que se hizo en cada entregable, con cifras reales.
 // ======================================================================================================
-async function deckRubrica() {
+async function deckGeneral() {
   const pres = nuevaPresentacion("Infraestructura Tecnológica · CE03");
   const C = pres.SchemeColor;
   let s;
 
   pres.addSection({ title: "Portada" });
-  portada(pres, "Infraestructura Tecnológica del sistema de Clínica Vega Implant", "CE03 · Los cinco entregables según su rúbrica",
-    "Presentamos los cinco entregables de la línea de Infraestructura siguiendo su rúbrica. Cada entregable empieza con una diapositiva que dice en qué diapositiva se cubre cada criterio, y la etiqueta amarilla al pie de cada diapositiva dice qué criterios cubre.");
+  portada(pres, "Infraestructura Tecnológica del sistema de Clínica Vega Implant", "CE03 · Diseño, SGSI, red y centro de datos en Azure",
+    "Presentamos lo que hicimos en la línea de Infraestructura: el diseño de la red y del centro de datos, el SGSI, y la red y el centro de datos funcionando en Azure, con cifras reales del 19/11.");
   await agenda(pres, [
     ["JY", ["Equivalencia tecnológica", "S2-E1 · SGSI", "Evidencias y cierre"], 7],
     ["JA", ["S1-E1 · Diseño de red", "S2-E2 · Red implementada"], 8],
     ["FC", ["S1-E2 · Diseño de centro de datos", "S2-E3 · Centro de datos implementado"], 8],
-  ], "Jhoel expone lo de red, Fran lo de centro de datos y Joselyn el SGSI y el cierre. Unos 25 minutos en total.");
+  ], "Jhoel expone lo de red, Fran lo de centro de datos y Joselyn el SGSI y el cierre. El círculo amarillo dice quién habla y la etiqueta del pie, de qué entregable es. Unos 25 minutos en total.");
 
   pres.addSection({ title: "Contexto" });
   s = contenido(pres, "Contexto", "Misma arquitectura, otra nube", "JY",
-    "La clínica guarda historias clínicas, datos sensibles según la Ley 29733. La rúbrica habla de VMware ESXi y AWS, y la guía admite cambiar la tecnología si se mantiene la equivalencia técnica. Usamos Azure for Students: la sede es una segunda red de Azure con los mismos segmentos y firewall que tendría el local.",
-    "Equivalencia tecnológica · los cinco entregables");
+    "La clínica guarda historias clínicas, datos sensibles según la Ley 29733. La guía de la línea propone VMware ESXi y AWS, y admite cambiar la tecnología si se mantiene la equivalencia técnica. Usamos Azure for Students: la sede es una segunda red de Azure con los mismos segmentos y firewall que tendría el local.",
+    "CE03 · Infraestructura Tecnológica");
   tabla(pres, s, [
-    ["En la rúbrica", "En este proyecto"],
+    ["Propuesto por la guía", "En este proyecto"],
     ["Red local en VMware ESXi (vSwitch, port groups, VLAN)", "vnet-clinica: subredes con su NSG y su ruta"],
     ["AWS VPC, subredes y route tables", "Azure VNet vnet-vega, subredes y rt-via-firewall"],
     ["EC2", "Máquinas virtuales Ubuntu 24.04 (serie B v2)"],
@@ -320,20 +300,12 @@ async function deckRubrica() {
   ], { y: 1.55, anchos: [5.6, 6.5], tam: 14 });
 
   // ---------------------------------------------------------------------------------------- S1-E1
-  entregable(pres, "S1-E1 Diseño de red", "S1-E1 · Análisis y Diseño de Red", "Semestre 1 · CE0311", "JA", [
-    ["Contexto y alcance", "10 %", [1]],
-    ["Arquitectura lógica (VLAN, subredes, direccionamiento)", "20 %", [1]],
-    ["Conectividad híbrida (VPN)", "15 %", [2]],
-    ["Seguridad perimetral (firewall, DMZ, segmentación)", "20 %", [2]],
-    ["Detección (IDS/IPS y honeypot, planificación)", "10 %", [3]],
-    ["Flujos y matriz de componentes", "10 %", [3]],
-    ["Calidad documental y trazabilidad", "8 %", "Diapositiva de evidencias"],
-    ["Sustentación", "7 %", "Esta exposición"],
-  ], "Rúbrica del diseño de red y dónde se cubre cada criterio.");
+  parte(pres, "S1-E1 Diseño de red", "01", "Análisis y Diseño de Red", "Semestre 1 · Entregable 1 · CE0311", "JA",
+    "Empieza la parte de red: el diseño de las dos redes, la VPN, el perímetro y la detección.");
 
   s = contenido(pres, "S1-E1 Diseño de red", "Objetivos y segmentación", "JA",
     "Dos redes que no se solapan: producción 10.20.0.0/16 y la sede 10.10.0.0/16. Cada segmento equivale a una VLAN y su ruta pasa por el firewall. Los objetivos: exponer solo lo necesario, aislar la base de datos, cifrar lo que cruza internet, segmentar la sede, detectar y recuperar la VPN sola.",
-    "CE0311 · Contexto y alcance (10 %) · Arquitectura lógica (20 %)");
+    "S1-E1 · Análisis y Diseño de Red");
   tabla(pres, s, [
     ["Red", "Segmento", "Prefijo", "Equipo"],
     ["Producción", "snet-dmz", "10.20.3.0/24", "vm-proxy"],
@@ -349,7 +321,7 @@ async function deckRubrica() {
 
   s = contenido(pres, "S1-E1 Diseño de red", "VPN y seguridad perimetral", "JA",
     "VPN IPsec con IKEv2 y AES-256-GCM entre los dos firewalls, con NAT-T y reconexión automática. Los firewalls tienen política drop y registran cada bloqueo; internet solo llega al proxy de la DMZ y el proxy solo al puerto 80 de la app.",
-    "CE0311 · Conectividad híbrida (15 %) · Seguridad perimetral (20 %)");
+    "S1-E1 · Análisis y Diseño de Red");
   cifra(pres, s, 0.6, 1.5, 3.6, "IKEv2", "strongSwan en cada firewall, NAT-T");
   cifra(pres, s, 4.7, 1.5, 3.8, "AES-256", "GCM para IKE y ESP");
   cifra(pres, s, 9.0, 1.5, 3.7, "drop", "política por defecto en los dos firewalls");
@@ -363,7 +335,7 @@ async function deckRubrica() {
 
   s = contenido(pres, "S1-E1 Diseño de red", "Detección y matriz de componentes", "JA",
     "Seis capas de detección: Suricata en la WAN, bloqueos de nftables, WAF en el proxy, honeypot en la DMZ de la sede, Wazuh como SIEM y Azure Monitor. La matriz une cada componente con su función y el archivo del repositorio que lo configura.",
-    "CE0311 · Detección (10 %) · Flujos y matriz de componentes (10 %)");
+    "S1-E1 · Análisis y Diseño de Red");
   tabla(pres, s, [
     ["Componente", "Función", "Configuración"],
     ["vm-fw (x2)", "Firewall, NAT, VPN, IDS", "infra/firewall/*.nft"],
@@ -377,20 +349,12 @@ async function deckRubrica() {
     texto: "Suricata (IDS) en la WAN\nnftables: bloqueos fw-\nModSecurity + CRS\nHoneypot OpenCanary\nWazuh (SIEM)\nAzure Monitor" });
 
   // ---------------------------------------------------------------------------------------- S1-E2
-  entregable(pres, "S1-E2 Diseño de centro de datos", "S1-E2 · Diseño de Centro de Datos Híbrido", "Semestre 1 · CE0331", "FC", [
-    ["Contexto y alcance", "8 %", [1]],
-    ["Arquitectura on-premise (ESXi)", "22 %", [2]],
-    ["Arquitectura AWS (en Azure)", "22 %", [1]],
-    ["Integración híbrida", "10 %", [2]],
-    ["Dimensionamiento y capacidad", "12 %", [3]],
-    ["Matriz de componentes y trazabilidad", "10 %", [3]],
-    ["Disponibilidad y continuidad", "8 %", [3]],
-    ["Calidad documental y sustentación", "8 %", "Evidencias y esta exposición"],
-  ], "Rúbrica del diseño de centro de datos.");
+  parte(pres, "S1-E2 Diseño de centro de datos", "02", "Diseño de Centro de Datos Híbrido", "Semestre 1 · Entregable 2 · CE0331", "FC",
+    "Empieza el diseño del centro de datos: la nube en Azure, la sede y la continuidad.");
 
   s = contenido(pres, "S1-E2 Diseño de centro de datos", "Objetivos y arquitectura en la nube", "FC",
     "RPO de 1 hora por la copia horaria a la sede, RTO de 2 horas reconstruyendo desde el código y 5 minutos para volver a la versión anterior. En la nube: VNet con 5 subredes, tres VM de la serie B v2, MySQL privado, Key Vault con RBAC y Blob con versiones.",
-    "CE0331 · Contexto y alcance (8 %) · Arquitectura AWS en Azure (22 %)");
+    "S1-E2 · Diseño de Centro de Datos Híbrido");
   cifra(pres, s, 0.6, 1.5, 3.8, "1 h", "RPO con la copia horaria a la sede");
   cifra(pres, s, 4.75, 1.5, 3.8, "2 h", "RTO reconstruyendo desde el código");
   cifra(pres, s, 8.9, 1.5, 3.8, "5 min", "volver a la versión anterior");
@@ -403,7 +367,7 @@ async function deckRubrica() {
 
   s = contenido(pres, "S1-E2 Diseño de centro de datos", "La sede e integración híbrida", "FC",
     "Para el local de la clínica: rack de 12 U, firewall, conmutador con VLAN, host con RAID 1 y UPS. Cada port group de ESXi es una subred de Azure. Por la VPN viajan el panel, los registros al SIEM, la copia horaria y la administración.",
-    "CE0331 · Arquitectura on-premise (22 %) · Integración híbrida (10 %)");
+    "S1-E2 · Diseño de Centro de Datos Híbrido");
   tabla(pres, s, [
     ["Diseño en ESXi", "En Azure"],
     ["vSwitch con NIC teaming", "Red virtual vnet-clinica"],
@@ -417,7 +381,7 @@ async function deckRubrica() {
 
   s = contenido(pres, "S1-E2 Diseño de centro de datos", "Capacidad, continuidad y trazabilidad", "FC",
     "Uso medido el 19/11: lo que más ocupa es Wazuh, 69 % de la RAM y 66 % del disco; la cuota de 6 vCPU por región está completa. Tres copias independientes, y cada componente queda trazado con la evidencia que lo prueba en el Semestre 2.",
-    "CE0331 · Dimensionamiento (12 %) · Matriz y trazabilidad (10 %) · Continuidad (8 %)");
+    "S1-E2 · Diseño de Centro de Datos Híbrido");
   s.addChart(pres.charts.BAR, [
     { name: "Uso (%)", labels: ["RAM vm-app", "RAM firewall", "RAM vm-wazuh", "Disco vm-wazuh"], values: [34, 48, 69, 66] },
   ], opcionesGrafico({ x: 0.6, y: 1.5, w: 5.6, h: 5.2, barDir: "bar", chartColors: [AZUL], showLegend: false, valAxisMaxVal: 100, valAxisMinVal: 0,
@@ -432,34 +396,21 @@ async function deckRubrica() {
   ], { x: 6.5, y: 1.55, w: 6.2, anchos: [2.4, 3.8], tam: 13 });
 
   // ---------------------------------------------------------------------------------------- S2-E1 SGSI
-  entregable(pres, "S2-E1 SGSI", "S2-E1 · Planificación e Implementación del SGSI", "Semestre 2 · CE0321 a CE0324 · ISO/IEC 27001:2022", "JY", [
-    ["Contexto, alcance y liderazgo", "10 %", [1]],
-    ["Inventario y clasificación de información", "10 %", [1]],
-    ["Evaluación y tratamiento de riesgos", "18 %", [1]],
-    ["SoA y selección de controles", "12 %", [2]],
-    ["Políticas y procedimientos", "10 %", [2]],
-    ["Identidades, accesos y protección de datos", "8 %", [3]],
-    ["Incidentes, continuidad y recuperación", "8 %", [3]],
-    ["Ética de la seguridad", "8 %", [3]],
-    ["Monitoreo, medición y auditoría interna", "9 %", [3]],
-    ["Calidad documental y sustentación", "7 %", "Evidencias y esta exposición"],
-  ], "Rúbrica del SGSI.");
+  parte(pres, "S2-E1 SGSI", "03", "Planificación e Implementación del SGSI", "Semestre 2 · Entregable 1 · CE0321 a CE0324", "JY",
+    "Empieza el sistema de gestión de seguridad de la información según ISO/IEC 27001:2022.");
 
-  s = contenido(pres, "S2-E1 SGSI", "Activos y riesgos: de 11 altos a ninguno", "JY",
+  s = contenido(pres, "S2-E1 SGSI", "Riesgos: de 11 altos a ninguno", "JY",
     "El alcance cubre la web, el panel, la infraestructura en Azure y la sede; la dirección es el Dr. Vega. 26 activos valorados en C-I-D y 16 riesgos con ISO/IEC 27005: antes de los controles había 11 altos o críticos y después ninguno pasa de 9, el nivel aceptado.",
-    "CE0321 · Contexto y liderazgo (10 %) · Inventario (10 %) · Riesgos (18 %)");
-  cifra(pres, s, 0.6, 1.5, 2.2, "26", "activos");
-  cifra(pres, s, 0.6, 3.3, 2.2, "16", "riesgos");
-  cifra(pres, s, 0.6, 5.1, 2.2, "0", "sobre el nivel aceptado");
+    "S2-E1 · SGSI");
   s.addChart(pres.charts.BAR, [
     { name: "Inherente", labels: RIESGOS.map((r) => r[0]), values: RIESGOS.map((r) => r[1]) },
     { name: "Residual", labels: RIESGOS.map((r) => r[0]), values: RIESGOS.map((r) => r[2]) },
-  ], opcionesGrafico({ x: 3.0, y: 1.45, w: 9.7, h: 5.35, barDir: "col", chartColors: ["8EA2C6", AZUL], showLegend: true, legendPos: "t", legendFontSize: 12,
+  ], opcionesGrafico({ x: 0.6, y: 1.45, w: 12.1, h: 5.35, barDir: "col", chartColors: ["8EA2C6", AZUL], showLegend: true, legendPos: "t", legendFontSize: 12,
     showTitle: true, title: "Riesgo inherente y residual (P × I)", valAxisMaxVal: 25, dataLabelPosition: "outEnd", dataLabelFontSize: 9, barGapWidthPct: 60 }));
 
   s = contenido(pres, "S2-E1 SGSI", "Declaración de Aplicabilidad y políticas", "JY",
     "Los 93 controles de ISO/IEC 27001:2022: 63 implementados, 23 parciales, 5 planificados y 2 que no aplican. Cada política tiene un control técnico que la hace cumplir.",
-    "CE0322 · SoA y controles (12 %) · Políticas y procedimientos (10 %)");
+    "S2-E1 · SGSI");
   const temas = ["5. Organiz.", "6. Personas", "7. Físicos", "8. Tecnológ."];
   s.addChart(pres.charts.BAR, [
     { name: "Implementado", labels: temas, values: [27, 2, 9, 25] },
@@ -480,7 +431,7 @@ async function deckRubrica() {
 
   s = contenido(pres, "S2-E1 SGSI", "Accesos, incidentes, ética y auditoría", "JY",
     "El panel exige contraseña propia y el código de la app autenticadora. Se registraron tres incidentes reales, dos abiertos hasta rotar las credenciales. Seguimos el Código de Ética de la ACM. La auditoría interna encontró seis no conformidades, una mayor, todas con responsable y plazo.",
-    "CE0322-24 · Accesos (8 %) · Incidentes (8 %) · Ética (8 %) · Auditoría (9 %)");
+    "S2-E1 · SGSI");
   await cuadricula(pres, s, [
     ["FaMobileScreen", "Accesos y datos", "MFA obligatorio, 35 políticas por rol, solo llaves SSH, consentimiento firmado"],
     ["FaTriangleExclamation", "Incidentes y continuidad", "3 registrados, 2 abiertos; restauración probada en 12 s"],
@@ -489,20 +440,12 @@ async function deckRubrica() {
   ]);
 
   // ---------------------------------------------------------------------------------------- S2-E2
-  entregable(pres, "S2-E2 Red implementada", "S2-E2 · Implementación, Testing y Monitoreo de Red", "Semestre 2 · CE0312 y CE0313", "JA", [
-    ["Trazabilidad con el diseño de red", "6 %", [1]],
-    ["Conectividad híbrida (VPN y enrutamiento)", "15 %", [1]],
-    ["Seguridad perimetral (firewall, DMZ, segmentación)", "22 %", [2]],
-    ["IDS/IPS, honeypot y detección", "18 %", [2]],
-    ["Monitoreo, registros y visibilidad", "15 %", [3]],
-    ["Plan y resultados de pruebas", "12 %", [3]],
-    ["Calidad documental, evidencias y repositorio", "6 %", "Diapositiva de evidencias"],
-    ["Sustentación técnica", "6 %", "Esta exposición"],
-  ], "Rúbrica de la red implementada.");
+  parte(pres, "S2-E2 Red implementada", "04", "Implementación, Testing y Monitoreo de Red", "Semestre 2 · Entregable 2 · CE0312 y CE0313", "JA",
+    "Empieza la red implementada: la VPN funcionando, el perímetro, la detección, el monitoreo y las pruebas.");
 
   s = contenido(pres, "S2-E2 Red implementada", "Del diseño a la VPN funcionando", "JA",
     "Lo diseñado se implementó tal cual, con dos cambios: firewall Linux por código en lugar de OPNsense y el panel abierto a internet con MFA. El túnel está establecido en los dos extremos; cortado a propósito, volvió solo en 1,4 segundos.",
-    "CE0312 · Trazabilidad con el diseño (6 %) · Conectividad híbrida (15 %)");
+    "S2-E2 · Red implementada");
   consola(s, [
     "vega: #5, ESTABLISHED, IKEv2",
     "  local  'IP_PUBLICA_SEDE' @ 10.10.0.4[4500]",
@@ -517,7 +460,7 @@ async function deckRubrica() {
 
   s = contenido(pres, "S2-E2 Red implementada", "Perímetro y detección", "JA",
     "Cada conexión bloqueada queda registrada con su prefijo; arriba, la recepción intentando llegar directo a la app y la app intentando SSH a la recepción. Suricata vio escaneos reales de internet: 116 a archivos .env y 13 al MySQL de la sede. El honeypot está listo en código; su prueba es la única pendiente.",
-    "CE0312 · Seguridad perimetral (22 %) · IDS/IPS y honeypot (18 %)");
+    "S2-E2 · Red implementada");
   consola(s, [
     "fw-reenvio-bloqueo  SRC=10.10.30.10  DST=10.20.4.4  DPT=80  SYN",
     "fw-reenvio-bloqueo  SRC=10.20.4.4  DST=10.10.30.10  DPT=22  SYN",
@@ -529,7 +472,7 @@ async function deckRubrica() {
 
   s = contenido(pres, "S2-E2 Red implementada", "Monitoreo y pruebas", "JA",
     "Wazuh recibe los registros de las seis máquinas, firewalls incluidos: 3 442 alertas en un día. De 24 pruebas con resultado esperado y obtenido, 23 cumplen; queda la del honeypot.",
-    "CE0313 · Monitoreo y registros (15 %) · Plan y resultados de pruebas (12 %)");
+    "S2-E2 · Red implementada");
   s.addChart(pres.charts.BAR, [
     { name: "Alertas", labels: ["vm-proxy", "vm-app", "vm-fw-prod", "vm-fw-sede", "vm-wazuh", "vm-recepcion"], values: [1194, 827, 469, 354, 302, 296] },
   ], opcionesGrafico({ x: 0.6, y: 1.45, w: 6.4, h: 5.3, barDir: "bar", chartColors: [AZUL], showLegend: false, showTitle: true, title: "Alertas de Wazuh por agente el 19/11", dataLabelPosition: "outEnd" }));
@@ -544,20 +487,12 @@ async function deckRubrica() {
   ], { x: 7.3, y: 1.55, w: 5.4, anchos: [3.2, 2.2], tam: 13 });
 
   // ---------------------------------------------------------------------------------------- S2-E3
-  entregable(pres, "S2-E3 Centro de datos", "S2-E3 · Gestión y Control del Centro de Datos", "Semestre 2 · CE0332 y CE0333 · Implementación, Gestión y Control de Centro de Datos", "FC", [
-    ["Trazabilidad con el diseño de centro de datos", "6 %", [1]],
-    ["Implementación on-premise (ESXi y VMs)", "18 %", [1]],
-    ["Implementación AWS (VPC, EC2, SG, NACL) en Azure", "18 %", [1]],
-    ["Identidades y accesos", "14 %", [2]],
-    ["Inventario final con evidencia", "12 %", [1]],
-    ["Continuidad: backup, restore y recuperación probada", "14 %", [3]],
-    ["Monitoreo y control operativo", "10 %", [3]],
-    ["Calidad documental, control de versiones y sustentación", "8 %", "Evidencias y esta exposición"],
-  ], "Rúbrica del centro de datos implementado.");
+  parte(pres, "S2-E3 Centro de datos", "05", "Implementación, Gestión y Control de Centro de Datos", "Semestre 2 · Entregable 3 · CE0332 y CE0333", "FC",
+    "Empieza el centro de datos implementado: inventario, identidades, continuidad probada y control.");
 
   s = contenido(pres, "S2-E3 Centro de datos", "Implementado e inventariado", "FC",
     "Todo lo del S1-E2 está en funcionamiento: 27 recursos en producción y 16 en la sede, creados con Bicep y cloud-init y listados el 19/11. La sede reproduce el diseño ESXi en subredes y VM de Azure.",
-    "CE0332 · Trazabilidad (6 %) · On-premise (18 %) · Nube (18 %) · Inventario (12 %)");
+    "S2-E3 · Centro de datos implementado");
   tabla(pres, s, [
     ["VM", "Red", "Tamaño", "IP", "Uso de RAM"],
     ["vm-fw", "Producción", "B2ats_v2", "10.20.0.4 / 10.20.1.4", "48 %"],
@@ -573,7 +508,7 @@ async function deckRubrica() {
 
   s = contenido(pres, "S2-E3 Centro de datos", "Identidades y accesos", "FC",
     "Ninguna clave de la nube en archivos. La VM usa su identidad administrada, GitHub publica con OIDC solo desde main, los servidores solo aceptan llaves y el panel exige MFA.",
-    "CE0332 · Identidades y accesos (14 %)");
+    "S2-E3 · Centro de datos implementado");
   await cuadricula(pres, s, [
     ["FaMobileScreen", "Panel", "Contraseña propia y MFA obligatorio; 8 pruebas automáticas"],
     ["FaServer", "vm-app", "Identidad administrada: Key Vault Secrets User y Blob Data Contributor"],
@@ -583,7 +518,7 @@ async function deckRubrica() {
 
   s = contenido(pres, "S2-E3 Centro de datos", "Continuidad probada, monitoreo y control", "FC",
     "Simulacros del 19/11: la copia de Blob se restauró en 12 segundos en una base aparte con los mismos totales que producción; la VPN volvió en 1,4 segundos; publicar tomó 65. Falta medir perder vm-app entera. Azure Monitor y Wazuh vigilan, y todo cambio entra por pull request con la CI.",
-    "CE0333 · Continuidad probada (14 %) · Monitoreo y control operativo (10 %)");
+    "S2-E3 · Centro de datos implementado");
   cifra(pres, s, 0.6, 1.5, 2.9, "12 s", "restaurar la base desde Blob");
   cifra(pres, s, 3.7, 1.5, 2.9, "1,4 s", "la VPN volvió sola");
   cifra(pres, s, 6.8, 1.5, 2.9, "65 s", "publicar una versión");
@@ -596,8 +531,8 @@ async function deckRubrica() {
   // ---------------------------------------------------------------------------------------- Evidencias y cierre
   pres.addSection({ title: "Evidencias" });
   s = contenido(pres, "Evidencias", "Calidad documental, evidencias y repositorio", "JY",
-    "Este criterio está en todas las rúbricas. Cada entregable tiene su informe en Word y PDF con referencias IEEE, los anexos en Excel, las salidas reales de los comandos y el código en GitHub, sin credenciales ni datos personales reales.",
-    "Calidad documental y trazabilidad · los cinco entregables");
+    "Cada entregable tiene su informe en Word y PDF con referencias IEEE, los anexos en Excel, las salidas reales de los comandos y el código en GitHub, sin credenciales ni datos personales reales.",
+    "CE03 · Evidencias");
   await cuadricula(pres, s, [
     ["FaFileWord", "5 informes", "Word y PDF con la plantilla UPeU, índice y referencias IEEE"],
     ["FaFileExcel", "4 anexos en Excel", "Activos, riesgos, SoA y plan y resultados de pruebas"],
@@ -617,8 +552,9 @@ async function deckRubrica() {
 async function main() {
   const applyTheme = APPLY_THEME ? require(APPLY_THEME).applyTheme : null;
   const archivo = "CE03-Infraestructura-Tecnologica.pptx";
-  const pres = await deckRubrica();
-  const ruta = path.join(AQUI, archivo);
+  const pres = await deckGeneral();
+  // SALIDA=otra/ruta.pptx guarda en otro lugar (por ejemplo, si el archivo está abierto en PowerPoint).
+  const ruta = process.env.SALIDA || path.join(AQUI, archivo);
   await pres.writeFile({ fileName: ruta });
   if (applyTheme) await applyTheme(ruta, THEME);
   console.log(archivo, pres.numero, "diapositivas");
