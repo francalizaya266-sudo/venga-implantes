@@ -10,6 +10,13 @@ KV="${1:?Falta el Key Vault}"
 HOST="${2:?Falta el servidor de MySQL}"
 SQL_B64="${3:?Falta seguridad.sql en base64}"
 
+# Llega sin el relleno "=" (ver b64 en desplegar.sh): se repone antes de decodificar.
+desde_b64() {
+  local s="$1"
+  while [ $(( ${#s} % 4 )) -ne 0 ]; do s="${s}="; done
+  printf '%s' "$s" | base64 -d
+}
+
 token=$(curl -sf -H Metadata:true \
   "http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https%3A%2F%2Fvault.azure.net" \
   | jq -r .access_token)
@@ -28,7 +35,7 @@ printf '[client]\nhost=%s\nuser=vegaadmin\npassword=%s\nssl-ca=/etc/ssl/certs/ca
 {
   printf "SET @clave_app='%s', @clave_despliegue='%s', @clave_reportes='%s', @clave_respaldo='%s';\n" \
     "$(secreto db-password)" "$(secreto db-password-despliegue)" "$(secreto db-password-reportes)" "$(secreto db-password-respaldo)"
-  printf '%s' "$SQL_B64" | base64 -d
+  desde_b64 "$SQL_B64"
 } | mysql --defaults-extra-file="$CNF" consultorio
 
 echo "Usuarios de MySQL listos en $HOST."

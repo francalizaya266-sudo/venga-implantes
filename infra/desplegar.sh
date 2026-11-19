@@ -120,6 +120,11 @@ ip_firewall() {
   az network public-ip show -g "$2" -n pip-fw --query ipAddress -o tsv 2>/dev/null || true
 }
 
+# Un archivo en base64 sin el relleno "=": run-command toma como "nombre=valor" cualquier parámetro con "=".
+b64() {
+  base64 -w0 "$1" | tr -d '='
+}
+
 # Ejecuta un script del repositorio dentro de una VM, sin SSH (az vm run-command).
 remoto() {
   local rg="$1" vm="$2" script="$3"
@@ -204,16 +209,16 @@ orden_basedatos() {
   host="$(az mysql flexible-server list -g "$RG_PROD" --query "[0].fullyQualifiedDomainName" -o tsv)"
   paso "Usuarios de MySQL en $host (seguridad.sql, desde vm-app)"
   remoto "$RG_PROD" vm-app remoto-seguridad.sh "$kv" "$host" \
-    "$(base64 -w0 "$RAIZ/backend/database/sql/seguridad.sql")"
+    "$(b64 "$RAIZ/backend/database/sql/seguridad.sql")"
 }
 
 orden_reglas() {
   paso "Reglas del firewall de producción"
   usar "$SUB_PROD"
-  remoto "$RG_PROD" vm-fw aplicar-reglas.sh "$(base64 -w0 "$RAIZ/infra/firewall/produccion.nft")"
+  remoto "$RG_PROD" vm-fw aplicar-reglas.sh "$(b64 "$RAIZ/infra/firewall/produccion.nft")"
   paso "Reglas del firewall de la sede"
   usar "$SUB_SEDE"
-  remoto "$RG_SEDE" vm-fw aplicar-reglas.sh "$(base64 -w0 "$RAIZ/infra/firewall/sede.nft")"
+  remoto "$RG_SEDE" vm-fw aplicar-reglas.sh "$(b64 "$RAIZ/infra/firewall/sede.nft")"
 }
 
 orden="${1:-}"
