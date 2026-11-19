@@ -12,7 +12,7 @@ describe('HealthPage', () => {
   it('sends the health history to the clinic and returns to Mi cuenta', async () => {
     const calls = mockApi({
       [HEALTH]: page(healthData()),
-      [`POST ${HEALTH}`]: { message: 'Gracias, Rosa. El doctor lo revisará antes de tu cita.' },
+      [`POST ${HEALTH}`]: { status: 201, body: { message: 'Gracias, Rosa. El doctor lo revisará antes de tu cita.' } },
       '/api/v1/account': page(account()),
     });
     const { user, router } = renderApp(PATH);
@@ -103,7 +103,7 @@ describe('HealthPage', () => {
   });
 
   it('does not show the form of a patient of another family', async () => {
-    mockApi({ [HEALTH]: { status: 403, body: { message: 'Forbidden' } } });
+    mockApi({ [HEALTH]: { status: 403, body: { message: 'No tienes permiso para ver o cambiar esto.' } } });
     renderApp(PATH);
 
     expect(await screen.findByRole('heading', { level: 1, name: 'No puedes ver esta página' })).toBeInTheDocument();

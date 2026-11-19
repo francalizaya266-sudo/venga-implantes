@@ -22,6 +22,14 @@ export default defineConfig({
         ]),
     react(),
   ],
+  // Las pruebas comparan las respuestas de mentira con el contrato de la API, que vive fuera de esta carpeta.
+  server: process.env.VITEST
+    ? {
+        fs: {
+          allow: [fileURLToPath(new URL('.', import.meta.url)), fileURLToPath(new URL('../docs/api', import.meta.url))],
+        },
+      }
+    : undefined,
   // La carpeta de salida queda fuera del proyecto: hay que decir que sí se vacía antes de compilar.
   build: { emptyOutDir: true },
   resolve: {

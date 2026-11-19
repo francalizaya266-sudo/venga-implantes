@@ -108,14 +108,16 @@ describe('changing the time of an appointment', () => {
   it('starts again with the times that are left when the chosen one was just taken', async () => {
     const calls = changeApi(
       {},
-      { [`POST ${CHANGE}`]: { status: 409, body: { message: 'Ese horario se acaba de ocupar. Elige otro.' } } },
+      {
+        [`POST ${CHANGE}`]: { status: 422, body: { message: 'Ese horario se acaba de ocupar. Por favor elige otro.' } },
+      },
     );
     const { user, router } = renderApp(PATH);
 
     await user.click(await screen.findByRole('button', { name: '9:00 a. m.' }));
     await user.click(screen.getByRole('button', { name: 'Cambiar a este horario' }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('Ese horario se acaba de ocupar. Elige otro.');
+    expect(await screen.findByRole('alert')).toHaveTextContent('Ese horario se acaba de ocupar. Por favor elige otro.');
     expect(screen.queryByRole('heading', { level: 2, name: 'Nuevo horario' })).not.toBeInTheDocument();
     expect(time('9:00 a. m.')).toHaveAttribute('aria-pressed', 'false');
     expect(router.state.location.pathname).toBe(PATH);

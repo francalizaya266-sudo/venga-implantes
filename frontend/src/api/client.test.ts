@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 import { ApiError, apiUrl, cacheKey, get, post, preloadedData, resetPreload } from '@/api/client';
 import { mockApi } from '@/test/app';
+import { page } from '@/test/fixtures';
+
+const fromDocument = page({ doctors: [] }, { og_title: 'Del documento' });
+const fromApi = page({ doctors: [] }, { og_title: 'De la API' });
 
 /** Deja en el documento lo que Laravel escribe al servir la página. */
 function preloadText(text: string): void {
@@ -37,13 +41,13 @@ describe('cacheKey', () => {
 
 describe('get', () => {
   it('uses once what Laravel left written in the page and then asks the API', async () => {
-    preload({ 'http://localhost:3000/api/v1/team': { status: 200, body: { data: 'del documento' } } });
-    const calls = mockApi({ '/api/v1/team': { data: 'de la API' } });
+    preload({ 'http://localhost:3000/api/v1/team': { status: 200, body: fromDocument } });
+    const calls = mockApi({ '/api/v1/team': fromApi });
 
-    await expect(get(apiUrl('team'))).resolves.toEqual({ data: 'del documento' });
+    await expect(get(apiUrl('team'))).resolves.toEqual(fromDocument);
     expect(calls).toHaveLength(0);
 
-    await expect(get(apiUrl('team'))).resolves.toEqual({ data: 'de la API' });
+    await expect(get(apiUrl('team'))).resolves.toEqual(fromApi);
     expect(calls).toMatchObject([{ method: 'GET', url: '/api/v1/team', headers: { Accept: 'application/json' } }]);
   });
 
@@ -59,9 +63,9 @@ describe('get', () => {
 
   it('asks the API when the page has no readable data', async () => {
     preloadText('{ esto no es JSON');
-    mockApi({ '/api/v1/team': { data: 'de la API' } });
+    mockApi({ '/api/v1/team': fromApi });
 
-    await expect(get(apiUrl('team'))).resolves.toEqual({ data: 'de la API' });
+    await expect(get(apiUrl('team'))).resolves.toEqual(fromApi);
   });
 
   it('explains it when the server answers something that is not JSON', async () => {
@@ -94,10 +98,14 @@ describe('preloadedData', () => {
 describe('post', () => {
   it('sends the data with the token Laravel left in the cookie', async () => {
     document.cookie = 'XSRF-TOKEN=abc%3D%3D; path=/';
-    const calls = mockApi({ 'POST /api/v1/account/access': { data: { phone: '987 654 321' } } });
+    const calls = mockApi({
+      'POST /api/v1/account/access': {
+        data: { phone: '987 654 321', whatsapp_message: 'Hola, pedí mi enlace para entrar a Mi cuenta.' },
+      },
+    });
 
     await expect(post(apiUrl('account/access'), { phone: '987654321' })).resolves.toEqual({
-      data: { phone: '987 654 321' },
+      data: { phone: '987 654 321', whatsapp_message: 'Hola, pedí mi enlace para entrar a Mi cuenta.' },
     });
     expect(calls).toMatchObject([
       {
@@ -113,7 +121,9 @@ describe('post', () => {
     let attempts = 0;
     const calls = mockApi({
       'POST /api/v1/account/logout': () =>
-        ++attempts === 1 ? { status: 419, body: { message: 'CSRF token mismatch.' } } : { body: { message: 'Listo' } },
+        ++attempts === 1
+          ? { status: 419, body: { message: 'La página venció. Recárgala e inténtalo de nuevo.' } }
+          : { body: { message: 'Listo' } },
     });
 
     await expect(post(apiUrl('account/logout'))).resolves.toEqual({ message: 'Listo' });
@@ -145,11 +155,12 @@ describe('post', () => {
   });
 
   it('never shows an empty message when the API answers without one', async () => {
-    mockApi({ 'POST /api/v1/account/logout': { status: 403, body: { message: '' } } });
+    // Por ejemplo, el servidor en mantenimiento detrás de un proxy que no sabe de mensajes.
+    mockApi({ 'POST /api/v1/account/logout': { status: 503, body: { message: '' } } });
 
     const error = await post(apiUrl('account/logout')).catch((problem: unknown) => problem);
 
     expect(error).toBeInstanceOf(ApiError);
-    expect((error as ApiError).message).toBe('La petición falló (403).');
+    expect((error as ApiError).message).toBe('La petición falló (503).');
   });
 });

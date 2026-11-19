@@ -811,6 +811,16 @@
               }
             }
           },
+          "419": {
+            "description": "La sesión venció y la cabecera X-XSRF-TOKEN ya no vale: la web pide /site para renovarla y reintenta una vez.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "422": {
             "description": "Validación, o una regla del consultorio (tratamiento que no se reserva en la web, familiar que no es de este celular, código que no existe…).",
             "content": {
@@ -891,6 +901,16 @@
           },
           "404": {
             "description": "No existe (o no se muestra en la web).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "419": {
+            "description": "La sesión venció y la cabecera X-XSRF-TOKEN ya no vale: la web pide /site para renovarla y reintenta una vez.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1013,6 +1033,16 @@
               }
             }
           },
+          "419": {
+            "description": "La sesión venció y la cabecera X-XSRF-TOKEN ya no vale: la web pide /site para renovarla y reintenta una vez.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "422": {
             "description": "Datos que no pasaron la validación.",
             "content": {
@@ -1069,6 +1099,16 @@
               }
             }
           },
+          "419": {
+            "description": "La sesión venció y la cabecera X-XSRF-TOKEN ya no vale: la web pide /site para renovarla y reintenta una vez.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "429": {
             "description": "Demasiados pedidos seguidos.",
             "content": {
@@ -1106,6 +1146,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Message"
+                }
+              }
+            }
+          },
+          "419": {
+            "description": "La sesión venció y la cabecera X-XSRF-TOKEN ya no vale: la web pide /site para renovarla y reintenta una vez.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
                 }
               }
             }
@@ -1166,6 +1216,16 @@
           },
           "404": {
             "description": "No existe (o no se muestra en la web).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "419": {
+            "description": "La sesión venció y la cabecera X-XSRF-TOKEN ya no vale: la web pide /site para renovarla y reintenta una vez.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1240,6 +1300,16 @@
           },
           "404": {
             "description": "No existe (o no se muestra en la web).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "419": {
+            "description": "La sesión venció y la cabecera X-XSRF-TOKEN ya no vale: la web pide /site para renovarla y reintenta una vez.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1396,6 +1466,16 @@
           },
           "404": {
             "description": "No existe (o no se muestra en la web).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "419": {
+            "description": "La sesión venció y la cabecera X-XSRF-TOKEN ya no vale: la web pide /site para renovarla y reintenta una vez.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1572,6 +1652,16 @@
           },
           "404": {
             "description": "No existe (o no se muestra en la web).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "419": {
+            "description": "La sesión venció y la cabecera X-XSRF-TOKEN ya no vale: la web pide /site para renovarla y reintenta una vez.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1772,6 +1862,16 @@
               }
             }
           },
+          "419": {
+            "description": "La sesión venció y la cabecera X-XSRF-TOKEN ya no vale: la web pide /site para renovarla y reintenta una vez.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "422": {
             "description": "Datos que no pasaron la validación.",
             "content": {
@@ -1836,6 +1936,16 @@
               }
             }
           },
+          "404": {
+            "description": "El token no tiene la forma de un enlace (32 letras y números). Uno con la forma correcta que no existe o venció responde 200 con \"kind\": \"expired\".",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "429": {
             "description": "Demasiados pedidos seguidos.",
             "content": {
@@ -1877,6 +1987,16 @@
           },
           "404": {
             "description": "No existe (o no se muestra en la web).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "419": {
+            "description": "La sesión venció y la cabecera X-XSRF-TOKEN ya no vale: la web pide /site para renovarla y reintenta una vez.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1944,6 +2064,16 @@
               }
             }
           },
+          "419": {
+            "description": "La sesión venció y la cabecera X-XSRF-TOKEN ya no vale: la web pide /site para renovarla y reintenta una vez.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "422": {
             "description": "Ya no se puede cancelar en línea, o el motivo no es texto.",
             "content": {
@@ -1995,6 +2125,16 @@
           },
           "404": {
             "description": "No existe (o no se muestra en la web).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "419": {
+            "description": "La sesión venció y la cabecera X-XSRF-TOKEN ya no vale: la web pide /site para renovarla y reintenta una vez.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2111,6 +2251,16 @@
           },
           "404": {
             "description": "No existe (o no se muestra en la web).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "419": {
+            "description": "La sesión venció y la cabecera X-XSRF-TOKEN ya no vale: la web pide /site para renovarla y reintenta una vez.",
             "content": {
               "application/json": {
                 "schema": {
