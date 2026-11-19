@@ -43,6 +43,11 @@ class OwnPasswordAtFirstLoginTest extends TestCase
         $this->actingAs($rosa);
         $this->get(Dashboard::getUrl())->assertRedirect(ChoosePassword::getUrl());
         $this->get(Filament::getPanel('admin')->route('agenda.print'))->assertRedirect(ChoosePassword::getUrl());
+
+        // Antes de elegirla activa el segundo factor (el panel lo exige a todos); luego vuelve a esta pantalla.
+        $this->get(ChoosePassword::getUrl())->assertRedirect(route('filament.admin.auth.multi-factor-authentication.set-up-required'));
+        $rosa->saveAppAuthenticationSecret('JBSWY3DPEHPK3PXP');
+
         $this->get(ChoosePassword::getUrl())->assertOk()->assertSee(['Elige tu contraseña', 'La contraseña con la que entraste te la puso otra persona.']);
 
         Livewire::test(ChoosePassword::class)

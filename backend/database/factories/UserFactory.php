@@ -34,7 +34,18 @@ class UserFactory extends Factory
             'remember_token' => Str::random(10),
             'role' => UserRole::Reception,
             'is_active' => true,
+            // El panel exige el segundo factor: por defecto el usuario ya lo activó (secreto fijo de prueba).
+            'app_authentication_secret' => 'JBSWY3DPEHPK3PXP',
         ];
+    }
+
+    /** Todavía no activó el segundo factor: al entrar al panel solo ve la pantalla para hacerlo. */
+    public function withoutMfa(): static
+    {
+        return $this->state(fn () => [
+            'app_authentication_secret' => null,
+            'app_authentication_recovery_codes' => null,
+        ]);
     }
 
     /**
