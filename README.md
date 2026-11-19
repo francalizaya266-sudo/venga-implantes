@@ -32,6 +32,8 @@ composer dev
 
 `composer dev` levanta Laravel en `http://localhost:8000` junto con el servidor de Vite: la web se actualiza sola al guardar un archivo de `frontend/`. Para verla como en el hosting, sin el servidor de Vite: `npm --prefix ../frontend run build` y `php artisan serve`.
 
+La consulta de DNI y los feriados de Nager.Date salen por HTTPS. En Windows, si dicen que no responden y `storage/logs/laravel.log` muestra `cURL error 60`, a PHP le faltan los certificados: se descarga https://curl.se/ca/cacert.pem y en `php.ini` (lo indica `php --ini`) se apuntan `curl.cainfo` y `openssl.cafile` a ese archivo.
+
 En local, `--seed` crea datos de demostración, con 11 meses de historia para que Resumen y Ganancias tengan qué mostrar (tarda unos segundos). Panel: `/panel` con `admin@consultorio.test` (el Dr. Vega: administrador y único doctor) o `recepcion@consultorio.test` (clave `password`).
 
 ### Pruebas
