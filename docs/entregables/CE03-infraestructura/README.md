@@ -17,8 +17,8 @@ y resultados de pruebas de red (S2-E2). Salen de `datos.py`, igual que las tabla
 ## Presentaciones
 
 `presentaciones/CE03-Infraestructura-Tecnologica` (PowerPoint y PDF) presenta los cinco entregables en una sola
-exposición de 55 diapositivas, ordenada por la rúbrica: cada entregable abre con sus criterios, su peso y en qué
-diapositiva se cubre cada uno, y al pie de cada diapositiva va el criterio que cubre. Está en azul y amarillo UPeU y
+exposición de 25 diapositivas (unos 25 minutos), ordenada por la rúbrica: cada entregable abre con sus criterios, su
+peso y en qué diapositiva se cubre cada uno, sigue con tres diapositivas, y al pie de cada una van los criterios que cubre. Está en azul y amarillo UPeU y
 repartida entre los tres integrantes (Jhoel la red, Fran el centro de datos, Joselyn el SGSI): el círculo amarillo
 dice quién expone y las notas del orador lo que se dice. Se arman con `node presentaciones/generar-ppt.js` (dependencias al inicio del script) y el PDF con
 `presentaciones/exportar-pdf.ps1` (PowerPoint en Windows).
