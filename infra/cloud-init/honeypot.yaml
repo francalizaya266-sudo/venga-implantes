@@ -1,0 +1,51 @@
+#cloud-config
+# vm-honeypot: OpenCanary simula SSH (22) y MySQL (3306). El SSH real de administración pasa al 2222.
+# Cada intento queda en /var/log/opencanary.log, que lee el agente de Wazuh.
+timezone: America/Lima
+package_update: true
+package_upgrade: true
+
+packages:
+  - python3-venv
+  - python3-dev
+  - build-essential
+  - libssl-dev
+  - libffi-dev
+  - jq
+
+write_files:
+  - path: /etc/ssh/sshd_config.d/10-puerto-admin.conf
+    content: |
+      Port 2222
+  - path: /etc/systemd/system/opencanary.service
+    content: |
+      [Unit]
+      Description=OpenCanary honeypot
+      After=network-online.target
+      Wants=network-online.target
+
+      [Service]
+      Type=simple
+      ExecStart=/opt/opencanary/bin/opencanaryd --dev
+      Restart=on-failure
+
+      [Install]
+      WantedBy=multi-user.target
+
+runcmd:
+  # Ubuntu 24.04 abre SSH por socket: recargar systemd aplica el puerto 2222.
+  - systemctl daemon-reload
+  - systemctl restart ssh.socket || systemctl restart ssh
+  - python3 -m venv /opt/opencanary
+  - /opt/opencanary/bin/pip install --upgrade pip
+  - /opt/opencanary/bin/pip install opencanary
+  - /opt/opencanary/bin/opencanaryd --copyconfig
+  - >-
+    jq '.["device.node_id"]="vega-honeypot"
+    | .["ssh.enabled"]=true | .["ssh.port"]=22
+    | .["mysql.enabled"]=true | .["mysql.port"]=3306
+    | .["ftp.enabled"]=false | .["http.enabled"]=false
+    | .logger.kwargs.handlers.file.filename="/var/log/opencanary.log"'
+    /etc/opencanaryd/opencanary.conf > /tmp/opencanary.conf
+  - mv /tmp/opencanary.conf /etc/opencanaryd/opencanary.conf
+  - systemctl enable --now opencanary

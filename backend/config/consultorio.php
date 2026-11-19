@@ -210,6 +210,10 @@ return [
         ],
     ],
 
+    // Proxies en los que se confía para saber la IP real del paciente y si la conexión es HTTPS. En Azure es el
+    // proxy de la DMZ (10.20.3.4, ver infra/); vacío en un hosting compartido o en local. Varios, separados por coma.
+    'trusted_proxies' => env('TRUSTED_PROXIES'),
+
     // Consulta de DNI (RENIEC por Decolecta): la lupa junto al DNI llena los nombres y apellidos del paciente.
     // Sin clave, la lupa no aparece y los nombres se escriben a mano.
     'dni_lookup' => [

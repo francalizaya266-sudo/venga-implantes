@@ -1,0 +1,77 @@
+name: Desplegar en Azure
+
+# Publica la versión de main en vm-app. Se corre a mano (Actions → Desplegar en Azure → Run workflow) cuando
+# producción está encendida. Entra a Azure sin claves: GitHub firma un token (OIDC) que solo acepta la identidad
+# id-github-despliegue, y solo para la rama main (infra/azure/prod/main.bicep).
+#
+# Variables del repositorio (Settings → Secrets and variables → Actions → Variables), salen de las salidas de
+# "desplegar.sh produccion red": AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID, AZURE_RG, AZURE_STORAGE.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: desplegar-azure
+  cancel-in-progress: false
+
+jobs:
+  desplegar:
+    name: Publicar en vm-app
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Compilar la web
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Armar el paquete
+        run: |
+          VERSION="$(date +%Y%m%d-%H%M%S)-${GITHUB_SHA::7}"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          (cd backend && zip -qr "../paquete-$VERSION.zip" . -x 'tests/*' 'vendor/*' 'node_modules/*' '.env')
+          tar -czf "infra-$VERSION.tgz" infra
+
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Subir a Blob
+        run: |
+          for archivo in "paquete-$VERSION.zip" "infra-$VERSION.tgz"; do
+            az storage blob upload --auth-mode login --account-name "${{ vars.AZURE_STORAGE }}" \
+              --container-name despliegues --name "$archivo" --file "$archivo" --overwrite --only-show-errors
+          done
+
+      - name: Publicar en vm-app
+        run: |
+          az vm run-command invoke -g "${{ vars.AZURE_RG }}" -n vm-app --command-id RunShellScript \
+            --scripts @infra/scripts/remoto-publicar.sh \
+            --parameters "${{ vars.AZURE_STORAGE }}" "$VERSION" \
+            --query 'value[].message' -o tsv | tee salida.txt
+          # run-command responde bien aunque el script falle: se revisa que haya llegado al final.
+          grep -q "Listo: /var/www/vega/releases/" salida.txt
+
+      - name: Comprobar la web
+        run: |
+          DOMINIO="${{ vars.SITE_URL }}"
+          if [ -n "$DOMINIO" ]; then
+            curl -fsS --retry 5 --retry-delay 5 "$DOMINIO/up" > /dev/null
+            echo "La web responde en $DOMINIO"
+          fi
