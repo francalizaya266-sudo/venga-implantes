@@ -14,6 +14,13 @@ Informes de la línea de Infraestructura para el sistema de Clínica Vega Implan
 Anexos en Excel (`word/`): inventario de activos, matriz de riesgos y Declaración de Aplicabilidad (S2-E1), y plan
 y resultados de pruebas de red (S2-E2). Salen de `datos.py`, igual que las tablas que los informes llevan dentro.
 
+## Presentaciones
+
+`presentaciones/` tiene una presentación por informe (PowerPoint y PDF), en azul y amarillo UPeU, repartida entre
+los tres integrantes: el círculo amarillo de cada diapositiva dice quién la expone y las notas del orador lo que se
+dice. Se arman con `node presentaciones/generar-ppt.js` (dependencias al inicio del script) y el PDF con
+`presentaciones/exportar-pdf.ps1` (PowerPoint en Windows).
+
 ## Equivalencia tecnológica
 
 La guía de la línea propone VMware ESXi y AWS. El equipo usa Azure for Students: la sede de la clínica es una
