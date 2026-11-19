@@ -9,7 +9,7 @@ return new class extends Migration
 {
     /**
      * Índices para las consultas que más se repiten, medidos con EXPLAIN ANALYZE sobre los datos del seeder
-     * (docs/entregables/E2-plataforma-de-datos). Solo en MySQL: dos son índices sobre una expresión, que SQLite
+     * (docs/entregables/CE02-ingenieria-de-software/E2-plataforma-de-datos). Solo en MySQL: dos son índices sobre una expresión, que SQLite
      * escribe de otra forma, y en las pruebas con SQLite un índice nuevo podría cambiar el orden de las filas.
      *
      * - La agenda de hoy y el cobro del día filtran con whereDate(), que en MySQL es date(columna) = ?: sin un

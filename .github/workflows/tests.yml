@@ -23,8 +23,26 @@ jobs:
           # pcov mide qué líneas de app/ recorren las pruebas (E4, reporte de cobertura).
           coverage: pcov
 
+      # Los paquetes de Composer se guardan entre ejecuciones: así no se bajan de GitHub en cada job.
+      - name: Carpeta de la caché de Composer
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: composer-${{ runner.os }}-${{ hashFiles('backend/composer.lock') }}
+          restore-keys: composer-${{ runner.os }}-
+
+      # GitHub a veces corta una descarga con un 429 (demasiadas descargas); se reintenta dos veces antes de fallar.
       - name: Instalar dependencias
-        run: composer install --no-interaction --prefer-dist --no-progress
+        run: |
+          for intento in 1 2 3; do
+            composer install --no-interaction --prefer-dist --no-progress && exit 0
+            echo "composer install falló en el intento $intento; se reintenta en 30 s"
+            sleep 30
+          done
+          exit 1
 
       - name: Preparar entorno
         run: |
@@ -92,8 +110,26 @@ jobs:
           extensions: mbstring, intl, pdo_sqlite, zip, gd, exif
           coverage: none
 
+      # Los paquetes de Composer se guardan entre ejecuciones: así no se bajan de GitHub en cada job.
+      - name: Carpeta de la caché de Composer
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: composer-${{ runner.os }}-${{ hashFiles('backend/composer.lock') }}
+          restore-keys: composer-${{ runner.os }}-
+
+      # GitHub a veces corta una descarga con un 429 (demasiadas descargas); se reintenta dos veces antes de fallar.
       - name: Instalar dependencias
-        run: composer install --no-interaction --prefer-dist --no-progress
+        run: |
+          for intento in 1 2 3; do
+            composer install --no-interaction --prefer-dist --no-progress && exit 0
+            echo "composer install falló en el intento $intento; se reintenta en 30 s"
+            sleep 30
+          done
+          exit 1
 
       - name: Preparar entorno
         run: |
@@ -147,8 +183,26 @@ jobs:
           extensions: mbstring, intl, pdo_mysql, zip, gd, exif
           coverage: none
 
+      # Los paquetes de Composer se guardan entre ejecuciones: así no se bajan de GitHub en cada job.
+      - name: Carpeta de la caché de Composer
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: composer-${{ runner.os }}-${{ hashFiles('backend/composer.lock') }}
+          restore-keys: composer-${{ runner.os }}-
+
+      # GitHub a veces corta una descarga con un 429 (demasiadas descargas); se reintenta dos veces antes de fallar.
       - name: Instalar dependencias
-        run: composer install --no-interaction --prefer-dist --no-progress
+        run: |
+          for intento in 1 2 3; do
+            composer install --no-interaction --prefer-dist --no-progress && exit 0
+            echo "composer install falló en el intento $intento; se reintenta en 30 s"
+            sleep 30
+          done
+          exit 1
 
       - name: Preparar entorno
         run: |
