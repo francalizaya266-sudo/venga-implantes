@@ -1,0 +1,19 @@
+flowchart LR
+  subgraph fuentes["Fuentes"]
+    n["nftables<br/>(bloqueos fw-*)"]
+    s["Suricata<br/>eve.json"]
+    m["ModSecurity<br/>modsec_audit.log"]
+    x["nginx<br/>accesos y 429"]
+    l["Laravel<br/>eventos JSON y auditoría"]
+    o["sshd, PAM, sistema"]
+  end
+  subgraph wz["vm-wazuh 4.12 (sede)"]
+    mgr["Manager<br/>reglas y decodificadores"]
+    idx["Indexer"]
+    dash["Dashboard"]
+  end
+  azm["Azure Monitor<br/>CPU > 80 % · VM caída"]
+  mail(["Correo al equipo"])
+  n & s & m & x & l & o -- "agente 1514/1515" --> mgr
+  mgr --> idx --> dash
+  azm --> mail

@@ -1,0 +1,17 @@
+# Salida de az vm run-command, 19/11/2026 (IP públicas reemplazadas)
+Enable succeeded: 
+[stdout]
+== dns interno
+10.20.3.4       vegaimplantes.me
+== pruebas
+panel por la VPN: 200
+recepcion->proxy produccion (VPN) -> 10.20.3.4:443 ABIERTO
+recepcion->app directo -> 10.20.4.4:80 BLOQUEADO
+recepcion->app SSH -> 10.20.4.4:22 BLOQUEADO
+recepcion->wazuh SSH -> 10.10.50.10:22 BLOQUEADO
+recepcion->wazuh agente -> 10.10.50.10:1514 ABIERTO
+recepcion->mgmt -> 10.10.10.4:22 BLOQUEADO
+internet: 200
+
+[stderr]
+

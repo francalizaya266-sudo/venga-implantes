@@ -1,0 +1,26 @@
+flowchart TB
+  gh["GitHub Actions<br/>(OIDC, sin claves)"]
+  subgraph sub["Suscripción Azure for Students"]
+    subgraph rgp["rg-vega-prod · Chile Central"]
+      direction TB
+      vnet["vnet-vega 10.20.0.0/16<br/>4 NSG · rt-via-firewall"]
+      vms["vm-fw · vm-proxy · vm-app<br/>Standard_B2ats_v2 · Ubuntu 24.04"]
+      mysql[("MySQL Flexible B1ms<br/>8.0.21 · 32 GB · copias 7 días")]
+      kv["Key Vault (RBAC)<br/>10 secretos"]
+      st["Blob Storage<br/>versiones · borrado suave 14 días"]
+      mon["Log Analytics · 2 alertas<br/>grupo de acción por correo"]
+      idg["id-github-despliegue<br/>identidad administrada"]
+    end
+    subgraph rgs["rg-vega-clinica · North Central US"]
+      direction TB
+      vnet2["vnet-clinica 10.10.0.0/16<br/>3 NSG · tabla de rutas"]
+      vms2["vm-fw · vm-recepcion (B2ats_v2)<br/>vm-wazuh (B2als_v2, 64 GB)"]
+    end
+    bud["Presupuesto 40 USD<br/>avisos 50 % y 80 %"]
+  end
+  gh -- "token federado (rama main)" --> idg
+  idg -- "Virtual Machine Contributor<br/>Blob Data Contributor" --> vms
+  vms -- "Key Vault Secrets User<br/>Blob Data Contributor (MSI)" --> kv
+  vms --> st
+  vms --> mysql
+  vnet <== "VPN IPsec" ==> vnet2

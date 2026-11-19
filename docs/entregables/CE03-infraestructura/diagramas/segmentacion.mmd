@@ -1,0 +1,23 @@
+flowchart TB
+  inet(["Internet"])
+  subgraph P["Producción"]
+    W1["snet-wan 10.20.0.0/24"] --> L1["snet-lan 10.20.1.0/24"]
+    L1 --> D1["snet-dmz 10.20.3.0/24<br/>proxy"]
+    L1 --> A1["snet-app 10.20.4.0/24<br/>app"]
+    A1 --> M1["snet-mysql 10.20.5.0/24<br/>MySQL"]
+  end
+  subgraph S["Sede"]
+    W2["snet-wan 10.10.0.0/24"] --> L2["snet-lan 10.10.1.0/24"]
+    L2 --> G2["snet-mgmt 10.10.10.0/24"]
+    L2 --> R2["snet-personal 10.10.30.0/24"]
+    L2 --> V2["snet-servidores 10.10.50.0/24"]
+    L2 --> H2["snet-dmz 10.10.60.0/24"]
+  end
+  inet -->|"80, 443"| W1
+  inet -->|"22, 3306 señuelo"| W2
+  W1 <-->|"IPsec 500/4500 UDP"| W2
+  R2 -. "solo 80/443 al proxy" .-> D1
+  A1 -. "SSH 22 copia horaria" .-> V2
+  D1 -. "1514/1515 logs" .-> V2
+  A1 -. "1514/1515 logs" .-> V2
+  H2 -. "solo logs; resto bloqueado" .-> V2
