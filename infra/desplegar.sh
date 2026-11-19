@@ -56,14 +56,30 @@ ips_admin() {
 }
 
 comunes() {
-  export SSH_PUBLIC_KEY ADMIN_SOURCE_IPS ALERT_EMAIL GITHUB_REPO AUTO_SHUTDOWN SETUP_SSH SITE_DOMAIN DEPLOY_VMS
+  export SSH_PUBLIC_KEY ADMIN_SOURCE_IPS ALERT_EMAIL GITHUB_REPO GITHUB_OIDC_SUBJECT AUTO_SHUTDOWN SETUP_SSH SITE_DOMAIN DEPLOY_VMS
   SSH_PUBLIC_KEY="$(cat "$LLAVE.pub")"
   ADMIN_SOURCE_IPS="$(ips_admin)"
   AUTO_SHUTDOWN="${AUTO_SHUTDOWN:-}"
   GITHUB_REPO="${GITHUB_REPO:-}"
+  GITHUB_OIDC_SUBJECT="$(sujeto_github)"
   SETUP_SSH="${SETUP_SSH:-true}"
   SITE_DOMAIN="${DOMINIO:-}"
   DEPLOY_VMS=true
+}
+
+# GitHub firma sus tokens con los números del dueño y del repositorio: se leen de su API pública.
+sujeto_github() {
+  [ -n "${GITHUB_REPO:-}" ] || return 0
+  local py="" candidato
+  for candidato in python3 python; do
+    if "$candidato" -c 'import json' >/dev/null 2>&1; then py="$candidato"; break; fi
+  done
+  [ -n "$py" ] || return 0
+  curl -s "https://api.github.com/repos/$GITHUB_REPO" | "$py" -c '
+import json, sys
+r = json.load(sys.stdin)
+print("repo:%s@%s/%s@%s:ref:refs/heads/main" % (r["owner"]["login"], r["owner"]["id"], r["name"], r["id"]))
+' 2>/dev/null || true
 }
 
 boveda() {

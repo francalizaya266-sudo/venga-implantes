@@ -27,17 +27,15 @@ packages:
 write_files:
   - path: /etc/nginx/modsec/main.conf
     content: |
-      # Configuración base de ModSecurity y reglas OWASP CRS (paquetes de Ubuntu).
-      # Si una ruta no existe en tu versión, revisa con: dpkg -L modsecurity-crs
-      Include /etc/modsecurity/modsecurity.conf
+      # Configuración base de ModSecurity (la trae libnginx-mod-http-modsecurity en Ubuntu 24.04) y reglas OWASP CRS.
+      Include /etc/nginx/modsecurity.conf
       Include /etc/modsecurity/crs/crs-setup.conf
       Include /usr/share/modsecurity-crs/rules/*.conf
 
 runcmd:
-  - cp /etc/modsecurity/modsecurity.conf-recommended /etc/modsecurity/modsecurity.conf
-  # Detección primero: registra en /var/log/modsec_audit.log sin bloquear. En la fase 6 se cambia a "On".
-  - sed -i 's/^SecRuleEngine .*/SecRuleEngine DetectionOnly/' /etc/modsecurity/modsecurity.conf
-  - sed -i 's#^SecAuditLog .*#SecAuditLog /var/log/modsec_audit.log#' /etc/modsecurity/modsecurity.conf
+  # Detección primero: registra en /var/log/modsec_audit.log sin bloquear. En la fase de pruebas se cambia a "On".
+  - sed -i 's/^SecRuleEngine .*/SecRuleEngine DetectionOnly/' /etc/nginx/modsecurity.conf
+  - sed -i 's#^SecAuditLog .*#SecAuditLog /var/log/modsec_audit.log#' /etc/nginx/modsecurity.conf
   - mkdir -p /var/cache/nginx/vega /etc/vega
   - chown www-data:www-data /var/cache/nginx/vega
   - rm -f /etc/nginx/sites-enabled/default

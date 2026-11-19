@@ -28,6 +28,9 @@ param allowSetupSsh bool = true
 @description('Repositorio de GitHub (dueño/nombre) que publica en vm-app sin claves. Vacío = sin despliegue desde GitHub.')
 param githubRepo string = ''
 
+@description('Sujeto del token de GitHub con los números de dueño y repositorio (repo:dueño@id/nombre@id:ref:refs/heads/main), el formato que GitHub usa ahora. Lo calcula desplegar.sh.')
+param githubOidcSubject string = ''
+
 @description('Id de objeto (Entra ID) de quien carga los secretos en Key Vault: az ad signed-in-user show --query id -o tsv')
 param operatorObjectId string
 
@@ -179,6 +182,21 @@ resource nsgLan 'Microsoft.Network/networkSecurityGroups@2024-05-01' = {
       // La DMZ y la app salen a internet por el firewall: sus paquetes llegan a esta tarjeta con destino internet,
       // y la regla por defecto de Azure (AllowVnetInBound) solo admite destinos internos.
       rule('Permitir-Salida-Por-Firewall', 110, 'Inbound', 'Allow', '*', addressSpace, ['*'])
+      // Lo que el firewall reenvía hacia adentro conserva su origen (la IP del paciente o de la sede), y la regla de
+      // salida por defecto (AllowVnetOutBound) solo admite orígenes internos.
+      {
+        name: 'Permitir-Reenvio-Hacia-Adentro'
+        properties: {
+          priority: 100
+          direction: 'Outbound'
+          access: 'Allow'
+          protocol: '*'
+          sourceAddressPrefix: '*'
+          sourcePortRange: '*'
+          destinationAddressPrefix: addressSpace
+          destinationPortRange: '*'
+        }
+      }
     ]
   }
 }
@@ -505,6 +523,23 @@ resource githubFederation 'Microsoft.ManagedIdentity/userAssignedIdentities/fede
       'api://AzureADTokenExchange'
     ]
   }
+}
+
+// El mismo permiso para el formato nuevo del token de GitHub, que identifica dueño y repositorio por sus números.
+resource githubFederationIds 'Microsoft.ManagedIdentity/userAssignedIdentities/federatedIdentityCredentials@2023-01-31' = if (!empty(githubRepo) && !empty(githubOidcSubject)) {
+  parent: githubIdentity
+  name: 'github-main-ids'
+  properties: {
+    issuer: 'https://token.actions.githubusercontent.com'
+    subject: githubOidcSubject
+    audiences: [
+      'api://AzureADTokenExchange'
+    ]
+  }
+  // Azure no admite crear dos credenciales de la misma identidad a la vez.
+  dependsOn: [
+    githubFederation
+  ]
 }
 
 // Ejecutar el script de publicación en vm-app (az vm run-command) y nada más que manejar las VM del grupo.

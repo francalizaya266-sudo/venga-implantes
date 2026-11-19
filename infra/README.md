@@ -102,11 +102,17 @@ Cada orden también se puede correr sola, por ejemplo `bash infra/desplegar.sh v
    `/etc/vega/vega.env` con `KEY_VAULT`, `STORAGE_ACCOUNT` y `DB_HOST` (ver "Entrar a las VM").
 4. **Publicar**: GitHub → **Actions → Desplegar en Azure → Run workflow**.
 5. **Usuarios de MySQL otra vez**, ya migrada la base (da a reportes las vistas): `bash infra/desplegar.sh basedatos`.
-6. **Datos de prueba** (la rúbrica no admite datos reales), en vm-app:
+6. **Datos de prueba** (la rúbrica no admite datos reales), en vm-app. `DemoSeeder` necesita antes el catálogo y usa
+   Faker, que es dependencia de desarrollo: se instala un momento y se vuelve a quitar.
 
    ```bash
    cd /var/www/vega/current
+   source /opt/vega/kv.sh && CLAVE="$(kv_secret db-password-despliegue)"
+   sudo COMPOSER_ALLOW_SUPERUSER=1 composer install --no-interaction
+   sudo -u www-data env DB_USERNAME=consultorio_despliegue DB_PASSWORD="$CLAVE" php artisan db:seed --class=CatalogSeeder --force
    sudo -u www-data php artisan db:seed --class=DemoSeeder --force
+   sudo COMPOSER_ALLOW_SUPERUSER=1 composer install --no-dev --optimize-autoloader --no-interaction
+   sudo -u www-data php artisan optimize
    sudo -u www-data php artisan usuario:clave admin@consultorio.test
    ```
 
@@ -200,7 +206,7 @@ Cada regla de `infra/firewall/*.nft` es una prueba con resultado esperado y obte
 | Cloud Shell | 300 peticiones seguidas a `/api/v1/account` | 429 con tu IP, no la del proxy |
 
 Cuando el WAF lleve unos días en detección sin falsos positivos, pásalo a bloqueo en vm-proxy:
-`sudo sed -i 's/^SecRuleEngine .*/SecRuleEngine On/' /etc/modsecurity/modsecurity.conf && sudo systemctl reload nginx`.
+`sudo sed -i 's/^SecRuleEngine .*/SecRuleEngine On/' /etc/nginx/modsecurity.conf && sudo systemctl reload nginx`.
 
 ## Continuidad
 

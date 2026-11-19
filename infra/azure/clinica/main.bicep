@@ -151,6 +151,21 @@ resource nsgInterno 'Microsoft.Network/networkSecurityGroups@2024-05-01' = {
         }
       }
       {
+        // Lo que el firewall reenvía hacia adentro conserva su origen (internet o producción), y la regla de salida
+        // por defecto (AllowVnetOutBound) solo admite orígenes internos.
+        name: 'Permitir-Reenvio-Hacia-Adentro'
+        properties: {
+          priority: 100
+          direction: 'Outbound'
+          access: 'Allow'
+          protocol: '*'
+          sourceAddressPrefix: '*'
+          sourcePortRange: '*'
+          destinationAddressPrefix: addressSpace
+          destinationPortRange: '*'
+        }
+      }
+      {
         // Las subredes salen a internet por el firewall: sus paquetes llegan a su tarjeta LAN con destino internet,
         // y la regla por defecto de Azure (AllowVnetInBound) solo admite destinos internos.
         name: 'Permitir-Salida-Por-Firewall'
