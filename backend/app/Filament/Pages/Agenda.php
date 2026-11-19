@@ -43,7 +43,6 @@ use Filament\Support\Enums\Width;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Url;
 
@@ -714,13 +713,7 @@ class Agenda extends Page
             ->orderBy('name')
             ->get();
 
-        $popular = Appointment::query()
-            ->whereIn('doctor_id', $doctors->modelKeys())
-            ->where('starts_at', '>=', now()->subDays(90))
-            ->select('treatment_id', DB::raw('count(*) as total'))
-            ->groupBy('treatment_id')
-            ->orderByDesc('total')
-            ->pluck('treatment_id');
+        $popular = Treatment::mostBookedIds($doctors->modelKeys());
 
         $quick = $offered
             ->sortBy(fn (Treatment $treatment) => [$popular->search($treatment->getKey()) === false ? PHP_INT_MAX : $popular->search($treatment->getKey()), $treatment->sort_order])

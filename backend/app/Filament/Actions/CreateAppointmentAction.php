@@ -183,11 +183,20 @@ final class CreateAppointmentAction
         $doctorId = $user->managesAllAgendas()
             ? ($activeDoctors->contains((int) ($arguments['doctor'] ?? 0)) ? (int) $arguments['doctor'] : null)
             : $user->doctorId();
-        $doctorId ??= $activeDoctors->count() === 1 ? $activeDoctors->first() : null;
         $treatmentId = Treatment::query()->active()->whereKey((int) ($arguments['treatment'] ?? 0))->value('id');
         $time = preg_match('/^\d{2}:\d{2}$/', $time) ? $time : null;
         $patient = filled($arguments['patient'] ?? null) ? Patient::find((int) $arguments['patient']) : null;
         $planItemId = (int) ($arguments['plan_item'] ?? 0);
+        // Con varios doctores, el que atendió al paciente la última vez.
+        $doctorId ??= $activeDoctors->count() === 1 ? $activeDoctors->first() : SlotPicker::lastDoctorId($patient, $treatmentId);
+        // Un día pedido a propósito (otro que hoy) se respeta: no se cambia por el día en que suele venir el paciente.
+        $dateFromAgenda = $date !== today()->toDateString() ? $date : null;
+        $day = $date ?? (SlotPicker::nextUsualDay($patient) ?? today())->toDateString();
+
+        // Si ese día ya no tiene lugar (a la noche, o está lleno), se abre en el siguiente que sí.
+        if ($dateFromAgenda === null && $time === null && $treatmentId && $doctorId) {
+            $day = SlotPicker::firstDayWithSlots(Doctor::findOrFail($doctorId), Treatment::findOrFail($treatmentId), CarbonImmutable::parse($day), $patient?->getKey())?->toDateString() ?? $day;
+        }
 
         return [
             'new_patient' => false,
@@ -196,9 +205,8 @@ final class CreateAppointmentAction
             'treatment_plan_item_id' => array_key_exists($planItemId, AppointmentForm::planItemOptions($patient?->getKey())) ? $planItemId : null,
             'treatment_id' => $treatmentId,
             'doctor_id' => $doctorId,
-            'date' => $date ?? (SlotPicker::nextUsualDay($patient) ?? today())->toDateString(),
-            // Un día pedido a propósito (otro que hoy) se respeta: no se cambia por el día en que suele venir el paciente.
-            'date_from_agenda' => $date !== today()->toDateString() ? $date : null,
+            'date' => $day,
+            'date_from_agenda' => $dateFromAgenda,
             'preferred_time' => $time,
             'slot' => $treatmentId && $doctorId && $time ? $time : null,
             'manual' => false,

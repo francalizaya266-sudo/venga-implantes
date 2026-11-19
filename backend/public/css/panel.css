@@ -1383,6 +1383,44 @@ a.dash-name:hover { color: var(--primary-600); }
 .slot-buttons { display: grid !important; grid-template-columns: repeat(auto-fill, minmax(5.5rem, 1fr)); gap: .5rem; }
 .slot-buttons label { justify-content: center; font-variant-numeric: tabular-nums; }
 
+/* Botones de una opción (ChoiceChips): días, horarios libres y los tratamientos más pedidos. Son radios con forma
+   de botón; el elegido queda azul, y el recomendado lleva borde verde y su línea chica. */
+.choice-chips { display: grid; gap: .75rem; }
+.choice-chips-group-title { margin: 0 0 .35rem; font-size: .75rem; font-weight: 600; letter-spacing: .02em; text-transform: uppercase; color: var(--gray-500); }
+.choice-chips-row { display: flex; flex-wrap: wrap; gap: .5rem; }
+.choice-chip {
+    position: relative; display: inline-flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 2.5rem; padding: .4rem .85rem; border-radius: .5rem; cursor: pointer; text-align: center;
+    background: #fff; color: var(--gray-950); box-shadow: inset 0 0 0 1px var(--gray-300);
+    font-size: .875rem; font-weight: 600; line-height: 1.2; transition: background-color .12s ease, box-shadow .12s ease;
+}
+.choice-chip:hover { background: var(--gray-50); }
+.choice-chip-input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; }
+.choice-chip-description { margin-top: .1rem; font-size: .7rem; font-weight: 500; color: var(--gray-500); }
+.choice-chip.is-highlighted { box-shadow: inset 0 0 0 1.5px var(--success-500); }
+.choice-chip.is-highlighted .choice-chip-description { color: var(--success-700); }
+.choice-chip:has(.choice-chip-input:checked) { background: var(--primary-600); color: #fff; box-shadow: inset 0 0 0 1px var(--primary-600); }
+.choice-chip:has(.choice-chip-input:checked) .choice-chip-description { color: rgb(255 255 255 / .85); }
+.choice-chip:has(.choice-chip-input:focus-visible) { outline: 2px solid var(--primary-500); outline-offset: 2px; }
+.choice-chip:has(.choice-chip-input:disabled) { opacity: .6; cursor: not-allowed; }
+.dark .choice-chip { background: rgb(255 255 255 / .05); color: #fff; box-shadow: inset 0 0 0 1px rgb(255 255 255 / .2); }
+.dark .choice-chip:hover { background: rgb(255 255 255 / .1); }
+.dark .choice-chip-description { color: var(--gray-400); }
+.dark .choice-chip.is-highlighted { box-shadow: inset 0 0 0 1.5px var(--success-400); }
+.dark .choice-chip.is-highlighted .choice-chip-description { color: var(--success-400); }
+.dark .choice-chip:has(.choice-chip-input:checked) { background: var(--primary-500); box-shadow: inset 0 0 0 1px var(--primary-500); }
+.dark .choice-chip:has(.choice-chip-input:checked) .choice-chip-description { color: rgb(255 255 255 / .85); }
+/* Las horas, en columnas parejas; los días, del mismo ancho, con el número de libres abajo. */
+.slot-chips .choice-chips-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(5.5rem, 1fr)); }
+.slot-chips .choice-chip { font-variant-numeric: tabular-nums; }
+.day-chips .choice-chips-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(5.25rem, 1fr)); }
+.day-chips .choice-chip { min-height: 3.1rem; }
+/* En el celular, tres por fila en vez de dos: menos para bajar. */
+@media (max-width: 40rem) {
+    .slot-chips .choice-chips-row, .day-chips .choice-chips-row { grid-template-columns: repeat(auto-fill, minmax(4.25rem, 1fr)); }
+    .slot-chips .choice-chip, .day-chips .choice-chip { padding-inline: .4rem; }
+}
+
 /* "Otra hora": la hora y los minutos también se tocan, como un teclado de seis por fila. Así las horas quedan en
    mañana, tarde y noche, y los minutos en dos medias horas. */
 .time-buttons { grid-template-columns: repeat(6, minmax(0, 1fr)); }
