@@ -6,23 +6,28 @@ use App\Enums\AppointmentOrigin;
 use App\Enums\DocumentType;
 use App\Enums\PatientRelationship;
 use App\Enums\Sex;
+use App\Exceptions\DniLookupException;
 use App\Filament\Resources\Patients\PatientResource;
 use App\Models\Account;
 use App\Models\Patient;
+use App\Services\Patients\DniLookup;
 use App\Services\Patients\PatientRegistrar;
 use App\Support\Phone;
 use Carbon\Carbon;
 use Carbon\Exceptions\InvalidFormatException;
 use Closure;
+use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
+use Filament\Support\Icons\Heroicon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Arr;
 use Illuminate\Validation\Rules\Unique;
@@ -196,7 +201,10 @@ class PatientForm
         };
     }
 
-    /** Número de documento: se guarda sin espacios ni guiones y se revisa según el tipo (el DNI tiene 8 dígitos). */
+    /**
+     * Número de documento: se guarda sin espacios ni guiones y se revisa según el tipo (el DNI tiene 8 dígitos).
+     * Con un DNI, la lupa trae de RENIEC los nombres y apellidos.
+     */
     public static function documentNumberInput(string $typeField = 'document_type'): TextInput
     {
         return TextInput::make('document_number')
@@ -206,13 +214,60 @@ class PatientForm
             ->mutateStateForValidationUsing(fn (?string $state) => DocumentType::clean($state))
             ->dehydrateStateUsing(fn (?string $state) => DocumentType::clean($state))
             ->rule(fn (Get $get) => function (string $attribute, mixed $value, Closure $fail) use ($get, $typeField) {
-                $type = $get($typeField);
-                $type = $type instanceof DocumentType ? $type : (DocumentType::tryFrom((string) $type) ?? DocumentType::Dni);
+                $type = self::documentType($get($typeField));
 
                 if (filled($value) && $type->pattern() !== null && ! preg_match($type->pattern(), (string) $value)) {
                     $fail($type->invalidMessage());
                 }
+            })
+            ->suffixAction(self::dniLookupAction($typeField));
+    }
+
+    /**
+     * La lupa junto al DNI: pone los nombres y apellidos como están en RENIEC, sin escribirlos (ni escribirlos mal
+     * en la historia clínica). Solo con DNI y con la clave de la consulta puesta; si no, ni aparece.
+     */
+    private static function dniLookupAction(string $typeField): Action
+    {
+        return Action::make('lookupDni')
+            ->label('Traer nombres de RENIEC')
+            ->tooltip('Traer nombres de RENIEC')
+            ->icon(Heroicon::OutlinedMagnifyingGlass)
+            ->visible(fn (Get $get) => self::documentType($get($typeField)) === DocumentType::Dni && app(DniLookup::class)->isEnabled())
+            ->action(function (Get $get, Set $set): void {
+                $dni = (string) DocumentType::clean($get('document_number'));
+
+                if (! preg_match((string) DocumentType::Dni->pattern(), $dni)) {
+                    Notification::make()->warning()->title('Escribe primero el DNI completo: tiene 8 dígitos.')->send();
+
+                    return;
+                }
+
+                try {
+                    $person = app(DniLookup::class)->find($dni);
+                } catch (DniLookupException $e) {
+                    Notification::make()->danger()->title($e->getMessage())->send();
+
+                    return;
+                }
+
+                if ($person === null) {
+                    Notification::make()->warning()->title("RENIEC no tiene el DNI {$dni}.")->body('Revisa el número o escribe los nombres a mano.')->send();
+
+                    return;
+                }
+
+                $set('first_name', $person['first_name']);
+                $set('last_name', $person['last_name']);
+
+                Notification::make()->success()->title("{$person['first_name']} {$person['last_name']}")->body('Nombres y apellidos puestos como están en RENIEC.')->send();
             });
+    }
+
+    /** El tipo elegido (o DNI si todavía no se eligió). */
+    private static function documentType(mixed $type): DocumentType
+    {
+        return $type instanceof DocumentType ? $type : (DocumentType::tryFrom((string) $type) ?? DocumentType::Dni);
     }
 
     /**

@@ -210,4 +210,11 @@ return [
         ],
     ],
 
+    // Consulta de DNI (RENIEC por Decolecta): la lupa junto al DNI llena los nombres y apellidos del paciente.
+    // Sin clave, la lupa no aparece y los nombres se escriben a mano.
+    'dni_lookup' => [
+        'token' => env('DNI_LOOKUP_TOKEN'),
+        'url' => env('DNI_LOOKUP_URL', 'https://api.decolecta.com/v1/reniec/dni'),
+    ],
+
 ];
