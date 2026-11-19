@@ -13,6 +13,7 @@ use App\Filament\Resources\Patients\RelationManagers\ChargesRelationManager;
 use App\Filament\Resources\Patients\Schemas\PatientForm;
 use App\Filament\Resources\Patients\Schemas\PatientInfolist;
 use App\Filament\Resources\Patients\Tables\PatientsTable;
+use App\Filament\Support\MenuPending;
 use App\Models\Patient;
 use App\Models\User;
 use App\Support\Phone;
@@ -43,6 +44,22 @@ class PatientResource extends Resource
     protected static ?int $navigationSort = 2;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedUsers;
+
+    /** Lo que espera en pacientes: atenciones sin terminar y trabajos de laboratorio por revisar. */
+    public static function getNavigationBadge(): ?string
+    {
+        return MenuPending::badge(MenuPending::patients());
+    }
+
+    public static function getNavigationBadgeColor(): string
+    {
+        return 'warning';
+    }
+
+    public static function getNavigationBadgeTooltip(): ?string
+    {
+        return MenuPending::tooltip(MenuPending::patients());
+    }
 
     protected static ?string $recordTitleAttribute = 'full_name';
 

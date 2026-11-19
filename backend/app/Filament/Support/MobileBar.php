@@ -10,7 +10,8 @@ use App\Filament\Resources\WhatsappMessages\WhatsappMessageResource;
 
 /**
  * La barra fija de abajo en el celular: lo que más se toca, a un pulgar. Al centro, "Nueva cita".
- * Al final, Avisos con cuántos toca enviar: se mandan desde el celular, que es donde está WhatsApp.
+ * Al final, Avisos con cuántos toca enviar: se mandan desde el celular, que es donde está WhatsApp. Agenda y
+ * Pacientes llevan el mismo número que en el menú.
  * Caja queda en el menú. Cada botón aparece solo si la persona puede entrar ahí.
  */
 final class MobileBar
@@ -21,13 +22,13 @@ final class MobileBar
         return array_values(array_filter([
             self::item('Hoy', 'heroicon-o-home', Dashboard::getUrl(), request()->routeIs(Dashboard::getRouteName())),
             Agenda::canAccess()
-                ? self::item('Agenda', 'heroicon-o-calendar', Agenda::getUrl(), request()->routeIs(Agenda::getRouteName(), AppointmentResource::getRouteBaseName().'.index'))
+                ? self::item('Agenda', 'heroicon-o-calendar', Agenda::getUrl(), request()->routeIs(Agenda::getRouteName(), AppointmentResource::getRouteBaseName().'.index'), badge: Agenda::getNavigationBadge())
                 : null,
             AppointmentResource::canCreate()
                 ? self::item('Nueva cita', 'heroicon-o-plus', AppointmentResource::newUrl(), active: false, primary: true)
                 : null,
             PatientResource::canViewAny()
-                ? self::item('Pacientes', 'heroicon-o-users', PatientResource::getUrl('index'), request()->routeIs(PatientResource::getRouteBaseName().'.*'))
+                ? self::item('Pacientes', 'heroicon-o-users', PatientResource::getUrl('index'), request()->routeIs(PatientResource::getRouteBaseName().'.*'), badge: PatientResource::getNavigationBadge())
                 : null,
             WhatsappMessageResource::canViewAny()
                 ? self::item('Avisos', 'heroicon-o-chat-bubble-left-right', WhatsappMessageResource::getUrl('index'), request()->routeIs(WhatsappMessageResource::getRouteBaseName().'.*'), badge: WhatsappMessageResource::getNavigationBadge())
