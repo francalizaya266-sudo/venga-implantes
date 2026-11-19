@@ -238,8 +238,17 @@ jobs:
       - name: ESLint
         run: npm run lint
 
-      - name: Pruebas
-        run: npm test
+      # Con cobertura: falla si baja de los mínimos de vite.config.ts (85 % de las líneas, 70 % de las ramas).
+      - name: Pruebas con cobertura
+        run: npm run test:coverage
+
+      - name: Guardar el reporte de cobertura de la web
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cobertura-web
+          path: frontend/coverage
+          retention-days: 30
 
       # Revisa los tipos y compila: lo que no compila no llega al hosting.
       - name: Compilar
