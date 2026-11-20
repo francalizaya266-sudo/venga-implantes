@@ -18,7 +18,9 @@ use Filament\Widgets\StatsOverviewWidget\Stat;
 /**
  * Cómo va el mes, sin entrar a Reportes: lo mismo que Resumen e Ingresos con el filtro "Este mes",
  * y a cuánto cerraría el mes si sigue al mismo ritmo. Va al final de "Hoy": primero lo del día.
- * Lo ve quien ve los reportes; un doctor, solo lo suyo. La meta y lo que se debe son del consultorio entero.
+ * Lo ve quien ve los reportes; un doctor, solo lo suyo ("Mis números de noviembre"), y el administrador que
+ * atiende, lo suyo en "Mi consulta" y lo de todos en "Toda la clínica". La meta y lo que se debe son del
+ * consultorio entero. Con lo de todos, lo cobrado día por día va en su gráfico, debajo (MonthTrendChart).
  */
 class MonthOverview extends StatsOverviewWidget
 {
@@ -35,8 +37,7 @@ class MonthOverview extends StatsOverviewWidget
         /** @var User|null $user */
         $user = auth()->user();
 
-        // En "Mi consulta" del administrador que atiende no van los números de toda la clínica; el doctor ve los suyos.
-        return ReportAccess::canView($user) && (TodayView::current($user) === TodayView::Clinic || ! $user->managesAllAgendas());
+        return ReportAccess::canView($user);
     }
 
     public function getSectionContentComponent(): Component
@@ -46,7 +47,9 @@ class MonthOverview extends StatsOverviewWidget
 
     protected function getHeading(): ?string
     {
-        return ucfirst(today()->translatedFormat('F')).' hasta hoy';
+        return $this->doctorId() !== null
+            ? 'Mis números de '.today()->translatedFormat('F')
+            : ucfirst(today()->translatedFormat('F')).' hasta hoy';
     }
 
     protected function getDescription(): ?string
@@ -92,7 +95,7 @@ class MonthOverview extends StatsOverviewWidget
         $comparisons = [
             StatComparison::make('Cobrado', $figures['collected'], $figures['collected_before'], $before, Money::format(...))
                 ->icon('heroicon-o-banknotes')
-                ->chart($figures['daily_collected'])
+                ->chart(MonthTrendChart::canView() ? null : $figures['daily_collected'])
                 ->url(Earnings::getUrl()),
             StatComparison::make('Realizado', $figures['produced'], $figures['produced_before'], $before, Money::format(...))
                 ->icon('heroicon-o-clipboard-document-check')
@@ -117,10 +120,15 @@ class MonthOverview extends StatsOverviewWidget
         return today()->day < MonthFigures::SETTLED_FROM_DAY;
     }
 
-    /** Un doctor ve lo suyo; la administración, todo el consultorio. */
+    /** Un doctor ve lo suyo; la administración, todo el consultorio, salvo en "Mi consulta" de quien atiende. */
     private function doctorId(): ?int
     {
-        return ReportAccess::doctorFor(auth()->user(), null);
+        /** @var User $user */
+        $user = auth()->user();
+
+        return TodayView::canChoose($user) && TodayView::current($user) === TodayView::Mine
+            ? $user->doctorId()
+            : ReportAccess::doctorFor($user, null);
     }
 
     private function outstanding(): Stat

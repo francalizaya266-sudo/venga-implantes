@@ -20,6 +20,7 @@ use App\Filament\Resources\TreatmentPlans\TreatmentPlanResource;
 use App\Filament\Widgets\DayMomentCard;
 use App\Filament\Widgets\FollowUpsToday;
 use App\Filament\Widgets\MonthOverview;
+use App\Filament\Widgets\MonthTrendChart;
 use App\Filament\Widgets\NextPatient;
 use App\Filament\Widgets\OpenConsultations;
 use App\Filament\Widgets\SystemHealth;
@@ -73,16 +74,16 @@ class DashboardPanelTest extends TestCase
         $doctor = Doctor::factory()->withSchedule()->create();
 
         $this->actingAs(User::factory()->admin()->create());
-        // Lo del mes va al final, después de todo lo del día.
-        $this->assertSame([SystemHealth::class, TodayStats::class, TodayAppointments::class, WaitingRoom::class, FollowUpsToday::class, WeekGaps::class, MonthOverview::class], $this->visibleWidgets());
+        // Lo del mes va al final, después de todo lo del día, con lo cobrado día por día debajo.
+        $this->assertSame([SystemHealth::class, TodayStats::class, TodayAppointments::class, WaitingRoom::class, FollowUpsToday::class, WeekGaps::class, MonthOverview::class, MonthTrendChart::class], $this->visibleWidgets());
         $this->get(Dashboard::getUrl())->assertOk()->assertSee(['Lunes 2 de noviembre', 'Nueva cita', 'Llegó sin cita', 'Cobrar', 'Anotar en lista de espera']);
 
-        // Quien administra y también atiende abre en "Mi consulta": su próximo paciente y su agenda; lo de toda la
-        // clínica (la sala, lo que hay que hacer, los huecos, el mes) está a un clic en el selector.
+        // Quien administra y también atiende abre en "Mi consulta": su próximo paciente, su agenda y sus números del
+        // mes; lo de toda la clínica (la sala, lo que hay que hacer, los huecos, el mes de todos) está a un clic.
         $dentist = User::factory()->admin(isDentist: true)->create();
         Doctor::factory()->withSchedule()->create(['user_id' => $dentist->id]);
         $this->actingAs($dentist);
-        $this->assertSame([TodayViewSwitch::class, SystemHealth::class, TodayStats::class, NextPatient::class, TodayAppointments::class], $this->visibleWidgets());
+        $this->assertSame([TodayViewSwitch::class, SystemHealth::class, TodayStats::class, NextPatient::class, TodayAppointments::class, MonthOverview::class], $this->visibleWidgets());
 
         $this->actingAs(User::factory()->reception()->create());
         $this->assertSame([TodayStats::class, TodayAppointments::class, WaitingRoom::class, FollowUpsToday::class, WeekGaps::class], $this->visibleWidgets());
@@ -127,7 +128,7 @@ class DashboardPanelTest extends TestCase
 
         // Elige "Toda la clínica": la sala de espera, lo que hay que hacer, los huecos y el mes. Y se queda así.
         $this->get(Dashboard::getUrl(['vista' => 'clinica']))->assertOk()->assertCookie('hoy_vista', 'clinica')->assertSee('Sala de espera');
-        $this->assertSame([TodayViewSwitch::class, SystemHealth::class, TodayStats::class, TodayAppointments::class, WaitingRoom::class, FollowUpsToday::class, WeekGaps::class, MonthOverview::class], $this->visibleWidgets());
+        $this->assertSame([TodayViewSwitch::class, SystemHealth::class, TodayStats::class, TodayAppointments::class, WaitingRoom::class, FollowUpsToday::class, WeekGaps::class, MonthOverview::class, MonthTrendChart::class], $this->visibleWidgets());
         $this->get(Dashboard::getUrl())->assertOk()->assertSee('Sala de espera')->assertDontSee('Tu próximo paciente');
         Livewire::test(TodayAppointments::class)->assertSee(['Agenda de hoy', 'Rosa Quispe', 'Luis Paz']);
         // Quien espera hace 20 minutos o más se marca en rojo arriba, aunque la sala quede abajo al hacer scroll.
@@ -444,6 +445,58 @@ class DashboardPanelTest extends TestCase
 
         Livewire::test(MonthOverview::class)
             ->assertSee('A este ritmo, noviembre cerraría en S/ 3,000.00, por debajo de la meta de S/ 4,500.');
+    }
+
+    public function test_the_admin_who_treats_sees_their_own_numbers_in_their_consult_and_everyones_in_the_clinic(): void
+    {
+        $dentist = User::factory()->admin(isDentist: true)->create();
+        $own = Doctor::factory()->create(['user_id' => $dentist->id]);
+        $other = Doctor::factory()->create();
+        $patient = $this->patient('Rosa', 'Quispe');
+        Payment::factory()->for($patient)->create(['doctor_id' => $own->id, 'amount' => 300, 'paid_at' => '2026-11-01 10:00']);
+        Payment::factory()->for($patient)->create(['doctor_id' => $other->id, 'amount' => 150, 'paid_at' => '2026-11-02 07:30']);
+        Setting::set('reports.monthly_goal', 4500);
+        $this->actingAs($dentist);
+
+        // "Mi consulta": lo suyo, sin la meta ni lo que deben los pacientes, que son de todo el consultorio.
+        Livewire::test(MonthOverview::class)
+            ->assertSee(['Mis números de noviembre', 'Solo tus citas', 'S/ 300.00'])
+            ->assertDontSee(['S/ 450.00', 'Por cobrar', 'Meta del mes']);
+
+        TodayView::Clinic->remember();
+        Livewire::test(MonthOverview::class)
+            ->assertSee(['Noviembre hasta hoy', 'S/ 450.00', 'Por cobrar (a hoy)', 'Meta del mes'])
+            ->assertDontSee(['Mis números', 'Solo tus citas']);
+    }
+
+    public function test_the_clinic_month_shows_what_was_collected_each_of_the_last_30_days(): void
+    {
+        $patient = $this->patient('Rosa', 'Quispe');
+        Payment::factory()->for($patient)->create(['amount' => 300, 'paid_at' => '2026-10-30 10:00']);
+        Payment::factory()->for($patient)->create(['amount' => 120, 'paid_at' => '2026-10-30 16:00']);
+        Payment::factory()->for($patient)->create(['amount' => 150, 'paid_at' => '2026-11-02 07:30']);
+        // Fuera de los 30 días y anulado: no cuentan.
+        Payment::factory()->for($patient)->create(['amount' => 900, 'paid_at' => '2026-10-03 10:00']);
+        Payment::factory()->for($patient)->create(['amount' => 999, 'paid_at' => '2026-11-01 11:00', 'voided_at' => '2026-11-01 12:00']);
+        $this->actingAs(User::factory()->admin()->create());
+
+        $chart = Livewire::test(MonthTrendChart::class)
+            ->assertSee(['Cobrado por día · últimos 30 días', 'En total, S/ 570.00.', 'El mejor día fue el viernes 30 de octubre, con S/ 420.00.'])
+            ->instance();
+        $data = (fn () => $this->getCachedData())->call($chart);
+        $this->assertCount(30, $data['labels']);
+        $this->assertSame(['Dom. 4 oct.', 'Lun. 2 nov.'], [$data['labels'][0], $data['labels'][29]]);
+        $this->assertSame([420.0, 0.0, 0.0, 150.0], array_slice($data['datasets'][0]['data'], 26));
+
+        // Arriba, "Cobrado" ya no repite la línea chica.
+        Livewire::test(MonthOverview::class)->assertDontSeeHtml('fi-wi-stats-overview-stat-chart');
+
+        // Solo para el administrador y en "Toda la clínica": el doctor ve sus números, sin el gráfico.
+        Setting::set('reports.doctors_see_own', true);
+        $doctor = Doctor::factory()->create();
+        $this->actingAs($doctor->user);
+        $this->assertFalse(MonthTrendChart::canView());
+        Livewire::test(MonthOverview::class)->assertSee('Mis números de noviembre')->assertSeeHtml('fi-wi-stats-overview-stat-chart');
     }
 
     public function test_reception_sees_whom_to_follow_up_with_and_the_lists_count_the_same(): void
