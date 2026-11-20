@@ -3,12 +3,19 @@
 namespace App\Services;
 
 use App\Enums\UserRole;
+use App\Livewire\PanelPulse;
 use App\Models\Appointment;
 use App\Models\User;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
+use Filament\Support\Enums\Size;
+use Filament\Support\Icons\Heroicon;
 
-/** Alertas en la campana del panel para recepción (y administración). */
+/**
+ * Alertas en la campana del panel para recepción (y administración), y para el doctor. Se distinguen de un vistazo:
+ * lo que pide hacer algo lleva su botón y el ícono en el color de la marca; lo que solo informa va en gris y sin
+ * botón, para que no compita; y "Llegó" va aparte, con "Atender".
+ */
 class StaffAlerts
 {
     /**
@@ -26,19 +33,17 @@ class StaffAlerts
             return;
         }
 
-        $this->deliver($recipients, Notification::make()
-            ->title($title)
-            ->body($body)
-            ->actions($link ? [Action::make('open')->label($link['label'])->url($link['url'])->markAsRead()] : []));
+        $this->deliver($recipients, $link ? $this->toAct($title, $body, $link) : $this->toKnow($title, $body));
     }
 
+    /** A una persona, para que esté al tanto. */
     public function toUser(?User $user, string $title, ?string $body = null): void
     {
         if ($user === null || ! $user->is_active) {
             return;
         }
 
-        $this->deliver([$user], Notification::make()->title($title)->body($body));
+        $this->deliver([$user], $this->toKnow($title, $body));
     }
 
     /**
@@ -56,7 +61,16 @@ class StaffAlerts
         $this->deliver([$doctorUser], Notification::make()
             ->title("Llegó {$appointment->patient->full_name}")
             ->body("Te espera en sala. Cita de las {$appointment->starts_at->format('H:i')} · {$appointment->treatment->name}.")
-            ->viewData(['arrival' => $appointment->getKey()]));
+            ->icon(Heroicon::OutlinedUserCircle)
+            ->iconColor('success')
+            ->viewData(['arrival' => $appointment->getKey()])
+            ->actions([
+                Action::make('attend')
+                    ->label('Atender')
+                    ->button()
+                    ->size(Size::Small)
+                    ->dispatch(PanelPulse::ATTEND, ['appointment' => $appointment->getKey()]),
+            ]));
     }
 
     /** El paciente ya no espera (pasó a consulta o la cita se cerró): el aviso de que llegó queda como leído. */
@@ -65,6 +79,31 @@ class StaffAlerts
         $appointment->doctor->user?->unreadNotifications()
             ->where('data->viewData->arrival', $appointment->getKey())
             ->update(['read_at' => now()]);
+    }
+
+    /**
+     * Pide que alguien haga algo: el botón lleva a resolverlo y deja el aviso como leído.
+     *
+     * @param  array{label: string, url: string}  $link
+     */
+    private function toAct(string $title, ?string $body, array $link): Notification
+    {
+        return Notification::make()
+            ->title($title)
+            ->body($body)
+            ->icon(Heroicon::OutlinedBellAlert)
+            ->iconColor('primary')
+            ->actions([Action::make('open')->label($link['label'])->url($link['url'])->button()->size(Size::Small)->markAsRead()]);
+    }
+
+    /** Solo informa: en gris y sin botón. */
+    private function toKnow(string $title, ?string $body): Notification
+    {
+        return Notification::make()
+            ->title($title)
+            ->body($body)
+            ->icon(Heroicon::OutlinedInformationCircle)
+            ->iconColor('gray');
     }
 
     /**
