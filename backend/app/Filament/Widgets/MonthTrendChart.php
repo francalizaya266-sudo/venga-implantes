@@ -54,12 +54,12 @@ class MonthTrendChart extends ReportChart
     /** Lo de los 30 días y el mejor de ellos, sin contar hoy, que sigue. */
     protected function finding(): ?string
     {
-        $values = $this->values();
-        $best = collect(array_slice($values, 0, -1))->filter(fn ($value) => $value > 0)->sortDesc()->keys()->first();
+        $values = array_map(fn ($value): float => (float) $value, $this->values());
+        $best = collect(array_slice($values, 0, -1))->filter(fn (float $value) => $value > 0)->sortDesc()->keys()->first();
 
         return collect([
-            'En total, '.Money::format((float) array_sum($values)).'.',
-            $best === null ? null : 'El mejor día fue el '.$this->day((int) $best)->translatedFormat('l j \d\e F').', con '.Money::format((float) $values[$best]).'.',
+            'En total, '.Money::format(array_sum($values)).'.',
+            $best === null ? null : 'El mejor día fue el '.$this->day((int) $best)->translatedFormat('l j \d\e F').', con '.Money::format($values[(int) $best]).'.',
         ])->filter()->implode(' ');
     }
 
