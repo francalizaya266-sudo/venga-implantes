@@ -3,15 +3,14 @@
 namespace App\Filament\Widgets;
 
 use App\Enums\AppointmentStatus;
+use App\Enums\TodayView;
 use App\Filament\Actions\AppointmentActions;
 use App\Filament\Concerns\RefreshesWithToday;
 use App\Filament\Resources\Appointments\AppointmentResource;
-use App\Filament\Resources\Consultations\ConsultationResource;
 use App\Filament\Resources\Patients\PatientResource;
 use App\Filament\Support\ClinicalAlerts;
 use App\Filament\Support\VisitFlags;
 use App\Models\Appointment;
-use App\Models\Consultation;
 use App\Models\User;
 use App\Services\Clinical\ConsentService;
 use App\Services\Dashboard\DoctorDay;
@@ -24,8 +23,9 @@ use Filament\Schemas\Contracts\HasSchemas;
 use Filament\Widgets\Widget;
 
 /**
- * Para el doctor: su próximo paciente con lo que tiene que ver antes de llamarlo (alergias,
- * enfermedades, embarazo, qué se le hizo la última vez) y "Atender"; y las atenciones que dejó abiertas.
+ * Para quien atiende, en "Mi consulta": su próximo paciente con lo que tiene que ver antes de llamarlo
+ * (alergias, enfermedades, embarazo, qué se le hizo la última vez), "Atender" y quién viene después. Las
+ * atenciones que dejó abiertas van en su propia tarjeta, al costado (OpenConsultations).
  */
 class NextPatient extends Widget implements HasActions, HasSchemas
 {
@@ -45,7 +45,7 @@ class NextPatient extends Widget implements HasActions, HasSchemas
         /** @var User|null $user */
         $user = auth()->user();
 
-        return $user?->doctorId() !== null && $user->canSeeClinical();
+        return $user?->doctorId() !== null && $user->canSeeClinical() && TodayView::current($user) === TodayView::Mine;
     }
 
     /** El mismo "Atender" de la lista: abre la atención con su plantilla y odontograma. */
@@ -55,39 +55,21 @@ class NextPatient extends Widget implements HasActions, HasSchemas
             ->record(fn (array $arguments) => AppointmentResource::getEloquentQuery()->find($arguments['appointment'] ?? null));
     }
 
-    /** Las atenciones abiertas que se ven en Hoy; el resto queda a un clic en Atenciones. */
-    private const OPEN_SHOWN = 3;
-
     /** @return array<string, mixed> */
     protected function getViewData(): array
     {
         /** @var User $user */
         $user = auth()->user();
         $day = new DoctorDay($user->doctorId());
-        $next = $day->next();
+        $upcoming = $day->upcoming();
+        $next = $upcoming->get(0);
+        $after = $upcoming->get(1);
         $waiting = $day->waiting();
-
-        $open = $day->openConsultations();
 
         return [
             'next' => $next ? $this->nextData($day, $next) : null,
+            'after' => $after ? $this->afterData($after) : null,
             'othersWaiting' => max(0, $waiting - ($next?->status === AppointmentStatus::CheckedIn ? 1 : 0)),
-            'openCount' => $open->count(),
-            'openUrl' => ConsultationResource::getUrl('index', ['tab' => 'open']),
-            'open' => $open->take(self::OPEN_SHOWN)->map(function (Consultation $consultation) {
-                $since = $consultation->attended_at ?? $consultation->created_at;
-
-                return [
-                    'name' => $consultation->patient->full_name,
-                    'detail' => collect([
-                        $consultation->appointment?->treatment?->name,
-                        'abierta '.($since->isToday() ? 'hoy a las '.$since->format('H:i') : $since->diffForHumans()),
-                    ])->filter()->implode(' · '),
-                    // De otro día: mientras siga abierta no se cobra ni avanza el plan.
-                    'late' => ! $since->isToday(),
-                    'url' => ConsultationResource::urlFor($consultation),
-                ];
-            })->all(),
         ];
     }
 
@@ -103,23 +85,18 @@ class NextPatient extends Widget implements HasActions, HasSchemas
 
         return [
             'id' => $appointment->getKey(),
-            'time' => $appointment->starts_at->format('H:i'),
-            'name' => $patient->full_name,
+            ...$this->summary($appointment),
             'age' => $patient->age !== null ? $patient->age.($patient->age === 1 ? ' año' : ' años') : null,
-            'reason' => collect([
-                $appointment->planItem?->label() ?? $appointment->treatment->name,
-                mb_strtolower(VisitFlags::session($appointment->planItem) ?? ''),
-            ])->filter()->implode(' · '),
             'state' => match (true) {
-                $waiting !== null => 'En sala hace '.Dates::duration($waiting),
+                $waiting !== null => 'Llegó hace '.Dates::duration($waiting),
                 $late !== null => 'Va '.Dates::duration($late).' tarde',
                 $appointment->status === AppointmentStatus::Confirmed => 'Confirmó, aún no llega',
                 default => 'Aún no confirma',
             },
+            // Color solo para lo que pide atención: alguien esperando o que se atrasa. Lo demás, en gris.
             'stateColor' => match (true) {
                 $waiting !== null => $waiting >= TodayAppointments::LONG_WAIT_MINUTES ? 'danger' : 'warning',
                 $late !== null => 'warning',
-                $appointment->status === AppointmentStatus::Confirmed => 'success',
                 default => 'gray',
             },
             'hasBackground' => $patient->medicalBackground !== null,
@@ -131,6 +108,42 @@ class NextPatient extends Widget implements HasActions, HasSchemas
             // Lo que recepción (o el mismo doctor) anotó al agendar: "viene con dolor", "trae su radiografía".
             'internalNotes' => $appointment->internal_notes,
             'historyUrl' => PatientResource::getUrl('clinical', ['record' => $patient]),
+        ];
+    }
+
+    /**
+     * Quién viene después, para saberlo sin bajar a la agenda: "11:30 Ana Silva · Evaluación · ya está en sala".
+     *
+     * @return array{time: string, text: string}
+     */
+    private function afterData(Appointment $appointment): array
+    {
+        $summary = $this->summary($appointment);
+
+        return [
+            'time' => $summary['time'],
+            'text' => collect([
+                $summary['name'],
+                $summary['reason'],
+                $appointment->waitingMinutes() !== null ? 'ya está en sala' : null,
+            ])->filter()->implode(' · '),
+        ];
+    }
+
+    /**
+     * La hora, el nombre y a qué viene: lo que dicen de cada uno "Tu próximo paciente" y su "Después".
+     *
+     * @return array{time: string, name: string, reason: string}
+     */
+    private function summary(Appointment $appointment): array
+    {
+        return [
+            'time' => $appointment->starts_at->format('H:i'),
+            'name' => $appointment->patient->full_name,
+            'reason' => collect([
+                $appointment->planItem?->label() ?? $appointment->treatment->name,
+                mb_strtolower(VisitFlags::session($appointment->planItem) ?? ''),
+            ])->filter()->implode(' · '),
         ];
     }
 }

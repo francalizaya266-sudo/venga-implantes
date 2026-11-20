@@ -3592,7 +3592,7 @@ $ignoreErrors[] = [
 ];
 $ignoreErrors[] = [
     'rawMessage' => 'Access to an undefined property Illuminate\\Database\\Eloquent\\Model::$full_name.',
-    'count' => 2,
+    'count' => 1,
     'path' => __DIR__.'/app/Filament/Widgets/NextPatient.php',
 ];
 $ignoreErrors[] = [
@@ -3603,11 +3603,6 @@ $ignoreErrors[] = [
 $ignoreErrors[] = [
     'rawMessage' => 'Access to an undefined property Illuminate\\Database\\Eloquent\\Model::$name.',
     'count' => 2,
-    'path' => __DIR__.'/app/Filament/Widgets/NextPatient.php',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Access to an undefined property Illuminate\\Database\\Eloquent\\Model::$treatment.',
-    'count' => 1,
     'path' => __DIR__.'/app/Filament/Widgets/NextPatient.php',
 ];
 $ignoreErrors[] = [
@@ -3631,11 +3626,6 @@ $ignoreErrors[] = [
     'path' => __DIR__.'/app/Filament/Widgets/NextPatient.php',
 ];
 $ignoreErrors[] = [
-    'rawMessage' => 'Parameter #1 $callback of method Illuminate\\Database\\Eloquent\\Collection<int,App\\Models\\Consultation>::map() contains unresolvable type.',
-    'count' => 1,
-    'path' => __DIR__.'/app/Filament/Widgets/NextPatient.php',
-];
-$ignoreErrors[] = [
     'rawMessage' => 'Parameter #1 $item of static method App\\Filament\\Support\\VisitFlags::session() expects App\\Models\\TreatmentPlanItem|null, Illuminate\\Database\\Eloquent\\Model|null given.',
     'count' => 1,
     'path' => __DIR__.'/app/Filament/Widgets/NextPatient.php',
@@ -3647,13 +3637,28 @@ $ignoreErrors[] = [
 ];
 $ignoreErrors[] = [
     'rawMessage' => 'Strict comparison using === between string and App\\Enums\\AppointmentStatus::Confirmed will always evaluate to false.',
-    'count' => 2,
+    'count' => 1,
     'path' => __DIR__.'/app/Filament/Widgets/NextPatient.php',
 ];
 $ignoreErrors[] = [
     'rawMessage' => 'Strict comparison using === between string|null and App\\Enums\\AppointmentStatus::CheckedIn will always evaluate to false.',
     'count' => 1,
     'path' => __DIR__.'/app/Filament/Widgets/NextPatient.php',
+];
+$ignoreErrors[] = [
+    'rawMessage' => 'Access to an undefined property Illuminate\\Database\\Eloquent\\Model::$full_name.',
+    'count' => 1,
+    'path' => __DIR__.'/app/Filament/Widgets/OpenConsultations.php',
+];
+$ignoreErrors[] = [
+    'rawMessage' => 'Access to an undefined property Illuminate\\Database\\Eloquent\\Model::$treatment.',
+    'count' => 1,
+    'path' => __DIR__.'/app/Filament/Widgets/OpenConsultations.php',
+];
+$ignoreErrors[] = [
+    'rawMessage' => 'Parameter #1 $callback of method Illuminate\\Database\\Eloquent\\Collection<int,App\\Models\\Consultation>::map() contains unresolvable type.',
+    'count' => 1,
+    'path' => __DIR__.'/app/Filament/Widgets/OpenConsultations.php',
 ];
 $ignoreErrors[] = [
     'rawMessage' => 'Parameter #1 $array (array{0: Filament\\Widgets\\StatsOverviewWidget\\Stat, 1: Filament\\Widgets\\StatsOverviewWidget\\Stat, 2: Filament\\Widgets\\StatsOverviewWidget\\Stat, 3?: Filament\\Widgets\\StatsOverviewWidget\\Stat}) of array_values is already a list, call has no effect.',
