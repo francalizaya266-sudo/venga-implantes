@@ -1,0 +1,43 @@
+# Resultados de los simulacros del 19/11/2026
+
+== Ejercicio 1: restauración desde Blob (vm-app)
+inicio: 2026-11-19T11:24:13-05:00
+copia elegida (Blob): respaldo_2026-11-19_065405.sql.gz
+descargada: 224K
+fin: 2026-11-19T11:24:25-05:00 duracion_s: 12
+patients produccion=268 restaurada=268
+appointments produccion=874 restaurada=874
+payments produccion=733 restaurada=733
+users produccion=2 restaurada=2
+treatments produccion=9 restaurada=9
+tablas restauradas: 70
+base de simulacro borrada
+
+== Ejercicio 2: corte de la VPN (vm-fw de la sede)
+  dpd_delay = 30s
+  start_action = start
+  dpd_action = restart
+  close_action = start
+antes: 1 IKE establecidas
+ping a producción: ok
+corte: 2026-11-19T11:26:34-05:00
+recuperada sola: 2026-11-19T11:26:35-05:00 en 1.396328985 s
+
+== Ejercicio 3: publicación (GitHub Actions, ejecución 44548996816)
+2026-11-19T14:55:22Z -> 2026-11-19T14:56:27Z (65 s)
+Compilar la web: 14:55:31-14:55:40
+Subir a Blob: 14:55:43-14:55:48
+Publicar en vm-app: 14:55:48-14:56:23
+Comprobar la web: 14:56:23-14:56:24
+
+== Uso de recursos (free -m, df -h /)
+vm-fw prod:    ram 422/887 MB, swap 452 MB, disco 4.4/29 GB
+vm-proxy:      ram 330/887 MB, swap 18 MB,  disco 4.3/29 GB
+vm-app:        ram 300/887 MB, swap 49 MB,  disco 4.8/29 GB, base de datos 6.6 MB
+vm-fw sede:    ram 329/887 MB, swap 568 MB, disco 4.4/29 GB
+vm-wazuh:      ram 2697/3906 MB,            disco 41/61 GB
+
+== Pruebas desde internet (consola del operador)
+prod :22 :3306 :8080 filtrados; :2200 abierto (IP de administración); :80 :443 abiertos
+sede :22 :3306 :443 sin respuesta (honeypot no desplegado en esta ronda); :2200 abierto (IP de administración)
+/.env -> 403; 250 peticiones a /panel/login -> 170 x 200 y 80 x 429

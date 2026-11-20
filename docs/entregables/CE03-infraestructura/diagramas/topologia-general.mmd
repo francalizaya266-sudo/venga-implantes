@@ -1,0 +1,34 @@
+flowchart LR
+  pac(["Pacientes y personal<br/>en internet"])
+  subgraph prod["Producción · vnet-vega 10.20.0.0/16 · Azure Chile Central"]
+    direction TB
+    fwp["vm-fw producción<br/>nftables · strongSwan · Suricata<br/>WAN 10.20.0.4 · LAN 10.20.1.4"]
+    subgraph dmz["snet-dmz 10.20.3.0/24"]
+      proxy["vm-proxy 10.20.3.4<br/>nginx + ModSecurity (WAF)<br/>Let's Encrypt"]
+    end
+    subgraph appn["snet-app 10.20.4.0/24"]
+      app["vm-app 10.20.4.4<br/>nginx + PHP-FPM 8.3<br/>Laravel 13 · Filament"]
+    end
+    subgraph dbn["snet-mysql 10.20.5.0/24 (delegada)"]
+      db[("MySQL Flexible 8.0<br/>acceso privado · TLS")]
+    end
+    paas["Key Vault · Blob Storage<br/>Azure Monitor"]
+  end
+  subgraph sede["Sede de la clínica · vnet-clinica 10.10.0.0/16 · Azure North Central US"]
+    direction TB
+    fws["vm-fw sede<br/>nftables · strongSwan · Suricata · Unbound<br/>jump host"]
+    rec["snet-personal 10.10.30.0/24<br/>vm-recepcion"]
+    waz["snet-servidores 10.10.50.0/24<br/>vm-wazuh (SIEM + copias)"]
+    hp["snet-dmz 10.10.60.0/24<br/>vm-honeypot (OpenCanary)"]
+    mg["snet-mgmt 10.10.10.0/24<br/>administración"]
+  end
+  pac -- "HTTPS 443" --> fwp
+  fwp -- "DNAT 80/443" --> proxy
+  proxy -- "HTTP 80" --> app
+  app -- "3306 TLS" --> db
+  app -.-> paas
+  fwp <== "VPN IPsec IKEv2<br/>AES-256-GCM" ==> fws
+  fws --- rec
+  fws --- waz
+  fws --- hp
+  fws --- mg

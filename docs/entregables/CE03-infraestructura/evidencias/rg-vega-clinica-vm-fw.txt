@@ -1,0 +1,41 @@
+# Salida de az vm run-command, 19/11/2026 (IP públicas reemplazadas)
+Enable succeeded: 
+[stdout]
+== servicios
+nftables: active
+strongswan: active
+suricata: active
+unbound: active
+== vpn
+vega: #5, ESTABLISHED, IKEv2, 04bf6c96ea3f5b06_i d05a1ea505ee8644_r*
+  local  'IP_PUBLICA_SEDE' @ 10.10.0.4[4500]
+  remote 'IP_PUBLICA_PROD' @ IP_PUBLICA_PROD[4500]
+  redes: #8, reqid 1, INSTALLED, TUNNEL-in-UDP, ESP:AES_GCM_16-256/MODP_2048
+    in  c780b3bb, 4020012 bytes,  5570 packets,     0s ago
+    out c3019259, 317158 bytes,  4806 packets,     0s ago
+    local  10.10.0.0/16
+    remote 10.20.0.0/16
+== bloqueos de nftables hoy por prefijo
+      6 fw-personal-bloqueo
+      6 fw-reenvio-bloqueo
+== ultimos bloqueos
+Nov 19 07:08:42 vm-fw kernel: fw-reenvio-bloqueo IN=eth1 OUT=eth0 SRC=10.10.30.10 DST=10.20.4.4 LEN=60 TOS=0x00 PREC=0x00 TTL=63 ID=7121 DF PROTO=TCP SPT=59476 DPT=80 WINDOW=64240 RES=0x00 SYN URGP=0 
+Nov 19 07:08:43 vm-fw kernel: fw-reenvio-bloqueo IN=eth1 OUT=eth0 SRC=10.10.30.10 DST=10.20.4.4 LEN=60 TOS=0x00 PREC=0x00 TTL=63 ID=7122 DF PROTO=TCP SPT=59476 DPT=80 WINDOW=64240 RES=0x00 SYN URGP=0 
+Nov 19 07:08:44 vm-fw kernel: fw-reenvio-bloqueo IN=eth1 OUT=eth0 SRC=10.10.30.10 DST=10.20.4.4 LEN=60 TOS=0x00 PREC=0x00 TTL=63 ID=7123 DF PROTO=TCP SPT=59476 DPT=80 WINDOW=64240 RES=0x00 SYN URGP=0 
+== suricata
+alertas totales: 4565
+4003 SURICATA STREAM ESTABLISHED packet out of window
+248 ET INFO GNU/Linux APT User-Agent Outbound likely related to package management
+126 SURICATA STREAM Packet with invalid ack
+119 SURICATA STREAM ESTABLISHED invalid ack
+13 ET SCAN Suspicious inbound to mySQL port 3306
+12 ET HUNTING Suspicious NULL DNS Request
+== reglas cargadas
+34
+== dns
+;; communications error to 127.0.0.1#53: connection refused
+;; communications error to 127.0.0.1#53: connection refused
+
+[stderr]
+# Warning: table ip security is managed by iptables-nft, do not touch!
+

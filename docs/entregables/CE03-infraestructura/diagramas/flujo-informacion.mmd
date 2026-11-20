@@ -1,0 +1,20 @@
+sequenceDiagram
+  autonumber
+  participant U as Paciente o personal
+  participant F as vm-fw producción
+  participant X as vm-proxy (WAF)
+  participant A as vm-app (Laravel)
+  participant D as MySQL Flexible
+  participant K as Key Vault / Blob
+  participant W as vm-wazuh (sede)
+  U->>F: HTTPS 443 a vegaimplantes.me
+  F->>X: DNAT a 10.20.3.4 (nftables)
+  X->>X: TLS, ModSecurity CRS, límite por IP
+  X->>A: HTTP 80 con X-Forwarded-For
+  A->>D: Consulta SQL por TLS 1.3 (usuario de mínimo privilegio)
+  A-->>K: Secretos por identidad administrada · copias diarias
+  A-->>X: Respuesta
+  X-->>U: Respuesta HTTPS
+  A--)W: Eventos (agente Wazuh 1514) y copia horaria (SSH 22) por la VPN
+  X--)W: Accesos y alertas del WAF por la VPN
+  F--)W: Bloqueos de nftables y alertas de Suricata

@@ -1,0 +1,8 @@
+flowchart LR
+  dev["Integrante<br/>rama + pull request"] --> ci["GitHub Actions · Pruebas<br/>backend, frontend, Larastan, MySQL 8"]
+  ci -->|"merge a main"| cd["Desplegar en Azure<br/>workflow"]
+  cd -->|"OIDC: token firmado<br/>solo rama main"| az["Azure<br/>id-github-despliegue"]
+  az -->|"paquete a Blob"| blob["Blob · despliegues"]
+  az -->|"run-command"| app["vm-app<br/>releases/AAAAMMDDhhmmss<br/>enlace current"]
+  app -->|"comprueba /up"| ok(["Versión publicada<br/>65 s"])
+  app -.->|"acción volver"| rb(["Versión anterior<br/>en segundos"])
