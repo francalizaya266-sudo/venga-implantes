@@ -33,6 +33,7 @@ use App\Models\Consent;
 use App\Models\ConsentTemplate;
 use App\Models\Consultation;
 use App\Models\Doctor;
+use App\Models\LabOrder;
 use App\Models\Patient;
 use App\Models\Payment;
 use App\Models\ScheduleBlock;
@@ -374,10 +375,40 @@ class DashboardPanelTest extends TestCase
         Appointment::factory()->for($doctor)->for($treatment)->for($this->patient('Ana', 'Flores'))->at('2026-11-02 09:30')->confirmed()->create();
 
         Livewire::test(WaitingRoom::class)
+            // Arriba, su doctor está libre y lo esperan dos: en ámbar, porque hay que pasar a alguien.
+            ->assertSeeInOrder([$doctor->name, 'Libre', '2 esperando'])
+            ->assertSeeHtml('class="is-call"')
             // Rosa llegó antes, aunque su cita sea más tarde; con 25 minutos, su espera va en rojo.
             ->assertSeeInOrder(['Rosa Quispe', 'Limpieza dental · cita de las 09:00', '25'.self::NBSP.'min', 'Luis Mamani', '5'.self::NBSP.'min'])
             ->assertSeeHtml('dash-waiting-time is-long')
-            ->assertDontSee(['Ana Flores', $doctor->name]);
+            // Con un solo doctor, cada paciente no repite de quién es.
+            ->assertDontSee(['Ana Flores', 'cita de las 09:00 · '.$doctor->name]);
+    }
+
+    public function test_the_waiting_room_says_whom_each_doctor_is_seeing_and_who_is_free(): void
+    {
+        $treatment = Treatment::factory()->create(['name' => 'Limpieza dental']);
+        $torres = $this->doctorOffering($treatment);
+        $torres->update(['name' => 'Dra. Ana Torres', 'sort_order' => 1]);
+        $rojas = $this->doctorOffering($treatment);
+        $rojas->update(['name' => 'Dr. Luis Rojas', 'sort_order' => 2]);
+        $diaz = $this->doctorOffering($treatment);
+        $diaz->update(['name' => 'Dra. Carla Díaz', 'sort_order' => 3]);
+        Appointment::factory()->for($torres)->for($treatment)->for($this->patient('Rosa', 'Quispe'))->at('2026-11-02 07:30')
+            ->create(['status' => AppointmentStatus::InProgress, 'started_at' => now()->subMinutes(28)]);
+        Appointment::factory()->for($torres)->for($treatment)->for($this->patient('Pedro', 'Paz'))->at('2026-11-02 08:00')
+            ->create(['status' => AppointmentStatus::CheckedIn, 'checked_in_at' => now()->subMinutes(10)]);
+        Appointment::factory()->for($rojas)->for($treatment)->for($this->patient('Eva', 'Sol'))->at('2026-11-02 10:00')->confirmed()->create();
+        // Quien solo tenía una cita cancelada no atiende hoy.
+        Appointment::factory()->for($diaz)->for($treatment)->for($this->patient('Rut', 'Mar'))->at('2026-11-02 11:00')
+            ->create(['status' => AppointmentStatus::Cancelled]);
+        $this->actingAs(User::factory()->reception()->create());
+
+        // La que está atendiendo tiene a uno esperando, en gris: ya lo pasará; el otro está libre.
+        Livewire::test(WaitingRoom::class)
+            ->assertSeeInOrder(['Dra. Ana Torres', 'Atendiendo a Rosa Quispe, hace 28'.self::NBSP.'min', '1 esperando', 'Dr. Luis Rojas', 'Libre', 'Pedro Paz'])
+            ->assertDontSeeHtml('class="is-call"')
+            ->assertDontSee('Dra. Carla Díaz');
     }
 
     public function test_the_month_at_a_glance_compares_with_the_same_days_of_last_month_and_tracks_the_goal(): void
@@ -552,6 +583,8 @@ class DashboardPanelTest extends TestCase
 
         $this->assertSame(2, app(FollowUps::class)->plansAwaitingAnswer()['count']);
         $this->assertCount(1, app(FollowUps::class)->plansAwaitingAnswer()['plans']);
+        // Lo que hay en juego: los dos presupuestos, aunque a Rosa se le escriba una vez.
+        Livewire::test(FollowUpsToday::class)->assertSeeInOrder(['Presupuestos sin respuesta', 'Suman S/'.self::NBSP.'900.00 · presentados hace más de '.TreatmentPlan::ANSWER_WAIT_DAYS.' días']);
 
         Livewire::test(ListTreatmentPlans::class)
             ->set('activeTab', 'awaiting')
@@ -722,6 +755,36 @@ class DashboardPanelTest extends TestCase
 
         $this->assertSame(AppointmentStatus::InProgress, $waiting->fresh()->status);
         $this->assertNotNull($unfinished->fresh());
+    }
+
+    public function test_the_next_patient_says_whether_their_lab_work_arrived(): void
+    {
+        $treatment = Treatment::factory()->create(['name' => 'Colocación de corona']);
+        $doctor = $this->doctorOffering($treatment);
+        $rosa = $this->patient('Rosa', 'Quispe');
+        Appointment::factory()->for($doctor)->for($treatment)->for($rosa)->at('2026-11-02 10:00')->confirmed()->create();
+        $lab = fn (string $description, array $dates, ?Doctor $of = null) => LabOrder::factory()->for($rosa)
+            ->create(['doctor_id' => ($of ?? $doctor)->id, 'description' => $description, 'sent_on' => '2026-10-01', ...$dates]);
+
+        $lab('Corona de zirconio', ['due_on' => '2026-10-31', 'received_on' => '2026-10-31']);
+        $lab('Férula de descarga', ['due_on' => '2026-11-01']);
+        $lab('Puente de tres piezas', ['due_on' => '2026-11-10']);
+        // Ya se colocó: vino después de que llegó.
+        $lab('Incrustación de resina', ['due_on' => '2026-10-20', 'received_on' => '2026-10-20']);
+        Appointment::factory()->for($doctor)->for($treatment)->for($rosa)->at('2026-10-22 10:00')->create(['status' => AppointmentStatus::Completed]);
+        // Hace mucho, y de otro doctor: no le toca.
+        $lab('Prótesis total', ['due_on' => '2026-07-01', 'received_on' => '2026-07-01']);
+        $lab('Carilla de porcelana', ['due_on' => '2026-11-01'], Doctor::factory()->create());
+        $this->actingAs($doctor->user);
+
+        Livewire::test(NextPatient::class)
+            ->assertSee([
+                'Corona de zirconio: ya llegó del laboratorio el 31 de octubre.',
+                'Férula de descarga: no ha llegado del laboratorio; debía llegar hace 1 día.',
+                'Puente de tres piezas: sigue en el laboratorio, llega el 10 de noviembre.',
+            ])
+            ->assertSeeHtml(['class="is-success"', 'class="is-danger"', 'class="is-warning"'])
+            ->assertDontSee(['Incrustación de resina', 'Prótesis total', 'Carilla de porcelana']);
     }
 
     public function test_more_unfinished_visits_than_fit_on_home_lead_to_their_tab_in_the_list(): void

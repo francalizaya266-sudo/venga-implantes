@@ -45,24 +45,25 @@ final class FollowUps
     ) {}
 
     /**
-     * El presupuesto más antiguo de cada paciente que no respondió.
+     * El presupuesto más antiguo de cada paciente que no respondió, cuántos presupuestos son y cuánto suman.
      *
-     * @return array{count: int, plans: Collection<int, TreatmentPlan>}
+     * @return array{count: int, total: float, plans: Collection<int, TreatmentPlan>}
      */
     public function plansAwaitingAnswer(): array
     {
-        $plans = TreatmentPlan::query()
+        $all = TreatmentPlan::query()
             ->awaitingAnswer()
             ->whereHas('patient')
             ->with(['patient.account', 'doctor', 'items'])
             ->oldest('proposed_at')
-            ->get()
-            ->unique('patient_id');
+            ->get();
 
         return [
             // Cuenta presupuestos, como la pestaña "Sin respuesta" a la que lleva: el número coincide.
-            'count' => TreatmentPlan::query()->awaitingAnswer()->whereHas('patient')->count(),
-            'plans' => $plans->take(self::LIMIT)->values(),
+            'count' => $all->count(),
+            // Lo que suman todos, para saber cuánto hay en juego.
+            'total' => round($all->sum(fn (TreatmentPlan $plan): float => $plan->total()), 2),
+            'plans' => $all->unique('patient_id')->take(self::LIMIT)->values(),
         ];
     }
 

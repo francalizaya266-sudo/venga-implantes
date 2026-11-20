@@ -442,14 +442,16 @@ class FollowUpsToday extends Widget implements HasActions, HasSchemas
     /** @return array<string, mixed> */
     private function awaitingAnswer(FollowUps $followUps): array
     {
-        ['count' => $count, 'plans' => $plans] = $followUps->plansAwaitingAnswer();
+        ['count' => $count, 'total' => $total, 'plans' => $plans] = $followUps->plansAwaitingAnswer();
         $key = MessageTemplateKey::PlanFollowUp;
         $contacted = $followUps->recentlyContacted($plans->pluck('patient_id'), $key);
+        $since = 'presentados hace más de '.TreatmentPlan::ANSWER_WAIT_DAYS.' días';
 
         return [
             'key' => 'proposed',
             'title' => 'Presupuestos sin respuesta',
-            'hint' => 'Presentados hace más de '.TreatmentPlan::ANSWER_WAIT_DAYS.' días',
+            // Lo que suman va primero y sin cortarse ("S/ 9,500.00"): es lo que dice cuánto hay en juego.
+            'hint' => $count > 0 ? 'Suman '.str_replace(' ', "\u{00A0}", Money::format($total)).' · '.$since : ucfirst($since),
             'count' => $count,
             'url' => TreatmentPlanResource::getUrl('index', ['tab' => 'awaiting']),
             'summary' => null,

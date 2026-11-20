@@ -6,10 +6,12 @@ use App\Enums\AppointmentStatus;
 use App\Filament\Actions\AppointmentActions;
 use App\Filament\Concerns\RefreshesWithToday;
 use App\Filament\Resources\Appointments\AppointmentResource;
+use App\Filament\Resources\LabOrders\LabOrderResource;
 use App\Filament\Resources\Patients\PatientResource;
 use App\Filament\Support\ClinicalAlerts;
 use App\Filament\Support\VisitFlags;
 use App\Models\Appointment;
+use App\Models\LabOrder;
 use App\Models\User;
 use App\Services\Clinical\ConsentService;
 use App\Services\Dashboard\DoctorDay;
@@ -20,11 +22,12 @@ use Filament\Actions\Contracts\HasActions;
 use Filament\Schemas\Concerns\InteractsWithSchemas;
 use Filament\Schemas\Contracts\HasSchemas;
 use Filament\Widgets\Widget;
+use Illuminate\Database\Eloquent\Builder;
 
 /**
- * Para quien atiende: su próximo paciente con lo que tiene que ver antes de llamarlo
- * (alergias, enfermedades, embarazo, qué se le hizo la última vez), "Atender" y quién viene después. Las
- * atenciones que dejó abiertas van en su propia tarjeta, al costado (OpenConsultations).
+ * Para quien atiende: su próximo paciente con lo que tiene que ver antes de llamarlo (alergias, enfermedades,
+ * embarazo, si su trabajo de laboratorio ya llegó, qué se le hizo la última vez), "Atender" y quién viene después.
+ * Las atenciones que dejó abiertas van en su propia tarjeta, al costado (OpenConsultations).
  */
 class NextPatient extends Widget implements HasActions, HasSchemas
 {
@@ -107,12 +110,31 @@ class NextPatient extends Widget implements HasActions, HasSchemas
             'alerts' => ClinicalAlerts::withSeverity($patient),
             // Si el tratamiento pide consentimiento y aún no lo firmó, se firma antes de empezar.
             'consentMissing' => app(ConsentService::class)->signedForVisit($appointment) === false,
+            // Si espera un trabajo de laboratorio: si ya llegó o no, antes de llamarlo (para colocar una corona, por ejemplo).
+            'lab' => $this->labWork($appointment),
             'last' => $last ? $last->treatment->name.' · '.$last->starts_at->translatedFormat('j M Y') : null,
             'notes' => $appointment->patient_note,
             // Lo que recepción (o el mismo doctor) anotó al agendar: "viene con dolor", "trae su radiografía".
             'internalNotes' => $appointment->internal_notes,
             'historyUrl' => PatientResource::getUrl('clinical', ['record' => $patient]),
         ];
+    }
+
+    /**
+     * Lo que el paciente espera del laboratorio (de lo que este usuario puede ver): si ya llegó o sigue allá.
+     *
+     * @return list<array{text: string, tone: 'success'|'warning'|'danger'}>
+     */
+    private function labWork(Appointment $appointment): array
+    {
+        /** @var Builder<LabOrder> $labOrders */
+        $labOrders = LabOrderResource::getEloquentQuery();
+
+        return $labOrders->forVisitOf($appointment->patient_id)->get()
+            ->map(fn (LabOrder $order): ?array => $order->beforeVisit())
+            ->filter()
+            ->values()
+            ->all();
     }
 
     /**
