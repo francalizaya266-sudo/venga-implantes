@@ -47,12 +47,13 @@ class TodayStats extends Widget
         $user = auth()->user();
 
         if (TodayView::current($user) === TodayView::Clinic) {
-            return ['stats' => array_values(array_filter([
+            // "Cobrado hoy" falta para quien no ve la caja; como va al final, la lista queda en orden.
+            return ['stats' => array_filter([
                 $this->appointments(),
                 $this->waitingRoom(),
                 $this->unconfirmed(),
                 $this->collectedToday($user),
-            ]))];
+            ])];
         }
 
         // Al doctor la lista ya le trae solo lo suyo; al administrador que atiende, "Mi consulta" la acota a su agenda.

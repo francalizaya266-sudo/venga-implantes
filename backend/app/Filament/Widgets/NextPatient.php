@@ -68,15 +68,7 @@ class NextPatient extends Widget implements HasActions, HasSchemas
 
         return [
             'next' => $next ? $this->nextData($day, $next) : null,
-            // Quién viene después, para saberlo sin bajar a la agenda: "11:30 Ana Silva · Evaluación".
-            'after' => $after ? [
-                'time' => $after->starts_at->format('H:i'),
-                'text' => collect([
-                    $after->patient->full_name,
-                    $after->planItem?->label() ?? $after->treatment->name,
-                    $after->status === AppointmentStatus::CheckedIn ? 'ya está en sala' : null,
-                ])->filter()->implode(' · '),
-            ] : null,
+            'after' => $after ? $this->afterData($after) : null,
             'othersWaiting' => max(0, $waiting - ($next?->status === AppointmentStatus::CheckedIn ? 1 : 0)),
         ];
     }
@@ -93,13 +85,8 @@ class NextPatient extends Widget implements HasActions, HasSchemas
 
         return [
             'id' => $appointment->getKey(),
-            'time' => $appointment->starts_at->format('H:i'),
-            'name' => $patient->full_name,
+            ...$this->summary($appointment),
             'age' => $patient->age !== null ? $patient->age.($patient->age === 1 ? ' año' : ' años') : null,
-            'reason' => collect([
-                $appointment->planItem?->label() ?? $appointment->treatment->name,
-                mb_strtolower(VisitFlags::session($appointment->planItem) ?? ''),
-            ])->filter()->implode(' · '),
             'state' => match (true) {
                 $waiting !== null => 'Llegó hace '.Dates::duration($waiting),
                 $late !== null => 'Va '.Dates::duration($late).' tarde',
@@ -121,6 +108,42 @@ class NextPatient extends Widget implements HasActions, HasSchemas
             // Lo que recepción (o el mismo doctor) anotó al agendar: "viene con dolor", "trae su radiografía".
             'internalNotes' => $appointment->internal_notes,
             'historyUrl' => PatientResource::getUrl('clinical', ['record' => $patient]),
+        ];
+    }
+
+    /**
+     * Quién viene después, para saberlo sin bajar a la agenda: "11:30 Ana Silva · Evaluación · ya está en sala".
+     *
+     * @return array{time: string, text: string}
+     */
+    private function afterData(Appointment $appointment): array
+    {
+        $summary = $this->summary($appointment);
+
+        return [
+            'time' => $summary['time'],
+            'text' => collect([
+                $summary['name'],
+                $summary['reason'],
+                $appointment->waitingMinutes() !== null ? 'ya está en sala' : null,
+            ])->filter()->implode(' · '),
+        ];
+    }
+
+    /**
+     * La hora, el nombre y a qué viene: lo que dicen de cada uno "Tu próximo paciente" y su "Después".
+     *
+     * @return array{time: string, name: string, reason: string}
+     */
+    private function summary(Appointment $appointment): array
+    {
+        return [
+            'time' => $appointment->starts_at->format('H:i'),
+            'name' => $appointment->patient->full_name,
+            'reason' => collect([
+                $appointment->planItem?->label() ?? $appointment->treatment->name,
+                mb_strtolower(VisitFlags::session($appointment->planItem) ?? ''),
+            ])->filter()->implode(' · '),
         ];
     }
 }

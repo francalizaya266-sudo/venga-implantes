@@ -42,14 +42,13 @@ class WaitingRoom extends Widget
 
     /**
      * Cuántos minutos lleva cada uno de los que están en sala: lo que cuentan "En sala ahora" y la línea de la
-     * clínica en "Mi consulta", con las mismas personas que esta tarjeta.
+     * clínica en "Mi consulta". Las dos, como esta tarjeta, son de quien ve todas las agendas: cuentan a todos.
      *
      * @return Collection<int, int>
      */
     public static function waitingMinutes(): Collection
     {
-        return AppointmentResource::getEloquentQuery()
-            ->withoutEagerLoads()
+        return Appointment::query()
             ->waitingNow()
             ->get(['id', 'status', 'checked_in_at'])
             ->map(fn (Appointment $appointment) => (int) $appointment->waitingMinutes())
