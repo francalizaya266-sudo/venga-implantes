@@ -53,7 +53,7 @@ class AgendaPanelTest extends TestCase
         $doctor = $this->doctorOffering($treatment);
         Appointment::factory()->for($doctor)->for($treatment)->at('2026-11-02 10:00')->create();
 
-        // El doctor ve "Mi consulta": sus citas.
+        // El doctor ve sus citas.
         foreach ([[User::factory()->admin()->create(), 'Citas de hoy'], [User::factory()->reception()->create(), 'Citas de hoy'], [$doctor->user, 'Mis citas de hoy']] as [$user, $appointmentsLabel]) {
             $this->actingAs($user);
 

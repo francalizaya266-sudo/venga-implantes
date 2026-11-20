@@ -2,7 +2,6 @@
 
 namespace App\Filament\Widgets;
 
-use App\Enums\TodayView;
 use App\Filament\Concerns\RefreshesWithToday;
 use App\Filament\Resources\Appointments\AppointmentResource;
 use App\Filament\Resources\Appointments\Tables\AppointmentsTable;
@@ -14,9 +13,9 @@ use Illuminate\Support\Collection;
 
 /**
  * Quién está en sala y hace cuánto, de quien más espera a quien acaba de llegar. Desde
- * TodayAppointments::LONG_WAIT_MINUTES la espera va en rojo. Va en "Toda la clínica": en "Mi consulta"
- * quien atiende ve a quien lo espera en "Tu próximo paciente". Quien quedó "en sala" horas después de su
- * cita ya no sale: es una cita sin cerrar. Se actualiza sola cada 30 s.
+ * TodayAppointments::LONG_WAIT_MINUTES la espera va en rojo. Es de quien ve todas las agendas; el doctor ve a
+ * quien lo espera en "Tu próximo paciente". Quien quedó "en sala" horas después de su cita ya no sale: es una
+ * cita sin cerrar. Se actualiza sola cada 30 s.
  */
 class WaitingRoom extends Widget
 {
@@ -37,12 +36,12 @@ class WaitingRoom extends Widget
         /** @var User|null $user */
         $user = auth()->user();
 
-        return (bool) $user?->managesAllAgendas() && TodayView::current($user) === TodayView::Clinic;
+        return (bool) $user?->managesAllAgendas();
     }
 
     /**
-     * Cuántos minutos lleva cada uno de los que están en sala: lo que cuentan "En sala ahora" y la línea de la
-     * clínica en "Mi consulta". Las dos, como esta tarjeta, son de quien ve todas las agendas: cuentan a todos.
+     * Cuántos minutos lleva cada uno de los que están en sala: lo que cuenta "En sala ahora". Como esta tarjeta,
+     * es de quien ve todas las agendas: cuenta a todos.
      *
      * @return Collection<int, int>
      */

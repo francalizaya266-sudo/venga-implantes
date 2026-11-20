@@ -3,7 +3,6 @@
 namespace App\Filament\Widgets;
 
 use App\Enums\AppointmentStatus;
-use App\Enums\TodayView;
 use App\Filament\Actions\AppointmentActions;
 use App\Filament\Concerns\RefreshesWithToday;
 use App\Filament\Pages\Dashboard;
@@ -29,7 +28,7 @@ use Livewire\Attributes\Session;
  * La agenda de hoy como línea de tiempo: la hora grande a la izquierda, el color de su estado en el
  * borde y una línea de "ahora" antes de la próxima cita. El primer botón de cada cita es el paso que
  * sigue (confirmar, llegó, atender, cobrar) y se ve como botón; los demás quedan más discretos.
- * Quien está en sala muestra cuánto lleva esperando. Con más de un doctor, en "Toda la clínica" se puede
+ * Quien está en sala muestra cuánto lleva esperando. Con más de un doctor, quien ve todas las agendas puede
  * ver la de uno solo ("Todos · Dra. Ana · Dr. Jassmanny") y la elección se recuerda.
  */
 class TodayAppointments extends TableWidget
@@ -44,7 +43,7 @@ class TodayAppointments extends TableWidget
 
     protected int|string|array $columnSpan = 'full';
 
-    /** El doctor elegido arriba de la agenda en "Toda la clínica"; null es "Todos". */
+    /** El doctor elegido arriba de la agenda; null es "Todos". */
     #[Session]
     public ?int $doctor = null;
 
@@ -56,13 +55,12 @@ class TodayAppointments extends TableWidget
         /** @var User $user */
         $user = auth()->user();
 
-        $onlyDoctor = self::onlyDoctor($user);
         $seesMoney = $user->can('viewAny', Charge::class);
 
         // El doctor elegido arriba puede cambiar en esta misma petición (showDoctor): lo que depende de él se
         // calcula al pintar, no al armar la tabla.
         return $table
-            ->heading($onlyDoctor !== null ? 'Mi agenda de hoy' : 'Agenda de hoy')
+            ->heading('Agenda de hoy')
             ->header(fn () => ($doctors = $this->doctorOptions($user)) === [] ? null : view('filament.widgets.today-appointments-header', ['doctors' => $doctors]))
             ->query(fn () => AppointmentResource::getEloquentQuery()
                 ->with(['patient' => fn ($patient) => $patient->with('account')->when($seesMoney, fn ($q) => $q->withBalance()), 'treatment', 'doctor'])
@@ -121,7 +119,7 @@ class TodayAppointments extends TableWidget
             ->recordUrl(fn (Appointment $record) => AppointmentResource::getUrl('view', ['record' => $record]))
             ->recordActions(AppointmentActions::all())
             ->poll('30s')
-            ->emptyStateHeading(fn () => $onlyDoctor === null && $this->shownDoctor() !== null ? 'No tiene citas hoy' : 'No hay citas hoy')
+            ->emptyStateHeading(fn () => $this->shownDoctor() !== null ? 'No tiene citas hoy' : 'No hay citas hoy')
             ->emptyStateDescription('Las citas de hoy aparecen aquí en orden, con el botón del paso que sigue.')
             ->emptyStateIcon('heroicon-o-calendar');
     }
@@ -139,34 +137,24 @@ class TodayAppointments extends TableWidget
         $this->nextId = null;
     }
 
-    /** En "Mi consulta" del administrador que atiende, solo su agenda (al doctor la lista ya le trae solo la suya). */
-    private static function onlyDoctor(User $user): ?int
-    {
-        return $user->managesAllAgendas() && TodayView::current($user) === TodayView::Mine ? $user->doctorId() : null;
-    }
-
-    /** De quién es la agenda que se ve: la suya en "Mi consulta", o la del doctor elegido arriba; null es de todos. */
+    /** De quién es la agenda que se ve: la del doctor elegido arriba; null es de todos (al doctor, la suya). */
     private function shownDoctor(): ?int
     {
         /** @var User $user */
         $user = auth()->user();
 
-        if (($onlyDoctor = self::onlyDoctor($user)) !== null) {
-            return $onlyDoctor;
-        }
-
         return collect($this->doctorOptions($user))->firstWhere('active', true)['id'] ?? null;
     }
 
     /**
-     * Las opciones de arriba de la agenda: "Todos" y cada doctor activo. Solo para quien ve todas las agendas, en
-     * "Toda la clínica" y con más de un doctor; si el elegido dejó de atender, vuelve a "Todos".
+     * Las opciones de arriba de la agenda: "Todos" y cada doctor activo. Solo para quien ve todas las agendas y
+     * con más de un doctor; si el elegido dejó de atender, vuelve a "Todos".
      *
      * @return list<array{id: int|null, name: string, active: bool}>
      */
     private function doctorOptions(User $user): array
     {
-        if (self::onlyDoctor($user) !== null || ! AppointmentsTable::showsDoctor($user)) {
+        if (! AppointmentsTable::showsDoctor($user)) {
             return [];
         }
 

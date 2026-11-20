@@ -2,7 +2,6 @@
 
 namespace App\Filament\Widgets;
 
-use App\Enums\TodayView;
 use App\Filament\Widgets\Reports\ReportChart;
 use App\Models\User;
 use App\Services\Dashboard\MonthFigures;
@@ -12,8 +11,8 @@ use Carbon\CarbonImmutable;
 
 /**
  * Lo cobrado día por día en los últimos 30 días, debajo de "Noviembre hasta hoy": para ver la forma del mes
- * (los días flojos, los buenos) sin entrar a Reportes. Solo en "Toda la clínica" del administrador y al fondo de
- * la página: el inicio no es un panel de estadísticas. Carga después del resto y usa las mismas cifras del mes,
+ * (los días flojos, los buenos) sin entrar a Reportes. Solo para el administrador y al fondo de la página: el
+ * inicio no es un panel de estadísticas. Carga después del resto y usa las mismas cifras del mes,
  * guardadas 5 minutos. Hoy va más claro: el día sigue.
  */
 class MonthTrendChart extends ReportChart
@@ -38,7 +37,7 @@ class MonthTrendChart extends ReportChart
         /** @var User|null $user */
         $user = auth()->user();
 
-        return ReportAccess::canView($user) && $user->isAdmin() && TodayView::current($user) === TodayView::Clinic;
+        return ReportAccess::canView($user) && $user->isAdmin();
     }
 
     protected function chartData(): array

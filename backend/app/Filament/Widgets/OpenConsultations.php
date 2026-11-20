@@ -10,9 +10,9 @@ use App\Services\Dashboard\DoctorDay;
 use Filament\Widgets\Widget;
 
 /**
- * Las atenciones que quien atiende dejó abiertas, en "Mi consulta" y al costado de su próximo paciente. Las de
- * otro día dicen "sin cobrar": mientras sigan abiertas no se cobra lo atendido ni avanza el plan. Solo aparece
- * si hay alguna al abrir "Hoy"; si se cierran todas mientras tanto, lo dice.
+ * Las atenciones que quien atiende dejó abiertas, al costado de su próximo paciente. Las de otro día dicen
+ * "sin cobrar": mientras sigan abiertas no se cobra lo atendido ni avanza el plan. Solo aparece si hay alguna
+ * al abrir "Hoy"; si se cierran todas mientras tanto, lo dice.
  */
 class OpenConsultations extends Widget
 {
@@ -32,7 +32,9 @@ class OpenConsultations extends Widget
         /** @var User|null $user */
         $user = auth()->user();
 
-        return NextPatient::canView() && (new DoctorDay($user->doctorId()))->openConsultations()->isNotEmpty();
+        // Las suyas, aunque hoy no tenga citas: lo que quedó abierto sigue sin cobrarse.
+        return $user?->doctorId() !== null && $user->canSeeClinical()
+            && (new DoctorDay($user->doctorId()))->openConsultations()->isNotEmpty();
     }
 
     /** @return array{count: int, url: string, consultations: list<array{name: string, detail: string, late: bool, url: string}>} */

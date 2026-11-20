@@ -3,7 +3,6 @@
 namespace App\Filament\Widgets;
 
 use App\Enums\AppointmentStatus;
-use App\Enums\TodayView;
 use App\Filament\Actions\AppointmentActions;
 use App\Filament\Concerns\RefreshesWithToday;
 use App\Filament\Resources\Appointments\AppointmentResource;
@@ -23,7 +22,7 @@ use Filament\Schemas\Contracts\HasSchemas;
 use Filament\Widgets\Widget;
 
 /**
- * Para quien atiende, en "Mi consulta": su próximo paciente con lo que tiene que ver antes de llamarlo
+ * Para quien atiende: su próximo paciente con lo que tiene que ver antes de llamarlo
  * (alergias, enfermedades, embarazo, qué se le hizo la última vez), "Atender" y quién viene después. Las
  * atenciones que dejó abiertas van en su propia tarjeta, al costado (OpenConsultations).
  */
@@ -45,7 +44,12 @@ class NextPatient extends Widget implements HasActions, HasSchemas
         /** @var User|null $user */
         $user = auth()->user();
 
-        return $user?->doctorId() !== null && $user->canSeeClinical() && TodayView::current($user) === TodayView::Mine;
+        if ($user?->doctorId() === null || ! $user->canSeeClinical()) {
+            return false;
+        }
+
+        // El administrador que además atiende lo ve los días que tiene citas; los demás días, "Hoy" es de la clínica.
+        return ! $user->managesAllAgendas() || (new DoctorDay($user->doctorId()))->hasAppointmentsToday();
     }
 
     /** El mismo "Atender" de la lista: abre la atención con su plantilla y odontograma. */
