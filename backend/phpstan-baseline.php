@@ -306,18 +306,8 @@ $ignoreErrors[] = [
     'path' => __DIR__.'/app/Filament/Actions/IncludeInPackageAction.php',
 ];
 $ignoreErrors[] = [
-    'rawMessage' => 'Access to an undefined property App\\Models\\Patient::$full_name.',
-    'count' => 1,
-    'path' => __DIR__.'/app/Filament/Actions/RefundAction.php',
-];
-$ignoreErrors[] = [
     'rawMessage' => 'Access to an undefined property App\\Models\\Patient::$balance_due.',
     'count' => 1,
-    'path' => __DIR__.'/app/Filament/Actions/RegisterPaymentAction.php',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Access to an undefined property App\\Models\\Patient::$full_name.',
-    'count' => 2,
     'path' => __DIR__.'/app/Filament/Actions/RegisterPaymentAction.php',
 ];
 $ignoreErrors[] = [
@@ -376,11 +366,6 @@ $ignoreErrors[] = [
     'path' => __DIR__.'/app/Filament/Actions/RegisterPaymentAction.php',
 ];
 $ignoreErrors[] = [
-    'rawMessage' => 'Access to an undefined property App\\Models\\Patient::$full_name.',
-    'count' => 1,
-    'path' => __DIR__.'/app/Filament/Actions/SendToLabAction.php',
-];
-$ignoreErrors[] = [
     'rawMessage' => 'Access to an undefined property Illuminate\\Database\\Eloquent\\Model::$full_name.',
     'count' => 2,
     'path' => __DIR__.'/app/Filament/Actions/SendWhatsAppAction.php',
@@ -394,11 +379,6 @@ $ignoreErrors[] = [
     'rawMessage' => 'Using nullsafe property access "?->full_name" on left side of ?? is unnecessary. Use -> instead.',
     'count' => 1,
     'path' => __DIR__.'/app/Filament/Actions/SendWhatsAppAction.php',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Access to an undefined property App\\Models\\Patient::$full_name.',
-    'count' => 1,
-    'path' => __DIR__.'/app/Filament/Actions/SignConsentAction.php',
 ];
 $ignoreErrors[] = [
     'rawMessage' => 'Parameter #4 $doctor of method App\\Services\\Clinical\\ConsentService::render() expects App\\Models\\Doctor|null, Illuminate\\Database\\Eloquent\\Model|null given.',
@@ -636,11 +616,6 @@ $ignoreErrors[] = [
     'path' => __DIR__.'/app/Filament/Pages/Auth/EditProfile.php',
 ];
 $ignoreErrors[] = [
-    'rawMessage' => 'Access to an undefined property App\\Models\\Patient::$full_name.',
-    'count' => 1,
-    'path' => __DIR__.'/app/Filament/Pages/OwingBalances.php',
-];
-$ignoreErrors[] = [
     'rawMessage' => 'Call to an undefined method Illuminate\\Database\\Eloquent\\Builder::search().',
     'count' => 1,
     'path' => __DIR__.'/app/Filament/Pages/OwingBalances.php',
@@ -682,11 +657,6 @@ $ignoreErrors[] = [
 ];
 $ignoreErrors[] = [
     'rawMessage' => 'Access to an undefined property App\\Models\\Patient::$age.',
-    'count' => 1,
-    'path' => __DIR__.'/app/Filament/Resources/Accounts/RelationManagers/PatientsRelationManager.php',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Access to an undefined property App\\Models\\Patient::$full_name.',
     'count' => 1,
     'path' => __DIR__.'/app/Filament/Resources/Accounts/RelationManagers/PatientsRelationManager.php',
 ];
@@ -1646,11 +1616,6 @@ $ignoreErrors[] = [
     'path' => __DIR__.'/app/Filament/Resources/Patients/Pages/ViewClinicalRecord.php',
 ];
 $ignoreErrors[] = [
-    'rawMessage' => 'Access to an undefined property App\\Models\\Patient::$full_name.',
-    'count' => 1,
-    'path' => __DIR__.'/app/Filament/Resources/Patients/Pages/ViewClinicalRecord.php',
-];
-$ignoreErrors[] = [
     'rawMessage' => 'Cannot call method getLabel() on string.',
     'count' => 1,
     'path' => __DIR__.'/app/Filament/Resources/Patients/Pages/ViewClinicalRecord.php',
@@ -1901,11 +1866,6 @@ $ignoreErrors[] = [
     'path' => __DIR__.'/app/Filament/Resources/Patients/Schemas/PatientForm.php',
 ];
 $ignoreErrors[] = [
-    'rawMessage' => 'Access to an undefined property App\\Models\\Patient::$full_name.',
-    'count' => 3,
-    'path' => __DIR__.'/app/Filament/Resources/Patients/Schemas/PatientForm.php',
-];
-$ignoreErrors[] = [
     'rawMessage' => 'Access to an undefined property Illuminate\\Database\\Eloquent\\Model::$phone.',
     'count' => 1,
     'path' => __DIR__.'/app/Filament/Resources/Patients/Schemas/PatientForm.php',
@@ -1919,11 +1879,6 @@ $ignoreErrors[] = [
     'rawMessage' => 'Strict comparison using !== between string and App\\Enums\\PatientRelationship::Self will always evaluate to true.',
     'count' => 1,
     'path' => __DIR__.'/app/Filament/Resources/Patients/Schemas/PatientForm.php',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Access to an undefined property App\\Models\\Patient::$full_name.',
-    'count' => 1,
-    'path' => __DIR__.'/app/Filament/Resources/Patients/Schemas/PatientInfolist.php',
 ];
 $ignoreErrors[] = [
     'rawMessage' => 'Call to an undefined method Illuminate\\Database\\Eloquent\\Model::isBlocked().',
@@ -1962,11 +1917,6 @@ $ignoreErrors[] = [
 ];
 $ignoreErrors[] = [
     'rawMessage' => 'Access to an undefined property App\\Models\\Patient::$age.',
-    'count' => 1,
-    'path' => __DIR__.'/app/Filament/Resources/Patients/Tables/PatientsTable.php',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Access to an undefined property App\\Models\\Patient::$full_name.',
     'count' => 1,
     'path' => __DIR__.'/app/Filament/Resources/Patients/Tables/PatientsTable.php',
 ];
@@ -2094,11 +2044,6 @@ $ignoreErrors[] = [
     'rawMessage' => 'Parameter #1 $key of method Illuminate\\Support\\Collection<int,Illuminate\\Database\\Eloquent\\Model>::every() expects (callable(Illuminate\\Database\\Eloquent\\Model, int): bool)|Illuminate\\Database\\Eloquent\\Model|string, Closure(App\\Models\\PurchaseOrderItem): bool given.',
     'count' => 1,
     'path' => __DIR__.'/app/Filament/Resources/PurchaseOrders/PurchaseOrderResource.php',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Access to an undefined property App\\Models\\Patient::$full_name.',
-    'count' => 1,
-    'path' => __DIR__.'/app/Filament/Resources/RescheduleRequests/RescheduleRequestResource.php',
 ];
 $ignoreErrors[] = [
     'rawMessage' => 'Access to an undefined property Illuminate\\Database\\Eloquent\\Model::$doctor.',
@@ -2279,11 +2224,6 @@ $ignoreErrors[] = [
     'rawMessage' => 'Cannot call method translatedFormat() on string.',
     'count' => 2,
     'path' => __DIR__.'/app/Filament/Resources/ScheduleBlocks/ScheduleBlockResource.php',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Access to an undefined property App\\Models\\Patient::$full_name.',
-    'count' => 1,
-    'path' => __DIR__.'/app/Filament/Resources/SmileCases/SmileCaseResource.php',
 ];
 $ignoreErrors[] = [
     'rawMessage' => 'Access to an undefined property Illuminate\\Database\\Eloquent\\Model::$name.',
@@ -2966,11 +2906,6 @@ $ignoreErrors[] = [
     'path' => __DIR__.'/app/Filament/Resources/WhatsappMessages/WhatsappMessageResource.php',
 ];
 $ignoreErrors[] = [
-    'rawMessage' => 'Access to an undefined property App\\Models\\Patient::$full_name.',
-    'count' => 1,
-    'path' => __DIR__.'/app/Filament/Support/ArrivalChecklist.php',
-];
-$ignoreErrors[] = [
     'rawMessage' => 'Cannot call method isPast() on string.',
     'count' => 1,
     'path' => __DIR__.'/app/Filament/Support/ArrivalChecklist.php',
@@ -3068,11 +3003,6 @@ $ignoreErrors[] = [
 $ignoreErrors[] = [
     'rawMessage' => 'Access to an undefined property App\\Models\\Patient::$age.',
     'count' => 2,
-    'path' => __DIR__.'/app/Filament/Support/PatientSummary.php',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Access to an undefined property App\\Models\\Patient::$full_name.',
-    'count' => 1,
     'path' => __DIR__.'/app/Filament/Support/PatientSummary.php',
 ];
 $ignoreErrors[] = [
@@ -3486,11 +3416,6 @@ $ignoreErrors[] = [
     'path' => __DIR__.'/app/Filament/Widgets/FollowUpsToday.php',
 ];
 $ignoreErrors[] = [
-    'rawMessage' => 'Access to an undefined property App\\Models\\Patient::$full_name.',
-    'count' => 1,
-    'path' => __DIR__.'/app/Filament/Widgets/FollowUpsToday.php',
-];
-$ignoreErrors[] = [
     'rawMessage' => 'Access to an undefined property App\\Models\\Patient::$visits_count.',
     'count' => 1,
     'path' => __DIR__.'/app/Filament/Widgets/FollowUpsToday.php',
@@ -3719,11 +3644,6 @@ $ignoreErrors[] = [
     'rawMessage' => 'Cannot call method format() on string.',
     'count' => 1,
     'path' => __DIR__.'/app/Filament/Widgets/WaitingRoom.php',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Access to an undefined property App\\Models\\Patient::$full_name.',
-    'count' => 3,
-    'path' => __DIR__.'/app/Http/Controllers/Api/V1/Account/AccountController.php',
 ];
 $ignoreErrors[] = [
     'rawMessage' => 'Access to an undefined property Illuminate\\Database\\Eloquent\\Model::$first_name.',
@@ -4623,11 +4543,6 @@ $ignoreErrors[] = [
 $ignoreErrors[] = [
     'rawMessage' => 'Access to an undefined property App\\Models\\Patient::$age.',
     'count' => 3,
-    'path' => __DIR__.'/app/Models/Patient.php',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Access to an undefined property App\\Models\\Patient::$full_name.',
-    'count' => 1,
     'path' => __DIR__.'/app/Models/Patient.php',
 ];
 $ignoreErrors[] = [
@@ -5611,11 +5526,6 @@ $ignoreErrors[] = [
     'path' => __DIR__.'/app/Services/Booking/AppointmentReminders.php',
 ];
 $ignoreErrors[] = [
-    'rawMessage' => 'Access to an undefined property App\\Models\\Patient::$full_name.',
-    'count' => 2,
-    'path' => __DIR__.'/app/Services/Booking/AppointmentService.php',
-];
-$ignoreErrors[] = [
     'rawMessage' => 'Access to an undefined property Illuminate\\Database\\Eloquent\\Model::$aftercare.',
     'count' => 1,
     'path' => __DIR__.'/app/Services/Booking/AppointmentService.php',
@@ -5959,11 +5869,6 @@ $ignoreErrors[] = [
     'rawMessage' => 'Access to an undefined property Illuminate\\Database\\Eloquent\\Model::$allergies.',
     'count' => 1,
     'path' => __DIR__.'/app/Services/Clinical/AllergyCheck.php',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Access to an undefined property App\\Models\\Patient::$full_name.',
-    'count' => 2,
-    'path' => __DIR__.'/app/Services/Clinical/ConsentService.php',
 ];
 $ignoreErrors[] = [
     'rawMessage' => 'Parameter #1 $relationship of static method App\\Services\\Clinical\\ConsentService::inverse() expects App\\Enums\\PatientRelationship, string given.',
@@ -6609,11 +6514,6 @@ $ignoreErrors[] = [
     'rawMessage' => 'Cannot call method format() on string.',
     'count' => 2,
     'path' => __DIR__.'/app/Services/Dashboard/DayMoment.php',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Access to an undefined property App\\Models\\Patient::$full_name.',
-    'count' => 1,
-    'path' => __DIR__.'/app/Services/Dashboard/FollowUps.php',
 ];
 $ignoreErrors[] = [
     'rawMessage' => 'Access to an undefined property Illuminate\\Database\\Eloquent\\Model::$name.',
@@ -7289,11 +7189,6 @@ $ignoreErrors[] = [
     'rawMessage' => 'Strict comparison using === between string and App\\Enums\\DiscountType::Percent will always evaluate to false.',
     'count' => 1,
     'path' => __DIR__.'/app/Support/CampaignText.php',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Access to an undefined property App\\Models\\Patient::$full_name.',
-    'count' => 1,
-    'path' => __DIR__.'/app/Support/FamilyNames.php',
 ];
 $ignoreErrors[] = [
     'rawMessage' => 'Access to an undefined property App\\Models\\Patient::$short_name.',

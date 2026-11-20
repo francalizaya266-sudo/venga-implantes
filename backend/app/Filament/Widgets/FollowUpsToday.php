@@ -11,6 +11,7 @@ use App\Filament\Concerns\RefreshesWithToday;
 use App\Filament\Pages\TomorrowTray;
 use App\Filament\Resources\Appointments\AppointmentResource;
 use App\Filament\Resources\Appointments\Schemas\AppointmentForm;
+use App\Filament\Resources\Consultations\ConsultationResource;
 use App\Filament\Resources\Installments\InstallmentResource;
 use App\Filament\Resources\LabOrders\LabOrderResource;
 use App\Filament\Resources\Patients\PatientResource;
@@ -19,17 +20,24 @@ use App\Filament\Resources\Supplies\SupplyResource;
 use App\Filament\Resources\TreatmentPlans\TreatmentPlanResource;
 use App\Filament\Resources\WhatsappMessages\WhatsappMessageResource;
 use App\Models\Appointment;
+use App\Models\Consent;
+use App\Models\ConsentTemplate;
+use App\Models\Consultation;
 use App\Models\DeskNote;
+use App\Models\Doctor;
 use App\Models\LabOrder;
 use App\Models\Patient;
 use App\Models\Supply;
 use App\Models\SupplyBatch;
+use App\Models\Treatment;
 use App\Models\TreatmentPlan;
 use App\Models\TreatmentPlanItem;
 use App\Models\User;
+use App\Services\Clinical\ConsentService;
 use App\Services\Dashboard\FollowUps;
 use App\Services\Inventory\SupplyForecast;
 use App\Services\Inventory\Tray;
+use App\Support\Dates;
 use App\Support\Money;
 use Carbon\CarbonImmutable;
 use Filament\Actions\Action;
@@ -47,18 +55,29 @@ use Filament\Widgets\Widget;
 use Illuminate\Support\Collection;
 
 /**
- * "Por hacer hoy" de recepción, al costado de la agenda: primero lo que espera un clic (avisos por
- * enviar, solicitudes de cambio) y después a quién escribirle o llamar, con el WhatsApp ya redactado
- * y "Nueva cita" a un toque. Cada grupo se abre y se cierra, con su número a la vista, y lleva a su
- * lista completa. Quien ya recibió el aviso hace poco queda marcado, para no escribirle dos veces.
- * Arriba van los pendientes que recepción anota a mano: salen el día que tocan y se quedan hasta marcarlos
- * como hechos, para que el turno que sigue sepa qué quedó.
+ * "Por hacer hoy" de recepción, al costado de la agenda, en dos bloques. "Resolver hoy": lo que espera a
+ * alguien hoy (quien lleva mucho en sala, citas sin cerrar, consentimientos por firmar, avisos, solicitudes,
+ * cuotas, laboratorio, inventario); arriba, cuántos de esos son urgentes. "Seguimiento": a quién escribirle o
+ * llamar, con el WhatsApp ya redactado y "Nueva cita" a un toque; si es largo y hay algo que resolver, va
+ * plegado. Cada grupo se abre y se cierra, con su número a la vista, y lleva a su lista completa; lo que la
+ * persona abrió o cerró se queda así aunque la tarjeta se actualice. Quien ya recibió el aviso hace poco queda
+ * marcado, para no escribirle dos veces. Arriba de todo van los pendientes que recepción anota a mano: salen el
+ * día que tocan y se quedan hasta marcarlos como hechos, para que el turno que sigue sepa qué quedó.
  */
 class FollowUpsToday extends Widget implements HasActions, HasSchemas
 {
     use InteractsWithActions;
     use InteractsWithSchemas;
     use RefreshesWithToday;
+
+    /** Lo que se resuelve hoy, en este orden; lo demás es seguimiento. */
+    private const RESOLVE = ['waits', 'left-open', 'consents', 'earlier-open', 'messages', 'requests', 'installments', 'lab', 'supplies', 'supplies-soon', 'tray', 'batches'];
+
+    /** De lo que se resuelve hoy, lo que no puede esperar: su número se marca y cuenta en "N urgentes". */
+    private const URGENT = ['waits', 'left-open', 'consents', 'earlier-open', 'messages', 'requests', 'installments', 'lab', 'supplies', 'batches'];
+
+    /** Desde cuántos grupos el seguimiento va plegado, si también hay algo que resolver. */
+    private const FOLD_FOLLOW_UP_FROM = 3;
 
     /** Mientras carga, un recuadro del mismo alto: la página no salta. */
     protected ?string $placeholderHeight = '24rem';
@@ -190,14 +209,18 @@ class FollowUpsToday extends Widget implements HasActions, HasSchemas
     }
 
     /**
-     * @return array{notes: list<array{id: int, body: string, status: string, done: bool, late: bool, patient: string|null, patient_url: string|null}>, sections: list<array{key: string, title: string, hint: string, count: int, url: string|null, summary: string|null, template: string|null, rows: list<array{patient_id: int, name: string, detail: string, contacted: string|null, can_message: bool, url: string, new_appointment_url: string|null}>}>}
+     * @return array{notes: list<array{id: int, body: string, status: string, done: bool, late: bool, patient: string|null, patient_url: string|null}>, urgent: int, resolve: list<array<string, mixed>>, followUp: list<array<string, mixed>>, foldFollowUp: bool, openKey: string|null}
      */
     protected function getViewData(): array
     {
         $followUps = app(FollowUps::class);
 
-        return ['notes' => $this->notes(), 'sections' => array_values(array_filter([
+        /** @var Collection<int, array<string, mixed>> $sections */
+        $sections = collect([
+            $this->longWaits(),
             $this->leftOpenAppointments(),
+            $this->consentsToSign(),
+            $this->earlierOpenConsultations(),
             $this->dueMessages(),
             $this->pendingRequests(),
             $this->awaitingAnswer($followUps),
@@ -212,7 +235,145 @@ class FollowUpsToday extends Widget implements HasActions, HasSchemas
             $this->checkups($followUps),
             $this->birthdays($followUps),
             $this->reviews($followUps),
-        ], fn (?array $section) => $section !== null && $section['count'] > 0))];
+        ])
+            ->filter(fn (?array $section) => $section !== null && $section['count'] > 0)
+            ->map(fn (array $section) => [...$section, 'urgent' => in_array($section['key'], self::URGENT, true)])
+            ->values();
+        [$resolve, $followUp] = $sections->partition(fn (array $section) => in_array($section['key'], self::RESOLVE, true));
+        $resolve = $resolve->sortBy(fn (array $section) => array_search($section['key'], self::RESOLVE, true))->values();
+
+        return [
+            'notes' => $this->notes(),
+            'urgent' => $resolve->where('urgent', true)->count(),
+            'resolve' => $resolve->all(),
+            'followUp' => $followUp->values()->all(),
+            'foldFollowUp' => $resolve->isNotEmpty() && $followUp->count() >= self::FOLD_FOLLOW_UP_FROM,
+            // El primer grupo con nombres va abierto: es lo primero que hay que hacer con personas.
+            'openKey' => $resolve->concat($followUp)->first(fn (array $section) => $section['rows'] !== [])['key'] ?? null,
+        ];
+    }
+
+    /**
+     * Quien lleva 20 minutos o más en sala: alguien tiene que ver qué pasa (avisar a su doctor o explicarle la
+     * demora). Son los mismos que la sala de espera marca en rojo.
+     *
+     * @return array<string, mixed>
+     */
+    private function longWaits(): array
+    {
+        $waiting = Appointment::query()
+            ->waitingNow()
+            ->with(['patient', 'doctor'])
+            ->orderBy('checked_in_at')
+            ->get()
+            ->filter(fn (Appointment $appointment) => $appointment->waitingMinutes() >= TodayAppointments::LONG_WAIT_MINUTES);
+
+        return [
+            'key' => 'waits',
+            'title' => 'Esperan '.TodayAppointments::LONG_WAIT_MINUTES.' min o más',
+            'hint' => 'Avisa a su doctor o explícales la demora',
+            'count' => $waiting->count(),
+            'url' => '#'.WaitingRoom::ANCHOR,
+            'summary' => self::firstNames($waiting->map(function (Appointment $appointment): string {
+                /** @var Patient $patient */
+                $patient = $appointment->patient;
+                /** @var Doctor|null $doctor */
+                $doctor = $appointment->doctor;
+
+                return $patient->full_name.' ('.collect([Dates::duration((int) $appointment->waitingMinutes()), $doctor?->name])->filter()->implode(', ').')';
+            })).'.',
+            'template' => null,
+            'rows' => [],
+        ];
+    }
+
+    /**
+     * Las citas de hoy cuyo tratamiento pide consentimiento y todavía no lo firmó: se firma desde la cita, antes de
+     * empezar. Solo para quien puede tomarlo (quien atiende).
+     *
+     * @return array<string, mixed>|null
+     */
+    private function consentsToSign(): ?array
+    {
+        if (! auth()->user()->can('create', Consent::class)) {
+            return null;
+        }
+
+        $consents = app(ConsentService::class);
+        $visits = Appointment::query()
+            ->whereDate('starts_at', today())
+            ->whereIn('status', AppointmentStatus::open())
+            ->whereIn('treatment_id', ConsentTemplate::query()->where('is_active', true)->whereNotNull('treatment_id')->select('treatment_id'))
+            ->with(['patient', 'treatment'])
+            ->orderBy('starts_at')
+            ->get()
+            ->filter(fn (Appointment $appointment) => $consents->signedForVisit($appointment) === false);
+
+        return [
+            'key' => 'consents',
+            'title' => 'Consentimientos por firmar hoy',
+            'hint' => 'Su tratamiento lo pide: se firma desde la cita, antes de empezar',
+            'count' => $visits->count(),
+            'url' => null,
+            'summary' => null,
+            'template' => null,
+            'rows' => $visits->map(function (Appointment $appointment): array {
+                /** @var Patient $patient */
+                $patient = $appointment->patient;
+                /** @var Treatment $treatment */
+                $treatment = $appointment->treatment;
+
+                return [
+                    'patient_id' => $patient->getKey(),
+                    'name' => $patient->full_name,
+                    'detail' => $treatment->name,
+                    'contacted' => null,
+                    'can_message' => false,
+                    'url' => AppointmentResource::getUrl('view', ['record' => $appointment]),
+                    'new_appointment_url' => null,
+                ];
+            })->values()->all(),
+        ];
+    }
+
+    /**
+     * Atenciones de días anteriores que su doctor no terminó, de todos los doctores: mientras sigan abiertas no se
+     * cobra lo atendido ni avanza el plan. Solo para el administrador, que ve las de todos.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function earlierOpenConsultations(): ?array
+    {
+        if (! auth()->user()->isAdmin() || ! ConsultationResource::canViewAny()) {
+            return null;
+        }
+
+        $open = Consultation::query()
+            ->whereNull('closed_at')
+            ->where(fn ($query) => $query
+                ->whereDate('attended_at', '<', today())
+                ->orWhere(fn ($query) => $query->whereNull('attended_at')->whereDate('created_at', '<', today())))
+            ->with(['patient', 'doctor'])
+            ->oldest('attended_at')
+            ->get();
+
+        return [
+            'key' => 'earlier-open',
+            'title' => 'Atenciones abiertas de días anteriores',
+            'hint' => 'Mientras sigan abiertas no se cobra ni avanza el plan',
+            'count' => $open->count(),
+            'url' => ConsultationResource::getUrl('index', ['tab' => 'open']),
+            'summary' => self::firstNames($open->map(function (Consultation $consultation): string {
+                /** @var Patient $patient */
+                $patient = $consultation->patient;
+                /** @var Doctor|null $doctor */
+                $doctor = $consultation->doctor;
+
+                return $patient->full_name.' ('.collect([$doctor?->name, ($consultation->attended_at ?? $consultation->created_at)->diffForHumans()])->filter()->implode(', ').')';
+            })).'.',
+            'template' => null,
+            'rows' => [],
+        ];
     }
 
     /**

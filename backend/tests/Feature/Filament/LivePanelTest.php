@@ -2,11 +2,15 @@
 
 namespace Tests\Feature\Filament;
 
+use App\Enums\AppointmentStatus;
 use App\Filament\Pages\Agenda;
 use App\Filament\Pages\Dashboard;
 use App\Filament\Resources\Appointments\Pages\ListAppointments;
+use App\Filament\Resources\Consultations\ConsultationResource;
+use App\Filament\Resources\WhatsappMessages\WhatsappMessageResource;
 use App\Livewire\PanelPulse;
 use App\Models\Appointment;
+use App\Models\Consultation;
 use App\Models\Doctor;
 use App\Models\Patient;
 use App\Models\Treatment;
@@ -103,6 +107,87 @@ class LivePanelTest extends TestCase
         $this->assertSame(1, $this->doctor->user->notifications()->count());
     }
 
+    public function test_the_arrival_stays_on_screen_with_attend_until_the_patient_goes_in(): void
+    {
+        $reception = User::factory()->reception()->create();
+        $this->actingAs($this->doctor->user);
+        $screen = Livewire::test(PanelPulse::class);
+
+        app(AppointmentService::class)->markArrived($this->rosa, $reception);
+        $alert = $this->doctor->user->unreadNotifications()->sole();
+
+        // No se va sola: queda con "Atender" hasta que el doctor lo atienda o la cierre.
+        $screen->call('check');
+        $toast = $this->poppedUpAlerts()[0];
+        $this->assertSame('Llegó Rosa Quispe', $toast['title']);
+        $this->assertSame('alert-'.$alert->id, $toast['id']);
+        $this->assertSame('persistent', $toast['duration']);
+        $this->assertSame('success', $toast['iconColor']);
+        $this->assertSame(['Atender', 'Cerrar'], array_column($toast['actions'], 'label'));
+        $this->assertSame(PanelPulse::ATTEND, $toast['actions'][0]['event']);
+
+        // Si pasa a consulta desde otra pantalla, el aviso se cierra solo.
+        app(AppointmentService::class)->markStarted($this->rosa, $reception);
+        $screen->call('check')->assertDispatched('close-notification', id: 'alert-'.$alert->id);
+    }
+
+    public function test_attend_on_the_arrival_opens_the_consultation(): void
+    {
+        app(AppointmentService::class)->markArrived($this->rosa, User::factory()->reception()->create());
+        $this->actingAs($this->doctor->user);
+
+        Livewire::test(PanelPulse::class)->dispatch(PanelPulse::ATTEND, appointment: $this->rosa->id)
+            ->assertRedirect(ConsultationResource::getUrl('edit', ['record' => $this->rosa->consultation()->sole()]));
+
+        $this->assertSame(AppointmentStatus::InProgress, $this->rosa->fresh()->status);
+        $this->assertSame(0, $this->doctor->user->unreadNotifications()->count());
+    }
+
+    public function test_only_the_doctor_of_the_visit_can_attend_from_the_alert(): void
+    {
+        app(AppointmentService::class)->markArrived($this->rosa, User::factory()->reception()->create());
+        $other = $this->doctorOffering(Treatment::factory()->create());
+        $this->actingAs($other->user);
+
+        Livewire::test(PanelPulse::class)->call('attend', $this->rosa->id)
+            ->assertNoRedirect()
+            ->assertNotified('Ese paciente ya no está en sala');
+
+        $this->assertSame(AppointmentStatus::CheckedIn, $this->rosa->fresh()->status);
+        $this->assertSame(0, Consultation::query()->count());
+    }
+
+    public function test_an_alert_that_asks_for_something_carries_its_button_on_screen_and_leaves_the_bell_read(): void
+    {
+        [$reception, $colleague] = User::factory()->reception()->count(2)->create();
+        $this->actingAs($reception);
+        $screen = Livewire::test(PanelPulse::class);
+
+        app(StaffAlerts::class)->toReception('Nueva cita web', 'Rosa Quispe · Limpieza', link: ['label' => 'Enviar la confirmación', 'url' => WhatsappMessageResource::getUrl()]);
+        app(StaffAlerts::class)->toReception('Dr. Luis Rojas agendó una cita', 'Rosa Quispe · Limpieza');
+        $asks = $reception->notifications()->where('data->title', 'Nueva cita web')->sole();
+        $tells = $reception->notifications()->where('data->title', 'Dr. Luis Rojas agendó una cita')->sole();
+
+        // La que pide algo lleva su botón y se va sola como las demás; la que solo informa, en gris y sin botón.
+        $screen->call('check');
+        ['Nueva cita web' => $toAct, 'Dr. Luis Rojas agendó una cita' => $toKnow] = array_column($this->poppedUpAlerts(), null, 'title');
+        $this->assertSame(['Enviar la confirmación'], array_column($toAct['actions'], 'label'));
+        $this->assertSame(['alert' => $asks->id], $toAct['actions'][0]['eventData']);
+        $this->assertSame('primary', $toAct['iconColor']);
+        $this->assertNotSame('persistent', $toAct['duration']);
+        $this->assertSame([], $toKnow['actions']);
+        $this->assertSame('gray', $toKnow['iconColor']);
+
+        $screen->call('openAlert', $asks->id)->assertRedirect(WhatsappMessageResource::getUrl());
+        $this->assertNotNull($asks->fresh()->read_at);
+        $this->assertNull($tells->fresh()->read_at);
+
+        // Solo los suyos: el de otra persona no se toca.
+        $other = $colleague->notifications()->where('data->title', 'Nueva cita web')->sole();
+        $screen->call('openAlert', $other->id)->assertNoRedirect();
+        $this->assertNull($other->fresh()->read_at);
+    }
+
     public function test_the_doctor_who_marks_the_arrival_is_not_told_what_they_just_did(): void
     {
         app(AppointmentService::class)->markArrived($this->rosa, $this->doctor->user);
@@ -188,6 +273,19 @@ class LivePanelTest extends TestCase
         Livewire::test(Agenda::class)->assertSeeHtml('x-on:today-changed.window="refresh()"');
         Livewire::withQueryParams(['mode' => 'list'])->test(Agenda::class)->assertSeeHtml('x-on:today-changed.window="refresh()"');
         Livewire::test(ListAppointments::class)->dispatch(Dashboard::CHANGED)->assertOk();
+    }
+
+    /**
+     * Los avisos de la campana que saltaron en pantalla desde la última vez que se miró, tal como se mostraron.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function poppedUpAlerts(): array
+    {
+        $mailbox = app(NotificationMailbox::class);
+        $mailbox->flush();
+
+        return array_values(array_filter($mailbox->pull(), fn (array $toast) => str_starts_with((string) $toast['id'], 'alert-')));
     }
 
     /**

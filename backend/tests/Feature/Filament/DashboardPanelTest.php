@@ -7,6 +7,7 @@ use App\Enums\MessageChannel;
 use App\Enums\MessageStatus;
 use App\Enums\MessageTemplateKey;
 use App\Enums\ScheduleBlockType;
+use App\Enums\TodayView;
 use App\Enums\TreatmentPlanStatus;
 use App\Filament\Pages\Dashboard;
 use App\Filament\Pages\Settings;
@@ -29,6 +30,8 @@ use App\Filament\Widgets\WaitingRoom;
 use App\Filament\Widgets\WeekGaps;
 use App\Models\Appointment;
 use App\Models\Charge;
+use App\Models\Consent;
+use App\Models\ConsentTemplate;
 use App\Models\Consultation;
 use App\Models\Doctor;
 use App\Models\Patient;
@@ -140,6 +143,37 @@ class DashboardPanelTest extends TestCase
         // Recepción no elige: un enlace con la vista no le cambia nada.
         $this->actingAs(User::factory()->reception()->create());
         $this->get(Dashboard::getUrl(['vista' => 'mi-consulta']))->assertOk()->assertSee('Sala de espera')->assertDontSee('Mi consulta');
+    }
+
+    public function test_with_several_doctors_the_agenda_of_today_shows_one_and_remembers_it(): void
+    {
+        $treatment = Treatment::factory()->create(['name' => 'Limpieza dental']);
+        $ana = $this->doctorOffering($treatment);
+        $ana->update(['name' => 'Dra. Ana Torres']);
+        $luis = $this->doctorOffering($treatment);
+        $luis->update(['name' => 'Dr. Luis Rojas']);
+        $this->doctorOffering($treatment);
+        Appointment::factory()->for($ana)->for($treatment)->for($this->patient('Rosa', 'Quispe'))->at('2026-11-02 10:00')->create();
+        Appointment::factory()->for($luis)->for($treatment)->for($this->patient('Pedro', 'Paz'))->at('2026-11-02 11:00')->create();
+        $this->actingAs(User::factory()->reception()->create());
+
+        // Abre con todos; al elegir un doctor, solo sus citas (y ya no hace falta decir de quién es cada una).
+        Livewire::test(TodayAppointments::class)
+            ->assertSeeInOrder(['Agenda de hoy', 'Todos', 'Dra. Ana Torres', 'Dr. Luis Rojas'])
+            ->assertSee(['Rosa Quispe', 'Pedro Paz'])
+            ->call('showDoctor', $ana->id)
+            ->assertSee('Rosa Quispe')
+            ->assertDontSee('Pedro Paz')
+            ->assertSeeHtml('aria-pressed="true"');
+
+        // La elección se recuerda al volver a "Hoy".
+        Livewire::test(TodayAppointments::class)->assertSee('Rosa Quispe')->assertDontSee('Pedro Paz');
+        Livewire::test(TodayAppointments::class)->call('showDoctor', null)->assertSee(['Rosa Quispe', 'Pedro Paz']);
+
+        // Si el doctor elegido deja de atender, vuelve a "Todos".
+        Livewire::test(TodayAppointments::class)->call('showDoctor', $luis->id)->assertDontSee('Rosa Quispe');
+        $luis->update(['is_active' => false]);
+        Livewire::test(TodayAppointments::class)->assertSee(['Rosa Quispe', 'Pedro Paz'])->assertDontSeeHtml('>Dr. Luis Rojas</button>');
     }
 
     public function test_each_visit_is_settled_on_the_card_without_opening_it(): void
@@ -589,7 +623,11 @@ class DashboardPanelTest extends TestCase
         Livewire::test(WeekGaps::class)
             // Arriba, el total de la semana (el que antes repetía "Horas libres" en los números del día).
             ->assertSee('Quedan 39'.self::NBSP.'h 20'.self::NBSP.'min libres de hoy a 7 días.')
-            ->assertSeeInOrder(['Hoy', '7'.self::NBSP.'h 20'.self::NBSP.'min libres', '09:40–13:00 · 15:00–19:00', 'Mañana', 'Sin huecos', 'Miércoles 4', '8'.self::NBSP.'h libres'])
+            // En una fila, empezando hoy: cuánto queda libre en cada día, con poco espacio.
+            ->assertSeeInOrder(['Hoy', '7 h 20', 'Mar', 'Lleno', 'Mié', '8 h', 'Sáb', '8 h'])
+            // Y debajo, el detalle de cada día al tocarlo; abre en el primero que tiene huecos.
+            ->assertSeeInOrder(['Hoy', '7'.self::NBSP.'h 20'.self::NBSP.'min libres', '09:40–13:00 · 15:00–19:00', 'Abrir la agenda de ese día', 'Mañana', 'Sin huecos', 'Miércoles 4', '8'.self::NBSP.'h libres'])
+            ->assertSeeHtml('x-data="{ day: 0 }"')
             // El domingo no se atiende.
             ->assertDontSee('Domingo');
     }
@@ -711,6 +749,95 @@ class DashboardPanelTest extends TestCase
         // Solo cambia la que nadie marcó; la que quedó en sala espera que alguien diga si se atendió.
         $this->assertSame(AppointmentStatus::NoShow, $forgotten->fresh()->status);
         $this->assertSame(AppointmentStatus::CheckedIn, $leftInRoom->fresh()->status);
+    }
+
+    public function test_what_to_resolve_today_comes_first_and_a_long_follow_up_folds(): void
+    {
+        $treatment = Treatment::factory()->create();
+        $doctor = $this->doctorOffering($treatment);
+        $doctor->update(['name' => 'Dra. Ana Torres']);
+        Appointment::factory()->for($doctor)->for($treatment)->for($this->patient('Ana', 'Ríos'))->at('2026-10-30 10:00')->confirmed()->create();
+        Appointment::factory()->for($doctor)->for($treatment)->for($this->patient('Rosa', 'Quispe'))->at('2026-11-02 08:00')
+            ->create(['status' => AppointmentStatus::CheckedIn, 'checked_in_at' => now()->subMinutes(25)]);
+        $this->patient('Carmen', 'Rojas', ['birth_date' => '1990-11-02']);
+        $this->actingAs(User::factory()->reception()->create());
+
+        // Primero lo que espera a alguien hoy, con cuántos urgentes arriba; el seguimiento, corto, va a la vista y
+        // su primer grupo con nombres, abierto.
+        Livewire::test(FollowUpsToday::class)
+            ->assertSeeInOrder([
+                '2 urgentes', 'Resolver hoy',
+                'Esperan 20 min o más', 'Rosa Quispe (25'.self::NBSP.'min, Dra. Ana Torres).',
+                'Citas sin cerrar',
+                'Seguimiento', 'Cumpleaños de hoy', 'Carmen Rojas',
+            ])
+            ->assertSeeHtml('href="#'.WaitingRoom::ANCHOR.'"')
+            ->assertSeeHtml('wire:key="follow-up-birthdays" wire:ignore.self open')
+            ->assertDontSeeHtml('<details class="dash-block"');
+
+        $this->patient('José', 'Condori', ['last_visit_at' => now()->subMonths(7)]);
+        $plan = TreatmentPlan::create(['patient_id' => $this->patient('Luis', 'Mamani')->id, 'doctor_id' => $doctor->id, 'status' => TreatmentPlanStatus::Proposed]);
+        $plan->items()->create(['description' => 'Ortodoncia', 'unit_price' => 450]);
+        $plan->update(['proposed_at' => now()->subDays(8)]);
+
+        // Con tres grupos de seguimiento y algo por resolver, el seguimiento va plegado para no tapar lo de hoy.
+        Livewire::test(FollowUpsToday::class)
+            ->assertSeeHtml('<details class="dash-block"')
+            ->assertSeeInOrder(['Resolver hoy', 'Citas sin cerrar', 'Seguimiento', '3 grupos', 'Presupuestos sin respuesta', 'Para su control', 'Cumpleaños de hoy']);
+    }
+
+    public function test_the_dentist_sees_todays_visits_whose_consent_is_still_unsigned(): void
+    {
+        $extraction = Treatment::factory()->create(['name' => 'Extracción simple']);
+        $cleaning = Treatment::factory()->create(['name' => 'Limpieza dental']);
+        $template = ConsentTemplate::create(['name' => 'Consentimiento de extracción', 'treatment_id' => $extraction->id, 'body' => 'Extracción de {paciente}.']);
+        $dentist = User::factory()->admin(isDentist: true)->create();
+        $doctor = $this->doctorOffering($extraction);
+        $doctor->update(['user_id' => $dentist->id]);
+
+        $unsigned = Appointment::factory()->for($doctor)->for($extraction)->for($this->patient('Rosa', 'Quispe'))->at('2026-11-02 10:00')->confirmed()->create();
+        $luis = $this->patient('Luis', 'Paz');
+        Appointment::factory()->for($doctor)->for($extraction)->for($luis)->at('2026-11-02 11:00')->confirmed()->create();
+        Consent::create([
+            'patient_id' => $luis->id, 'consent_template_id' => $template->id, 'treatment_id' => $extraction->id,
+            'title' => $template->name, 'body_snapshot' => 'Firmado.', 'signer_name' => $luis->full_name, 'signed_at' => now(),
+        ]);
+        Appointment::factory()->for($doctor)->for($cleaning)->for($this->patient('Eva', 'Sol'))->at('2026-11-02 12:00')->confirmed()->create();
+        Appointment::factory()->for($doctor)->for($extraction)->for($this->patient('Rut', 'Mar'))->at('2026-11-03 10:00')->confirmed()->create();
+        $this->actingAs($dentist);
+        TodayView::Clinic->remember();
+
+        // Solo la de hoy cuyo tratamiento lo pide y sin firmar; lleva a la cita, desde donde se firma.
+        Livewire::test(FollowUpsToday::class)
+            ->assertSeeInOrder(['1 urgente', 'Resolver hoy', 'Consentimientos por firmar hoy', 'Rosa Quispe', 'Extracción simple'])
+            ->assertSeeHtml('href="'.e(AppointmentResource::getUrl('view', ['record' => $unsigned])).'"')
+            ->assertSeeHtml('wire:key="follow-up-consents" wire:ignore.self open')
+            ->assertDontSee(['Luis Paz', 'Eva Sol', 'Rut Mar']);
+
+        // Recepción no toma consentimientos: no le sale.
+        $this->actingAs(User::factory()->reception()->create());
+        Livewire::test(FollowUpsToday::class)->assertDontSee('Consentimientos por firmar hoy');
+    }
+
+    public function test_the_admin_sees_consultations_left_open_on_earlier_days_by_any_doctor(): void
+    {
+        $torres = Doctor::factory()->withSchedule()->create(['name' => 'Dra. Ana Torres']);
+        $rojas = Doctor::factory()->withSchedule()->create(['name' => 'Dr. Luis Rojas']);
+        Consultation::factory()->for($torres)->for($this->patient('Rosa', 'Quispe'))->create(['attended_at' => now()->subDays(3)]);
+        Consultation::factory()->for($rojas)->for($this->patient('Luis', 'Paz'))->create(['attended_at' => now()->subDay()]);
+        // La de hoy sigue en curso, y la cerrada ya no espera nada.
+        Consultation::factory()->for($rojas)->for($this->patient('Eva', 'Sol'))->create(['attended_at' => now()->subHour()]);
+        Consultation::factory()->for($torres)->for($this->patient('Rut', 'Mar'))->create(['attended_at' => now()->subDays(2), 'closed_at' => now()->subDays(2)]);
+        $this->actingAs(User::factory()->admin(isDentist: true)->create());
+
+        Livewire::test(FollowUpsToday::class)
+            ->assertSeeInOrder(['1 urgente', 'Atenciones abiertas de días anteriores', 'Rosa Quispe (Dra. Ana Torres, hace 3 días), Luis Paz (Dr. Luis Rojas, hace 1 día).'])
+            ->assertSeeHtml('href="'.e(ConsultationResource::getUrl('index', ['tab' => 'open'])).'"')
+            ->assertDontSee(['Eva Sol', 'Rut Mar']);
+
+        // Recepción no ve atenciones; el doctor ve las suyas en su propia tarjeta.
+        $this->actingAs(User::factory()->reception()->create());
+        Livewire::test(FollowUpsToday::class)->assertDontSee('Atenciones abiertas de días anteriores');
     }
 
     public function test_home_shows_the_first_unfinished_consultations_and_links_to_the_rest(): void

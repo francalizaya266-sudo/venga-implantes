@@ -13,9 +13,10 @@ use Carbon\CarbonImmutable;
 use Filament\Widgets\Widget;
 
 /**
- * Los próximos 7 días: qué tan llena está la agenda y dónde quedan huecos para ofrecer
- * (a quien llama, a la lista de espera o a un plan sin agendar). Arriba, cuántas horas libres
- * suman entre todos. Cada día abre la agenda.
+ * Los próximos 7 días en una fila, empezando hoy: qué tan llena está la agenda de cada uno y cuántas horas
+ * quedan libres. Al tocar un día, debajo, sus huecos por doctor (para ofrecer a quien llama, a la lista de
+ * espera o a un plan sin agendar), quién de la lista de espera puede venir y el enlace a su agenda. Abre en el
+ * primer día que todavía tiene huecos. Arriba, cuántas horas libres suman entre todos.
  */
 class WeekGaps extends Widget
 {
@@ -37,7 +38,7 @@ class WeekGaps extends Widget
     }
 
     /**
-     * @return array{summary: string|null, days: list<array{label: string, occupancy: int, free: string, url: string, waiting: string|null, waiting_url: string, doctors: list<array{name: string|null, gaps: string}>}>}
+     * @return array{summary: string|null, selected: int, days: list<array{label: string, short: string, number: string, occupancy: int, free: string, free_short: string, url: string, waiting: string|null, waiting_url: string, doctors: list<array{name: string|null, gaps: string}>}>}
      */
     protected function getViewData(): array
     {
@@ -48,17 +49,22 @@ class WeekGaps extends Widget
         return [
             'summary' => match (true) {
                 $days === [] => null,
-                $free > 0 => 'Quedan '.Dates::duration($free).' libres de hoy a 7 días. Toca un día para abrir la agenda.',
-                default => 'No queda ningún hueco de hoy a 7 días. Toca un día para abrir la agenda.',
+                $free > 0 => 'Quedan '.Dates::duration($free).' libres de hoy a 7 días. Toca un día para ver sus huecos.',
+                default => 'No queda ningún hueco de hoy a 7 días.',
             },
+            // Abre en el primer día que todavía tiene huecos: es el que se ofrece primero.
+            'selected' => max(0, (int) collect($days)->search(fn (array $day) => $day['free_minutes'] > 0)),
             'days' => array_map(fn (array $day) => [
                 'label' => match (true) {
                     $day['date']->isToday() => 'Hoy',
                     $day['date']->isTomorrow() => 'Mañana',
                     default => ucfirst($day['date']->translatedFormat('l j')),
                 },
+                'short' => $day['date']->isToday() ? 'Hoy' : ucfirst(mb_substr($day['date']->translatedFormat('D'), 0, 3)),
+                'number' => $day['date']->format('j'),
                 'occupancy' => $day['occupancy'],
                 'free' => $day['free_minutes'] > 0 ? Dates::duration($day['free_minutes']).' libres' : 'Sin huecos',
+                'free_short' => self::shortDuration($day['free_minutes']),
                 'url' => Agenda::getUrl(['date' => $day['date']->toDateString(), 'mode' => 'day']),
                 'waiting' => match ($day['waiting']) {
                     0 => null,
@@ -72,6 +78,16 @@ class WeekGaps extends Widget
                 ], $day['doctors']))),
             ], $days),
         ];
+    }
+
+    /** Lo libre de un día en la fila de arriba, donde hay poco espacio: "3 h", "2 h 50", "40 min" o "Lleno". */
+    private static function shortDuration(int $minutes): string
+    {
+        return match (true) {
+            $minutes <= 0 => 'Lleno',
+            $minutes < 60 => $minutes.' min',
+            default => intdiv($minutes, 60).' h'.($minutes % 60 > 0 ? ' '.$minutes % 60 : ''),
+        };
     }
 
     private static function range(CarbonImmutable $start, CarbonImmutable $end): string
