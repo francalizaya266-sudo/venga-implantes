@@ -1186,11 +1186,6 @@ $ignoreErrors[] = [
     'path' => __DIR__.'/app/Filament/Resources/Consultations/Pages/ViewConsultation.php',
 ];
 $ignoreErrors[] = [
-    'rawMessage' => 'Access to an undefined property App\\Models\\Patient|Illuminate\\Database\\Eloquent\\Collection<int, App\\Models\\Patient>::$full_name.',
-    'count' => 1,
-    'path' => __DIR__.'/app/Filament/Resources/Consultations/Schemas/ConsultationForm.php',
-];
-$ignoreErrors[] = [
     'rawMessage' => 'Access to an undefined property Illuminate\\Database\\Eloquent\\Model::$accepted_at.',
     'count' => 1,
     'path' => __DIR__.'/app/Filament/Resources/Consultations/Schemas/ConsultationForm.php',
@@ -1689,11 +1684,6 @@ $ignoreErrors[] = [
     'rawMessage' => 'Call to an undefined method Illuminate\\Database\\Eloquent\\Model::consultations().',
     'count' => 1,
     'path' => __DIR__.'/app/Filament/Resources/Patients/RelationManagers/ConsultationsRelationManager.php',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Access to an undefined property App\\Models\\Patient|Illuminate\\Database\\Eloquent\\Collection<int, App\\Models\\Patient>::$full_name.',
-    'count' => 1,
-    'path' => __DIR__.'/app/Filament/Resources/Patients/RelationManagers/TreatmentPlansRelationManager.php',
 ];
 $ignoreErrors[] = [
     'rawMessage' => 'Access to an undefined property Illuminate\\Database\\Eloquent\\Model::$account.',
@@ -3496,11 +3486,6 @@ $ignoreErrors[] = [
     'path' => __DIR__.'/app/Filament/Widgets/FollowUpsToday.php',
 ];
 $ignoreErrors[] = [
-    'rawMessage' => 'Parameter #1 $names of static method App\\Filament\\Widgets\\FollowUpsToday::firstNames() expects Illuminate\\Support\\Collection<int, string>, Illuminate\\Support\\Collection<int, non-falsy-string> given.',
-    'count' => 2,
-    'path' => __DIR__.'/app/Filament/Widgets/FollowUpsToday.php',
-];
-$ignoreErrors[] = [
     'rawMessage' => 'Parameter #1 $patient of method App\\Filament\\Widgets\\FollowUpsToday::row() expects App\\Models\\Patient, Illuminate\\Database\\Eloquent\\Model|null given.',
     'count' => 1,
     'path' => __DIR__.'/app/Filament/Widgets/FollowUpsToday.php',
@@ -3696,11 +3681,6 @@ $ignoreErrors[] = [
     'path' => __DIR__.'/app/Http/Controllers/Api/V1/Account/AccountController.php',
 ];
 $ignoreErrors[] = [
-    'rawMessage' => 'Method App\\Http\\Controllers\\Api\\V1\\Account\\AccountController::balancesOf() should return Illuminate\\Support\\Collection<int, array{name: string, text: string, owed: bool}> but returns Illuminate\\Support\\Collection<int, array{name: mixed, text: string, owed: bool}>.',
-    'count' => 1,
-    'path' => __DIR__.'/app/Http/Controllers/Api/V1/Account/AccountController.php',
-];
-$ignoreErrors[] = [
     'rawMessage' => 'Parameter #1 $account of method App\\Http\\Controllers\\Api\\V1\\Account\\AccountController::plansOf() expects App\\Models\\Account, Illuminate\\Database\\Eloquent\\Model|null given.',
     'count' => 1,
     'path' => __DIR__.'/app/Http/Controllers/Api/V1/Account/AccountController.php',
@@ -3726,17 +3706,7 @@ $ignoreErrors[] = [
     'path' => __DIR__.'/app/Http/Controllers/Api/V1/Account/AccountController.php',
 ];
 $ignoreErrors[] = [
-    'rawMessage' => 'Parameter #1 $callback of method Illuminate\\Support\\Collection<int,App\\Models\\Patient>::map() contains unresolvable type.',
-    'count' => 1,
-    'path' => __DIR__.'/app/Http/Controllers/Api/V1/Account/AccountController.php',
-];
-$ignoreErrors[] = [
     'rawMessage' => 'Parameter #1 $callback of method Illuminate\\Support\\Collection<int,Illuminate\\Database\\Eloquent\\Model>::filter() expects (callable(Illuminate\\Database\\Eloquent\\Model, int): bool)|null, Closure(App\\Models\\TreatmentPlanItem): bool given.',
-    'count' => 1,
-    'path' => __DIR__.'/app/Http/Controllers/Api/V1/Account/AccountController.php',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Parameter #1 $callback of method Illuminate\\Support\\Collection<int,array<string, mixed>>::reject() contains unresolvable type.',
     'count' => 1,
     'path' => __DIR__.'/app/Http/Controllers/Api/V1/Account/AccountController.php',
 ];

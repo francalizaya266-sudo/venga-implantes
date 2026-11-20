@@ -254,7 +254,7 @@ class PanelPulse extends Component
 
         /** @var User $user */
         $user = auth()->user();
-        $waiting = $user->unreadNotifications()->whereIn('id', $this->arrivalsOnScreen)->get()->modelKeys();
+        $waiting = array_values($user->unreadNotifications()->whereIn('id', $this->arrivalsOnScreen)->pluck('id')->map(fn ($id): string => (string) $id)->all());
 
         foreach (array_diff($this->arrivalsOnScreen, $waiting) as $attended) {
             $this->dispatch('close-notification', id: self::TOAST_ID_PREFIX.$attended);

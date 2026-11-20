@@ -676,7 +676,7 @@ class FollowUpsToday extends Widget implements HasActions, HasSchemas
         ];
     }
 
-    /** @param  Collection<int, string>  $names  "Guantes, Lidocaína y 3 más". */
+    /** @param  Collection<int, covariant string>  $names  "Guantes, Lidocaína y 3 más". */
     private static function firstNames(Collection $names): string
     {
         $names = $names->values();
