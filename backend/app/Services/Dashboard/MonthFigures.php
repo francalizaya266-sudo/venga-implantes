@@ -23,7 +23,8 @@ final class MonthFigures
     /** Antes de este día del mes, las comparaciones y la proyección se basan en muy poco. */
     public const SETTLED_FROM_DAY = ReportPeriod::FEW_DAYS;
 
-    private const TREND_DAYS = 30;
+    /** Cuántos días lleva lo cobrado día por día (el gráfico del mes y la línea de "Cobrado"). */
+    public const TREND_DAYS = 30;
 
     public readonly ReportPeriod $period;
 

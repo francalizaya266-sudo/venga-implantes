@@ -11,6 +11,7 @@ use App\Filament\Resources\WaitlistEntries\WaitlistEntryActions;
 use App\Filament\Widgets\DayMomentCard;
 use App\Filament\Widgets\FollowUpsToday;
 use App\Filament\Widgets\MonthOverview;
+use App\Filament\Widgets\MonthTrendChart;
 use App\Filament\Widgets\NextPatient;
 use App\Filament\Widgets\OpenConsultations;
 use App\Filament\Widgets\SystemHealth;
@@ -52,8 +53,8 @@ class Dashboard extends BaseDashboard
     /** @var list<class-string> La columna angosta (en monitores grandes, dos columnas: panel.css, .dash-side). */
     private const SIDE = [WaitingRoom::class, OpenConsultations::class, FollowUpsToday::class, WeekGaps::class];
 
-    /** @var list<class-string> Debajo de la columna ancha (en el celular, al final de todo). */
-    private const MONTH = [MonthOverview::class];
+    /** @var list<class-string> Debajo de la columna ancha (en el celular, al final de todo): el mes y, debajo, su gráfico. */
+    private const MONTH = [MonthOverview::class, MonthTrendChart::class];
 
     protected static ?string $title = 'Hoy';
 
