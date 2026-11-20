@@ -4,7 +4,6 @@ namespace App\Filament\Widgets;
 
 use App\Enums\AppointmentStatus;
 use App\Enums\RescheduleRequestStatus;
-use App\Enums\TodayView;
 use App\Filament\Concerns\RefreshesWithToday;
 use App\Filament\Pages\Agenda;
 use App\Filament\Pages\CashClosing as CashClosingPage;
@@ -19,14 +18,14 @@ use App\Support\Dates;
 use App\Support\Money;
 use Carbon\CarbonImmutable;
 use Filament\Widgets\Widget;
-use Illuminate\Database\Eloquent\Builder;
 
 /**
  * Los números del día: cuatro, en una fila y a la vista. Solo se marca el que espera una acción (alguien sin
  * confirmar, alguien que se fue debiendo) o una espera larga; el resto queda neutro para que lo urgente resalte.
- * En "Toda la clínica": las citas, quién está en sala ahora (con scroll la sala puede quedar abajo, y una espera
- * larga no debe pasar desapercibida), por confirmar y lo cobrado. En "Mi consulta": mis citas, mis por confirmar,
- * las solicitudes de cambio y los avisos por enviar; quién me espera ya lo dice "Tu próximo paciente".
+ * Para quien ve todas las agendas (recepción y administración, también el administrador que atiende): las citas,
+ * quién está en sala ahora (con scroll la sala puede quedar abajo, y una espera larga no debe pasar desapercibida),
+ * por confirmar y lo cobrado; las solicitudes y los avisos van en "Por hacer hoy". Para el doctor: sus citas, sus
+ * por confirmar, las solicitudes de cambio y los avisos por enviar; quién lo espera ya lo dice "Tu próximo paciente".
  * Cada número lleva a su lista.
  */
 class TodayStats extends Widget
@@ -46,7 +45,7 @@ class TodayStats extends Widget
         /** @var User $user */
         $user = auth()->user();
 
-        if (TodayView::current($user) === TodayView::Clinic) {
+        if ($user->managesAllAgendas()) {
             // "Cobrado hoy" falta para quien no ve la caja; como va al final, la lista queda en orden.
             return ['stats' => array_filter([
                 $this->appointments(),
@@ -56,23 +55,20 @@ class TodayStats extends Widget
             ])];
         }
 
-        // Al doctor la lista ya le trae solo lo suyo; al administrador que atiende, "Mi consulta" la acota a su agenda.
-        $doctorId = $user->managesAllAgendas() ? $user->doctorId() : null;
-
+        // Al doctor la lista ya le trae solo lo suyo.
         return ['stats' => [
-            $this->appointments($doctorId, 'Mis citas de hoy'),
-            $this->unconfirmed($doctorId),
+            $this->appointments('Mis citas de hoy'),
+            $this->unconfirmed(),
             $this->pendingRequests(),
             $this->dueMessages(),
         ]];
     }
 
     /** @return array{label: string, value: int, hint: string, color: string, icon: string, url: string} */
-    private function appointments(?int $doctorId = null, string $label = 'Citas de hoy'): array
+    private function appointments(string $label = 'Citas de hoy'): array
     {
         // Las mismas que lista "Agenda de hoy", justo debajo: todas menos las canceladas.
         $today = AppointmentResource::getEloquentQuery()
-            ->when($doctorId, fn (Builder $query) => $query->where('doctor_id', $doctorId))
             ->whereDate('starts_at', today())
             ->where('status', '!=', AppointmentStatus::Cancelled)
             ->pluck('status');
@@ -102,10 +98,9 @@ class TodayStats extends Widget
     }
 
     /** @return array{label: string, value: int, hint: string, color: string, icon: string, url: string} */
-    private function unconfirmed(?int $doctorId = null): array
+    private function unconfirmed(): array
     {
         $count = AppointmentResource::getEloquentQuery()
-            ->when($doctorId, fn (Builder $query) => $query->where('doctor_id', $doctorId))
             ->awaitingConfirmation()
             ->todayOrTomorrow()
             ->count();
@@ -117,7 +112,7 @@ class TodayStats extends Widget
             'color' => $count > 0 ? 'warning' : 'gray',
             'icon' => 'heroicon-o-phone',
             // La pestaña trae todas las que faltan confirmar; con las fechas en el filtro quedan las de hoy y mañana, que son las que se cuentan aquí.
-            'url' => AppointmentResource::toConfirmUrl(today(), today()->addDay(), doctorId: $doctorId),
+            'url' => AppointmentResource::toConfirmUrl(today(), today()->addDay()),
         ];
     }
 

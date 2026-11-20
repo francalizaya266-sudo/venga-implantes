@@ -2,7 +2,6 @@
 
 namespace App\Filament\Pages;
 
-use App\Enums\TodayView;
 use App\Filament\Actions\CreateAppointmentAction;
 use App\Filament\Actions\RegisterPaymentAction;
 use App\Filament\Actions\WalkInAction;
@@ -17,7 +16,6 @@ use App\Filament\Widgets\OpenConsultations;
 use App\Filament\Widgets\SystemHealth;
 use App\Filament\Widgets\TodayAppointments;
 use App\Filament\Widgets\TodayStats;
-use App\Filament\Widgets\TodayViewSwitch;
 use App\Filament\Widgets\WaitingRoom;
 use App\Filament\Widgets\WeekGaps;
 use Filament\Actions\Action;
@@ -30,14 +28,13 @@ use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Str;
 
 /**
- * El inicio como dashboard: lo del día arriba y lo demás al bajar. Arriba, el selector de vista (solo el
- * administrador que atiende), los avisos del sistema en una línea, los números del día y lo que toca según la
- * hora (antes de abrir, confirmar; al terminar, cerrar el día); al centro, la agenda de hoy (y, para quien
- * atiende, su próximo paciente); al costado, la sala de espera, las atenciones sin terminar, lo que hay que
- * hacer y los huecos de la semana; y al final, cómo va el mes. En el celular va en ese mismo orden. Cada
- * tarjeta decide si se muestra con el mismo permiso de la pantalla a la que lleva, y según la vista
- * (TodayView): "Mi consulta" o "Toda la clínica". Si a alguien no le toca nada del costado, el centro
- * ocupa todo el ancho.
+ * El inicio como dashboard: lo del día arriba y lo demás al bajar. Arriba, los avisos del sistema en una línea, los
+ * números del día y lo que toca según la hora (antes de abrir, confirmar; al terminar, cerrar el día); al centro,
+ * la agenda de hoy (y, para quien atiende, su próximo paciente); al costado, la sala de espera, las atenciones sin
+ * terminar, lo que hay que hacer y los huecos de la semana; y al final, cómo va el mes. En el celular va en ese
+ * mismo orden. Es una sola pantalla: cada tarjeta se muestra con el mismo permiso de la pantalla a la que lleva, así
+ * que recepción ve la clínica, el doctor ve lo suyo y el administrador que además atiende ve las dos cosas a la vez.
+ * Si a alguien no le toca nada del costado, el centro ocupa todo el ancho.
  */
 class Dashboard extends BaseDashboard
 {
@@ -45,7 +42,7 @@ class Dashboard extends BaseDashboard
     public const CHANGED = 'today-changed';
 
     /** @var list<class-string> Arriba, a todo el ancho. */
-    private const TOP = [TodayViewSwitch::class, SystemHealth::class, TodayStats::class, DayMomentCard::class];
+    private const TOP = [SystemHealth::class, TodayStats::class, DayMomentCard::class];
 
     /** @var list<class-string> La columna ancha: lo de hoy. */
     private const MAIN = [NextPatient::class, TodayAppointments::class];
@@ -62,16 +59,6 @@ class Dashboard extends BaseDashboard
 
     /** Todo el ancho del monitor: en uno grande la agenda no aprieta nombres y el costado va en dos columnas. */
     protected Width|string|null $maxContentWidth = Width::Full;
-
-    /** El selector de vista es un enlace (?vista=clinica): al abrirlo, la elección queda guardada. */
-    public function mount(): void
-    {
-        $view = TodayView::tryFrom((string) request()->query(TodayView::QUERY));
-
-        if ($view !== null && TodayView::canChoose(auth()->user())) {
-            $view->remember();
-        }
-    }
 
     /** "Buenos días, Dr. Jassmanny": el saludo según la hora, con el trato y el primer nombre. */
     public function getHeading(): string

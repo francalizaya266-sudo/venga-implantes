@@ -1190,30 +1190,19 @@ button.pt-chip { transition: transform 160ms ease-out; }
     .dash-side > .fi-grid:has(> .dash-tall) > :not(.dash-tall) { grid-column: 1 !important; }
 }
 
-/* "Mi consulta / Toda la clínica": un selector de dos partes, y al lado lo que se acumula en la clínica. */
-.dash-view { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem 1.25rem; }
-.dash-view-switch { display: inline-flex; padding: .2rem; border-radius: .7rem; background: color-mix(in oklab, var(--gray-200) 70%, transparent); }
-.dash-view-switch :is(a, button) { padding: .35rem .9rem; border-radius: .55rem; font-size: .8125rem; font-weight: 500; line-height: 1.25rem; color: var(--gray-600); text-decoration: none; white-space: nowrap; transition: background-color .15s ease, color .15s ease; }
-.dash-view-switch :is(a, button):hover { color: var(--gray-950); }
-.dash-view-switch :is(a, button).is-active { background: #fff; color: var(--gray-950); font-weight: 600; box-shadow: 0 1px 2px rgb(15 23 42 / .08), 0 0 0 1px rgb(15 23 42 / .04); }
-.dash-view-switch :is(a, button):focus-visible { outline: 2px solid var(--primary-500); outline-offset: 1px; }
-.dark .dash-view-switch { background: rgb(255 255 255 / .06); }
-.dark .dash-view-switch :is(a, button) { color: var(--gray-400); }
-.dark .dash-view-switch :is(a, button):hover { color: #fff; }
-.dark .dash-view-switch :is(a, button).is-active { background: var(--gray-800); color: #fff; box-shadow: none; }
-.dash-view-clinic { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: .1rem .4rem; font-size: .8125rem; color: var(--gray-500); text-decoration: none; }
-.dash-view-clinic b { font-weight: 600; color: var(--gray-800); }
-.dash-view-clinic b.is-alert { color: var(--danger-600); }
-.dash-view-clinic i { font-style: normal; color: var(--gray-400); }
-.dash-view-clinic::after { content: "→"; color: var(--gray-400); transition: transform .15s ease; }
-.dash-view-clinic:hover b { text-decoration: underline; text-underline-offset: 2px; }
-.dash-view-clinic:hover::after { transform: translateX(2px); color: var(--gray-600); }
-.dark .dash-view-clinic { color: var(--gray-400); }
-.dark .dash-view-clinic b { color: var(--gray-200); }
-.dark .dash-view-clinic b.is-alert { color: var(--danger-400); }
+/* Un selector de varias partes (en la agenda de hoy: "Todos · cada doctor"): la elegida queda marcada. */
+.dash-segmented { display: inline-flex; padding: .2rem; border-radius: .7rem; background: color-mix(in oklab, var(--gray-200) 70%, transparent); }
+.dash-segmented :is(a, button) { padding: .35rem .9rem; border-radius: .55rem; font-size: .8125rem; font-weight: 500; line-height: 1.25rem; color: var(--gray-600); text-decoration: none; white-space: nowrap; transition: background-color .15s ease, color .15s ease; }
+.dash-segmented :is(a, button):hover { color: var(--gray-950); }
+.dash-segmented :is(a, button).is-active { background: #fff; color: var(--gray-950); font-weight: 600; box-shadow: 0 1px 2px rgb(15 23 42 / .08), 0 0 0 1px rgb(15 23 42 / .04); }
+.dash-segmented :is(a, button):focus-visible { outline: 2px solid var(--primary-500); outline-offset: 1px; }
+.dark .dash-segmented { background: rgb(255 255 255 / .06); }
+.dark .dash-segmented :is(a, button) { color: var(--gray-400); }
+.dark .dash-segmented :is(a, button):hover { color: #fff; }
+.dark .dash-segmented :is(a, button).is-active { background: var(--gray-800); color: #fff; box-shadow: none; }
 @media (max-width: 40rem) {
-    .dash-view-switch { display: flex; width: 100%; }
-    .dash-view-switch :is(a, button) { flex: 1; text-align: center; }
+    .dash-segmented { display: flex; width: 100%; }
+    .dash-segmented :is(a, button) { flex: 1; text-align: center; }
 }
 
 /* La agenda de hoy con "Todos · cada doctor" al lado del título; si no entra, baja debajo. El nombre largo se corta. */

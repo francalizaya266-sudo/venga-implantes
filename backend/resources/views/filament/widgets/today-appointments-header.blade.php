@@ -2,7 +2,7 @@
 <div class="fi-ta-header dash-agenda-header">
     <h3 class="fi-ta-header-heading">Agenda de hoy</h3>
 
-    <nav class="dash-view-switch dash-doctor-switch" aria-label="Ver la agenda de">
+    <nav class="dash-segmented dash-doctor-switch" aria-label="Ver la agenda de">
         @foreach ($doctors as $doctor)
             <button
                 type="button"

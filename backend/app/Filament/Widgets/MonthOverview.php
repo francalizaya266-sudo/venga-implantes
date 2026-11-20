@@ -2,7 +2,6 @@
 
 namespace App\Filament\Widgets;
 
-use App\Enums\TodayView;
 use App\Filament\Pages\Earnings;
 use App\Filament\Pages\OwingBalances;
 use App\Filament\Pages\Summary;
@@ -18,9 +17,9 @@ use Filament\Widgets\StatsOverviewWidget\Stat;
 /**
  * Cómo va el mes, sin entrar a Reportes: lo mismo que Resumen e Ingresos con el filtro "Este mes",
  * y a cuánto cerraría el mes si sigue al mismo ritmo. Va al final de "Hoy": primero lo del día.
- * Lo ve quien ve los reportes; un doctor, solo lo suyo ("Mis números de noviembre"), y el administrador que
- * atiende, lo suyo en "Mi consulta" y lo de todos en "Toda la clínica". La meta y lo que se debe son del
- * consultorio entero. Con lo de todos, lo cobrado día por día va en su gráfico, debajo (MonthTrendChart).
+ * Lo ve quien ve los reportes; un doctor, solo lo suyo ("Mis números de noviembre"). El administrador ve lo de
+ * todos y, si además atiende, una línea con lo de sus citas. La meta y lo que se debe son del consultorio entero.
+ * Con lo de todos, lo cobrado día por día va en su gráfico, debajo (MonthTrendChart).
  */
 class MonthOverview extends StatsOverviewWidget
 {
@@ -57,6 +56,7 @@ class MonthOverview extends StatsOverviewWidget
         return collect([
             $this->doctorId() !== null ? 'Solo tus citas y lo que se cobró de ellas.' : null,
             $this->projection(),
+            $this->ownShare(),
             'Comparado con los mismos días del mes pasado.',
             $this->isEarly() ? 'Con tan pocos días, las diferencias todavía no dicen mucho.' : null,
         ])->filter()->implode(' ');
@@ -83,6 +83,21 @@ class MonthOverview extends StatsOverviewWidget
         };
 
         return 'A este ritmo, '.today()->translatedFormat('F').' cerraría en '.Money::format($projection).$against.'.';
+    }
+
+    /** Al administrador que además atiende, lo suyo dentro de lo de todos: "De tus citas: S/ 300.00 cobrados y 4 atendidas." */
+    private function ownShare(): ?string
+    {
+        /** @var User $user */
+        $user = auth()->user();
+
+        if ($this->doctorId() !== null || $user->doctorId() === null) {
+            return null;
+        }
+
+        $own = (new MonthFigures($user->doctorId()))->figures();
+
+        return 'De tus citas: '.Money::format($own['collected']).' cobrados y '.$own['attended'].($own['attended'] === 1 ? ' atendida.' : ' atendidas.');
     }
 
     protected function getStats(): array
@@ -120,15 +135,13 @@ class MonthOverview extends StatsOverviewWidget
         return today()->day < MonthFigures::SETTLED_FROM_DAY;
     }
 
-    /** Un doctor ve lo suyo; la administración, todo el consultorio, salvo en "Mi consulta" de quien atiende. */
+    /** Un doctor ve lo suyo; la administración, todo el consultorio. */
     private function doctorId(): ?int
     {
         /** @var User $user */
         $user = auth()->user();
 
-        return TodayView::canChoose($user) && TodayView::current($user) === TodayView::Mine
-            ? $user->doctorId()
-            : ReportAccess::doctorFor($user, null);
+        return ReportAccess::doctorFor($user, null);
     }
 
     private function outstanding(): Stat

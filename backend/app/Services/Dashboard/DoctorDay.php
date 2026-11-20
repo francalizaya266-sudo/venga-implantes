@@ -46,6 +46,16 @@ final class DoctorDay
             ->get();
     }
 
+    /** Si hoy atiende: tiene alguna cita que no se canceló, ya sea que venga, esté en sala o ya se atendió. */
+    public function hasAppointmentsToday(): bool
+    {
+        return Appointment::query()
+            ->where('doctor_id', $this->doctorId)
+            ->whereDate('starts_at', today())
+            ->where('status', '!=', AppointmentStatus::Cancelled)
+            ->exists();
+    }
+
     /** Cuántos pacientes suyos esperan en sala ahora. */
     public function waiting(): int
     {

@@ -5,7 +5,6 @@ namespace App\Filament\Widgets;
 use App\Enums\AppointmentStatus;
 use App\Enums\MessageTemplateKey;
 use App\Enums\RescheduleRequestStatus;
-use App\Enums\TodayView;
 use App\Filament\Actions\SendWhatsAppAction;
 use App\Filament\Concerns\RefreshesWithToday;
 use App\Filament\Pages\TomorrowTray;
@@ -91,7 +90,7 @@ class FollowUpsToday extends Widget implements HasActions, HasSchemas
         /** @var User|null $user */
         $user = auth()->user();
 
-        return (bool) $user?->managesAllAgendas() && TodayView::current($user) === TodayView::Clinic;
+        return (bool) $user?->managesAllAgendas();
     }
 
     /** Abre WhatsApp con el aviso del grupo para ese paciente, listo para retocar y enviar. */
@@ -338,18 +337,24 @@ class FollowUpsToday extends Widget implements HasActions, HasSchemas
 
     /**
      * Atenciones de días anteriores que su doctor no terminó, de todos los doctores: mientras sigan abiertas no se
-     * cobra lo atendido ni avanza el plan. Solo para el administrador, que ve las de todos.
+     * cobra lo atendido ni avanza el plan. Solo para el administrador, que ve las de todos. Si además atiende, las
+     * suyas ya están en su tarjeta (OpenConsultations): aquí van las de los demás, para no contarlas dos veces.
      *
      * @return array<string, mixed>|null
      */
     private function earlierOpenConsultations(): ?array
     {
-        if (! auth()->user()->isAdmin() || ! ConsultationResource::canViewAny()) {
+        /** @var User $user */
+        $user = auth()->user();
+
+        if (! $user->isAdmin() || ! ConsultationResource::canViewAny()) {
             return null;
         }
 
+        $own = $user->canSeeClinical() ? $user->doctorId() : null;
         $open = Consultation::query()
             ->whereNull('closed_at')
+            ->when($own, fn ($query, int $doctorId) => $query->where('doctor_id', '!=', $doctorId))
             ->where(fn ($query) => $query
                 ->whereDate('attended_at', '<', today())
                 ->orWhere(fn ($query) => $query->whereNull('attended_at')->whereDate('created_at', '<', today())))
@@ -359,7 +364,7 @@ class FollowUpsToday extends Widget implements HasActions, HasSchemas
 
         return [
             'key' => 'earlier-open',
-            'title' => 'Atenciones abiertas de días anteriores',
+            'title' => $own === null ? 'Atenciones abiertas de días anteriores' : 'Atenciones abiertas de otros doctores',
             'hint' => 'Mientras sigan abiertas no se cobra ni avanza el plan',
             'count' => $open->count(),
             'url' => ConsultationResource::getUrl('index', ['tab' => 'open']),
