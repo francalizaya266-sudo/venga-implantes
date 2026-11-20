@@ -1,5 +1,20 @@
 <x-filament-widgets::widget>
     <x-filament::section heading="Sala de espera" icon="heroicon-o-user-group" :id="\App\Filament\Widgets\WaitingRoom::ANCHOR" class="dash-anchor" wire:poll.30s>
+        {{-- Quién atiende y quién está libre: el que está libre y tiene a alguien esperando, en ámbar (hay que pasarlo). --}}
+        @if ($rooms !== [])
+            <ul class="dash-rooms" aria-label="Quién atiende ahora">
+                @foreach ($rooms as $room)
+                    <li>
+                        <span @class(['dash-room-dot', 'is-busy' => $room['busy']]) aria-hidden="true"></span>
+                        <span class="dash-room-text">
+                            <strong>{{ $room['name'] }}</strong>
+                            <small>{{ $room['status'] }}@if ($room['waiting'] > 0) · <b @class(['is-call' => ! $room['busy']])>{{ $room['waiting'] }} esperando</b>@endif</small>
+                        </span>
+                    </li>
+                @endforeach
+            </ul>
+        @endif
+
         @forelse ($patients as $patient)
             <a href="{{ $patient['url'] }}" class="dash-waiting">
                 <span>

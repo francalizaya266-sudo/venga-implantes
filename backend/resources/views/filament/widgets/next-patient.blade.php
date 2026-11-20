@@ -27,6 +27,9 @@
                             <li @class(['is-danger' => $alert['severe'], 'is-warning' => ! $alert['severe']])><x-filament::icon :icon="$alert['severe'] ? 'heroicon-m-exclamation-triangle' : 'heroicon-m-information-circle'" /> {{ $alert['text'] }}</li>
                         @endforeach
                     @endif
+                    @foreach ($next['lab'] as $lab)
+                        <li class="is-{{ $lab['tone'] }}"><x-filament::icon icon="heroicon-m-beaker" /> {{ $lab['text'] }}</li>
+                    @endforeach
                 </ul>
 
                 <dl class="dash-next-facts">

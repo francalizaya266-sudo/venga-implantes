@@ -109,6 +109,44 @@ class LabOrder extends Model
         };
     }
 
+    /**
+     * Lo que el doctor tiene que saber de este trabajo antes de atender al paciente ("Tu próximo paciente"): si ya
+     * llegó, o si sigue en el laboratorio y si se atrasó. Null si ya se atendió al paciente desde que llegó: se
+     * colocó, o esa visita ya pasó.
+     *
+     * @return array{text: string, tone: 'success'|'warning'|'danger'}|null
+     */
+    public function beforeVisit(): ?array
+    {
+        if ($this->received_on !== null) {
+            return $this->attendedSinceArrival() ? null : [
+                'text' => $this->description.': ya llegó del laboratorio'.($this->received_on->isToday() ? ' hoy' : ' el '.$this->received_on->translatedFormat('j \d\e F')).'.',
+                'tone' => 'success',
+            ];
+        }
+
+        return match (true) {
+            $this->due_on->isBefore(today()) => [
+                'text' => $this->description.': no ha llegado del laboratorio; debía llegar '.$this->due_on->diffForHumans(today(), ['syntax' => CarbonInterface::DIFF_RELATIVE_TO_NOW, 'parts' => 1]).'.',
+                'tone' => 'danger',
+            ],
+            $this->due_on->isToday() => ['text' => $this->description.': llega hoy del laboratorio; confirma que lo trajeron.', 'tone' => 'warning'],
+            default => ['text' => $this->description.': sigue en el laboratorio, llega el '.$this->due_on->translatedFormat('j \d\e F').'.', 'tone' => 'warning'],
+        };
+    }
+
+    /** Lo que sigue en el laboratorio para ese paciente y lo que llegó hace poco: lo que se mira antes de atenderlo. */
+    #[Scope]
+    protected function forVisitOf(Builder $query, int $patientId): Builder
+    {
+        return $query
+            ->where('patient_id', $patientId)
+            ->where(fn (Builder $recent) => $recent
+                ->whereNull('received_on')
+                ->orWhereDate('received_on', '>=', today()->subDays(self::PLACE_WITHIN_DAYS)))
+            ->orderBy('due_on');
+    }
+
     /** Todavía en el laboratorio. */
     #[Scope]
     protected function pending(Builder $query): Builder
@@ -165,6 +203,16 @@ class LabOrder extends Model
             ->where('ends_at', '>', now())
             ->orderBy('starts_at')
             ->limit(1);
+    }
+
+    /** Se le atendió desde que llegó el trabajo: ya se le colocó (o se vio que no hacía falta). */
+    private function attendedSinceArrival(): bool
+    {
+        return Appointment::query()
+            ->where('patient_id', $this->patient_id)
+            ->where('status', AppointmentStatus::Completed)
+            ->whereDate('starts_at', '>=', $this->received_on)
+            ->exists();
     }
 
     /** Vino (o tiene cita) desde que llegó el trabajo: ya se le colocó o ya está citado. */

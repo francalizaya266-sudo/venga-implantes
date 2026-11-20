@@ -1327,6 +1327,20 @@ button.pt-chip { transition: transform 160ms ease-out; }
 .dash-waiting-time.is-long { background: var(--danger-50); color: var(--danger-700); }
 .dark .dash-waiting-time { background: rgb(255 255 255 / .07); color: var(--gray-300); }
 .dark .dash-waiting-time.is-long { background: rgb(239 68 68 / .16); color: var(--danger-300); }
+/* Arriba de la sala, cada doctor: atendiendo (punto azul) o libre (verde); si está libre y alguien lo espera, en ámbar. */
+.dash-rooms { list-style: none; margin: 0 0 .35rem; padding: 0 0 .7rem; display: grid; gap: .5rem; border-bottom: 1px solid var(--gray-100); }
+.dark .dash-rooms { border-color: rgb(255 255 255 / .06); }
+.dash-rooms li { display: flex; align-items: flex-start; gap: .6rem; }
+.dash-room-dot { flex: none; width: .5rem; height: .5rem; margin-top: .4rem; border-radius: 999px; background: var(--success-500); }
+.dash-room-dot.is-busy { background: var(--primary-500); }
+.dash-room-text { min-width: 0; display: grid; gap: .05rem; }
+.dash-room-text strong { font-size: .8125rem; font-weight: 600; color: var(--gray-950); overflow-wrap: anywhere; }
+.dark .dash-room-text strong { color: #fff; }
+.dash-room-text small { font-size: .75rem; color: var(--gray-500); overflow-wrap: anywhere; }
+.dash-room-text b { font-weight: 600; color: var(--gray-700); white-space: nowrap; }
+.dark .dash-room-text b { color: var(--gray-300); }
+.dash-room-text b.is-call { color: var(--warning-700); }
+.dark .dash-room-text b.is-call { color: var(--warning-400); }
 
 /* "Por hacer hoy": una línea por grupo con su número; los que tienen personas se abren ahí mismo. */
 .dash-task { display: flex; align-items: center; gap: .75rem; margin: 0 -.5rem; padding: .6rem .5rem; border-radius: .6rem; text-decoration: none; color: inherit; cursor: pointer; list-style: none; }
