@@ -118,20 +118,25 @@ class LabOrder extends Model
      */
     public function beforeVisit(): ?array
     {
-        if ($this->received_on !== null) {
+        /** @var CarbonInterface|null $received */
+        $received = $this->received_on;
+        /** @var CarbonInterface $due */
+        $due = $this->due_on;
+
+        if ($received !== null) {
             return $this->attendedSinceArrival() ? null : [
-                'text' => $this->description.': ya llegó del laboratorio'.($this->received_on->isToday() ? ' hoy' : ' el '.$this->received_on->translatedFormat('j \d\e F')).'.',
+                'text' => $this->description.': ya llegó del laboratorio'.($received->isToday() ? ' hoy' : ' el '.$received->translatedFormat('j \d\e F')).'.',
                 'tone' => 'success',
             ];
         }
 
         return match (true) {
-            $this->due_on->isBefore(today()) => [
-                'text' => $this->description.': no ha llegado del laboratorio; debía llegar '.$this->due_on->diffForHumans(today(), ['syntax' => CarbonInterface::DIFF_RELATIVE_TO_NOW, 'parts' => 1]).'.',
+            $due->isBefore(today()) => [
+                'text' => $this->description.': no ha llegado del laboratorio; debía llegar '.$due->diffForHumans(today(), ['syntax' => CarbonInterface::DIFF_RELATIVE_TO_NOW, 'parts' => 1]).'.',
                 'tone' => 'danger',
             ],
-            $this->due_on->isToday() => ['text' => $this->description.': llega hoy del laboratorio; confirma que lo trajeron.', 'tone' => 'warning'],
-            default => ['text' => $this->description.': sigue en el laboratorio, llega el '.$this->due_on->translatedFormat('j \d\e F').'.', 'tone' => 'warning'],
+            $due->isToday() => ['text' => $this->description.': llega hoy del laboratorio; confirma que lo trajeron.', 'tone' => 'warning'],
+            default => ['text' => $this->description.': sigue en el laboratorio, llega el '.$due->translatedFormat('j \d\e F').'.', 'tone' => 'warning'],
         };
     }
 

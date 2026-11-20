@@ -8,8 +8,10 @@ use App\Filament\Resources\Appointments\AppointmentResource;
 use App\Filament\Resources\Appointments\Tables\AppointmentsTable;
 use App\Models\Appointment;
 use App\Models\Doctor;
+use App\Models\Patient;
 use App\Models\User;
 use App\Support\Dates;
+use Carbon\CarbonInterface;
 use Filament\Widgets\Widget;
 use Illuminate\Support\Collection;
 
@@ -126,10 +128,21 @@ class WaitingRoom extends Widget
             return [
                 'name' => $doctor->name,
                 'busy' => $current !== null,
-                'status' => $current === null ? 'Libre' : 'Atendiendo a '.$current->patient->full_name
-                    .($current->started_at !== null ? ', hace '.Dates::duration((int) $current->started_at->diffInMinutes(now())) : ''),
+                'status' => $current === null ? 'Libre' : $this->seeing($current),
                 'waiting' => (int) ($waiting[$doctor->id] ?? 0),
             ];
         })->values()->all();
+    }
+
+    /** "Atendiendo a Rosa Quispe, hace 28 min": a quién tiene en consulta y desde cuándo, si se anotó. */
+    private function seeing(Appointment $appointment): string
+    {
+        /** @var Patient $patient */
+        $patient = $appointment->patient;
+        /** @var CarbonInterface|null $startedAt */
+        $startedAt = $appointment->started_at;
+
+        return 'Atendiendo a '.$patient->full_name
+            .($startedAt !== null ? ', hace '.Dates::duration((int) $startedAt->diffInMinutes(now())) : '');
     }
 }
