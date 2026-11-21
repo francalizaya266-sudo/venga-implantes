@@ -27,8 +27,11 @@ class AgendaDayController extends Controller
         $day = CarbonImmutable::parse($request->validate(['date' => ['nullable', 'date_format:Y-m-d']])['date'] ?? today())->startOfDay();
 
         // Recepción y administración imprimen la de todos; el doctor, solo la suya.
+        // Quien ya no atiende entra si todavía tiene citas ese día: en la agenda se ven, y en la hoja no pueden faltar.
         $doctors = Doctor::query()
-            ->active()
+            ->where(fn (Builder $query) => $query->active()->orWhereHas('appointments', fn (Builder $appointments) => $appointments
+                ->whereBetween('starts_at', [$day, $day->endOfDay()])
+                ->where('status', '!=', AppointmentStatus::Cancelled)))
             ->when(! $user->managesAllAgendas(), fn (Builder $query) => $query->whereKey($user->doctorId() ?? 0))
             ->orderBy('sort_order')
             ->orderBy('name')

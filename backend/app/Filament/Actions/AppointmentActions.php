@@ -14,6 +14,7 @@ use App\Filament\Support\ArrivalChecklist;
 use App\Filament\Support\Notify;
 use App\Filament\Support\SlotPicker;
 use App\Filament\Support\VisitFlags;
+use App\Livewire\PanelPulse;
 use App\Models\Appointment;
 use App\Models\Consultation;
 use App\Models\Doctor;
@@ -950,8 +951,17 @@ final class AppointmentActions
                     },
                     'Cita cancelada',
                     $action,
-                    function (Notification $notification) use (&$cancelled): Notification {
-                        return $cancelled > 1 ? $notification->title($cancelled.' citas canceladas') : $notification;
+                    // Al cerrar el panel la cita ya no está en la agenda: el aviso trae su "Deshacer".
+                    function (Notification $notification) use (&$cancelled, $record): Notification {
+                        return $cancelled > 1
+                            ? $notification->title($cancelled.' citas canceladas')
+                            : $notification->body('Si fue un error, tienes un día para deshacerlo.')->actions([
+                                Action::make('undoCancellation')
+                                    ->label('Deshacer')
+                                    ->link()
+                                    ->dispatch(PanelPulse::UNDO_CANCEL, ['appointment' => $record->getKey()])
+                                    ->close(),
+                            ]);
                     },
                 );
 

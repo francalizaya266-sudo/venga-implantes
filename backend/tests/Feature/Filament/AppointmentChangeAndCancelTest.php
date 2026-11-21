@@ -8,9 +8,11 @@ use App\Enums\MessageTemplateKey;
 use App\Enums\WaitlistStatus;
 use App\Exceptions\BookingException;
 use App\Filament\Pages\Agenda;
+use App\Filament\Pages\Dashboard;
 use App\Filament\Resources\Appointments\AppointmentResource;
 use App\Filament\Resources\Appointments\Pages\ListAppointments;
 use App\Filament\Resources\Appointments\Pages\ViewAppointment;
+use App\Livewire\PanelPulse;
 use App\Models\Appointment;
 use App\Models\Doctor;
 use App\Models\Patient;
@@ -178,6 +180,48 @@ class AppointmentChangeAndCancelTest extends TestCase
         $this->assertSame(0, WhatsappMessage::query()->where('template_key', MessageTemplateKey::Cancelled)->count());
         // Lo anotó recepción: si fue un error, todavía se deshace.
         $this->assertSame(AppointmentStatus::Cancelled, app(AppointmentService::class)->undoableStep($appointment));
+    }
+
+    public function test_the_cancelled_notice_brings_its_own_undo_because_the_appointment_leaves_the_agenda(): void
+    {
+        $appointment = $this->book('2026-11-03 10:00');
+
+        $this->page($appointment)
+            ->mountAction('cancel')
+            ->setActionData(['who' => CancelledBy::Patient->value])
+            ->setActionData(['motive' => 'Está enfermo'])
+            ->callMountedAction()
+            ->assertHasNoActionErrors();
+
+        $notice = $this->lastNotification();
+        $this->assertSame(['Cita cancelada', 'Si fue un error, tienes un día para deshacerlo.', ['Deshacer']], [$notice['title'], $notice['body'], array_column($notice['actions'], 'label')]);
+        $this->assertSame(AppointmentStatus::Cancelled, $appointment->fresh()->status);
+
+        Livewire::test(PanelPulse::class)
+            ->dispatch(PanelPulse::UNDO_CANCEL, appointment: $appointment->id)
+            ->assertNotified('Listo, la cita volvió a la agenda')
+            ->assertDispatched(Dashboard::CHANGED);
+
+        $this->assertSame(AppointmentStatus::Confirmed, $appointment->fresh()->status);
+
+        // Tocar otra vez el mismo aviso no hace nada raro: ya se deshizo.
+        Livewire::test(PanelPulse::class)
+            ->dispatch(PanelPulse::UNDO_CANCEL, appointment: $appointment->id)
+            ->assertNotified('Esa cancelación ya no se puede deshacer');
+    }
+
+    public function test_only_who_can_manage_that_agenda_undoes_a_cancellation_from_the_notice(): void
+    {
+        $appointment = $this->book('2026-11-03 10:00');
+        app(AppointmentService::class)->cancelByStaff($appointment, $this->reception, 'Está enfermo', notifyPatient: false, onBehalfOf: CancelledBy::Patient);
+
+        $this->actingAs($this->doctorOffering($this->cleaning)->user);
+
+        Livewire::test(PanelPulse::class)
+            ->dispatch(PanelPulse::UNDO_CANCEL, appointment: $appointment->id)
+            ->assertNotified('Esa cancelación ya no se puede deshacer');
+
+        $this->assertSame(AppointmentStatus::Cancelled, $appointment->fresh()->status);
     }
 
     public function test_when_the_clinic_cancels_the_patient_gets_the_notice_and_other_keeps_only_the_detail(): void

@@ -155,6 +155,25 @@ class BillingPanelTest extends TestCase
             ->assertActionVisible(TestAction::make('checkout')->table($appointment));
     }
 
+    public function test_a_free_visit_has_nothing_to_collect_unless_they_owe_from_before(): void
+    {
+        $this->freezeMonday();
+        $evaluation = Treatment::factory()->create(['name' => 'Evaluación', 'price_from' => 0]);
+        $appointment = Appointment::factory()->for($this->doctorOffering($evaluation))->for($evaluation)->at('2026-11-02 10:00')->create(['status' => AppointmentStatus::Completed]);
+        app(BillingService::class)->chargeAppointment($appointment, $reception = User::factory()->reception()->create());
+        $this->actingAs($reception);
+
+        // La evaluación gratis no cargó nada: "Cobrar" no tendría qué cobrar.
+        $this->assertSame(0, Charge::query()->count());
+        Livewire::test(TodayAppointments::class)
+            ->assertActionHidden(TestAction::make('checkout')->table($appointment));
+
+        // Si debe algo de antes, sí: se le cobra mientras está.
+        Charge::factory()->for($appointment->patient)->create(['amount' => 40]);
+        Livewire::test(TodayAppointments::class)
+            ->assertActionVisible(TestAction::make('checkout')->table($appointment));
+    }
+
     public function test_doctors_do_not_handle_money(): void
     {
         $this->freezeMonday();

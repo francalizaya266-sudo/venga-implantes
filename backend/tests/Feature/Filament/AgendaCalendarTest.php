@@ -368,6 +368,76 @@ class AgendaCalendarTest extends TestCase
         $this->assertSame(1, substr_count(Livewire::test(Agenda::class)->html(), 'class="tag tag-unclosed"'));
     }
 
+    public function test_a_date_typed_halfway_keeps_the_day_being_viewed(): void
+    {
+        $this->freezeMonday();
+        $this->doctorOffering(Treatment::factory()->create());
+
+        $this->actingAs(User::factory()->reception()->create());
+
+        // Al escribir "05/11/2026" a mano el campo pasa por "0002-11-05": antes la agenda saltaba a hoy.
+        Livewire::test(Agenda::class, ['date' => '2026-11-05'])
+            ->set('date', '0002-11-05')
+            ->assertSet('date', '2026-11-05')
+            ->set('date', '')
+            ->assertSet('date', '2026-11-05')
+            ->set('date', '2026-11-06')
+            ->assertSet('date', '2026-11-06');
+    }
+
+    public function test_a_past_day_is_only_looked_at_and_tapping_it_says_why(): void
+    {
+        $this->freezeMonday();
+        $this->doctorOffering(Treatment::factory()->create());
+
+        $this->actingAs(User::factory()->reception()->create());
+
+        Livewire::test(Agenda::class, ['date' => '2026-10-30'])
+            ->assertSeeHtml('class="agenda-col is-past"')
+            ->assertSeeHtml('data-past="true"')
+            ->call('pastDay', '2026-10-30')
+            ->assertNotified('Viernes 30 de octubre ya pasó');
+
+        Livewire::test(Agenda::class)->assertSeeHtml('data-past="false"')->assertDontSeeHtml('data-past="true"');
+    }
+
+    public function test_hovering_a_card_says_what_each_of_its_tags_means(): void
+    {
+        $this->freezeMonday();
+        $treatment = Treatment::factory()->create(['name' => 'Limpieza']);
+        $doctor = $this->doctorOffering($treatment);
+        $patient = Patient::factory()->create(['first_name' => 'María', 'last_name' => 'Quispe']);
+        $patient->medicalBackground()->create(['allergies' => 'Penicilina']);
+        Appointment::factory()->for($doctor)->for($treatment)->for($patient)->confirmed()->at('2026-11-02 10:00')->create(['is_new_patient' => true, 'internal_notes' => 'Trae sus radiografías']);
+
+        $this->actingAs($doctor->user);
+
+        // El doctor empieza en su semana: ahí no entran las etiquetas, y la alerta médica queda como ⚠ junto al nombre.
+        Livewire::test(Agenda::class)
+            ->assertSeeHtml('<span class="appt-alert-mark" aria-hidden="true">⚠</span>')
+            ->assertSeeHtml('title="10:00–10:30 · María Quispe · Limpieza · Confirmada · ')
+            ->assertSeeHtml('· Alerta médica: Alergia: Penicilina · Paciente nuevo · Tiene una nota"');
+    }
+
+    public function test_someone_left_in_the_waiting_room_hours_later_is_an_unclosed_appointment(): void
+    {
+        $this->freezeMonday();
+        $this->travelTo(CarbonImmutable::parse('2026-11-02 14:00', 'America/Lima'));
+        $treatment = Treatment::factory()->create(['duration_minutes' => 30]);
+        $doctor = $this->doctorOffering($treatment);
+        $forgotten = Appointment::factory()->for($doctor)->for($treatment)->at('2026-11-02 10:00')->create(['status' => AppointmentStatus::CheckedIn, 'checked_in_at' => '2026-11-02 09:55']);
+        Appointment::factory()->for($doctor)->for($treatment)->at('2026-11-02 12:00')->create(['status' => AppointmentStatus::CheckedIn, 'checked_in_at' => '2026-11-02 11:55']);
+
+        $this->actingAs(User::factory()->reception()->create());
+
+        // La de las 10:00 sigue "en sala" más de tres horas después: nadie la cerró. La de las 12:00 aún puede estar esperando.
+        $agenda = Livewire::test(Agenda::class);
+        $this->assertSame(1, substr_count($agenda->html(), 'class="tag tag-unclosed"'));
+
+        $agenda->mountAction(TestAction::make('appointment')->arguments(['id' => $forgotten->id]))
+            ->assertMountedActionModalSee('Sin cerrar');
+    }
+
     public function test_the_heading_is_the_day_shown_and_the_week_uses_short_names(): void
     {
         $this->freezeMonday();
@@ -383,7 +453,8 @@ class AgendaCalendarTest extends TestCase
             ->set('mode', 'week')
             ->assertSee('Semana del 2 de noviembre')
             ->assertSeeHtml('<b>Benjamín Del Valle<')
-            ->assertSee('10:00 · '.$treatment->name);
+            // Una cita corta no tiene alto para la línea del estado: va junto a la hora.
+            ->assertSee('10:00 · Pendiente · '.$treatment->name);
     }
 
     public function test_new_appointment_from_the_header_comes_with_the_day_being_viewed(): void

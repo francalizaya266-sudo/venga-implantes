@@ -104,5 +104,26 @@
                 <li class="agenda-list-empty">{{ $list['empty'] }}</li>
             @endforelse
         </ol>
+
+        {{-- Las canceladas ya no ocupan la agenda: al final, plegadas, con su motivo y "Deshacer" durante un día. --}}
+        @if ($list['cancelled'] !== [])
+            <details class="agenda-list-cancelled" wire:key="list-cancelled-{{ $date }}">
+                <summary>{{ count($list['cancelled']) === 1 ? '1 cita cancelada' : count($list['cancelled']).' citas canceladas' }} este día</summary>
+                <ul>
+                    @foreach ($list['cancelled'] as $cancelled)
+                        <li wire:key="list-cancelled-{{ $cancelled['id'] }}">
+                            <span class="agenda-list-cancelled-time">{{ $cancelled['time'] }}</span>
+                            <span class="agenda-list-cancelled-body">
+                                <a href="{{ $cancelled['url'] }}" class="agenda-item-name">{{ $cancelled['patient'] }}</a>
+                                <small>{{ $cancelled['treatment'] }}{{ $cancelled['reason'] ? ' · '.$cancelled['reason'] : '' }}</small>
+                            </span>
+                            @foreach ($this->nextSteps($cancelled['id'], 'cancelled') as $step)
+                                {{ $step->size('sm') }}
+                            @endforeach
+                        </li>
+                    @endforeach
+                </ul>
+            </details>
+        @endif
     </div>
 </div>
