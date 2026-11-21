@@ -11,6 +11,7 @@ use App\Enums\RescheduleRequestStatus;
 use App\Enums\TreatmentPlanStatus;
 use App\Filament\Pages\Agenda;
 use App\Filament\Resources\Appointments\AppointmentResource;
+use App\Filament\Resources\Appointments\Pages\ListAppointments;
 use App\Filament\Resources\Appointments\Pages\ViewAppointment;
 use App\Filament\Resources\Consultations\ConsultationResource;
 use App\Filament\Resources\Consultations\Pages\EditConsultation;
@@ -245,6 +246,33 @@ class PatientNextStepTest extends TestCase
             ->assertSee(['Alerta médica', 'title="Alergia: Penicilina"'], escape: false);
         Livewire::test(NextPatient::class)
             ->assertSee('Endodoncia · pieza 46 · sesión 2 de 3');
+    }
+
+    public function test_each_booked_session_of_the_same_procedure_says_which_one_it_is(): void
+    {
+        $this->freezeMonday();
+        $endo = Treatment::factory()->create(['name' => 'Endodoncia']);
+        $doctor = $this->doctorOffering($endo);
+        $patient = Patient::factory()->create(['first_name' => 'Rosa']);
+        $plan = TreatmentPlan::create(['patient_id' => $patient->id, 'doctor_id' => $doctor->id, 'title' => 'Plan', 'status' => TreatmentPlanStatus::InProgress, 'accepted_at' => now()->subWeek()]);
+        $item = $plan->items()->create(['treatment_id' => $endo->id, 'description' => 'Endodoncia', 'unit_price' => 400, 'sessions_planned' => 3, 'sessions_done' => 1, 'accepted_at' => now()->subWeek()]);
+        $visit = fn (string $at, AppointmentStatus $status) => Appointment::factory()->for($doctor)->for($endo)->for($patient)->at($at)
+            ->create(['status' => $status, 'treatment_plan_item_id' => $item->id]);
+        $attended = $visit('2026-10-26 10:00', AppointmentStatus::Completed);
+        $missed = $visit('2026-10-30 10:00', AppointmentStatus::NoShow);
+        $today = $visit('2026-11-02 10:00', AppointmentStatus::Confirmed);
+        $nextWeek = $visit('2026-11-09 10:00', AppointmentStatus::Pending);
+
+        $this->actingAs(User::factory()->reception()->create());
+
+        // Antes las dos agendadas decían "Sesión 2 de 3" y la atendida también.
+        Livewire::test(ListAppointments::class, ['activeTab' => 'all'])
+            ->assertTableColumnStateSet('flags', ['Sesión 1 de 3'], $attended)
+            ->assertTableColumnStateSet('flags', ['Sesión 2 de 3'], $today)
+            ->assertTableColumnStateSet('flags', ['Sesión 3 de 3'], $nextWeek)
+            ->assertTableColumnStateSet('flags', ['Sesión 2 de 3'], $missed);
+        Livewire::test(Agenda::class)
+            ->assertSee('Endodoncia · sesión 2 de 3');
     }
 
     public function test_attending_shows_the_last_blood_pressure_and_what_follows_in_the_plan(): void

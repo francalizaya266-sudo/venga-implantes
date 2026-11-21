@@ -114,13 +114,15 @@ final class WaitlistService
         }
 
         $doctors = $this->doctorsFor($entry, $treatment);
-        $last = CarbonImmutable::today()->addDays(self::SEARCH_DAYS - 1);
+        // Desde el día que puede: si es en un mes, se buscan las dos semanas desde ahí, no las próximas.
+        $first = CarbonImmutable::instance($entry->firstDate())->startOfDay();
+        $last = $first->addDays(self::SEARCH_DAYS - 1);
 
         if ($entry->latest_date && $entry->latest_date->lt($last)) {
             $last = CarbonImmutable::instance($entry->latest_date);
         }
 
-        for ($date = CarbonImmutable::instance($entry->firstDate())->startOfDay(); $date->lte($last); $date = $date->addDay()) {
+        for ($date = $first; $date->lte($last); $date = $date->addDay()) {
             foreach ($doctors as $doctor) {
                 $slot = $this->slotsFor($entry, $doctor, $treatment, $date)->first();
 
@@ -262,8 +264,9 @@ final class WaitlistService
     }
 
     /**
-     * Al agendarle una cita (o adelantarle la que tenía), sale de la lista lo que esa cita resuelve:
-     * lo que esperaba para ese tratamiento (o para cualquiera) y con ese doctor (o con cualquiera).
+     * Al agendarle una cita (o adelantarle la que tenía), sale de la lista lo que esa cita resuelve: lo que esperaba
+     * para ese tratamiento (o para cualquiera), aunque sea con otro doctor del que esperaba. Si de todos modos quiere
+     * esperar a su doctor, se le anota de nuevo; si no, seguiría recibiendo horarios que ya no necesita.
      */
     public function settle(Appointment $appointment): void
     {
@@ -271,7 +274,6 @@ final class WaitlistService
             ->where('patient_id', $appointment->patient_id)
             ->whereIn('status', WaitlistEntry::ACTIVE_STATUSES)
             ->where(fn ($query) => $query->whereNull('treatment_id')->orWhere('treatment_id', $appointment->treatment_id))
-            ->where(fn ($query) => $query->whereNull('doctor_id')->orWhere('doctor_id', $appointment->doctor_id))
             ->get()
             ->each(fn (WaitlistEntry $entry) => $entry->update([
                 'status' => WaitlistStatus::Booked,

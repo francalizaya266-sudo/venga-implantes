@@ -232,6 +232,24 @@ class WalkInTest extends TestCase
         $this->assertSame(['Paciente en sala', 'Rosa Quispe llegó a su cita de las 12:00 con '.$this->busy->name.'.'], [$notice['title'], $notice['body']]);
     }
 
+    public function test_what_is_answered_in_how_they_found_us_is_kept_when_they_arrive_to_their_appointment(): void
+    {
+        $lucia = Patient::factory()->create(['first_name' => 'Lucía', 'last_name' => 'Rojas', 'first_visit_at' => null, 'origin' => null]);
+        $booked = Appointment::factory()->for($this->busy)->for($this->cleaning)->for($lucia)->at('2026-11-02 12:00')->confirmed()->create();
+
+        // Antes se preguntaba, pero al marcar que llegó a su cita se perdía.
+        Livewire::test(Dashboard::class)
+            ->mountAction('walkIn')
+            ->setActionData(['patient_id' => $lucia->id])
+            ->assertMountedActionModalSee(['Marcar que llegó a esa cita', '¿Cómo nos encontró?'])
+            ->setActionData(['origin' => AppointmentOrigin::Recommendation->value])
+            ->callMountedAction()
+            ->assertHasNoActionErrors();
+
+        $this->assertSame(AppointmentStatus::CheckedIn, $booked->refresh()->status);
+        $this->assertSame([AppointmentOrigin::Recommendation, AppointmentOrigin::Recommendation], [$booked->origin, $lucia->refresh()->origin]);
+    }
+
     public function test_it_is_still_a_separate_visit_when_reception_says_it_comes_for_something_else(): void
     {
         $rosa = Patient::factory()->create(['first_name' => 'Rosa', 'last_name' => 'Quispe']);

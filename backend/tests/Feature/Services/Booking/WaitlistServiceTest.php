@@ -56,6 +56,20 @@ class WaitlistServiceTest extends TestCase
         $this->assertSame(WaitlistStatus::Waiting, $forCrown->fresh()->status);
     }
 
+    public function test_booking_with_another_doctor_also_takes_them_off_the_list(): void
+    {
+        $cleaning = Treatment::factory()->create(['duration_minutes' => 30]);
+        $waitedFor = $this->doctorOffering($cleaning);
+        $other = $this->doctorOffering($cleaning);
+        $patient = Patient::factory()->create();
+        $entry = WaitlistEntry::factory()->for($patient)->for($cleaning)->create(['doctor_id' => $waitedFor->id]);
+
+        // "Nueva cita" dice que al agendarle eso sale solo de la lista; antes seguía si era con otro doctor.
+        app(AppointmentService::class)->bookFromStaff(User::factory()->reception()->create(), $patient, $other, $cleaning, CarbonImmutable::parse('2026-11-04 10:00'));
+
+        $this->assertSame(WaitlistStatus::Booked, $entry->fresh()->status);
+    }
+
     public function test_moving_the_appointment_earlier_settles_the_entry_but_moving_it_later_does_not(): void
     {
         $treatment = Treatment::factory()->create(['duration_minutes' => 30]);
@@ -111,6 +125,20 @@ class WaitlistServiceTest extends TestCase
 
         $this->assertTrue($first['doctor']->is($doctor));
         $this->assertSame('2026-11-04 16:10', $first['slot']->startsAt->format('Y-m-d H:i'), 'Después de la cita y su esterilización.');
+    }
+
+    public function test_who_can_only_come_in_a_month_is_still_found_a_slot(): void
+    {
+        $treatment = Treatment::factory()->create(['duration_minutes' => 30]);
+        $doctor = $this->doctorOffering($treatment);
+        $entry = WaitlistEntry::factory()->for($treatment)->create(['earliest_date' => '2026-12-01']);
+
+        $first = $this->service()->firstSlot($entry);
+
+        // Antes se buscaba solo en las próximas dos semanas, y desde el 1 de diciembre nunca había nada libre.
+        $this->assertNotNull($first);
+        $this->assertTrue($first['doctor']->is($doctor));
+        $this->assertSame('2026-12-01', $first['slot']->startsAt->format('Y-m-d'));
     }
 
     public function test_there_is_no_slot_once_the_patient_deadline_has_no_room(): void

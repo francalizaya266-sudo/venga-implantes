@@ -114,7 +114,11 @@ class AppointmentForm
                 Toggle::make('notify')
                     ->label('Enviar aviso por WhatsApp')
                     ->helperText('Apágalo si ya se lo dijiste en persona o por teléfono: no queda nada por enviar en Avisos.')
+                    ->hidden(fn (Get $get) => self::hasNoPhone($get))
                     ->default(true),
+                Text::make('No tiene celular registrado: no se le puede avisar por WhatsApp. Agrégalo en su ficha.')
+                    ->color('gray')
+                    ->visible(fn (Get $get) => self::hasNoPhone($get)),
                 Textarea::make('internal_notes')
                     ->label('Nota para el doctor')
                     ->placeholder('Viene con dolor, trae su radiografía…')
@@ -698,6 +702,14 @@ class AppointmentForm
     }
 
     /** Paciente nuevo, o uno registrado que nunca vino y del que no se sabe cómo llegó. */
+    /** Un paciente ya registrado sin celular: no hay a dónde mandarle el aviso. El nuevo lo escribe en la misma ventana. */
+    private static function hasNoPhone(Get $get): bool
+    {
+        return ! $get('new_patient')
+            && filled($get('patient_id'))
+            && Patient::query()->whereKey($get('patient_id'))->whereNull('account_id')->exists();
+    }
+
     private static function isFirstTime(Get $get): bool
     {
         if ($get('new_patient')) {

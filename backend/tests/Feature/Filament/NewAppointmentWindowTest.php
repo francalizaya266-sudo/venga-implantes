@@ -5,6 +5,7 @@ namespace Tests\Feature\Filament;
 use App\Enums\DocumentType;
 use App\Enums\RequestedBy;
 use App\Enums\RescheduleRequestStatus;
+use App\Filament\Actions\AppointmentActions;
 use App\Filament\Pages\Agenda;
 use App\Filament\Pages\Dashboard;
 use App\Filament\Resources\Appointments\AppointmentResource;
@@ -17,6 +18,7 @@ use App\Models\Patient;
 use App\Models\Treatment;
 use App\Models\User;
 use App\Models\WaitlistEntry;
+use App\Models\WhatsappMessage;
 use Database\Seeders\CatalogSeeder;
 use Filament\Actions\Action;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
@@ -73,6 +75,25 @@ class NewAppointmentWindowTest extends TestCase
             ->assertRedirect($patientPage);
 
         $this->assertSame('2026-11-03 10:00', $this->patient->appointments()->sole()->starts_at->format('Y-m-d H:i'));
+    }
+
+    public function test_a_patient_without_a_phone_is_not_promised_a_whatsapp_notice(): void
+    {
+        $this->patient->update(['account_id' => null]);
+        $patientPage = PatientResource::getUrl('view', ['record' => $this->patient]);
+
+        // Antes decía "El aviso al paciente está listo en Avisos" y no había ninguno.
+        $this->windowOpenedFrom($patientPage, ['patient' => $this->patient->id])
+            ->assertMountedActionModalSee('No tiene celular registrado: no se le puede avisar por WhatsApp. Agrégalo en su ficha.')
+            ->assertMountedActionModalDontSee('Enviar aviso por WhatsApp')
+            ->setActionData(['doctor_id' => $this->doctor->id, 'treatment_id' => $this->treatment->id, 'date' => '2026-11-03', 'slot' => '10:00'])
+            ->callMountedAction()
+            ->assertHasNoActionErrors()
+            ->assertNotified('Cita creada. No tiene celular: no se preparó aviso al paciente.');
+
+        $this->assertSame(0, WhatsappMessage::query()->count());
+        $appointment = $this->patient->appointments()->sole();
+        $this->assertSame('Cita movida. No tiene celular: no se preparó aviso al paciente.', AppointmentActions::movedMessage($appointment, now()->addDays(3), agreed: false));
     }
 
     public function test_a_booking_that_fails_stays_in_the_window(): void

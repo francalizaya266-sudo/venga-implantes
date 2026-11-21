@@ -90,6 +90,7 @@ final class CreateAppointmentAction
 
         $notice = match (true) {
             ! $notified => 'No se preparó aviso al paciente.',
+            Patient::query()->whereKey($first->patient_id)->whereNull('account_id')->exists() => 'No tiene celular: no se preparó aviso al paciente.',
             $count > 1 => 'El aviso de la primera está listo en Avisos.',
             default => 'El aviso al paciente está listo en Avisos.',
         };

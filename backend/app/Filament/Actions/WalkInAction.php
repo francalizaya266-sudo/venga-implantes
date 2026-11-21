@@ -104,6 +104,7 @@ final class WalkInAction
                     Notify::run(
                         function () use ($appointment, $data): void {
                             self::addNote($appointment, $data['internal_notes'] ?? null);
+                            self::saveOrigin($appointment, $data['origin'] ?? null);
                             app(AppointmentService::class)->markArrived($appointment, auth()->user());
                         },
                         'Paciente en sala',
@@ -137,6 +138,24 @@ final class WalkInAction
         }
 
         $appointment->update(['internal_notes' => collect([$appointment->internal_notes, trim($note)])->filter(fn (?string $line) => filled($line))->implode("\n")]);
+    }
+
+    /**
+     * "¿Cómo nos encontró?", si se preguntó al marcar que llegó a su cita: queda en la cita y en su ficha, como al
+     * agendar. Lo que ya tenían no se cambia.
+     */
+    private static function saveOrigin(Appointment $appointment, mixed $origin): void
+    {
+        if (blank($origin)) {
+            return;
+        }
+
+        if ($appointment->origin === null) {
+            $appointment->update(['origin' => $origin]);
+        }
+
+        $patient = Patient::query()->whereKey($appointment->patient_id)->whereNull('origin')->first();
+        $patient?->update(['origin' => $origin]);
     }
 
     /** "Rosa Quispe pasa con Dra. Elena Ríos a las 11:30." */
