@@ -515,7 +515,7 @@ class FollowUpsToday extends Widget implements HasActions, HasSchemas
         return [
             'key' => 'missed',
             'title' => 'Faltaron o cancelaron',
-            'hint' => 'En los últimos '.intdiv(Patient::MISSED_VISIT_DAYS, 30).' meses, sin otra cita ni lista de espera',
+            'hint' => 'Desde el '.now()->subDays(Patient::MISSED_VISIT_DAYS)->translatedFormat('j \d\e F').', sin otra cita ni lista de espera',
             'count' => $count,
             'url' => PatientResource::getUrl('index', ['tab' => 'missed']),
             'summary' => null,

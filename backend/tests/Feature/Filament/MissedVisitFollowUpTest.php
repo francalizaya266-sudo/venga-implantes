@@ -80,7 +80,7 @@ class MissedVisitFollowUpTest extends TestCase
         $this->actingAs(User::factory()->reception()->create());
 
         $followUps = Livewire::test(FollowUpsToday::class)
-            ->assertSeeInOrder(['Faltaron o cancelaron', 'En los últimos 2 meses, sin otra cita ni lista de espera', 'Luis Mamani', 'Se canceló su cita del 5 de noviembre · Limpieza dental', 'Rosa Quispe', 'No asistió el 27 de octubre · Limpieza dental'])
+            ->assertSeeInOrder(['Faltaron o cancelaron', 'Desde el 3 de septiembre, sin otra cita ni lista de espera', 'Luis Mamani', 'Se canceló su cita del 5 de noviembre · Limpieza dental', 'Rosa Quispe', 'No asistió el 27 de octubre · Limpieza dental'])
             ->assertSee(AppointmentResource::newUrl(['patient' => $noShow->id, 'treatment' => $this->cleaning->id, 'doctor' => $this->doctor->id]))
             ->assertDontSee(['Ana Flores', 'Pedro Huamán', 'Carmen Rojas', 'Jorge Salas']);
 
