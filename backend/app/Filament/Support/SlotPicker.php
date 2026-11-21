@@ -142,6 +142,8 @@ final class SlotPicker
                 ->highlighted(fn (Get $get) => self::recommendedSlots($get, $moving))
                 ->descriptions(fn (Get $get) => array_fill_keys(self::recommendedSlots($get, $moving), 'Recomendada'))
                 ->extraAttributes(['class' => 'slot-chips'])
+                // Al tocar un horario, el resumen dice a qué hora termina.
+                ->live()
                 ->columnSpanFull()
                 ->required(fn (Get $get) => ! $get('manual'))
                 ->hidden(fn (Get $get) => (bool) $get('manual')),
@@ -150,6 +152,9 @@ final class SlotPicker
             // sobrecupo. Llega con la hora que se había elegido o tocado en la agenda, si todavía no pasó.
             Toggle::make('manual')
                 ->label($moving === null ? 'Otra hora (fuera del horario, o un sobrecupo)' : 'Otra hora (fuera del horario de atención)')
+                // Se usa poco: más chico que los horarios, para no competir con ellos.
+                ->extraFieldWrapperAttributes(['class' => 'quiet-toggle'])
+                ->columnSpanFull()
                 ->live()
                 ->afterStateUpdated(function (?bool $state, Get $get, Set $set): void {
                     $carried = $get('slot') ?? $get('preferred_time');
@@ -470,6 +475,8 @@ final class SlotPicker
             ->hidden($moving !== null)
             ->dehydrated($moving === null)
             ->required($moving === null)
+            // Sin la lista de doctores al lado (hay uno solo), ocupa todo el ancho.
+            ->columnSpan(fn (Get $get) => $moving === null && self::doctorIsSettled($get) ? 'full' : 1)
             ->searchable()
             ->live();
     }
@@ -494,9 +501,26 @@ final class SlotPicker
                 ? new HtmlString('<span class="help-warning">Ningún doctor atiende este tratamiento. Márcalo en Configuración › Tratamientos › "¿Quién lo atiende?".</span>')
                 : null)
             ->disabled($ownDoctorId !== null)
+            // En una cita nueva, si no hay a quién más elegir, la lista sobra: el doctor sale en el resumen.
+            ->hidden(fn (Get $get) => $moving === null && self::doctorIsSettled($get))
             ->dehydrated()
+            ->dehydratedWhenHidden()
             ->required()
             ->live();
+    }
+
+    /**
+     * El doctor ya está decidido y no hay otro que elegir: el doctor agenda con él mismo, o el consultorio tiene un
+     * solo doctor activo y atiende el tratamiento elegido (si no lo atiende, la lista se muestra para decir por qué).
+     */
+    private static function doctorIsSettled(Get $get): bool
+    {
+        /** @var User $user */
+        $user = auth()->user();
+
+        return filled($get('doctor_id'))
+            && (! $user->managesAllAgendas() || self::onlyActiveDoctorId() !== null)
+            && ! self::nobodyAttends($get('treatment_id'));
     }
 
     /**

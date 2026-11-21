@@ -28,59 +28,143 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Forms\Components\ToggleButtons;
 use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Components\Group;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\StateCasts\BooleanStateCast;
 use Filament\Schemas\Components\Text;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
+use Filament\Schemas\Components\View;
 use Filament\Schemas\Schema;
+use Filament\Support\Icons\Heroicon;
 
 /** Nueva cita desde el panel (recepción o doctor). */
 class AppointmentForm
 {
+    /**
+     * En dos columnas: a la izquierda se elige quién, qué y cuándo; a la derecha queda el resumen de lo que se va a
+     * agendar (para leérselo al paciente), el aviso de WhatsApp y la nota para el doctor. En el celular, una debajo
+     * de la otra.
+     */
     public static function configure(Schema $schema): Schema
     {
         return $schema
+            ->columns(['default' => 1, 'lg' => 3])
             ->components([
-                self::patientSection(),
-                Section::make('Horario')
-                    ->columns(2)
-                    ->schema([
-                        ...SlotPicker::fields(),
-                        // Lo que el paciente pregunta al agendar: cuánto dura, a qué hora sale y cuánto cuesta.
-                        Text::make(fn (Get $get) => self::visitSummary($get))
-                            ->visible(fn (Get $get) => self::visitSummary($get) !== null)
-                            ->columnSpanFull(),
-                        ...self::repeatFields(),
-                    ]),
-                // Cerrado: casi nunca se usa y empujaba "Agendar cita" fuera de la pantalla.
-                Section::make('Detalles')
-                    ->columns(2)
-                    ->collapsible()
-                    ->collapsed()
-                    ->schema([
-                        // Para el caso que necesita más (o menos) tiempo que el de siempre: los horarios libres se vuelven a calcular.
-                        Select::make('duration_minutes')
-                            ->label('Duración')
-                            ->placeholder('La normal del tratamiento')
-                            ->options(fn (Get $get) => SlotPicker::durationOptions(self::usualDuration($get)))
-                            ->live()
-                            ->afterStateUpdated(fn (Get $get, Set $set) => SlotPicker::keepSlotIfItFits($get, $set)),
-                        Toggle::make('fixed_date')
-                            ->label('Fecha fija (el paciente no la mueve solo)')
-                            ->inline(false),
-                        // Con el paciente al frente o al teléfono, el aviso sobra y ensucia Avisos.
-                        Toggle::make('notify')
-                            ->label('Preparar el aviso de WhatsApp para el paciente')
-                            ->helperText('Apágalo si ya se lo dijiste (está al frente o al teléfono): no queda nada por enviar en Avisos.')
-                            ->default(true)
-                            ->columnSpanFull(),
-                        Textarea::make('internal_notes')
-                            ->label('Notas internas')
-                            ->rows(2)
-                            ->columnSpanFull(),
-                    ]),
+                Group::make([
+                    self::patientSection(),
+                    Section::make('Tratamiento y horario')
+                        ->columns(2)
+                        ->schema([
+                            ...SlotPicker::fields(),
+                            ...self::repeatFields(),
+                        ]),
+                    // Cerrado: casi nunca se usa.
+                    Section::make('Más opciones')
+                        ->description('Otra duración o fecha fija')
+                        ->columns(2)
+                        ->collapsible()
+                        ->collapsed()
+                        ->schema([
+                            // Para el caso que necesita más (o menos) tiempo que el de siempre: los horarios libres se vuelven a calcular.
+                            Select::make('duration_minutes')
+                                ->label('Duración')
+                                ->placeholder('La normal del tratamiento')
+                                ->options(fn (Get $get) => SlotPicker::durationOptions(self::usualDuration($get)))
+                                ->live()
+                                ->afterStateUpdated(fn (Get $get, Set $set) => SlotPicker::keepSlotIfItFits($get, $set)),
+                            Toggle::make('fixed_date')
+                                ->label('Fecha fija (el paciente no la mueve solo)')
+                                ->inline(false),
+                        ]),
+                ])->columnSpan(['lg' => 2]),
+                self::summarySection()->columnSpan(['lg' => 1]),
             ]);
+    }
+
+    /**
+     * "Resumen de la cita": lo que el paciente pregunta al agendar (qué día, de qué hora a qué hora, cuánto dura y
+     * cuánto cuesta), y lo que recepción decide en cada cita: si se le prepara el aviso y qué tiene que saber el doctor.
+     */
+    private static function summarySection(): Section
+    {
+        return Section::make('Resumen de la cita')
+            ->extraAttributes(['class' => 'appointment-summary'])
+            ->schema([
+                View::make('filament.forms.appointment-summary')
+                    ->viewData(fn (Get $get): array => ['rows' => self::summaryRows($get)]),
+                // Con el paciente al frente o al teléfono, el aviso sobra y ensucia Avisos.
+                Toggle::make('notify')
+                    ->label('Enviar aviso por WhatsApp')
+                    ->helperText('Apágalo si ya se lo dijiste en persona o por teléfono: no queda nada por enviar en Avisos.')
+                    ->default(true),
+                Textarea::make('internal_notes')
+                    ->label('Nota para el doctor')
+                    ->placeholder('Viene con dolor, trae su radiografía…')
+                    ->helperText('No la ve el paciente.')
+                    ->rows(3),
+            ]);
+    }
+
+    /**
+     * Las filas del resumen, con el tratamiento y el doctor ya elegidos: el doctor, el día, de qué hora a qué hora,
+     * cuánto dura, el precio y, si se repite, cada cuánto. Una sesión de su plan se cobra a lo acordado en el plan,
+     * no al precio de lista.
+     *
+     * @return list<array{label: string, value: string, pending: bool}>
+     */
+    public static function summaryRows(Get $get): array
+    {
+        $treatment = Treatment::find($get('treatment_id'));
+        $doctor = Doctor::find($get('doctor_id'));
+
+        if (! $treatment || ! $doctor) {
+            return [];
+        }
+
+        $minutes = SlotPicker::chosenDuration($get) ?? $doctor->durationFor($treatment);
+        $time = $get('manual') ? $get('manual_time') : $get('slot');
+        $day = filled($get('date')) ? CarbonImmutable::parse($get('date')) : null;
+        $start = filled($time) && $day ? $day->setTimeFromTimeString($time) : null;
+
+        $price = match (true) {
+            filled($get('treatment_plan_item_id')) => 'El acordado en su plan',
+            $treatment->price_from === null => null,
+            (float) $treatment->price_from === 0.0 => 'Sin costo',
+            default => 'Desde '.Money::short($treatment->price_from),
+        };
+
+        $rows = [
+            ['label' => 'Doctor', 'value' => $doctor->name, 'pending' => false],
+            ['label' => 'Día', 'value' => $day ? self::dayLabel($day) : 'Falta elegirlo', 'pending' => $day === null],
+            ['label' => 'Hora', 'value' => $start ? $start->format('H:i').' a '.$start->addMinutes($minutes)->format('H:i') : 'Falta elegirla', 'pending' => $start === null],
+            ['label' => 'Duración', 'value' => Dates::duration($minutes), 'pending' => false],
+        ];
+
+        if ($price !== null) {
+            $rows[] = ['label' => 'Precio', 'value' => $price, 'pending' => false];
+        }
+
+        if ($get('repeat') && filled($get('repeat_every')) && filled($get('repeat_times'))) {
+            $every = (int) $get('repeat_every');
+            $rows[] = ['label' => 'Se repite', 'value' => 'Cada '.($every === 1 ? 'semana' : $every.' semanas').', '.(int) $get('repeat_times').' citas', 'pending' => false];
+        }
+
+        return $rows;
+    }
+
+    /** "Hoy, sábado 21 de noviembre", "Mañana, domingo 22 de noviembre" o "Lunes 23 de noviembre". */
+    private static function dayLabel(CarbonImmutable $day): string
+    {
+        $date = $day->translatedFormat('l j \d\e F');
+
+        return match (true) {
+            $day->isToday() => 'Hoy, '.$date,
+            $day->isTomorrow() => 'Mañana, '.$date,
+            default => ucfirst($date),
+        };
     }
 
     /**
@@ -94,6 +178,7 @@ class AppointmentForm
         return [
             Toggle::make('repeat')
                 ->label('Repetir esta cita (por ejemplo, un control cada 4 semanas)')
+                ->extraFieldWrapperAttributes(['class' => 'quiet-toggle'])
                 ->live()
                 ->columnSpanFull(),
             Select::make('repeat_every')
@@ -174,21 +259,31 @@ class AppointmentForm
     public static function patientSection(bool $forToday = false): Section
     {
         return Section::make('Paciente')
-            ->schema([
-                // El paciente que estaba elegido al marcar "paciente nuevo": si se desmarca, vuelve.
-                Hidden::make('patient_before_new')->dehydrated(false),
-                Toggle::make('new_patient')
-                    ->label('Es un paciente nuevo (aún no está registrado)')
+            // Arriba a la derecha, como en la ficha: uno ya registrado o uno nuevo que se registra aquí mismo.
+            ->afterHeader([
+                ToggleButtons::make('new_patient')
+                    ->label('¿Ya está registrado?')
+                    ->hiddenLabel()
+                    ->options([0 => 'Existente', 1 => 'Nuevo'])
+                    ->icons([1 => Heroicon::OutlinedPlus])
+                    ->grouped()
+                    ->stateCast(app(BooleanStateCast::class, ['isNullable' => false, 'isStoredAsInt' => true]))
+                    ->extraAttributes(['class' => 'patient-kind'])
                     ->live()
-                    ->afterStateUpdated(function (?bool $state, Get $get, Set $set): void {
-                        if ($state) {
+                    ->afterStateUpdated(function (mixed $state, Get $get, Set $set): void {
+                        if ((bool) $state) {
                             $set('patient_before_new', $get('patient_id'));
                             $set('patient_id', null);
                         } else {
                             $set('patient_id', $get('patient_before_new'));
                         }
                     }),
+            ])
+            ->schema([
+                // El paciente que estaba elegido al marcar "paciente nuevo": si se desmarca, vuelve.
+                Hidden::make('patient_before_new')->dehydrated(false),
                 self::patientSelect()
+                    ->hiddenLabel()
                     ->hidden(fn (Get $get) => (bool) $get('new_patient'))
                     ->required(fn (Get $get) => ! $get('new_patient'))
                     ->helperText(fn (Get $get) => self::upcomingAppointmentHint($get('patient_id'), afterToday: $forToday))
@@ -221,36 +316,6 @@ class AppointmentForm
                     ->options(AppointmentOrigin::class)
                     ->visible(fn (Get $get) => self::isFirstTime($get)),
             ]);
-    }
-
-    /**
-     * "Dura 30 min: de 10:00 a 10:30 · Precio desde S/ 80." Con el tratamiento y el doctor ya elegidos; las horas,
-     * cuando ya hay una. Una sesión de su plan se cobra a lo acordado en el plan, no al precio de lista.
-     */
-    private static function visitSummary(Get $get): ?string
-    {
-        $treatment = Treatment::find($get('treatment_id'));
-        $doctor = Doctor::find($get('doctor_id'));
-
-        if (! $treatment || ! $doctor) {
-            return null;
-        }
-
-        $minutes = SlotPicker::chosenDuration($get) ?? $doctor->durationFor($treatment);
-        $time = $get('manual') ? $get('manual_time') : $get('slot');
-        $start = filled($time) && filled($get('date')) ? CarbonImmutable::parse($get('date'))->setTimeFromTimeString($time) : null;
-
-        $price = match (true) {
-            filled($get('treatment_plan_item_id')) => 'Precio: el acordado en su plan',
-            $treatment->price_from === null => null,
-            (float) $treatment->price_from === 0.0 => 'Sin costo',
-            default => 'Precio desde '.Money::short($treatment->price_from),
-        };
-
-        return collect([
-            'Dura '.Dates::duration($minutes).($start ? ': de '.$start->format('H:i').' a '.$start->addMinutes($minutes)->format('H:i') : ''),
-            $price,
-        ])->filter()->implode(' · ').'.';
     }
 
     /**

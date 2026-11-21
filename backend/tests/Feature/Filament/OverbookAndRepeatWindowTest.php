@@ -154,7 +154,7 @@ class OverbookAndRepeatWindowTest extends TestCase
             ->setActionData(['duration_minutes' => 60])
             ->assertActionDataSet(['slot' => null])
             ->setActionData(['slot' => '16:00'])
-            ->assertMountedActionModalSee("Dura 1\u{00A0}h: de 16:00 a 17:00")
+            ->assertMountedActionModalSee(['<dd>16:00 a 17:00</dd>', "<dd>1\u{00A0}h</dd>"], escape: false)
             ->callMountedAction()
             ->assertNotified('Cita creada. El aviso al paciente está listo en Avisos.');
 
