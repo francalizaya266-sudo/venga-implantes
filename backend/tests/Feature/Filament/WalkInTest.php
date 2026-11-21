@@ -102,13 +102,17 @@ class WalkInTest extends TestCase
     {
         $this->travelTo(CarbonImmutable::parse('2026-11-02 18:50', 'America/Lima'));
 
-        Livewire::test(Dashboard::class)
+        $window = Livewire::test(Dashboard::class)
             ->mountAction('walkIn')
             ->setActionData(['new_patient' => true])
             ->setActionData(['patient' => ['first_name' => 'Pedro', 'last_name' => 'Huamán', 'relationship' => 'self']])
             ->setActionData(['doctor_id' => $this->busy->id, 'treatment_id' => $this->cleaning->id])
-            ->assertMountedActionModalSee('Ya no tiene un hueco hoy para ese tratamiento.')
-            ->callMountedAction()
+            ->assertMountedActionModalSee(['Ya no tiene un hueco hoy para ese tratamiento.', 'Elige otro doctor, o agéndalo con "Nueva cita" para otro día.']);
+
+        // No hay a dónde pasarlo: el botón no se ofrece. Y si igual llegara el pedido, no se crea nada.
+        $this->assertTrue($window->instance()->getMountedAction()->getModalSubmitAction()->isDisabled());
+
+        $window->callMountedAction()
             ->assertNotified($this->busy->name.' ya no tiene un hueco hoy para ese tratamiento. Elige otro doctor, o agéndalo con "Nueva cita" para otro día.');
 
         $this->assertSame(1, Appointment::count());
@@ -124,7 +128,7 @@ class WalkInTest extends TestCase
         Livewire::test(Dashboard::class)
             ->mountAction('walkIn')
             ->setActionData(['patient_id' => $rosa->id])
-            ->assertMountedActionModalSee(['Ya tiene cita hoy', '12:00 · Limpieza dental con '.$this->busy->name, 'Marcar que llegó a esa cita'])
+            ->assertMountedActionModalSee(['Tiene cita hoy a las 12:00', 'Limpieza dental con '.$this->busy->name.' · Confirmada', 'Llegó antes de su hora.', 'Marcar que llegó a esa cita'])
             // Ya no se elige tratamiento ni doctor: se usa la cita que tenía.
             ->assertMountedActionModalDontSee('Tratamiento')
             ->setActionData(['internal_notes' => 'Ahora le duele más.'])
@@ -163,13 +167,15 @@ class WalkInTest extends TestCase
         $rosa = Patient::factory()->create(['first_name' => 'Rosa', 'last_name' => 'Quispe']);
         Appointment::factory()->for($this->busy)->for($this->cleaning)->for($rosa)->at('2026-11-02 12:00')->create(['status' => AppointmentStatus::CheckedIn, 'checked_in_at' => now()]);
 
-        Livewire::test(Dashboard::class)
+        $window = Livewire::test(Dashboard::class)
             ->mountAction('walkIn')
             ->setActionData(['patient_id' => $rosa->id])
-            ->assertMountedActionModalSee(['Ya está en sala', 'Sigue solo si viene por otra atención aparte'])
+            ->assertMountedActionModalSee(['Ya está en sala desde las 10:07', 'Sigue solo si viene por otra atención aparte'])
             ->assertMountedActionModalDontSee('Marcar que llegó a esa cita')
-            // No hay a qué marcarle llegada: si se sigue, es otra atención.
+            // No hay a qué marcarle llegada: si se sigue, es otra atención, y el botón lo dice.
             ->assertMountedActionModalSee('Tratamiento');
+
+        $this->assertSame('Abrir otra atención', $window->instance()->getMountedAction()->getModalSubmitAction()->getLabel());
     }
 
     public function test_an_appointment_on_another_day_is_mentioned_under_the_patient(): void
@@ -180,8 +186,42 @@ class WalkInTest extends TestCase
         Livewire::test(Dashboard::class)
             ->mountAction('walkIn')
             ->setActionData(['patient_id' => $rosa->id])
-            ->assertMountedActionModalSee('Ya tiene cita el mié. 4 nov. a las 16:00 · Limpieza dental.')
-            ->assertMountedActionModalDontSee('Ya tiene cita hoy');
+            // Esta misma semana: quizá se confundió de día. No hay enlace para moverla: el paciente está en el mostrador.
+            ->assertMountedActionModalSee(['Ya tiene cita el miércoles 4 de noviembre a las 16:00', '¿Se confundió de día? Esa cita sigue en pie: muévela o cancélala después.'])
+            ->assertMountedActionModalDontSee(['Tiene cita hoy', 'Ver o mover esa cita']);
+    }
+
+    public function test_what_the_patient_is_missing_is_shown_before_going_in(): void
+    {
+        $pedro = Patient::factory()->create(['first_name' => 'Pedro', 'last_name' => 'Huamán', 'document_number' => null, 'birth_date' => null, 'origin' => AppointmentOrigin::Recommendation]);
+        $rosa = Patient::factory()->create(['first_name' => 'Rosa', 'last_name' => 'Quispe', 'origin' => AppointmentOrigin::Recommendation]);
+        MedicalBackground::create(['patient_id' => $rosa->id]);
+
+        Livewire::test(Dashboard::class)
+            ->mountAction('walkIn')
+            ->assertMountedActionModalSee(['Antes de pasar', 'Elige al paciente: aquí verás si le falta algo'])
+            // Con el paciente todavía en el mostrador, no recién en el aviso de después.
+            ->setActionData(['patient_id' => $pedro->id])
+            ->assertMountedActionModalSee(['Le falta: DNI y fecha de nacimiento.', 'No ha llenado sus antecedentes médicos', 'Completar su ficha'])
+            ->setActionData(['patient_id' => $rosa->id])
+            ->assertMountedActionModalSee('No le falta nada: puede pasar.')
+            ->assertMountedActionModalDontSee(['Le falta:', 'Completar su ficha'])
+            ->setActionData(['new_patient' => true])
+            ->assertMountedActionModalSee('Es paciente nuevo: al pasarlo a sala verás qué datos le faltan');
+    }
+
+    public function test_the_notice_says_whether_the_hour_of_their_appointment_today_already_passed(): void
+    {
+        $carmen = Patient::query()->where('first_name', 'Carmen')->sole();
+
+        $window = Livewire::test(Dashboard::class)
+            ->mountAction('walkIn')
+            ->setActionData(['patient_id' => $carmen->id])
+            ->assertMountedActionModalSee(['Tenía cita hoy a las 10:00', 'Marcar que llegó a esa cita'])
+            ->assertMountedActionModalDontSee('Llegó antes de su hora.');
+
+        // Marca que llegó a esa cita: el paciente queda en sala, como dice el botón.
+        $this->assertSame('Pasar a sala', $window->instance()->getMountedAction()->getModalSubmitAction()->getLabel());
     }
 
     public function test_a_doctor_receives_who_comes_without_an_appointment_on_their_own_agenda(): void
