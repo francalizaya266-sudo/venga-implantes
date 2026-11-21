@@ -9,6 +9,7 @@ use App\Models\Treatment;
 use App\Models\TreatmentPackage;
 use App\Models\TreatmentPlan;
 use App\Models\TreatmentPlanItem;
+use App\Models\User;
 use App\Services\Clinical\TreatmentPlanService;
 use App\Support\Money;
 use Closure;
@@ -234,13 +235,20 @@ class TreatmentPlanForm
             ->options(fn () => $patient?->account?->patients()->whereKeyNot($patient->getKey())->orderBy('first_name')->with('account')->get()
                 ->mapWithKeys(fn (Patient $relative) => [$relative->getKey() => $relative->selectLabel()]) ?? [])
             ->searchable()
-            ->getSearchResultsUsing(fn (string $search) => Patient::query()
-                ->search($search)
-                ->whereKeyNot($patient?->getKey())
-                ->with('account')
-                ->limit(20)
-                ->get()
-                ->mapWithKeys(fn (Patient $other) => [$other->getKey() => $other->selectLabel()]))
+            // Fuera de su familia, un doctor solo encuentra a sus pacientes (Ley 29733).
+            ->getSearchResultsUsing(function (string $search) use ($patient) {
+                /** @var User $user */
+                $user = auth()->user();
+
+                return Patient::query()
+                    ->visibleTo($user)
+                    ->search($search)
+                    ->whereKeyNot($patient?->getKey())
+                    ->with('account')
+                    ->limit(20)
+                    ->get()
+                    ->mapWithKeys(fn (Patient $other) => [$other->getKey() => $other->selectLabel()]);
+            })
             ->getOptionLabelUsing(fn ($value) => Patient::with('account')->find($value)?->selectLabel());
     }
 
