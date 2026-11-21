@@ -19,6 +19,8 @@ use Carbon\CarbonImmutable;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Schema;
+use Filament\Support\Enums\Alignment;
+use Filament\Support\Enums\Size;
 use Filament\Support\Enums\Width;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Facades\DB;
@@ -36,8 +38,14 @@ final class CreateAppointmentAction
             ->label('Nueva cita')
             ->icon(Heroicon::OutlinedPlus)
             ->modalHeading('Nueva cita')
-            ->modalWidth(Width::ThreeExtraLarge)
+            // Ancha, en dos columnas: elegir a la izquierda y el resumen a la derecha, sin una columna larga que bajar.
+            ->modalWidth(Width::SixExtraLarge)
+            ->extraModalWindowAttributes(['class' => 'appointment-window'])
+            // "Agendar cita" siempre a la vista, aunque el formulario sea largo (paciente nuevo, repetir).
+            ->stickyModalFooter()
+            ->modalFooterActionsAlignment(Alignment::End)
             ->modalSubmitActionLabel('Agendar cita')
+            ->modalSubmitAction(fn (Action $action) => $action->size(Size::Large))
             ->visible(fn () => AppointmentResource::canCreate())
             ->schema(fn (Schema $schema) => AppointmentForm::configure($schema))
             ->fillForm(fn (array $arguments) => self::defaults($arguments))

@@ -198,7 +198,7 @@ class NewAppointmentWindowTest extends TestCase
             ->assertMountedActionModalSee("La cita empieza a las 23:07 (11:07\u{00A0}p.\u{00A0}m.).");
     }
 
-    public function test_it_says_how_long_the_visit_lasts_when_it_ends_and_its_price(): void
+    public function test_the_summary_says_the_day_when_it_ends_how_long_it_lasts_and_its_price(): void
     {
         $free = Treatment::factory()->create(['duration_minutes' => 45, 'price_from' => 0]);
         $unpriced = Treatment::factory()->create(['duration_minutes' => 90, 'price_from' => null]);
@@ -206,15 +206,40 @@ class NewAppointmentWindowTest extends TestCase
 
         Livewire::test(Agenda::class)
             ->mountAction('createAppointment', ['doctor' => $this->doctor->id, 'date' => '2026-11-03'])
-            ->assertMountedActionModalDontSee('Dura ')
+            ->assertMountedActionModalSee('Elige el tratamiento y el horario: aquí verás qué día, a qué hora termina y cuánto cuesta.')
             ->setActionData(['treatment_id' => $this->treatment->id])
-            ->assertMountedActionModalSee("Dura 30\u{00A0}min · Precio desde S/ 80.")
+            ->assertMountedActionModalSee(['<dd>'.e($this->doctor->name).'</dd>', '<dd>Mañana, martes 3 de noviembre</dd>', '<dd>Falta elegirla</dd>', "<dd>30\u{00A0}min</dd>", '<dd>Desde S/ 80</dd>'], escape: false)
             ->setActionData(['slot' => '10:00'])
-            ->assertMountedActionModalSee("Dura 30\u{00A0}min: de 10:00 a 10:30 · Precio desde S/ 80.")
+            ->assertMountedActionModalSee('<dd>10:00 a 10:30</dd>', escape: false)
             ->setActionData(['manual' => true, 'manual_time' => '19:15', 'treatment_id' => $free->id])
-            ->assertMountedActionModalSee("Dura 45\u{00A0}min: de 19:15 a 20:00 · Sin costo.")
+            ->assertMountedActionModalSee(['<dd>19:15 a 20:00</dd>', '<dd>Sin costo</dd>'], escape: false)
             ->setActionData(['treatment_id' => $unpriced->id])
-            ->assertMountedActionModalSee("Dura 1\u{00A0}h 30\u{00A0}min: de 19:15 a 20:45.");
+            ->assertMountedActionModalSee(['<dd>19:15 a 20:45</dd>', "<dd>1\u{00A0}h 30\u{00A0}min</dd>"], escape: false)
+            ->assertMountedActionModalDontSee('<dt>Precio</dt>', escape: false)
+            // Repetir también se ve en el resumen: cada cuánto y cuántas en total.
+            ->setActionData(['repeat' => true])
+            ->assertMountedActionModalSee('<dd>Cada 4 semanas, 6 citas</dd>', escape: false);
+    }
+
+    public function test_with_a_single_doctor_the_window_does_not_ask_who_and_the_summary_says_it(): void
+    {
+        Livewire::test(Agenda::class)
+            ->mountAction('createAppointment', ['date' => '2026-11-03'])
+            ->assertActionDataSet(['doctor_id' => $this->doctor->id])
+            ->assertMountedActionModalDontSee('data.doctor_id', escape: false)
+            ->setActionData(['treatment_id' => $this->treatment->id, 'slot' => '10:00', 'patient_id' => $this->patient->id])
+            ->assertMountedActionModalSee('<dd>'.e($this->doctor->name).'</dd>', escape: false)
+            ->callMountedAction()
+            ->assertHasNoActionErrors();
+
+        $this->assertTrue($this->patient->appointments()->sole()->doctor->is($this->doctor));
+
+        // Con un segundo doctor que hace lo mismo, hay a quién elegir: la lista vuelve.
+        $this->doctorOffering($this->treatment);
+
+        Livewire::test(Agenda::class)
+            ->mountAction('createAppointment', ['date' => '2026-11-03'])
+            ->assertMountedActionModalSee('data.doctor_id', escape: false);
     }
 
     /** El botón para cerrar la ventana sin agendar. */

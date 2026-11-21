@@ -1565,6 +1565,34 @@ a.dash-name:hover { color: var(--primary-600); }
     .slot-chips .choice-chip, .day-chips .choice-chip { padding-inline: .4rem; }
 }
 
+/* ---------- Nueva cita: dos columnas ---------- */
+
+/* A la derecha, el resumen de la cita en un gris suave; al bajar por la izquierda, se queda a la vista. */
+.appointment-summary .fi-section { background: var(--gray-50); }
+.dark .appointment-summary .fi-section { background: rgb(255 255 255 / .03); }
+@media (min-width: 64rem) {
+    .appointment-window .fi-grid-col:has(> .fi-sc-component > .appointment-summary) { align-self: start; position: sticky; top: 0; }
+}
+.appointment-summary-empty { font-size: .875rem; line-height: 1.45; color: var(--gray-500); }
+.appointment-summary-rows { margin: 0; font-size: .875rem; }
+.appointment-summary-rows > div { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; padding: .55rem 0; border-bottom: 1px solid var(--gray-200); }
+.appointment-summary-rows > div:first-child { padding-top: 0; }
+.appointment-summary-rows > div:last-child { border-bottom: 0; padding-bottom: 0; }
+.appointment-summary-rows dt { flex: none; color: var(--gray-500); }
+.appointment-summary-rows dd { margin: 0; font-weight: 600; text-align: right; color: var(--gray-950); font-variant-numeric: tabular-nums; }
+.appointment-summary-rows .is-pending dd { font-weight: 500; color: var(--gray-400); }
+.dark .appointment-summary-rows > div { border-bottom-color: rgb(255 255 255 / .08); }
+.dark .appointment-summary-rows dt { color: var(--gray-400); }
+.dark .appointment-summary-rows dd { color: #fff; }
+.dark .appointment-summary-rows .is-pending dd { color: var(--gray-500); }
+/* "Existente | Nuevo", arriba a la derecha del paciente. */
+.patient-kind .fi-btn { padding-block: .35rem; }
+/* Lo que se usa poco ("Otra hora", "Repetir"): letra más chica y gris, para no competir con los horarios. */
+.quiet-toggle .fi-fo-field-label-content { font-size: .8125rem; font-weight: 500; color: var(--gray-600); }
+.dark .quiet-toggle .fi-fo-field-label-content { color: var(--gray-400); }
+/* "Cancelar" a la izquierda y "Agendar cita", el más grande, en la esquina. */
+.appointment-window .fi-modal-footer-actions { flex-direction: row-reverse; justify-content: flex-start; }
+
 /* "Otra hora": la hora y los minutos también se tocan, como un teclado de seis por fila. Así las horas quedan en
    mañana, tarde y noche, y los minutos en dos medias horas. */
 .time-buttons { grid-template-columns: repeat(6, minmax(0, 1fr)); }
