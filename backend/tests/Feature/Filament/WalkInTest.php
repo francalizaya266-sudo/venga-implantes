@@ -56,12 +56,15 @@ class WalkInTest extends TestCase
             // Queda puesto quien se desocupa primero, y se dice a qué hora.
             ->assertActionDataSet(['doctor_id' => $this->free->id])
             ->assertMountedActionModalSee('Lo puede atender hoy a las 10:15.')
+            ->setActionData(['internal_notes' => 'Viene con dolor en una muela.'])
             ->callMountedAction()
             ->assertHasNoActionErrors();
 
         $appointment = Appointment::query()->whereBelongsTo($rosa)->sole();
 
         $this->assertSame([$this->free->id, '10:15', AppointmentStatus::CheckedIn], [$appointment->doctor_id, $appointment->starts_at->format('H:i'), $appointment->status]);
+        // La nota de recepción le llega al doctor con la cita.
+        $this->assertSame('Viene con dolor en una muela.', $appointment->internal_notes);
         $this->assertSame('10:07', $appointment->checked_in_at->format('H:i'));
         // Lo tenemos delante: no se le prepara el aviso de "cita agendada".
         $this->assertSame(0, WhatsappMessage::count());
@@ -116,7 +119,7 @@ class WalkInTest extends TestCase
     {
         $rosa = Patient::factory()->create(['first_name' => 'Rosa', 'last_name' => 'Quispe', 'origin' => AppointmentOrigin::Recommendation]);
         MedicalBackground::create(['patient_id' => $rosa->id]);
-        $booked = Appointment::factory()->for($this->busy)->for($this->cleaning)->for($rosa)->at('2026-11-02 12:00')->confirmed()->create();
+        $booked = Appointment::factory()->for($this->busy)->for($this->cleaning)->for($rosa)->at('2026-11-02 12:00')->confirmed()->create(['internal_notes' => 'Trae su radiografía.']);
 
         Livewire::test(Dashboard::class)
             ->mountAction('walkIn')
@@ -124,11 +127,14 @@ class WalkInTest extends TestCase
             ->assertMountedActionModalSee(['Ya tiene cita hoy', '12:00 · Limpieza dental con '.$this->busy->name, 'Marcar que llegó a esa cita'])
             // Ya no se elige tratamiento ni doctor: se usa la cita que tenía.
             ->assertMountedActionModalDontSee('Tratamiento')
+            ->setActionData(['internal_notes' => 'Ahora le duele más.'])
             ->callMountedAction()
             ->assertHasNoActionErrors();
 
         $this->assertTrue(Appointment::query()->whereBelongsTo($rosa)->sole()->is($booked));
         $this->assertSame([AppointmentStatus::CheckedIn, '10:07'], [$booked->refresh()->status, $booked->checked_in_at->format('H:i')]);
+        // La nota se agrega debajo de la que ya tenía la cita, sin borrarla.
+        $this->assertSame("Trae su radiografía.\nAhora le duele más.", $booked->internal_notes);
 
         $notice = $this->lastNotification();
         $this->assertSame(['Paciente en sala', 'Rosa Quispe llegó a su cita de las 12:00 con '.$this->busy->name.'.'], [$notice['title'], $notice['body']]);
