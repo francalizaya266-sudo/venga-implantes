@@ -188,8 +188,8 @@ class Appointment extends Model
     }
 
     /**
-     * Citas de los últimos dos meses a las que el paciente faltó o que se cancelaron, y después de las cuales no
-     * vino ni tiene otra cita: nadie le dio un nuevo horario.
+     * Citas desde hace dos meses (también las que se cancelaron antes de llegar su día) a las que el paciente faltó
+     * o que se cancelaron, y después de las cuales no vino ni tiene otra cita: nadie le dio un nuevo horario.
      */
     #[Scope]
     protected function missedAndNotRebooked(Builder $query): Builder
