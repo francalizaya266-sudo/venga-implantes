@@ -73,8 +73,9 @@ final class WalkInAction
                                 forToday: true,
                                 notices: [self::todaysAppointmentCallout()],
                                 hidePlanWhen: fn (Get $get) => self::arrivesToAppointment($get),
-                                // Adelantar era para la cita del que estaba elegido.
+                                // Lo de la cita de hoy era del que estaba elegido: con otro paciente vuelve a lo normal.
                                 onPatientChange: function (Set $set): void {
+                                    $set('use_appointment', true);
                                     $set('advance', false);
                                     $set('advance_to', null);
                                 },
@@ -384,6 +385,8 @@ final class WalkInAction
                     'doctor' => $get('doctor_id'),
                 ]),
                 $get('new_patient') ? ['new_patient' => true, 'patient' => self::newPatientData($get)] : [],
+                // La nota para el doctor ("viene con dolor…") va con la cita de otro día.
+                filled($get('internal_notes')) ? ['internal_notes' => $get('internal_notes')] : [],
             ))
             ->cancelParentActions()
             ->visible(fn (Get $get) => self::slot($get) === null);

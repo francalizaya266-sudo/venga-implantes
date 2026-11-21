@@ -12,6 +12,7 @@ use App\Models\Doctor;
 use App\Models\Patient;
 use App\Models\Treatment;
 use App\Models\User;
+use App\Models\WhatsappMessage;
 use App\Services\Booking\AppointmentService;
 use App\Services\Clinical\TreatmentPlanService;
 use App\Services\Patients\PatientRegistrar;
@@ -59,7 +60,7 @@ final class CreateAppointmentAction
                     'Cita creada',
                     $action,
                     function (Notification $notification) use ($data, &$result): Notification {
-                        return $notification->title(self::createdMessage($data, $result));
+                        return $notification->title(self::createdMessage($data, $result))->actions(self::createdActions($result['booked'][0]));
                     },
                 );
             });
@@ -103,6 +104,32 @@ final class CreateAppointmentAction
             // "nov." ya trae su punto.
             $skipped->isNotEmpty() ? 'Sin lugar, no se agendó: '.rtrim($skipped->implode(' · '), '.').'.' : null,
         ])->filter()->implode(' ');
+    }
+
+    /**
+     * Después de agendar, a un toque: abrir la cita y, si se preparó su aviso, enviarlo ya por WhatsApp (por ejemplo,
+     * mientras el paciente sigue en el teléfono). Antes había que buscarla en la agenda o el aviso en Avisos.
+     *
+     * @return list<Action>
+     */
+    private static function createdActions(Appointment $appointment): array
+    {
+        $noticeReady = WhatsappMessage::query()->where('appointment_id', $appointment->getKey())->pending()->exists();
+
+        return array_values(array_filter([
+            $noticeReady
+                ? Action::make('sendNotice')
+                    ->label('Enviar aviso ahora')
+                    ->icon(Heroicon::OutlinedChatBubbleLeftEllipsis)
+                    ->color('success')
+                    ->url(AppointmentResource::getUrl('view', ['record' => $appointment, 'action' => 'whatsapp']))
+                    ->button()
+                : null,
+            Action::make('viewAppointment')
+                ->label('Ver cita')
+                ->url(AppointmentResource::getUrl('view', ['record' => $appointment]))
+                ->link(),
+        ]));
     }
 
     /**

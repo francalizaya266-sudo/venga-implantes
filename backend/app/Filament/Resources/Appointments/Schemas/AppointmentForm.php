@@ -136,8 +136,8 @@ class AppointmentForm
      */
     public static function summaryRows(Get $get): array
     {
-        $treatment = Treatment::find($get('treatment_id'));
-        $doctor = Doctor::find($get('doctor_id'));
+        $treatment = SlotPicker::chosenTreatment($get('treatment_id'));
+        $doctor = SlotPicker::chosenDoctor($get('doctor_id'));
 
         if (! $treatment || ! $doctor) {
             return [];
@@ -228,8 +228,8 @@ class AppointmentForm
      */
     private static function repeatSummary(Get $get): ?string
     {
-        $treatment = Treatment::find($get('treatment_id'));
-        $doctor = Doctor::find($get('doctor_id'));
+        $treatment = SlotPicker::chosenTreatment($get('treatment_id'));
+        $doctor = SlotPicker::chosenDoctor($get('doctor_id'));
         $time = $get('manual') ? $get('manual_time') : $get('slot');
 
         if (! $treatment || ! $doctor || blank($time) || blank($get('date')) || blank($get('repeat_every')) || blank($get('repeat_times'))) {
@@ -263,8 +263,8 @@ class AppointmentForm
     /** Lo que ese doctor tarda en ese tratamiento; null si falta elegir alguno. */
     private static function usualDuration(Get $get): ?int
     {
-        $treatment = Treatment::find($get('treatment_id'));
-        $doctor = Doctor::find($get('doctor_id'));
+        $treatment = SlotPicker::chosenTreatment($get('treatment_id'));
+        $doctor = SlotPicker::chosenDoctor($get('doctor_id'));
 
         return $treatment && $doctor ? $doctor->durationFor($treatment) : null;
     }
@@ -853,7 +853,9 @@ class AppointmentForm
                 ->helperText(null)
                 ->default(PatientRelationship::Self->value),
             PatientForm::birthDateInput(),
+            // A lo ancho: en media columna, "Carné de extranjería" no entraba y el tipo de documento se veía cortado.
             Grid::make(['default' => 3])
+                ->columnSpanFull()
                 ->schema([
                     Select::make('document_type')
                         ->label('Documento')

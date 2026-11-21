@@ -117,6 +117,8 @@ final class SlotPicker
                 ->extraAttributes(['class' => 'day-chips'])
                 ->required()
                 ->rule('after_or_equal:today')
+                // Pasada la medianoche, el día que se dejó elegido ya pasó: se dice así, y no "posterior a today".
+                ->validationMessages(['after_or_equal' => 'Ese día ya pasó. Elige hoy u otro día.'])
                 ->live()
                 // Si algo suyo sigue en el laboratorio y llega después de ese día, se avisa antes de agendar.
                 ->helperText(fn (Get $get) => self::labWorkArrivingAfter($moving?->patient_id ?? $get('patient_id'), $get('date')))
@@ -155,6 +157,8 @@ final class SlotPicker
                 ->live()
                 ->columnSpanFull()
                 ->required(fn (Get $get) => ! $get('manual'))
+                // La hora elegida ya no está entre las libres: alguien la tomó mientras se llenaba la ventana.
+                ->validationMessages(['in' => 'Esa hora ya no está libre: la tomaron mientras tanto. Elige otra.'])
                 ->hidden(fn (Get $get) => (bool) $get('manual')),
 
             // Para una hora que la agenda no ofrece: fuera del horario de atención o, en una cita nueva, un
@@ -432,8 +436,8 @@ final class SlotPicker
      */
     private static function appointmentInTheWay(Get $get): ?Appointment
     {
-        $doctor = Doctor::find($get('doctor_id'));
-        $treatment = Treatment::find($get('treatment_id'));
+        $doctor = self::chosenDoctor($get('doctor_id'));
+        $treatment = self::chosenTreatment($get('treatment_id'));
 
         if (! $get('manual') || blank($get('date')) || blank($get('manual_time')) || ! $doctor || ! $treatment) {
             return null;
@@ -461,8 +465,8 @@ final class SlotPicker
      */
     private static function patientBusyWarning(Get $get, ?Appointment $moving): ?string
     {
-        $doctor = Doctor::find($get('doctor_id'));
-        $treatment = Treatment::find($get('treatment_id'));
+        $doctor = self::chosenDoctor($get('doctor_id'));
+        $treatment = self::chosenTreatment($get('treatment_id'));
         $patientId = $moving->patient_id ?? (filled($get('patient_id')) ? (int) $get('patient_id') : null);
 
         if (! $get('manual') || blank($get('date')) || blank($get('manual_time')) || ! $doctor || ! $treatment || $patientId === null) {
@@ -629,9 +633,22 @@ final class SlotPicker
      */
     private static function usualVisit(Get $get): ?array
     {
-        $patient = filled($get('patient_id')) ? Patient::find($get('patient_id')) : null;
+        if (blank($get('patient_id'))) {
+            return null;
+        }
 
-        return $patient ? app(PatientInsights::class)->usualVisit($patient) : null;
+        // Lo piden los horarios cada vez que se pintan: se busca una sola vez por pedido.
+        $memo = 'slot-picker.usual-visit.'.$get('patient_id');
+
+        if (! request()->attributes->has($memo)) {
+            $patient = Patient::find($get('patient_id'));
+            request()->attributes->set($memo, $patient ? app(PatientInsights::class)->usualVisit($patient) : null);
+        }
+
+        /** @var array{weekday: int|null, period: DayPeriod|null, label: string}|null $usualVisit */
+        $usualVisit = request()->attributes->get($memo);
+
+        return $usualVisit;
     }
 
     /** Primer horario libre desde la hora que se tocó en la agenda. */
@@ -739,11 +756,47 @@ final class SlotPicker
         return filled($get('doctor_id')) && filled($moving?->treatment_id ?? $get('treatment_id')) && filled($get('date'));
     }
 
+    /**
+     * El doctor elegido en la ventana. Los horarios, el resumen y los avisos lo piden muchas veces al pintarla: se
+     * busca una sola vez por pedido.
+     */
+    public static function chosenDoctor(mixed $id): ?Doctor
+    {
+        return self::findOnce(Doctor::class, $id);
+    }
+
+    /** El tratamiento elegido en la ventana, buscado una sola vez por pedido. */
+    public static function chosenTreatment(mixed $id): ?Treatment
+    {
+        return self::findOnce(Treatment::class, $id);
+    }
+
+    /**
+     * @template TModel of Doctor|Treatment
+     *
+     * @param  class-string<TModel>  $model
+     * @return TModel|null
+     */
+    private static function findOnce(string $model, mixed $id): mixed
+    {
+        if (blank($id) || ! is_scalar($id)) {
+            return null;
+        }
+
+        $memo = 'slot-picker.chosen.'.$model.'.'.$id;
+
+        if (! request()->attributes->has($memo)) {
+            request()->attributes->set($memo, $model::find($id));
+        }
+
+        return request()->attributes->get($memo);
+    }
+
     /** El primer día después del elegido en que el doctor tiene un horario libre para el tratamiento. */
     private static function nextDayWithSlots(Get $get, ?Appointment $moving): ?CarbonImmutable
     {
-        $doctor = Doctor::find($get('doctor_id'));
-        $treatment = Treatment::find($moving?->treatment_id ?? $get('treatment_id'));
+        $doctor = self::chosenDoctor($get('doctor_id'));
+        $treatment = self::chosenTreatment($moving?->treatment_id ?? $get('treatment_id'));
 
         if (! $doctor || ! $treatment || blank($get('date'))) {
             return null;
@@ -841,23 +894,29 @@ final class SlotPicker
      */
     private static function slotsOn(Get $get, ?Appointment $moving, mixed $date): Collection
     {
-        $doctor = Doctor::find($get('doctor_id'));
-        $treatment = Treatment::find($moving?->treatment_id ?? $get('treatment_id'));
+        $doctorId = $get('doctor_id');
+        $treatmentId = $moving?->treatment_id ?? $get('treatment_id');
 
-        if (! $doctor || ! $treatment || blank($date)) {
+        if (blank($doctorId) || blank($treatmentId) || blank($date)) {
             return collect();
         }
 
         $day = CarbonImmutable::parse($date);
         $patientId = $moving?->patient_id ?? (filled($get('patient_id')) ? (int) $get('patient_id') : null);
         $duration = self::chosenDuration($get, $moving);
-        $memo = 'slot-picker.slots.'.implode('|', [$doctor->getKey(), $treatment->getKey(), $day->toDateString(), $patientId, $moving?->getKey(), $duration]);
+        // Con los datos elegidos, sin buscar antes al doctor y al tratamiento: esto se pide cientos de veces al pintar.
+        $memo = 'slot-picker.slots.'.implode('|', [$doctorId, $treatmentId, $day->toDateString(), $patientId, $moving?->getKey(), $duration]);
 
         if (! request()->attributes->has($memo)) {
+            $doctor = self::chosenDoctor($doctorId);
+            $treatment = self::chosenTreatment($treatmentId);
+
             // El horario apartado para este paciente (de la lista de espera) le sirve; el de otro, no.
-            request()->attributes->set($memo, app(AvailabilityService::class)
-                ->forPatient($patientId)
-                ->slotsFor($doctor, $treatment, $day, earliest: $day->isToday() ? now() : null, ignoreAppointmentId: $moving?->getKey(), durationMinutes: $duration));
+            request()->attributes->set($memo, $doctor && $treatment
+                ? app(AvailabilityService::class)
+                    ->forPatient($patientId)
+                    ->slotsFor($doctor, $treatment, $day, earliest: $day->isToday() ? now() : null, ignoreAppointmentId: $moving?->getKey(), durationMinutes: $duration)
+                : collect());
         }
 
         return request()->attributes->get($memo);
