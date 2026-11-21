@@ -374,6 +374,19 @@ class WalkInTest extends TestCase
         $this->assertSame([$this->busy->id, AppointmentStatus::CheckedIn], [$appointment->doctor_id, $appointment->status]);
     }
 
+    public function test_a_doctor_is_not_offered_the_file_of_a_patient_they_cannot_open(): void
+    {
+        $pedro = Patient::factory()->create(['first_name' => 'Pedro', 'last_name' => 'Huamán', 'document_number' => null, 'origin' => AppointmentOrigin::Recommendation]);
+        $this->actingAs($this->busy->user);
+
+        // Nunca lo atendió: su ficha le daría "sin acceso". Lo que le falta sí se ve, y al pasarlo a sala ya es su paciente.
+        Livewire::test(Dashboard::class)
+            ->mountAction('walkIn')
+            ->setActionData(['patient_id' => $pedro->id])
+            ->assertMountedActionModalSee('Le falta: DNI.')
+            ->assertMountedActionModalDontSee(['Ver su ficha', 'Completar su ficha']);
+    }
+
     public function test_a_doctor_is_not_told_about_the_appointment_the_patient_has_with_someone_else(): void
     {
         $rosa = Patient::factory()->create(['first_name' => 'Rosa', 'last_name' => 'Quispe']);

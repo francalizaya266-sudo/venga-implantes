@@ -27,6 +27,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Callout;
+use Filament\Schemas\Components\Component;
 use Filament\Schemas\Components\Text;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
@@ -106,13 +107,18 @@ final class RegisterPaymentAction
                     ->color(fn (Get $get) => (self::installments($get)['late'] ?? false) ? 'danger' : 'gray')
                     ->visible(fn (Get $get) => self::installments($get) !== null),
                 self::visitUnderwayCallout(),
-                ...PaymentFields::make(),
+                ...self::paymentFields(),
                 DateTimePicker::make('paid_at')
                     ->label('Fecha')
                     ->seconds(false)
                     ->maxDate(now()->endOfDay())
                     ->required()
+                    ->live(onBlur: true)
                     ->rule(fn () => self::openDay()),
+                // La administradora sí puede cobrar en un día cerrado: se le dice que cambia lo que ya se cerró.
+                Text::make('La caja de ese día ya se cerró: este pago cambia su cierre.')
+                    ->color('warning')
+                    ->visible(fn (Get $get) => filled($get('paid_at')) && self::user()->isAdmin() && DailyClosing::isClosed($get('paid_at'))),
                 TextInput::make('notes')
                     ->label('Nota')
                     ->placeholder('Por ejemplo: cuota 2 de ortodoncia')
@@ -216,6 +222,49 @@ final class RegisterPaymentAction
     public static function receiptUrl(Payment $payment): string
     {
         return Filament::getPanel('admin')->route('print.receipt', ['payment' => $payment]);
+    }
+
+    /**
+     * Monto, medio de pago y vuelto, con un aviso debajo del monto si pasa de lo que debe: así un cero de más no pasa
+     * sin verse.
+     *
+     * @return list<Component>
+     */
+    private static function paymentFields(): array
+    {
+        $fields = PaymentFields::make();
+
+        return [
+            $fields[0],
+            Text::make(fn (Get $get) => self::overpayment($get))
+                ->color('warning')
+                ->visible(fn (Get $get) => self::overpayment($get) !== null),
+            ...array_slice($fields, 1),
+        ];
+    }
+
+    /** "Son S/ 1,350.00 más de lo que debe: quedan a favor." Null si no pasa de lo que debe o no debe nada. */
+    private static function overpayment(Get $get): ?string
+    {
+        $patientId = $get('patient_id');
+        $amount = (float) $get('amount');
+
+        if (blank($patientId) || $amount <= 0) {
+            return null;
+        }
+
+        $memo = 'register-payment.balance.'.$patientId;
+
+        if (! request()->attributes->has($memo)) {
+            request()->attributes->set($memo, Patient::find($patientId)?->balance());
+        }
+
+        /** @var float|null $balance */
+        $balance = request()->attributes->get($memo);
+
+        return $balance !== null && $balance > 0 && $amount - $balance >= 0.01
+            ? 'Son '.Money::format($amount - $balance).' más de lo que debe: quedan a favor.'
+            : null;
     }
 
     /** Un pago no entra en un día cuya caja ya se cerró (salvo que lo registre la administradora). */

@@ -526,7 +526,9 @@ final class WalkInAction
                         Action::make('openPatientFile')
                             ->label(fn (Get $get) => self::canUpdatePatient($get) ? 'Completar su ficha' : 'Ver su ficha')
                             ->url(fn (Get $get) => filled($get('patient_id')) ? PatientResource::getUrl(self::canUpdatePatient($get) ? 'edit' : 'view', ['record' => $get('patient_id')]) : null)
-                            ->openUrlInNewTab(),
+                            ->openUrlInNewTab()
+                            // Un doctor solo abre la ficha de sus pacientes: a quien nunca atendió, el enlace le daría "sin acceso".
+                            ->visible(fn (Get $get) => self::canViewPatient($get)),
                     ])
                     ->visible(fn (Get $get) => self::pending($get) !== []),
                 // Quien llega sin cita suele venir con algo urgente: el doctor lo ve en "Tu próximo paciente".
@@ -562,6 +564,13 @@ final class WalkInAction
 
         // A quien nunca vino, la ventana ya le pregunta cómo nos encontró.
         return $patient ? ArrivalChecklist::for($patient, $user, originAskedAlready: $patient->first_visit_at === null) : [];
+    }
+
+    private static function canViewPatient(Get $get): bool
+    {
+        $patient = self::chosenPatient($get);
+
+        return $patient !== null && (auth()->user()?->can('view', $patient) ?? false);
     }
 
     private static function canUpdatePatient(Get $get): bool
