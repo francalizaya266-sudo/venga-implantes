@@ -253,8 +253,9 @@ class FollowUpsToday extends Widget implements HasActions, HasSchemas
     }
 
     /**
-     * Quien lleva 20 minutos o más en sala: alguien tiene que ver qué pasa (avisar a su doctor o explicarle la
-     * demora). Son los mismos que la sala de espera marca en rojo.
+     * Quien lleva 20 minutos o más de demora (desde la hora de su cita o, si llegó tarde, desde que llegó): alguien
+     * tiene que ver qué pasa (avisar a su doctor o explicarle la demora). Quien llegó temprano no cuenta mientras no
+     * sea su hora. Son los mismos que la sala de espera marca en rojo, y lo que se dice de cada uno es su demora.
      *
      * @return array<string, mixed>
      */
@@ -265,11 +266,11 @@ class FollowUpsToday extends Widget implements HasActions, HasSchemas
             ->with(['patient', 'doctor'])
             ->orderBy('checked_in_at')
             ->get()
-            ->filter(fn (Appointment $appointment) => $appointment->waitingMinutes() >= TodayAppointments::LONG_WAIT_MINUTES);
+            ->filter(fn (Appointment $appointment) => $appointment->waitsTooLong());
 
         return [
             'key' => 'waits',
-            'title' => 'Esperan '.TodayAppointments::LONG_WAIT_MINUTES.' min o más',
+            'title' => 'Con '.Appointment::LONG_WAIT_MINUTES.' min o más de demora',
             'hint' => 'Avisa a su doctor o explícales la demora',
             'count' => $waiting->count(),
             'url' => '#'.WaitingRoom::ANCHOR,
@@ -279,7 +280,7 @@ class FollowUpsToday extends Widget implements HasActions, HasSchemas
                 /** @var Doctor|null $doctor */
                 $doctor = $appointment->doctor;
 
-                return $patient->full_name.' ('.collect([Dates::duration((int) $appointment->waitingMinutes()), $doctor?->name])->filter()->implode(', ').')';
+                return $patient->full_name.' ('.collect([Dates::duration((int) $appointment->delayMinutes()), $doctor?->name])->filter()->implode(', ').')';
             })).'.',
             'template' => null,
             'rows' => [],

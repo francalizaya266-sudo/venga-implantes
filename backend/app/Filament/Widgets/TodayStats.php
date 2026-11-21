@@ -17,7 +17,9 @@ use App\Services\Billing\CashClosing;
 use App\Support\Dates;
 use App\Support\Money;
 use Carbon\CarbonImmutable;
+use Carbon\CarbonInterface;
 use Filament\Widgets\Widget;
+use Illuminate\Database\Eloquent\Collection;
 
 /**
  * Los números del día: cuatro, en una fila y a la vista. Solo se marca el que espera una acción (alguien sin
@@ -68,14 +70,18 @@ class TodayStats extends Widget
     private function appointments(string $label = 'Citas de hoy'): array
     {
         // Las mismas que lista "Agenda de hoy", justo debajo: todas menos las canceladas.
+        /** @var Collection<int, Appointment> $today */
         $today = AppointmentResource::getEloquentQuery()
             ->whereDate('starts_at', today())
             ->where('status', '!=', AppointmentStatus::Cancelled)
-            ->pluck('status');
-
-        $done = $today->filter(fn (AppointmentStatus $status) => $status === AppointmentStatus::Completed)->count();
-        $toCome = $today->filter(fn (AppointmentStatus $status) => $status->isChangeable())->count();
-        $missed = $today->filter(fn (AppointmentStatus $status) => $status === AppointmentStatus::NoShow)->count();
+            ->withoutEagerLoads()
+            ->get(['id', 'status', 'ends_at']);
+        $parts = $today->countBy(fn (Appointment $appointment): string => self::dayPart($appointment));
+        $done = (int) $parts->get('done', 0);
+        $here = (int) $parts->get('here', 0);
+        $toCome = (int) $parts->get('toCome', 0);
+        $unmarked = (int) $parts->get('unmarked', 0);
+        $missed = (int) $parts->get('missed', 0);
 
         return [
             'label' => $label,
@@ -83,7 +89,9 @@ class TodayStats extends Widget
             // Cuánto va del día; "atendidas" siempre, para que el cero se lea como cero y no como olvido.
             'hint' => collect([
                 $done === 1 ? '1 atendida' : "{$done} atendidas",
+                $here > 0 ? "{$here} en la clínica" : null,
                 $toCome > 0 ? "{$toCome} por llegar" : null,
+                $unmarked > 0 ? "{$unmarked} sin cerrar" : null,
                 match ($missed) {
                     0 => null,
                     1 => '1 no asistió',
@@ -95,6 +103,29 @@ class TodayStats extends Widget
             // Las citas de hoy se ven en la Agenda: Citas ya no repite ese día en una pestaña.
             'url' => Agenda::getUrl(),
         ];
+    }
+
+    /**
+     * En qué parte del día va cada cita de hoy, para que las partes de "Citas de hoy" sumen el total: atendida, en
+     * la clínica (en sala o con el doctor), por llegar, sin cerrar o no asistió. "Sin cerrar" es la que ya pasó su
+     * hora sin que nadie marcara si vino, y también la que sigue "en sala" o "en atención" horas después de su hora
+     * (Appointment::WAIT_EXPIRES_HOURS): como en la sala de espera, eso es una cita que nadie cerró.
+     *
+     * @return 'done'|'here'|'toCome'|'unmarked'|'missed'
+     */
+    private static function dayPart(Appointment $appointment): string
+    {
+        /** @var AppointmentStatus $status */
+        $status = $appointment->status;
+        /** @var CarbonInterface $endsAt */
+        $endsAt = $appointment->ends_at;
+
+        return match (true) {
+            $status === AppointmentStatus::Completed => 'done',
+            in_array($status, AppointmentStatus::inClinic(), true) => $endsAt->gt(now()->subHours(Appointment::WAIT_EXPIRES_HOURS)) ? 'here' : 'unmarked',
+            $status->isChangeable() => $endsAt->isFuture() ? 'toCome' : 'unmarked',
+            default => 'missed',
+        };
     }
 
     /** @return array{label: string, value: int, hint: string, color: string, icon: string, url: string} */
@@ -118,19 +149,20 @@ class TodayStats extends Widget
 
     /**
      * Quién está en sala ahora y cuánto lleva el que más espera: las mismas personas que la sala de espera, a la
-     * que lleva. Desde TodayAppointments::LONG_WAIT_MINUTES se marca en rojo.
+     * que lleva. Se marca en rojo cuando alguien ya está demorado, como en la sala (Appointment::waitsTooLong).
      *
      * @return array{label: string, value: int, hint: string, color: string, icon: string, url: string}
      */
     private function waitingRoom(): array
     {
-        $longest = WaitingRoom::waitingMinutes();
+        $waiting = WaitingRoom::waiting();
+        $longest = (int) $waiting->map(fn (Appointment $appointment) => (int) $appointment->waitingMinutes())->max();
 
         return [
             'label' => 'En sala ahora',
-            'value' => $longest->count(),
-            'hint' => $longest->isEmpty() ? 'Nadie esperando' : 'El que más espera: '.Dates::duration($longest->max()),
-            'color' => $longest->max() >= TodayAppointments::LONG_WAIT_MINUTES ? 'danger' : 'gray',
+            'value' => $waiting->count(),
+            'hint' => $waiting->isEmpty() ? 'Nadie esperando' : 'El que más espera: '.Dates::duration($longest),
+            'color' => $waiting->contains(fn (Appointment $appointment) => $appointment->waitsTooLong()) ? 'danger' : 'gray',
             'icon' => 'heroicon-o-user-group',
             'url' => '#'.WaitingRoom::ANCHOR,
         ];

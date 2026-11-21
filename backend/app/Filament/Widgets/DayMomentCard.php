@@ -11,6 +11,7 @@ use App\Filament\Pages\Dashboard;
 use App\Filament\Resources\Appointments\AppointmentResource;
 use App\Filament\Resources\WhatsappMessages\WhatsappMessageResource;
 use App\Models\Appointment;
+use App\Models\DailyClosing;
 use App\Models\Patient;
 use App\Models\User;
 use App\Services\Billing\CashClosing;
@@ -27,8 +28,12 @@ use Filament\Widgets\Widget;
 /**
  * Lo que toca según la hora, arriba de "Hoy". Antes de abrir: las citas de hoy que faltan confirmar y los
  * avisos por enviar. Al terminar el día: quién se fue debiendo, las citas sin cerrar y el cierre de caja.
- * Cada cosa se resuelve ahí mismo (confirmar, vino, no vino, cobrar), sin abrirla. Durante el día no aparece:
+ * Cada cosa se resuelve ahí mismo (confirmar, vino, no vino, cobrar), sin abrirla. Durante el día no se ve:
  * mandan la agenda y la sala. Si no hay nada que hacer, tampoco.
+ *
+ * Recepción deja "Hoy" abierto todo el día: la tarjeta siempre está y se revisa sola cada minuto, así "Para
+ * cerrar el día" aparece al terminar la última cita sin recargar la pantalla. Mientras no hay nada, no ocupa
+ * lugar (panel.css, .day-moment-idle).
  */
 class DayMomentCard extends Widget implements HasActions, HasSchemas
 {
@@ -47,7 +52,7 @@ class DayMomentCard extends Widget implements HasActions, HasSchemas
         /** @var User|null $user */
         $user = auth()->user();
 
-        return (bool) $user?->managesAllAgendas() && self::content() !== null;
+        return (bool) $user?->managesAllAgendas();
     }
 
     /** El mismo "Confirmar" de la agenda, para las citas de hoy que siguen pendientes. */
@@ -70,14 +75,27 @@ class DayMomentCard extends Widget implements HasActions, HasSchemas
         return self::inline(AppointmentActions::missed())->label('No vino');
     }
 
-    /** El mismo "Cobrar" del cierre del día, para quien se fue debiendo. */
+    /**
+     * El mismo "Cobrar" del cierre del día, para quien se fue debiendo. Con la caja de hoy ya cerrada, recepción
+     * no puede cobrar con fecha de hoy (solo la administradora): no se ofrece y la tarjeta dice qué hacer.
+     */
     public function collectAction(): Action
     {
         return RegisterPaymentAction::make(fn (array $arguments) => Patient::query()->find($arguments['patient'] ?? null))
             ->name('collect')
             ->label('Cobrar')
             ->color('success')
-            ->size(Size::Small);
+            ->size(Size::Small)
+            ->hidden(fn () => self::todayIsLocked());
+    }
+
+    /** Si la caja de hoy ya se cerró para quien mira: la administradora sí puede cobrar y cambiar el cierre. */
+    private static function todayIsLocked(): bool
+    {
+        /** @var User $user */
+        $user = auth()->user();
+
+        return DailyClosing::locksFor($user, today());
     }
 
     /** Lo que se resuelve aquí (confirmar, vino, no vino, cobrar) cambia la agenda y los números del día. */
@@ -156,6 +174,7 @@ class DayMomentCard extends Widget implements HasActions, HasSchemas
             'pendingTotal' => $closing->pendingTotal(),
             'unclosed' => $unclosed->map(fn (Appointment $appointment) => self::row($appointment)),
             'record' => $record,
+            'canCollect' => ! self::todayIsLocked(),
             'closingUrl' => CashClosingPage::getUrl(),
         ];
     }

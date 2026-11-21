@@ -1,7 +1,8 @@
 @use('App\Services\Dashboard\DayMoment')
 @use('App\Support\Money')
-{{-- Lo que toca según la hora: antes de abrir, confirmar; al terminar, cerrar el día. --}}
-<x-filament-widgets::widget>
+{{-- Lo que toca según la hora: antes de abrir, confirmar; al terminar, cerrar el día. Se revisa sola cada minuto
+     para aparecer al llegar la hora; mientras no hay nada, no ocupa lugar (.day-moment-idle). --}}
+<x-filament-widgets::widget wire:poll.60s class="{{ $moment === DayMoment::OPEN ? 'day-moment-idle' : '' }}">
     @if ($moment === DayMoment::BEFORE)
         <x-filament::section heading="Antes de abrir" icon="heroicon-o-sun" class="day-moment">
             @if ($unconfirmed->isNotEmpty())
@@ -38,6 +39,9 @@
         <x-filament::section heading="Para cerrar el día" icon="heroicon-o-moon" class="day-moment">
             @if ($pending->isNotEmpty())
                 <h3 class="cc-title">Se fueron debiendo <span class="cc-title-amount">{{ Money::format($pendingTotal) }}</span></h3>
+                @unless ($canCollect)
+                    <p class="cc-note">La caja de hoy ya se cerró: lo que les cobres desde ahora entra en la caja de mañana.</p>
+                @endunless
                 <ul class="cc-rows">
                     @foreach ($pending as $row)
                         <li>
@@ -46,7 +50,9 @@
                                 <small>{{ $row['concepts'] }}</small>
                             </span>
                             <span class="cc-amount">{{ Money::format($row['due']) }}</span>
-                            {{ ($this->collectAction)(['patient' => $row['patient']->getKey()]) }}
+                            @if (($collect = ($this->collectAction)(['patient' => $row['patient']->getKey()]))->isVisible())
+                                {{ $collect }}
+                            @endif
                         </li>
                     @endforeach
                 </ul>

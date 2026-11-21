@@ -32,6 +32,7 @@ use App\Models\Charge;
 use App\Models\Consent;
 use App\Models\ConsentTemplate;
 use App\Models\Consultation;
+use App\Models\DailyClosing;
 use App\Models\Doctor;
 use App\Models\LabOrder;
 use App\Models\Patient;
@@ -42,7 +43,9 @@ use App\Models\Treatment;
 use App\Models\TreatmentPlan;
 use App\Models\User;
 use App\Models\WhatsappMessage;
+use App\Services\Booking\AppointmentService;
 use App\Services\Clinical\TreatmentPlanService;
+use App\Services\Dashboard\DayMoment;
 use App\Services\Dashboard\DoctorDay;
 use App\Services\Dashboard\FollowUps;
 use App\Services\Dashboard\MonthFigures;
@@ -74,7 +77,7 @@ class DashboardPanelTest extends TestCase
 
         $this->actingAs(User::factory()->admin()->create());
         // Lo del mes va al final, después de todo lo del día, con lo cobrado día por día debajo.
-        $this->assertSame([SystemHealth::class, TodayStats::class, TodayAppointments::class, WaitingRoom::class, FollowUpsToday::class, WeekGaps::class, MonthOverview::class, MonthTrendChart::class], $this->visibleWidgets());
+        $this->assertSame([SystemHealth::class, TodayStats::class, DayMomentCard::class, TodayAppointments::class, WaitingRoom::class, FollowUpsToday::class, WeekGaps::class, MonthOverview::class, MonthTrendChart::class], $this->visibleWidgets());
         $this->get(Dashboard::getUrl())->assertOk()->assertSee(['Lunes 2 de noviembre', 'Nueva cita', 'Llegó sin cita', 'Cobrar', 'Anotar en lista de espera']);
 
         // Quien administra y también atiende ve la clínica entera, en una sola pantalla. Hoy no tiene citas: su
@@ -82,10 +85,10 @@ class DashboardPanelTest extends TestCase
         $dentist = User::factory()->admin(isDentist: true)->create();
         Doctor::factory()->withSchedule()->create(['user_id' => $dentist->id]);
         $this->actingAs($dentist);
-        $this->assertSame([SystemHealth::class, TodayStats::class, TodayAppointments::class, WaitingRoom::class, FollowUpsToday::class, WeekGaps::class, MonthOverview::class, MonthTrendChart::class], $this->visibleWidgets());
+        $this->assertSame([SystemHealth::class, TodayStats::class, DayMomentCard::class, TodayAppointments::class, WaitingRoom::class, FollowUpsToday::class, WeekGaps::class, MonthOverview::class, MonthTrendChart::class], $this->visibleWidgets());
 
         $this->actingAs(User::factory()->reception()->create());
-        $this->assertSame([TodayStats::class, TodayAppointments::class, WaitingRoom::class, FollowUpsToday::class, WeekGaps::class], $this->visibleWidgets());
+        $this->assertSame([TodayStats::class, DayMomentCard::class, TodayAppointments::class, WaitingRoom::class, FollowUpsToday::class, WeekGaps::class], $this->visibleWidgets());
         $this->get(Dashboard::getUrl())->assertOk();
         Livewire::test(TodayStats::class)
             ->assertSeeInOrder(['Citas de hoy', 'En sala ahora', 'Por confirmar', 'Cobrado hoy'])
@@ -113,7 +116,7 @@ class DashboardPanelTest extends TestCase
         $own->update(['user_id' => $dentist->id]);
         $other = $this->doctorOffering($treatment);
         Appointment::factory()->for($own)->for($treatment)->for($this->patient('Rosa', 'Quispe'))->at('2026-11-02 10:00')->confirmed()->create();
-        Appointment::factory()->for($other)->for($treatment)->for($this->patient('Luis', 'Paz'))->at('2026-11-02 09:00')
+        Appointment::factory()->for($other)->for($treatment)->for($this->patient('Luis', 'Paz'))->at('2026-11-02 07:30')
             ->create(['status' => AppointmentStatus::CheckedIn, 'checked_in_at' => now()->subMinutes(25)]);
         $this->actingAs($dentist);
 
@@ -122,7 +125,7 @@ class DashboardPanelTest extends TestCase
         $this->get(Dashboard::getUrl())->assertOk()
             ->assertSee(['Buenos días, Dr. Jassmanny', 'Tu próximo paciente', 'Sala de espera'])
             ->assertDontSee(['Mi consulta', 'Toda la clínica']);
-        $this->assertSame([SystemHealth::class, TodayStats::class, NextPatient::class, TodayAppointments::class, WaitingRoom::class, FollowUpsToday::class, WeekGaps::class, MonthOverview::class, MonthTrendChart::class], $this->visibleWidgets());
+        $this->assertSame([SystemHealth::class, TodayStats::class, DayMomentCard::class, NextPatient::class, TodayAppointments::class, WaitingRoom::class, FollowUpsToday::class, WeekGaps::class, MonthOverview::class, MonthTrendChart::class], $this->visibleWidgets());
         Livewire::test(NextPatient::class)->assertSee('Rosa Quispe')->assertDontSee('Luis Paz');
         Livewire::test(TodayAppointments::class)->assertSee(['Agenda de hoy', 'Rosa Quispe', 'Luis Paz']);
         // Quien espera hace 20 minutos o más se marca en rojo arriba, aunque la sala quede abajo al hacer scroll.
@@ -231,10 +234,87 @@ class DashboardPanelTest extends TestCase
         $this->actingAs(User::factory()->reception()->create());
 
         Livewire::test(WaitingRoom::class)->assertSee('Pedro Prueba')->assertDontSee('Rosa Prueba');
+        // En la agenda tampoco sale "Esperando 9 h" en rojo: Rosa queda "En sala", sin contar, hasta que alguien la cierre.
+        Livewire::test(TodayAppointments::class)
+            ->assertSee(['Rosa Prueba', 'Pedro Prueba', 'Esperando 20'.self::NBSP.'min'])
+            ->assertDontSee('Esperando 9');
 
         // Para su doctor tampoco es "tu próximo paciente": es una cita que quedó sin cerrar.
         $this->assertSame('Pedro', (new DoctorDay($doctor->id))->next()->patient->first_name);
         $this->assertSame(1, (new DoctorDay($doctor->id))->waiting());
+    }
+
+    public function test_who_reception_passed_to_the_chair_stays_as_the_doctors_next_patient(): void
+    {
+        $treatment = Treatment::factory()->create(['name' => 'Curación con resina']);
+        $doctor = $this->doctorOffering($treatment);
+        $reception = User::factory()->reception()->create();
+        $rosa = Appointment::factory()->for($doctor)->for($treatment)->for($this->patient('Rosa', 'Quispe'))->at('2026-11-02 07:30')
+            ->create(['status' => AppointmentStatus::CheckedIn, 'checked_in_at' => '2026-11-02 07:25']);
+        Appointment::factory()->for($doctor)->for($treatment)->for($this->patient('Pedro', 'Paz'))->at('2026-11-02 08:30')
+            ->create(['status' => AppointmentStatus::CheckedIn, 'checked_in_at' => '2026-11-02 07:50']);
+        Appointment::factory()->for($doctor)->for($treatment)->for($this->patient('Ana', 'Ríos'))->at('2026-11-02 09:00')->confirmed()->create();
+
+        // Recepción toca "Pasó a consulta": Rosa ya está en el sillón, pero el doctor todavía no abrió su atención.
+        app(AppointmentService::class)->markStarted($rosa, $reception);
+        $this->actingAs($doctor->user);
+
+        // Sigue siendo su paciente: arriba, con "Atender", y después quien espera en sala.
+        Livewire::test(NextPatient::class)
+            ->assertSeeInOrder(['07:30', 'Rosa Quispe', 'Pasó a consulta a las 08:00', 'Atender'])
+            ->assertSeeInOrder(['En sala', '1 paciente más espera', 'Después', '08:30', 'Pedro Paz · Curación con resina · ya está en sala'])
+            ->callAction('start', arguments: ['appointment' => $rosa->id])
+            ->assertRedirect(ConsultationResource::getUrl('edit', ['record' => $rosa->fresh()->consultation]));
+
+        // Con la atención abierta, Rosa pasa a "Atenciones sin terminar" y el próximo es Pedro.
+        $this->assertSame('Pedro', (new DoctorDay($doctor->id))->next()->patient->first_name);
+    }
+
+    public function test_the_closing_card_shows_up_when_the_day_ends_without_reloading(): void
+    {
+        $treatment = Treatment::factory()->create(['name' => 'Limpieza dental']);
+        $doctor = $this->doctorOffering($treatment);
+        Appointment::factory()->for($doctor)->for($treatment)->for($this->patient('Pedro', 'Huamán'))->at('2026-11-02 16:00')->confirmed()->create();
+        $this->actingAs(User::factory()->reception()->create());
+
+        // "Hoy" se abrió a las 11:00, cuando no había nada que hacer: la tarjeta ya está, sin ocupar lugar, y se revisa sola.
+        $this->travelTo(CarbonImmutable::parse('2026-11-02 11:00', 'America/Lima'));
+        $this->assertContains(DayMomentCard::class, $this->visibleWidgets());
+        $card = Livewire::test(DayMomentCard::class)
+            ->assertSeeHtml('wire:poll.60s')
+            ->assertSeeHtml('day-moment-idle')
+            ->assertDontSee('Para cerrar el día');
+
+        // 19:30, sin recargar: al revisarse aparece lo que queda para cerrar el día.
+        $this->travelTo(CarbonImmutable::parse('2026-11-02 19:30', 'America/Lima'));
+        // (La respuesta de una actualización viene en JSON: se buscan textos sin tildes.)
+        $card->dispatch(Dashboard::CHANGED)
+            ->assertViewHas('moment', DayMoment::CLOSING)
+            ->assertDontSeeHtml('day-moment-idle')
+            ->assertSeeInOrder(['Citas sin cerrar', 'Pedro', 'Falta el cierre de caja']);
+    }
+
+    public function test_after_the_cash_is_closed_reception_is_told_debts_are_collected_tomorrow(): void
+    {
+        $treatment = Treatment::factory()->create(['name' => 'Limpieza dental']);
+        $doctor = $this->doctorOffering($treatment);
+        $rosa = $this->patient('Rosa', 'Quispe');
+        Appointment::factory()->for($doctor)->for($treatment)->for($rosa)->at('2026-11-02 10:00')->create(['status' => AppointmentStatus::Completed]);
+        Charge::factory()->for($rosa)->create(['amount' => 120, 'description' => 'Limpieza dental', 'charged_at' => '2026-11-02 10:40']);
+        $this->travelTo(CarbonImmutable::parse('2026-11-02 19:30', 'America/Lima'));
+        DailyClosing::factory()->create(['date' => '2026-11-02']);
+
+        // Recepción ya no puede cobrar con fecha de hoy: no se le ofrece "Cobrar", se le dice qué pasa.
+        $this->actingAs(User::factory()->reception()->create());
+        Livewire::test(DayMomentCard::class)
+            ->assertSeeInOrder(['Se fueron debiendo', 'La caja de hoy ya se cerró: lo que les cobres desde ahora entra en la caja de mañana.', 'Rosa Quispe', 'S/ 120.00', 'Caja cerrada a las'])
+            ->assertActionHidden('collect');
+
+        // La administradora sí puede: su "Cobrar" le avisa que cambia el cierre.
+        $this->actingAs(User::factory()->admin()->create());
+        Livewire::test(DayMomentCard::class)
+            ->assertActionVisible('collect')
+            ->assertDontSee('La caja de hoy ya se cerró');
     }
 
     public function test_home_shows_what_to_confirm_before_opening_and_what_is_left_when_closing(): void
@@ -255,9 +335,11 @@ class DashboardPanelTest extends TestCase
             // La cita completa y no solo "Pedro": el doctor de la prueba lleva un nombre al azar y puede llamarse igual.
             ->assertDontSee(['16:00 · Pedro Huamán', 'Para cerrar el día']);
 
-        // Durante el día mandan la agenda y la sala.
+        // Durante el día mandan la agenda y la sala: la tarjeta sigue ahí, sin nada ni lugar ocupado.
         $this->travelTo(CarbonImmutable::parse('2026-11-02 11:00', 'America/Lima'));
-        $this->assertNotContains(DayMomentCard::class, $this->visibleWidgets());
+        Livewire::test(DayMomentCard::class)
+            ->assertSeeHtml('day-moment-idle')
+            ->assertDontSee(['Antes de abrir', 'Para cerrar el día']);
 
         // 19:30: Rosa se fue debiendo y la cita de Pedro quedó sin cerrar.
         $rosasVisit->update(['status' => AppointmentStatus::Completed]);
@@ -378,11 +460,17 @@ class DashboardPanelTest extends TestCase
             // Arriba, su doctor está libre y lo esperan dos: en ámbar, porque hay que pasar a alguien.
             ->assertSeeInOrder([$doctor->name, 'Libre', '2 esperando'])
             ->assertSeeHtml('class="is-call"')
-            // Rosa llegó antes, aunque su cita sea más tarde; con 25 minutos, su espera va en rojo.
-            ->assertSeeInOrder(['Rosa Quispe', 'Limpieza dental · cita de las 09:00', '25'.self::NBSP.'min', 'Luis Mamani', '5'.self::NBSP.'min'])
-            ->assertSeeHtml('dash-waiting-time is-long')
+            // Rosa llegó antes, aunque su cita sea más tarde. Lleva 25 minutos, pero llegó temprano: todavía no es
+            // su hora, así que no está demorada y no va en rojo.
+            ->assertSeeInOrder(['Rosa Quispe', 'Limpieza dental · cita de las 09:00 · llegó temprano', '25'.self::NBSP.'min', 'Luis Mamani', '5'.self::NBSP.'min'])
+            ->assertDontSeeHtml('dash-waiting-time is-long')
             // Con un solo doctor, cada paciente no repite de quién es.
             ->assertDontSee(['Ana Flores', 'cita de las 09:00 · '.$doctor->name]);
+
+        // 09:20: ya pasaron 20 minutos de su hora. La espera va en rojo y dice todo lo que lleva en sala.
+        $this->travelTo(CarbonImmutable::parse('2026-11-02 09:20', 'America/Lima'));
+        Livewire::test(WaitingRoom::class)
+            ->assertSeeHtmlInOrder(['Rosa Quispe', '<span class="dash-waiting-time is-long">1'.self::NBSP.'h 45'.self::NBSP.'min</span>']);
     }
 
     public function test_the_waiting_room_says_whom_each_doctor_is_seeing_and_who_is_free(): void
@@ -409,6 +497,47 @@ class DashboardPanelTest extends TestCase
             ->assertSeeInOrder(['Dra. Ana Torres', 'Atendiendo a Rosa Quispe, hace 28'.self::NBSP.'min', '1 esperando', 'Dr. Luis Rojas', 'Libre', 'Pedro Paz'])
             ->assertDontSeeHtml('class="is-call"')
             ->assertDontSee('Dra. Carla Díaz');
+    }
+
+    public function test_a_visit_that_runs_long_past_its_time_asks_whether_it_ended(): void
+    {
+        $treatment = Treatment::factory()->create(['name' => 'Limpieza dental']);
+        $torres = $this->doctorOffering($treatment);
+        $torres->update(['name' => 'Dra. Ana Torres']);
+        $rosa = Appointment::factory()->for($torres)->for($treatment)->for($this->patient('Rosa', 'Quispe'))->at('2026-11-02 07:00')
+            ->create(['status' => AppointmentStatus::InProgress, 'started_at' => '2026-11-02 07:05']);
+        Appointment::factory()->for($torres)->for($treatment)->for($this->patient('Pedro', 'Paz'))->at('2026-11-02 08:00')
+            ->create(['status' => AppointmentStatus::CheckedIn, 'checked_in_at' => '2026-11-02 07:55']);
+        $this->actingAs(User::factory()->reception()->create());
+
+        // 08:15: la cita de Rosa era hasta las 07:30. Quizá ya salió y nadie lo marcó: se pregunta, lleva a la cita
+        // para cerrarla, y quien espera a esa doctora se pinta en ámbar.
+        $this->travelTo(CarbonImmutable::parse('2026-11-02 08:15', 'America/Lima'));
+        Livewire::test(WaitingRoom::class)
+            ->assertSee('Atendiendo a Rosa Quispe, hace 1'.self::NBSP.'h 10'.self::NBSP.'min · su cita era hasta las 07:30, ¿ya terminó?')
+            ->assertSeeHtml('<a href="'.AppointmentResource::getUrl('view', ['record' => $rosa]).'" class="dash-room-overrun">')
+            ->assertSeeHtml('<b class="is-call">1 esperando</b>');
+    }
+
+    public function test_the_parts_of_todays_count_add_up_to_the_total(): void
+    {
+        $treatment = Treatment::factory()->create();
+        $doctor = $this->doctorOffering($treatment);
+        $visit = fn (string $firstName, string $when) => Appointment::factory()->for($doctor)->for($treatment)
+            ->for($this->patient($firstName, 'Prueba'))->at($when);
+        $visit('Ana', '2026-11-02 08:00')->create(['status' => AppointmentStatus::Completed]);
+        $visit('Luis', '2026-11-02 09:00')->create(['status' => AppointmentStatus::NoShow]);
+        $visit('Rosa', '2026-11-02 09:30')->create();
+        $visit('Pedro', '2026-11-02 10:30')->create(['status' => AppointmentStatus::InProgress, 'started_at' => '2026-11-02 10:35']);
+        $visit('Eva', '2026-11-02 11:00')->create(['status' => AppointmentStatus::CheckedIn, 'checked_in_at' => '2026-11-02 10:50']);
+        $visit('Rut', '2026-11-02 12:00')->confirmed()->create();
+        $visit('Gloria', '2026-11-02 12:30')->create(['status' => AppointmentStatus::Cancelled]);
+        $this->actingAs(User::factory()->reception()->create());
+
+        // 11:05: seis citas (la cancelada no cuenta). Rosa ya pasó su hora y nadie marcó si vino: no está "por llegar".
+        $this->travelTo(CarbonImmutable::parse('2026-11-02 11:05', 'America/Lima'));
+        Livewire::test(TodayStats::class)
+            ->assertSeeInOrder(['Citas de hoy', '6', '1 atendida · 2 en la clínica · 1 por llegar · 1 sin cerrar · 1 no asistió']);
     }
 
     public function test_the_month_at_a_glance_compares_with_the_same_days_of_last_month_and_tracks_the_goal(): void
@@ -824,10 +953,11 @@ class DashboardPanelTest extends TestCase
         $this->travelTo(CarbonImmutable::parse('2026-11-02 20:35', 'America/Lima'));
         Livewire::test(NextPatient::class)->assertDontSee(['Luis Paz', 'Rosa Huamán']);
 
-        // Los números del día dicen cuánto va y cuánto falta; quién está en sala o en atención lo dicen la sala y la agenda.
+        // Los números del día suman el total: a esta hora nada está por llegar, todo quedó sin cerrar (también la
+        // que sigue "en atención" desde la mañana).
         $this->actingAs(User::factory()->admin()->create());
         Livewire::test(TodayStats::class)
-            ->assertSee('0 atendidas · 2 por llegar')
+            ->assertSee('0 atendidas · 3 sin cerrar')
             ->assertDontSee('en atención')
             ->assertSee('Aún no se terminó ninguna atención');
     }
@@ -865,7 +995,7 @@ class DashboardPanelTest extends TestCase
         $doctor = $this->doctorOffering($treatment);
         $doctor->update(['name' => 'Dra. Ana Torres']);
         Appointment::factory()->for($doctor)->for($treatment)->for($this->patient('Ana', 'Ríos'))->at('2026-10-30 10:00')->confirmed()->create();
-        Appointment::factory()->for($doctor)->for($treatment)->for($this->patient('Rosa', 'Quispe'))->at('2026-11-02 08:00')
+        Appointment::factory()->for($doctor)->for($treatment)->for($this->patient('Rosa', 'Quispe'))->at('2026-11-02 07:30')
             ->create(['status' => AppointmentStatus::CheckedIn, 'checked_in_at' => now()->subMinutes(25)]);
         $this->patient('Carmen', 'Rojas', ['birth_date' => '1990-11-02']);
         $this->actingAs(User::factory()->reception()->create());
@@ -875,7 +1005,7 @@ class DashboardPanelTest extends TestCase
         Livewire::test(FollowUpsToday::class)
             ->assertSeeInOrder([
                 '2 urgentes', 'Resolver hoy',
-                'Esperan 20 min o más', 'Rosa Quispe (25'.self::NBSP.'min, Dra. Ana Torres).',
+                'Con 20 min o más de demora', 'Rosa Quispe (25'.self::NBSP.'min, Dra. Ana Torres).',
                 'Citas sin cerrar',
                 'Seguimiento', 'Cumpleaños de hoy', 'Carmen Rojas',
             ])
