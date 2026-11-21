@@ -151,6 +151,40 @@ class PatientRegistrationTest extends TestCase
         $this->assertSame('2026-11-03 16:00', $ana->appointments()->sole()->starts_at->format('Y-m-d H:i'));
     }
 
+    public function test_a_new_patient_takes_the_dni_the_window_shows_and_cannot_repeat_a_registered_one(): void
+    {
+        $this->freezeMonday();
+        $treatment = Treatment::factory()->create(['duration_minutes' => 30]);
+        $doctor = $this->doctorOffering($treatment);
+        Patient::factory()->create(['first_name' => 'Rosa', 'last_name' => 'Huamán', 'document_type' => DocumentType::Dni, 'document_number' => '41234567']);
+        $this->actingAs(User::factory()->reception()->create());
+        // "Documento" dice DNI sin tocarlo; antes eso no quedaba guardado, y el documento repetido pasaba sin aviso.
+        $window = fn () => Livewire::test(Agenda::class)
+            ->mountAction('createAppointment', ['doctor' => $doctor->id, 'date' => '2026-11-03', 'time' => '16:00'])
+            ->setActionData(['new_patient' => true, 'treatment_id' => $treatment->id])
+            ->assertActionDataSet(['patient.document_type' => DocumentType::Dni]);
+
+        $window()
+            ->setActionData(['patient.first_name' => 'Ana', 'patient.last_name' => 'Rojas', 'patient.document_number' => '41234567', 'patient.same_as' => 'new'])
+            ->callMountedAction()
+            ->assertHasFormErrors(['patient.document_number' => 'unique']);
+
+        $window()
+            ->setActionData(['patient.first_name' => 'Ana', 'patient.last_name' => 'Rojas', 'patient.document_number' => '45671234'])
+            ->callMountedAction()
+            ->assertHasNoFormErrors();
+
+        $this->assertSame([DocumentType::Dni, '45671234'], [Patient::query()->where('first_name', 'Ana')->sole()->document_type, Patient::query()->where('first_name', 'Ana')->sole()->document_number]);
+    }
+
+    public function test_a_document_number_is_never_saved_without_its_type(): void
+    {
+        $patient = app(PatientRegistrar::class)->register(['first_name' => 'Luis', 'last_name' => 'Paz', 'document_number' => '4512 3456']);
+
+        $this->assertSame([DocumentType::Dni, '45123456'], [$patient->document_type, $patient->document_number]);
+        $this->assertNull(app(PatientRegistrar::class)->register(['first_name' => 'Mateo', 'last_name' => 'Paz'])->document_type);
+    }
+
     public function test_the_birth_date_is_read_back_in_words_with_the_age(): void
     {
         $this->freezeMonday();

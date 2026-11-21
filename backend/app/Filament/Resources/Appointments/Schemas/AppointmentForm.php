@@ -597,6 +597,11 @@ class AppointmentForm
             };
         }
 
+        // No puede estar en dos sillones a la vez: por eso faltan horas que en la agenda del doctor se ven libres.
+        if ($sameDay) {
+            $lines[] = 'Los horarios que se cruzan con esa cita no se ofrecen.';
+        }
+
         return [
             'heading' => $sameDay ? self::sameDayHeading($startsAt) : self::upcomingHeading($startsAt),
             'lines' => $lines,
@@ -848,6 +853,13 @@ class AppointmentForm
                         ->label('Documento')
                         ->options(DocumentType::class)
                         ->default(DocumentType::Dni->value)
+                        // La ventana llega con sus datos ya puestos y sin este: la lista igual muestra "DNI", y así se
+                        // guarda (sin tipo, el documento repetido no se detecta).
+                        ->afterStateHydrated(function (Select $component, mixed $state): void {
+                            if (blank($state)) {
+                                $component->state(DocumentType::Dni->value);
+                            }
+                        })
                         ->selectablePlaceholder(false)
                         ->live(),
                     // Como en la ficha: con un documento que ya está registrado, se dice en vez de fallar al guardar.

@@ -107,8 +107,14 @@ class AppointmentService
 
             $this->lockAgenda($doctor);
 
-            if (! $this->availability->forPatient($patient->exists ? $patient->getKey() : null)->isFree($doctor, $data->startsAt, $duration, $buffer)) {
+            $availability = $this->availability->forPatient($patient->exists ? $patient->getKey() : null);
+
+            if (! $availability->isFree($doctor, $data->startsAt, $duration, $buffer)) {
                 throw BookingException::slotTaken();
+            }
+
+            if ($availability->patientClashAt($data->startsAt, $duration) !== null) {
+                throw BookingException::alreadyBookedThen();
             }
 
             $patient->save();
@@ -196,6 +202,11 @@ class AppointmentService
 
             if ($inTheWay !== null) {
                 throw BookingException::overlaps($inTheWay);
+            }
+
+            // Ni de sobrecupo: el paciente no puede estar en dos sillones a la vez.
+            if ($own = $availability->patientClashAt($startsAt, $duration)) {
+                throw BookingException::patientBusy($own);
             }
 
             $appointment = Appointment::create([
@@ -815,6 +826,13 @@ class AppointmentService
         if ($clash !== null) {
             throw BookingException::slotNoLongerFree();
         }
+
+        /** @var CarbonInterface $startsAt */
+        $startsAt = $appointment->starts_at;
+
+        if ($own = $availability->patientClashAt($startsAt, $duration, $appointment->getKey())) {
+            throw BookingException::patientBusy($own);
+        }
     }
 
     private function move(Appointment $appointment, Doctor $doctor, CarbonInterface $startsAt, bool $requireWorkingHours, string $actor): Appointment
@@ -837,6 +855,10 @@ class AppointmentService
                 throw $actor === 'patient'
                     ? BookingException::slotTaken()
                     : BookingException::overlaps($availability->clashAt($doctor, $startsAt, $duration, $buffer, $appointment->getKey()));
+            }
+
+            if ($own = $availability->patientClashAt($startsAt, $duration, $appointment->getKey())) {
+                throw $actor === 'patient' ? BookingException::alreadyBookedThen() : BookingException::patientBusy($own);
             }
 
             $from = $appointment->starts_at;

@@ -14,6 +14,7 @@ use App\Models\WhatsappMessage;
 use App\Services\Booking\AppointmentService;
 use Carbon\CarbonImmutable;
 use Database\Seeders\CatalogSeeder;
+use Filament\Forms\Components\ToggleButtons;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
@@ -77,6 +78,27 @@ class OverbookAndRepeatWindowTest extends TestCase
 
         $urgent = Appointment::query()->whereBelongsTo($this->patient)->sole();
         $this->assertSame(['10:15', true], [$urgent->starts_at->format('H:i'), $urgent->is_overbooked]);
+    }
+
+    public function test_a_time_when_the_patient_is_with_another_doctor_is_neither_offered_nor_booked_by_hand(): void
+    {
+        $ana = $this->doctorOffering($this->treatment);
+        $ana->update(['name' => 'Dra. Ana Torres']);
+        Appointment::factory()->for($ana)->for($this->treatment)->for($this->patient)->confirmed()->at('2026-11-03 16:00')->create();
+        $busy = $this->patient->full_name.' ya tiene cita a esa hora: '.$this->treatment->name.' con Dra. Ana Torres, de 16:00 a 16:30. Elige otro horario.';
+
+        $this->window('2026-11-03')
+            ->assertSchemaComponentExists('slot', checkComponentUsing: fn (ToggleButtons $slot) => ! array_key_exists('16:00', $slot->getOptions())
+                && array_key_exists('16:30', $slot->getOptions()))
+            ->assertMountedActionModalSee(['Mañana ya tiene cita a las 16:00', 'Los horarios que se cruzan con esa cita no se ofrecen.'])
+            // Ni de sobrecupo: con "Otra hora" se dice antes de guardar, y al guardar no se crea.
+            ->setActionData(['manual' => true])
+            ->setActionData(['manual_time' => '16:15'])
+            ->assertMountedActionModalSee($busy)
+            ->callMountedAction()
+            ->assertNotified($busy);
+
+        $this->assertSame(1, $this->patient->appointments()->count());
     }
 
     public function test_there_is_no_overbooking_over_a_blocked_time(): void

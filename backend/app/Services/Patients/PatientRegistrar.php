@@ -34,6 +34,11 @@ class PatientRegistrar
             if (array_key_exists('document_number', $attributes)) {
                 $attributes['document_number'] = DocumentType::clean($attributes['document_number']);
             }
+
+            // Un número sin su tipo no se puede comparar con los demás: es DNI, lo que las ventanas muestran por defecto.
+            if (filled($attributes['document_number'] ?? null)) {
+                $attributes['document_type'] ??= DocumentType::Dni;
+            }
             $attributes['account_id'] = $account?->getKey();
             $attributes['relationship'] ??= $account && $account->patients()->exists()
                 ? PatientRelationship::Other
