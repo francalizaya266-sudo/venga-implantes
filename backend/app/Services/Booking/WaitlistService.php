@@ -2,6 +2,7 @@
 
 namespace App\Services\Booking;
 
+use App\Enums\AppointmentStatus;
 use App\Enums\DayPeriod;
 use App\Enums\MessageTemplateKey;
 use App\Enums\WaitlistStatus;
@@ -17,6 +18,7 @@ use App\Services\Agenda\Slot;
 use App\Services\WhatsApp\WhatsAppOutbox;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
 /**
@@ -45,7 +47,8 @@ final class WaitlistService
 
     /**
      * Quienes pueden tomar un horario que se acaba de liberar: les cae en su plazo y en la parte
-     * del día que pidieron, y su tratamiento entra a esa hora sin cruzarse con otra cita.
+     * del día que pidieron, su tratamiento entra a esa hora sin cruzarse con otra cita y es antes de la cita que ya
+     * tienen para lo mismo (si la tienen, esperan adelantarla).
      *
      * @return Collection<int, WaitlistEntry>
      */
@@ -64,8 +67,30 @@ final class WaitlistService
             ->with(['patient.account', 'treatment'])
             ->oldest()
             ->get()
-            ->filter(fn (WaitlistEntry $entry) => $entry->accepts($startsAt) && $this->fitsAt($entry, $doctor, $startsAt))
+            ->filter(fn (WaitlistEntry $entry) => $entry->accepts($startsAt)
+                && $this->fitsAt($entry, $doctor, $startsAt)
+                && $this->isBeforeUpcoming($entry, $startsAt))
             ->values();
+    }
+
+    /**
+     * La próxima cita que ya tiene para lo que espera (para cualquier cosa, si espera sin tratamiento): la misma de
+     * la que la lista dice "adelántasela". Null si no tiene.
+     */
+    public function upcomingAppointmentAt(WaitlistEntry $entry): ?CarbonInterface
+    {
+        $upcoming = Appointment::query()
+            ->where('patient_id', $entry->patient_id)
+            ->when($entry->treatment_id, fn (Builder $query, int $treatmentId) => $query->where('treatment_id', $treatmentId))
+            ->where('starts_at', '>=', now())
+            ->whereIn('status', AppointmentStatus::occupying())
+            ->orderBy('starts_at')
+            ->first();
+
+        /** @var CarbonInterface|null $startsAt */
+        $startsAt = $upcoming?->starts_at;
+
+        return $startsAt;
     }
 
     /**
@@ -87,18 +112,20 @@ final class WaitlistService
     }
 
     /**
-     * Horarios libres de ese día que le sirven (en la parte del día que pidió y dentro de su plazo).
+     * Horarios libres de ese día que le sirven (en la parte del día que pidió, dentro de su plazo y antes de la cita
+     * que ya tiene para lo mismo, si la tiene).
      *
      * @return Collection<int, Slot>
      */
     public function slotsFor(WaitlistEntry $entry, Doctor $doctor, Treatment $treatment, CarbonInterface $date): Collection
     {
         $day = CarbonImmutable::instance($date)->startOfDay();
+        $upcoming = $this->upcomingAppointmentAt($entry);
 
         return $this->availability
             ->forPatient($entry->patient_id)
             ->slotsFor($doctor, $treatment, $day, earliest: $day->isToday() ? now() : null)
-            ->filter(fn (Slot $slot) => $entry->accepts($slot->startsAt))
+            ->filter(fn (Slot $slot) => $entry->accepts($slot->startsAt) && ($upcoming === null || $slot->startsAt->lt($upcoming)))
             ->values();
     }
 
@@ -195,6 +222,29 @@ final class WaitlistService
     public function release(WaitlistEntry $entry): void
     {
         $entry->update(['held_until' => null]);
+    }
+
+    /**
+     * Recepción dejó libre a mano el horario que tenía apartado (lo liberó o lo retiró de la lista): ese horario y a
+     * quién de la lista ofrecérselo ahora, como cuando el apartado vence solo. Null si ya pasó.
+     *
+     * @return array{when: string, next: array{text: string, link: array{label: string, url: string}}|null}|null
+     */
+    public function releasedHoldNotice(WaitlistEntry $entry): ?array
+    {
+        /** @var Doctor|null $doctor */
+        $doctor = $entry->offeredDoctor;
+        /** @var CarbonInterface|null $startsAt */
+        $startsAt = $entry->offered_starts_at;
+
+        if ($doctor === null || $startsAt === null || ! $startsAt->isFuture()) {
+            return null;
+        }
+
+        return [
+            'when' => ucfirst($startsAt->translatedFormat('D j M, g:i a'))." con {$doctor->name}",
+            'next' => $this->freedSlotNotice($doctor, $startsAt, $entry->patient_id),
+        ];
     }
 
     /**
@@ -310,6 +360,14 @@ final class WaitlistService
                 'status' => WaitlistStatus::Booked,
                 'appointment_id' => $appointment->getKey(),
             ]));
+    }
+
+    /** Si ya tiene cita para lo que espera, solo le sirve un horario antes de esa: está en la lista para adelantarla. */
+    private function isBeforeUpcoming(WaitlistEntry $entry, CarbonInterface $startsAt): bool
+    {
+        $upcoming = $this->upcomingAppointmentAt($entry);
+
+        return $upcoming === null || $startsAt->lt($upcoming);
     }
 
     /** ¿Su tratamiento entra a esa hora sin cruzarse con nada? Sin tratamiento elegido, cualquier hueco sirve. */

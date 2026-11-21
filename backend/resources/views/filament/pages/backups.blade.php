@@ -31,7 +31,7 @@
         </x-filament::section>
     @endunless
 
-    <x-filament::section heading="Copia de los datos" :description="'Pacientes, citas, historias y pagos. Se crea una cada día a las 3:00 a. m. y se guardan las últimas '.$keep.'.'">
+    <x-filament::section heading="Copia de los datos" :description="'Pacientes, citas, historias y pagos. Se crea una cada día a las 3:00 a. m. (si el equipo estaba apagado a esa hora, en cuanto se prende) y se guardan las últimas '.$keep.'.'">
         <x-slot name="afterHeader">
             {{ $this->keepAction }}
         </x-slot>

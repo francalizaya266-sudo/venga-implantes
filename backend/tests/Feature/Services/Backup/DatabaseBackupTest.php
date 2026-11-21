@@ -7,6 +7,8 @@ use App\Models\Patient;
 use App\Models\Setting;
 use App\Services\Backup\DatabaseBackup;
 use Carbon\CarbonImmutable;
+use Illuminate\Console\Scheduling\Event;
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -87,6 +89,26 @@ class DatabaseBackupTest extends TestCase
             array_column($backup->list(), 'file'),
         );
         $this->assertSame('2026-10-05 03:00', $backup->list()[0]['created_at']->format('Y-m-d H:i'));
+    }
+
+    public function test_the_daily_copy_is_made_from_3_00_or_as_soon_as_the_computer_is_turned_on(): void
+    {
+        $this->artisan('schedule:list')->assertSuccessful();
+        $daily = collect(app(Schedule::class)->events())->sole(fn (Event $event) => str_contains((string) $event->command, 'respaldo:crear'));
+
+        $this->travelTo(CarbonImmutable::parse('2026-10-23 02:50', 'America/Lima'));
+        $this->assertFalse($daily->filtersPass($this->app), 'Todavía no son las 3:00.');
+
+        $this->travelTo(CarbonImmutable::parse('2026-10-23 03:00', 'America/Lima'));
+        $this->assertTrue($daily->filtersPass($this->app));
+
+        app(DatabaseBackup::class)->create();
+        $this->travelTo(CarbonImmutable::parse('2026-10-23 03:15', 'America/Lima'));
+        $this->assertFalse($daily->filtersPass($this->app), 'La de hoy ya está.');
+
+        // Al día siguiente la laptop estuvo apagada de madrugada y se prendió a las 9:10: la copia se hace entonces.
+        $this->travelTo(CarbonImmutable::parse('2026-10-24 09:10', 'America/Lima'));
+        $this->assertTrue($daily->filtersPass($this->app));
     }
 
     public function test_the_commands_create_and_restore_the_latest_copy(): void

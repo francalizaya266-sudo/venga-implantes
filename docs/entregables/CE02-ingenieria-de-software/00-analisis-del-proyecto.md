@@ -191,7 +191,7 @@ No hay reporte de cobertura en ninguno de los dos lados (el workflow usa `covera
 
 - **Local:** `cd backend && composer install && cp .env.example .env && php artisan key:generate && php artisan migrate --seed`, luego `npm --prefix ../frontend install` y `composer dev` (Laravel en `http://localhost:8000` con el servidor de Vite). Usuarios de demostración: `admin@consultorio.test` y `recepcion@consultorio.test`.
 - **Producción:** hosting compartido. La raíz pública apunta a `backend/public`, `composer install --no-dev`, `php artisan migrate --force`, `php artisan db:seed --class=CatalogSeeder --force` y un cron cada minuto con `schedule:run`. El paquete `consultorio-para-hosting` de GitHub Actions trae `backend/` con la web ya compilada.
-- **Tareas programadas** (`backend/routes/console.php`, 10 según `php artisan schedule:list`): recordatorios y citas sin confirmar (cada 15 min), cuotas (06:00 y cada 15 min), lista de espera (cada 5 min), envío de WhatsApp (cada 5 min), cola (cada minuto), `model:prune` (diario), duraciones aprendidas (02:30) y copia de seguridad (03:00).
+- **Tareas programadas** (`backend/routes/console.php`, 10 según `php artisan schedule:list`): recordatorios y citas sin confirmar (cada 15 min), cuotas (06:00 y cada 15 min), lista de espera (cada 5 min), envío de WhatsApp (cada 5 min), cola (cada minuto), `model:prune` (diario), duraciones aprendidas (02:30) y copia de seguridad (desde las 03:00, una vez al día).
 - **Verificación de salud:** ruta `/up` de Laravel (`backend/bootstrap/app.php`).
 - **URL de producción:** el despliegue será en Microsoft Azure, y la URL se agrega al encender producción.
 

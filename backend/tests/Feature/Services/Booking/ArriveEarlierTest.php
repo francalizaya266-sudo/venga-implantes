@@ -63,6 +63,19 @@ class ArriveEarlierTest extends TestCase
         $this->assertNull($this->service()->earlierRoomToday($this->rosa), 'Ya es su hora.');
     }
 
+    public function test_it_is_offered_only_when_they_would_go_in_at_least_a_quarter_of_an_hour_earlier(): void
+    {
+        // El doctor queda libre a las 11:20 (10:40 a 11:10 y la esterilización): 10 minutos antes no vale la pena.
+        $before = Appointment::factory()->for($this->doctor)->for($this->cleaning)->confirmed()->at('2026-11-02 10:40', 30)->create();
+
+        $this->assertNull($this->service()->earlierRoomToday($this->rosa));
+
+        // Libre a las 11:15: un cuarto de hora antes, sí.
+        $before->update(['ends_at' => '2026-11-02 11:05']);
+
+        $this->assertSame('11:15', $this->service()->earlierRoomToday($this->rosa)?->label());
+    }
+
     public function test_nothing_is_offered_for_another_day_or_when_they_are_already_in_the_room(): void
     {
         $tomorrow = Appointment::factory()->for($this->doctor)->for($this->cleaning)->confirmed()->at('2026-11-03 11:30')->create();

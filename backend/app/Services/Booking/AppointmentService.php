@@ -50,6 +50,9 @@ class AppointmentService
     /** Cuántas citas puede tener, como mucho, una serie que se repite. */
     public const SERIES_MAX_TIMES = 12;
 
+    /** Minutos que, como mínimo, se le tiene que adelantar la cita a quien llega antes para que valga la pena preguntar. */
+    public const EARLIER_AT_LEAST_MINUTES = 15;
+
     public function __construct(
         private readonly AvailabilityService $availability,
         private readonly PatientChangePolicy $policy,
@@ -421,9 +424,9 @@ class AppointmentService
     }
 
     /**
-     * Llegó antes de su hora: el primer hueco que su doctor tiene desde ahora y antes de su cita, con lo que dura
-     * esa cita, para pasarlo antes. Null si no es de hoy, si ya es su hora, si ya está en sala o si su doctor no está
-     * libre antes.
+     * Llegó antes de su hora: el primer hueco que su doctor tiene desde ahora y al menos un cuarto de hora antes de
+     * su cita, con lo que dura esa cita, para pasarlo antes. Null si no es de hoy, si ya es su hora, si ya está en
+     * sala o si su doctor no está libre antes (por 5 minutos no vale la pena preguntar).
      */
     public function earlierRoomToday(Appointment $appointment): ?Slot
     {
@@ -444,7 +447,7 @@ class AppointmentService
         return $this->availability
             ->forPatient($appointment->patient_id)
             ->slotsFor($doctor, $treatment, today(), earliest: now(), ignoreAppointmentId: $appointment->getKey(), durationMinutes: $appointment->custom_duration ? $appointment->durationMinutes() : null)
-            ->first(fn (Slot $slot) => $slot->startsAt->lt($startsAt));
+            ->first(fn (Slot $slot) => $slot->startsAt->lte(CarbonImmutable::instance($startsAt)->subMinutes(self::EARLIER_AT_LEAST_MINUTES)));
     }
 
     /**
