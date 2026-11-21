@@ -60,7 +60,7 @@ final class CreateAppointmentAction
                     'Cita creada',
                     $action,
                     function (Notification $notification) use ($data, &$result): Notification {
-                        return $notification->title(self::createdMessage($data, $result))->actions(self::createdActions($result['booked'][0]));
+                        return $notification->title(self::createdMessage($data, $result))->actions(self::createdActions($result));
                     },
                 );
             });
@@ -110,10 +110,12 @@ final class CreateAppointmentAction
      * Después de agendar, a un toque: abrir la cita y, si se preparó su aviso, enviarlo ya por WhatsApp (por ejemplo,
      * mientras el paciente sigue en el teléfono). Antes había que buscarla en la agenda o el aviso en Avisos.
      *
+     * @param  array{booked: list<Appointment>, skipped: list<CarbonImmutable>}  $result
      * @return list<Action>
      */
-    private static function createdActions(Appointment $appointment): array
+    private static function createdActions(array $result): array
     {
+        $appointment = $result['booked'][0];
         $noticeReady = WhatsappMessage::query()->where('appointment_id', $appointment->getKey())->pending()->exists();
 
         return array_values(array_filter([
