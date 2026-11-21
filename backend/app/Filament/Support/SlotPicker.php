@@ -4,6 +4,7 @@ namespace App\Filament\Support;
 
 use App\Enums\AppointmentStatus;
 use App\Enums\DayPeriod;
+use App\Exceptions\BookingException;
 use App\Filament\Forms\ChoiceChips;
 use App\Filament\Resources\WaitlistEntries\WaitlistEntryActions;
 use App\Models\Appointment;
@@ -27,6 +28,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Toggle;
 use Filament\Forms\Components\ToggleButtons;
 use Filament\Schemas\Components\Component;
+use Filament\Schemas\Components\Text;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Support\Enums\Width;
@@ -205,6 +207,12 @@ final class SlotPicker
                 ->afterStateUpdated(fn (Get $get, Set $set) => self::composeManualTime($get, $set))
                 ->visible(fn (Get $get) => (bool) $get('manual'))
                 ->dehydrated(false),
+
+            // El paciente ya tiene otra cita a esa hora (con cualquier doctor): ni de sobrecupo, porque no puede estar
+            // en dos sillones a la vez. Se dice antes de guardar; al guardar, la cita no se crea ni se mueve.
+            Text::make(fn (Get $get) => self::patientBusyWarning($get, $moving))
+                ->color('danger')
+                ->visible(fn (Get $get) => self::patientBusyWarning($get, $moving) !== null),
 
             // "Otra hora" deja elegir una que ya pasó (sirve para anotar a quien vino sin cita): antes se pregunta.
             Checkbox::make('past_time_ok')
@@ -442,6 +450,34 @@ final class SlotPicker
             $clash = app(AvailabilityService::class)->forPatient($patientId)->clashAt($doctor, $startsAt, $duration, $treatment->bufferMinutes());
 
             request()->attributes->set($memo, $clash instanceof Appointment ? $clash : null);
+        }
+
+        return request()->attributes->get($memo);
+    }
+
+    /**
+     * Con "Otra hora": "Luis Quispe ya tiene cita a esa hora: Limpieza con Dra. Ana, de 10:00 a 10:30…". Null si a esa
+     * hora no tiene otra cita (la que se está moviendo no cuenta) o si falta algún dato.
+     */
+    private static function patientBusyWarning(Get $get, ?Appointment $moving): ?string
+    {
+        $doctor = Doctor::find($get('doctor_id'));
+        $treatment = Treatment::find($get('treatment_id'));
+        $patientId = $moving?->patient_id ?? (filled($get('patient_id')) ? (int) $get('patient_id') : null);
+
+        if (! $get('manual') || blank($get('date')) || blank($get('manual_time')) || ! $doctor || ! $treatment || $patientId === null) {
+            return null;
+        }
+
+        $startsAt = CarbonImmutable::parse($get('date'))->setTimeFromTimeString($get('manual_time'));
+        $duration = self::chosenDuration($get, $moving) ?? $doctor->durationFor($treatment);
+        // Lo piden el texto y su visibilidad en el mismo pedido: se busca una sola vez.
+        $memo = 'slot-picker.patient-busy.'.implode('|', [$patientId, $startsAt->getTimestamp(), $duration, $moving?->getKey()]);
+
+        if (! request()->attributes->has($memo)) {
+            $own = app(AvailabilityService::class)->forPatient($patientId)->patientClashAt($startsAt, $duration, $moving?->getKey());
+
+            request()->attributes->set($memo, $own ? BookingException::patientBusy($own)->getMessage() : null);
         }
 
         return request()->attributes->get($memo);

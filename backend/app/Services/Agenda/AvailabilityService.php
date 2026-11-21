@@ -2,6 +2,7 @@
 
 namespace App\Services\Agenda;
 
+use App\Enums\AppointmentStatus;
 use App\Models\Appointment;
 use App\Models\Doctor;
 use App\Models\DoctorSchedule;
@@ -11,6 +12,7 @@ use App\Models\Treatment;
 use App\Models\WaitlistEntry;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
 
 /**
@@ -94,7 +96,83 @@ class AvailabilityService
             }
         }
 
-        return $slots->sortBy(fn (Slot $slot) => $slot->startsAt->getTimestamp())->values();
+        return $this->withoutPatientClashes($slots, CarbonImmutable::instance($date), $ignoreAppointmentId)
+            ->sortBy(fn (Slot $slot) => $slot->startsAt->getTimestamp())
+            ->values();
+    }
+
+    /**
+     * La cita que el paciente para quien se mira la agenda ya tiene a esa hora, con cualquier doctor: no puede estar en
+     * dos sillones a la vez. Con su doctor y tratamiento cargados, para decir cuál es. Null si no tiene ninguna que se
+     * cruce (o si la agenda no se mira para un paciente).
+     *
+     * @param  int|null  $ignoreAppointmentId  Cita que se está moviendo (no cuenta).
+     */
+    public function patientClashAt(CarbonInterface $startsAt, int $durationMinutes, ?int $ignoreAppointmentId = null): ?Appointment
+    {
+        $start = CarbonImmutable::instance($startsAt);
+
+        return $this->patientAppointments($this->holderPatientId, $start, $start->addMinutes($durationMinutes), $ignoreAppointmentId)
+            ->load(['patient', 'doctor', 'treatment'])
+            ->first();
+    }
+
+    /**
+     * Sin los horarios en que el paciente para quien se mira la agenda ya tiene otra cita, con cualquier doctor: así
+     * "Nueva cita", "Mover", las citas repetidas y la lista de espera no le ofrecen una hora en que estará en otro sillón.
+     *
+     * @param  Collection<int, Slot>  $slots
+     * @return Collection<int, Slot>
+     */
+    private function withoutPatientClashes(Collection $slots, CarbonImmutable $date, ?int $ignoreAppointmentId): Collection
+    {
+        if ($this->holderPatientId === null || $slots->isEmpty()) {
+            return $slots;
+        }
+
+        $taken = $this->patientAppointments($this->holderPatientId, $date->startOfDay(), $date->endOfDay(), $ignoreAppointmentId)
+            ->map(fn (Appointment $appointment) => self::span($appointment));
+
+        return $taken->isEmpty()
+            ? $slots
+            : $slots->reject(fn (Slot $slot) => $taken->contains(fn (array $span) => $span[0]->lt($slot->endsAt) && $span[1]->gt($slot->startsAt)));
+    }
+
+    /**
+     * Las citas del paciente que ocupan algo de ese tramo (sin la que se está moviendo), en orden. Solo las que todavía
+     * esperan su cierre: de una ya atendida el paciente se fue, y puede pasar enseguida con otro doctor.
+     *
+     * @return EloquentCollection<int, Appointment>
+     */
+    private function patientAppointments(?int $patientId, CarbonImmutable $from, CarbonImmutable $to, ?int $ignoreAppointmentId): EloquentCollection
+    {
+        if ($patientId === null) {
+            return new EloquentCollection;
+        }
+
+        return Appointment::query()
+            ->where('patient_id', $patientId)
+            ->whereIn('status', AppointmentStatus::open())
+            ->when($ignoreAppointmentId, fn ($query, int $id) => $query->whereKeyNot($id))
+            ->where('starts_at', '<', $to)
+            ->where('ends_at', '>', $from)
+            ->orderBy('starts_at')
+            ->get();
+    }
+
+    /**
+     * Desde y hasta cuándo está el paciente en el sillón (sin la esterilización, que es tiempo del doctor).
+     *
+     * @return array{0: CarbonImmutable, 1: CarbonImmutable}
+     */
+    private static function span(Appointment $appointment): array
+    {
+        /** @var CarbonInterface $startsAt */
+        $startsAt = $appointment->starts_at;
+        /** @var CarbonInterface $endsAt */
+        $endsAt = $appointment->ends_at;
+
+        return [CarbonImmutable::instance($startsAt), CarbonImmutable::instance($endsAt)];
     }
 
     /** ¿Cabe una cita en este horario sin cruzarse con otra ni con un bloqueo? */

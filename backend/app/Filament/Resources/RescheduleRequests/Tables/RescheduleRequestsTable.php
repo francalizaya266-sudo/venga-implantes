@@ -14,6 +14,7 @@ use App\Services\Agenda\AvailabilityService;
 use App\Services\Booking\RescheduleRequestService;
 use App\Support\Dates;
 use App\Support\Phone;
+use Carbon\CarbonInterface;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Forms\Components\Checkbox;
@@ -255,7 +256,11 @@ class RescheduleRequestsTable
         $duration = (int) $option->starts_at->diffInMinutes($option->ends_at, true);
 
         if ($availability->isFree($option->doctor, $option->starts_at, $duration, $treatment->bufferMinutes(), $appointment->getKey())) {
-            return null;
+            /** @var CarbonInterface $startsAt */
+            $startsAt = $option->starts_at;
+
+            // El doctor está libre, pero el paciente ya tiene otra cita a esa hora (con otro doctor).
+            return $availability->patientClashAt($startsAt, $duration, $appointment->getKey()) ? 'ya tiene otra cita a esa hora' : null;
         }
 
         $hours = $availability->workingRanges($option->doctor, $option->starts_at);

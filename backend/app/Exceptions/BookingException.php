@@ -4,8 +4,11 @@ namespace App\Exceptions;
 
 use App\Models\Appointment;
 use App\Models\Doctor;
+use App\Models\Patient;
 use App\Models\ScheduleBlock;
+use App\Models\Treatment;
 use App\Models\WaitlistEntry;
+use Carbon\CarbonInterface;
 use RuntimeException;
 
 /** Error de reserva con un mensaje en español simple, listo para mostrar al usuario. */
@@ -29,6 +32,32 @@ class BookingException extends RuntimeException
                 .', '.$with->span().'. Elige otro.',
             default => 'Ese horario se cruza con otra cita o con un bloqueo de la agenda. Elige otro.',
         });
+    }
+
+    /**
+     * Para el personal: el paciente ya tiene otra cita a esa hora, con cualquier doctor, y no puede estar en dos
+     * sillones a la vez. Se dice cuál, para moverla o elegir otra hora.
+     */
+    public static function patientBusy(Appointment $with): self
+    {
+        /** @var Patient $patient */
+        $patient = $with->patient;
+        /** @var Doctor $doctor */
+        $doctor = $with->doctor;
+        /** @var Treatment $treatment */
+        $treatment = $with->treatment;
+        /** @var CarbonInterface $startsAt */
+        $startsAt = $with->starts_at;
+        /** @var CarbonInterface $endsAt */
+        $endsAt = $with->ends_at;
+
+        return new self("{$patient->full_name} ya tiene cita a esa hora: {$treatment->name} con {$doctor->name}, de {$startsAt->format('H:i')} a {$endsAt->format('H:i')}. Elige otro horario.");
+    }
+
+    /** Para quien reserva en la web: ya tiene una cita que se cruza con ese horario. */
+    public static function alreadyBookedThen(): self
+    {
+        return new self('Ya tienes una cita a esa hora. Elige otro horario.');
     }
 
     /** Para el personal: al alargar una cita (otra duración u otro tratamiento), el tiempo que se agrega choca con lo que sigue. */

@@ -95,6 +95,21 @@ class RescheduleRequestsPanelTest extends TestCase
             ->assertActionVisible(TestAction::make('offerAnotherTime')->table($request));
     }
 
+    public function test_a_proposed_time_when_the_patient_took_another_appointment_cannot_be_approved(): void
+    {
+        $appointment = $this->appointmentAt('2026-11-05 10:00');
+        $request = $this->requestFor($appointment, ['2026-11-06 10:00']);
+        // Después de pedirlo, recepción le dio esa hora con otro doctor: el doctor está libre, el paciente no.
+        Appointment::factory()->for($this->doctorOffering($this->treatment))->for($this->treatment)->for($appointment->patient)->confirmed()->at('2026-11-06 10:00')->create();
+
+        $this->actingAs(User::factory()->reception()->create());
+
+        Livewire::test(ListRescheduleRequests::class)
+            ->assertSee('Vie. 06/11 10:00 (ya tiene otra cita a esa hora)')
+            ->assertActionHidden(TestAction::make('approve')->table($request))
+            ->assertActionVisible(TestAction::make('offerAnotherTime')->table($request));
+    }
+
     public function test_with_a_time_that_still_works_approving_stays_first_and_the_other_answers_go_in_the_menu(): void
     {
         $request = $this->requestFor($this->appointmentAt('2026-11-03 10:00'), ['2026-11-04 10:00']);
