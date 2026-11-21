@@ -49,8 +49,11 @@ use Filament\Support\Enums\Size;
 use Filament\Support\Enums\Width;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Locked;
+use Livewire\Attributes\Session;
 use Livewire\Attributes\Url;
 
 /**
@@ -101,7 +104,8 @@ class Agenda extends Page
     #[Url]
     public ?int $doctor = null;
 
-    /** Tratamiento elegido en "Buscar hueco". */
+    /** Tratamiento elegido en "Buscar hueco". Se recuerda: al volver a la agenda ya están sus horas libres. */
+    #[Session]
     public ?int $findTreatment = null;
 
     /** En "Buscar hueco", la parte del día que le acomoda al paciente (DayPeriod). */
@@ -117,6 +121,12 @@ class Agenda extends Page
     public string $month = '';
 
     /**
+     * Si el panel del costado se ve: escondido, o en el celular sin abrir, no se calcula en cada recarga (eran casi
+     * la mitad de las consultas). Lo avisa la pantalla.
+     */
+    public bool $railShown = true;
+
+    /**
      * La pantalla desde donde se abrió "Nueva cita" con un enlace (la ficha del paciente, la lista de espera, Hoy):
      * al agendar se vuelve a ella.
      */
@@ -128,6 +138,9 @@ class Agenda extends Page
 
     /** Días de la semana (1 = lunes), para "Buscar hueco". */
     private const WEEKDAYS = [1 => 'Lunes', 2 => 'Martes', 3 => 'Miércoles', 4 => 'Jueves', 5 => 'Viernes', 6 => 'Sábado', 7 => 'Domingo'];
+
+    /** Desde cuántos minutos una cita lleva su siguiente paso en la grilla del día. */
+    private const STEP_MINUTES = 45;
 
     /** Días con lugar que muestra "Buscar hueco" de entrada, y hasta cuántos con "Ver más días". */
     private const FIND_DAYS = 3;
@@ -157,6 +170,13 @@ class Agenda extends Page
 
     /** El día que se miraba antes de cambiar la fecha: si llega una fecha a medio escribir, la agenda se queda ahí. */
     private string $dateBefore = '';
+
+    /**
+     * Lo de las columnas a la vista, pedido una sola vez en cada recarga (ver preload).
+     *
+     * @var array{key: string, appointments: EloquentCollection<int, Appointment>, flags: array<int, array<string, mixed>>, readiness: array<int, array<string, mixed>>, blocks: EloquentCollection<int, ScheduleBlock>, schedules: EloquentCollection<int, DoctorSchedule>, holds: Collection<int, WaitlistEntry>}|null
+     */
+    private ?array $visible = null;
 
     public function mount(): void
     {
@@ -289,6 +309,67 @@ class Agenda extends Page
         return $this->mode === 'week'
             ? 'Semana del '.$this->weekStart()->translatedFormat('j \d\e F')
             : ucfirst($this->day()->translatedFormat('l j \d\e F'));
+    }
+
+    /**
+     * Bajo la fecha, qué tan lleno está el día ("82 % ocupado") y, para el administrador, cuánto rindió cada hora
+     * atendida ese día. En la semana no: cada día dice lo suyo.
+     */
+    public function getSubheading(): ?string
+    {
+        if ($this->mode === 'week') {
+            return null;
+        }
+
+        $load = app(GapFinder::class)->occupancy($this->activeDoctors(), $this->day(), $this->day())[$this->date] ?? null;
+
+        return collect([
+            match (true) {
+                $load === null => 'No se atiende',
+                $load >= 90 => 'Lleno',
+                default => $load.' % ocupado',
+            },
+            $this->earnedPerHour(),
+        ])->filter()->implode(' · ');
+    }
+
+    /**
+     * "S/ 245 por hora atendida": lo cobrado ese día (lo que suman los reportes como producido) entre las horas de
+     * las citas atendidas. Solo el administrador lo ve, y solo si ya se atendió a alguien.
+     */
+    private function earnedPerHour(): ?string
+    {
+        /** @var User $user */
+        $user = auth()->user();
+        $doctors = $this->activeDoctors()->map(fn (Doctor $doctor) => $doctor->getKey())->all();
+
+        if (! $user->isAdmin()) {
+            return null;
+        }
+
+        $minutes = Appointment::query()
+            ->whereIn('doctor_id', $doctors)
+            ->where('status', AppointmentStatus::Completed)
+            ->whereBetween('starts_at', [$this->day()->startOfDay(), $this->day()->endOfDay()])
+            ->get(['starts_at', 'ends_at'])
+            ->sum(function (Appointment $appointment): int {
+                /** @var CarbonInterface $startsAt */
+                $startsAt = $appointment->starts_at;
+
+                return (int) $startsAt->diffInMinutes($appointment->ends_at);
+            });
+
+        if ($minutes === 0) {
+            return null;
+        }
+
+        $earned = (float) Charge::query()
+            ->valid()
+            ->whereIn('doctor_id', $doctors)
+            ->whereBetween('charged_at', [$this->day()->startOfDay(), $this->day()->endOfDay()])
+            ->sum(DB::raw('amount - discount'));
+
+        return Money::short(round($earned / ($minutes / 60))).' por hora atendida';
     }
 
     /** @return list<string> */
@@ -577,8 +658,16 @@ class Agenda extends Page
     /** @return array<string, mixed> */
     protected function getViewData(): array
     {
-        $columns = $this->columns();
+        $columns = $this->mode === 'day' ? array_map(fn (array $column) => [...$column, 'appointments' => array_map(
+            // Las citas largas del día traen su siguiente paso en la tarjeta (las cortas no tienen lugar).
+            fn (array $card) => [...$card, 'step' => self::takesStep($card)],
+            $column['appointments'],
+        )], $this->columns()) : $this->columns();
         [$from, $to] = $this->visibleMinutes($columns);
+
+        if ($this->mode === 'day') {
+            $this->preloadPanel(collect($columns)->flatMap(fn (array $column) => array_column(array_filter($column['appointments'], fn (array $card) => $card['step']), 'id'))->all());
+        }
 
         return [
             'columns' => $columns,
@@ -593,7 +682,7 @@ class Agenda extends Page
                 ? $this->doctors()->map(fn (Doctor $doctor) => ['name' => $doctor->name, 'initials' => self::initials($doctor->name), 'color' => $doctor->agenda_color ?: '#1e4f91'])->all()
                 : [],
             'modeByDefault' => $this->modeByDefault,
-            'rail' => $this->rail(),
+            'rail' => $this->railShown ? $this->rail() : null,
             'list' => $this->mode === 'list' ? $this->listOfTheDay($columns) : null,
         ];
     }
@@ -990,7 +1079,15 @@ class Agenda extends Page
     private function columns(): array
     {
         if ($this->wholeClinic()) {
+            $this->preload($this->doctors(), $this->weekStart(), $this->weekStart()->addDays(6));
+
             return $this->clinicWeekColumns();
+        }
+
+        if ($this->mode === 'week') {
+            $this->preload($this->doctors()->where('id', $this->weekDoctor()?->getKey())->values(), $this->weekStart(), $this->weekStart()->addDays(6));
+        } else {
+            $this->preload($this->doctors(), $this->day(), $this->day());
         }
 
         $targets = $this->mode === 'week'
@@ -1070,12 +1167,10 @@ class Agenda extends Page
                     'doctorId' => 0,
                     'treatments' => $this->activeDoctors()->flatMap(fn (Doctor $doctor) => $doctor->treatments->modelKeys())->unique()->values()->all(),
                     'working' => self::mergedRanges($present->flatMap(fn (array $column) => $column['working'])->all()),
-                    'blocks' => ScheduleBlock::query()
-                        ->whereNull('doctor_id')
-                        ->where('starts_at', '<', $day->endOfDay())
-                        ->where('ends_at', '>', $day->startOfDay())
-                        ->get()
+                    'blocks' => $this->blocksOn($day)
+                        ->filter(fn (ScheduleBlock $block) => $block->doctor_id === null)
                         ->map(fn (ScheduleBlock $block) => $this->blockCard($block, $day))
+                        ->values()
                         ->all(),
                     'laneBlocks' => $laneBlocks,
                     'appointments' => collect($appointments)->sortBy('start')->values()->all(),
@@ -1160,10 +1255,11 @@ class Agenda extends Page
      */
     private function column(Doctor $doctor, CarbonImmutable $day): array
     {
-        $blocks = ScheduleBlock::query()->affecting($doctor, $day->startOfDay(), $day->endOfDay())->get();
+        $visible = $this->visible ?? $this->preload(new EloquentCollection([$doctor]), $day, $day);
+        $blocks = $this->blocksOn($day)->filter(fn (ScheduleBlock $block) => $block->doctor_id === null || (int) $block->doctor_id === (int) $doctor->getKey())->values();
         // Quien ya no atiende no tiene horario abierto: su columna muestra solo las citas que le quedan.
         $working = $doctor->is_active
-            ? app(AvailabilityService::class)->workingRanges($doctor, $day)
+            ? app(AvailabilityService::class)->rangesOf($visible['schedules']->filter(fn (DoctorSchedule $schedule) => (int) $schedule->doctor_id === (int) $doctor->getKey()), $day)
                 ->map(fn (array $r) => ['start' => $this->minuteOf($r['start']), 'end' => $this->minuteOf($r['end'])])
                 ->all()
             : [];
@@ -1183,8 +1279,15 @@ class Agenda extends Page
             'blocks' => [
                 ...$blocks->map(fn (ScheduleBlock $block) => $this->blockCard($block, $day)),
                 // Lo ofrecido a alguien de la lista de espera queda apartado mientras responde.
-                ...app(AvailabilityService::class)
-                    ->holds($doctor, $day->startOfDay(), $day->endOfDay())
+                ...$visible['holds']
+                    ->filter(function (WaitlistEntry $hold) use ($doctor, $day): bool {
+                        /** @var CarbonInterface $offeredFrom */
+                        $offeredFrom = $hold->offered_starts_at;
+                        /** @var CarbonInterface $offeredUntil */
+                        $offeredUntil = $hold->offered_until;
+
+                        return (int) $hold->offered_doctor_id === (int) $doctor->getKey() && $offeredFrom->lt($day->endOfDay()) && $offeredUntil->gt($day->startOfDay());
+                    })
                     ->map(fn (WaitlistEntry $hold) => [
                         'start' => $this->minuteOf($hold->offered_starts_at),
                         'end' => $this->minuteOf($hold->offered_until),
@@ -1241,6 +1344,66 @@ class Agenda extends Page
     }
 
     /**
+     * Pide de una vez lo de todas las columnas a la vista (las citas con sus avisos, los bloqueos, los horarios y lo
+     * apartado para la lista de espera): la semana pedía lo mismo por cada día y por cada doctor.
+     *
+     * @param  Collection<int, Doctor>  $doctors
+     * @return array{key: string, appointments: EloquentCollection<int, Appointment>, flags: array<int, array<string, mixed>>, readiness: array<int, array<string, mixed>>, blocks: EloquentCollection<int, ScheduleBlock>, schedules: EloquentCollection<int, DoctorSchedule>, holds: Collection<int, WaitlistEntry>}
+     */
+    private function preload(Collection $doctors, CarbonImmutable $from, CarbonImmutable $to): array
+    {
+        /** @var list<int> $ids */
+        $ids = $doctors->map(fn (Doctor $doctor) => (int) $doctor->getKey())->values()->all();
+        $key = implode(',', $ids).'|'.$from->toDateString().'|'.$to->toDateString();
+
+        if ($this->visible !== null && $this->visible['key'] === $key) {
+            return $this->visible;
+        }
+
+        /** @var User $user */
+        $user = auth()->user();
+        $seesMoney = $user->can('viewAny', Charge::class);
+        [$start, $end] = [$from->startOfDay(), $to->endOfDay()];
+
+        $appointments = Appointment::query()
+            ->with(['patient' => fn ($patient) => $patient->with('account')->when($seesMoney, fn ($q) => $q->withBalance()), 'treatment'])
+            ->whereIn('doctor_id', $ids)
+            ->whereBetween('starts_at', [$start, $end])
+            ->where('status', '!=', AppointmentStatus::Cancelled)
+            ->orderBy('starts_at')
+            ->get();
+
+        return $this->visible = [
+            'key' => $key,
+            'appointments' => $appointments,
+            'flags' => VisitFlags::for($appointments, $user),
+            'readiness' => VisitReadiness::for($appointments, $user),
+            'blocks' => ScheduleBlock::query()
+                ->where(fn (Builder $q) => $q->whereNull('doctor_id')->orWhereIn('doctor_id', $ids))
+                ->where('starts_at', '<', $end)
+                ->where('ends_at', '>', $start)
+                ->get(),
+            'schedules' => DoctorSchedule::query()->whereIn('doctor_id', $ids)->get(),
+            'holds' => app(AvailabilityService::class)->holdsOf($ids, $start, $end),
+        ];
+    }
+
+    /** @return Collection<int, ScheduleBlock> Los bloqueos ya pedidos que tocan ese día (de un doctor o de todos). */
+    private function blocksOn(CarbonImmutable $day): Collection
+    {
+        return ($this->visible['blocks'] ?? new EloquentCollection)
+            ->filter(function (ScheduleBlock $block) use ($day): bool {
+                /** @var CarbonInterface $startsAt */
+                $startsAt = $block->starts_at;
+                /** @var CarbonInterface $endsAt */
+                $endsAt = $block->ends_at;
+
+                return $startsAt->lt($day->endOfDay()) && $endsAt->gt($day->startOfDay());
+            })
+            ->values();
+    }
+
+    /**
      * @param  Collection<int, ScheduleBlock>  $blocks  Los bloqueos de ese día: la cita que cae en uno se marca para moverla.
      * @return Collection<int, array<string, mixed>>
      */
@@ -1249,18 +1412,18 @@ class Agenda extends Page
         /** @var User $user */
         $user = auth()->user();
         $seesMoney = $user->can('viewAny', Charge::class);
+        $visible = $this->visible ?? $this->preload(new EloquentCollection([$doctor]), $day, $day);
+        $flags = $visible['flags'];
+        $readiness = $visible['readiness'];
 
-        $appointments = Appointment::query()
-            ->with(['patient' => fn ($patient) => $patient->with('account')->when($seesMoney, fn ($q) => $q->withBalance()), 'treatment'])
-            ->whereBelongsTo($doctor)
-            ->whereBetween('starts_at', [$day->startOfDay(), $day->endOfDay()])
-            ->where('status', '!=', AppointmentStatus::Cancelled)
-            ->orderBy('starts_at')
-            ->get();
-        $flags = VisitFlags::for($appointments, $user);
-        $readiness = VisitReadiness::for($appointments, $user);
+        return $visible['appointments']
+            ->filter(function (Appointment $a) use ($doctor, $day): bool {
+                /** @var CarbonInterface $startsAt */
+                $startsAt = $a->starts_at;
 
-        return $appointments
+                return (int) $a->doctor_id === (int) $doctor->getKey() && $startsAt->between($day->startOfDay(), $day->endOfDay());
+            })
+            ->values()
             ->map(fn (Appointment $a) => [
                 'id' => $a->getKey(),
                 'start' => $this->minuteOf($a->starts_at),
@@ -1299,6 +1462,17 @@ class Agenda extends Page
             ])
             ->map(fn (array $card) => [...$card, 'hint' => self::hint($card)])
             ->pipe(fn (Collection $cards) => self::inLanes($cards));
+    }
+
+    /**
+     * Una cita de 45 minutos o más, sola en su carril y que nadie dejó sin cerrar, tiene lugar para su siguiente
+     * paso en la grilla del día.
+     *
+     * @param  array<string, mixed>  $card
+     */
+    private static function takesStep(array $card): bool
+    {
+        return $card['end'] - $card['start'] >= self::STEP_MINUTES && $card['lanes'] === 1 && ! $card['unclosed'];
     }
 
     /** Atendida y sin deuda (para quien no ve los saldos, atendida basta): lo que "Enfoque" deja tenue. */

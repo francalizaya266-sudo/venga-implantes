@@ -30,6 +30,19 @@ class DoctorSchedule extends Model
         return $this->belongsTo(Doctor::class);
     }
 
+    /** Lo mismo que validOn, con el tramo ya cargado: es de ese día de la semana y está vigente en esa fecha. */
+    public function isValidOn(CarbonInterface $date): bool
+    {
+        /** @var CarbonInterface|null $from */
+        $from = $this->valid_from;
+        /** @var CarbonInterface|null $until */
+        $until = $this->valid_until;
+
+        return $this->weekday === $date->dayOfWeekIso
+            && ($from === null || $from->toDateString() <= $date->toDateString())
+            && ($until === null || $until->toDateString() >= $date->toDateString());
+    }
+
     #[Scope]
     protected function validOn(Builder $query, CarbonInterface $date): Builder
     {

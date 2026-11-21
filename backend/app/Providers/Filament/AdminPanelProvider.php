@@ -22,6 +22,7 @@ use App\Filament\Resources\Treatments\TreatmentResource;
 use App\Filament\Resources\Users\UserResource;
 use App\Filament\Support\InitialsAvatarProvider;
 use App\Filament\Support\MobileBar;
+use App\Filament\Support\PanelSearch;
 use App\Http\Controllers\Backup\BackupDownloadController;
 use App\Http\Controllers\Backup\BackupFilesDownloadController;
 use App\Http\Controllers\Billing\PaymentReceiptController;
@@ -174,7 +175,9 @@ class AdminPanelProvider extends PanelProvider
             ->databaseNotifications()
             ->databaseNotificationsPolling('30s')
             ->sidebarCollapsibleOnDesktop()
-            // Ctrl + K (o ⌘ + K) abre el buscador desde cualquier pantalla.
+            // Ctrl + K (o ⌘ + K) abre el buscador desde cualquier pantalla. Además de buscar, ofrece acciones ("nueva
+            // cita", "llegó sin cita", ir a una fecha) y las próximas citas del paciente.
+            ->globalSearch(PanelSearch::class)
             ->globalSearchKeyBindings(['mod+k'])
             ->globalSearchFieldKeyBindingSuffix()
             // Nueve entradas en el menú; lo demás aparece dentro de cada una al entrar.
