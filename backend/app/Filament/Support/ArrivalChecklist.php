@@ -88,7 +88,7 @@ final class ArrivalChecklist
 
         return $notification
             ->body(implode('<br>', [$headline ?? $patient->full_name, ...$pending]))
-            ->actions(array_values(array_filter([
+            ->actions(array_filter([
                 Action::make('patient')
                     ->label($user->can('update', $patient) ? 'Completar su ficha' : 'Ver su ficha')
                     ->icon(Heroicon::OutlinedUser)
@@ -103,7 +103,7 @@ final class ArrivalChecklist
                         ->url(PatientResource::getUrl('view', ['record' => $patient, 'action' => 'registerPayment']))
                         ->button()
                     : null,
-            ])))
+            ]))
             ->persistent();
     }
 }

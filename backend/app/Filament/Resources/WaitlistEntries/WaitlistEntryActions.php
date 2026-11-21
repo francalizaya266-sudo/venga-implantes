@@ -18,6 +18,7 @@ use App\Services\Patients\PatientRegistrar;
 use App\Services\WhatsApp\WhatsAppOutbox;
 use App\Support\Dates;
 use Carbon\CarbonImmutable;
+use Carbon\CarbonInterface;
 use Closure;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
@@ -261,11 +262,7 @@ final class WaitlistEntryActions
                 ? AppointmentResource::getUrl('view', array_filter([
                     'record' => $record->upcoming_appointment_id,
                     'action' => 'move',
-                    'actionArguments' => $record->isHolding() && $record->offered_starts_at?->isFuture() ? [
-                        'doctor' => $record->offered_doctor_id,
-                        'date' => $record->offered_starts_at->toDateString(),
-                        'time' => $record->offered_starts_at->format('H:i'),
-                    ] : null,
+                    'actionArguments' => self::offeredSlotArguments($record),
                 ]))
                 : AppointmentResource::newUrl(array_filter([
                     'patient' => $record->patient_id,
@@ -274,6 +271,23 @@ final class WaitlistEntryActions
                     'date' => ($record->offered_starts_at?->isFuture() ? $record->offered_starts_at : $record->firstDate())->toDateString(),
                     'time' => $record->offered_starts_at?->isFuture() ? $record->offered_starts_at->format('H:i') : null,
                 ])));
+    }
+
+    /**
+     * El horario que se le ofreció, para que "Mover" llegue con él elegido: solo si sigue apartado y no pasó.
+     *
+     * @return array{doctor: int|null, date: string, time: string}|null
+     */
+    private static function offeredSlotArguments(WaitlistEntry $record): ?array
+    {
+        /** @var CarbonInterface|null $offeredAt */
+        $offeredAt = $record->offered_starts_at;
+
+        if (! $record->isHolding() || $offeredAt === null || ! $offeredAt->isFuture()) {
+            return null;
+        }
+
+        return ['doctor' => $record->offered_doctor_id, 'date' => $offeredAt->toDateString(), 'time' => $offeredAt->format('H:i')];
     }
 
     /** No quiere el horario ofrecido (o ya se sabe que no viene): queda libre para otro y él sigue en la lista. */

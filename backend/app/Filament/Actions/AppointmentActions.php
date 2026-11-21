@@ -622,7 +622,7 @@ final class AppointmentActions
             ->modalDescription(fn (Appointment $record) => 'Está en sala para '.self::handOverParts($record)['treatment'].' con '.self::handOverParts($record)['doctor'].'. Elige quién lo atiende: cada uno dice desde qué hora está libre.')
             ->modalSubmitActionLabel('Pasarlo')
             ->modalWidth(Width::Large)
-            ->visible(fn (Appointment $record) => $record->status === AppointmentStatus::CheckedIn && self::managesAllAgendas())
+            ->visible(fn (Appointment $record) => self::canHandOver($record))
             ->authorize('update')
             ->schema(fn (Appointment $record) => [
                 Radio::make('doctor_id')
@@ -699,6 +699,15 @@ final class AppointmentActions
         $doctor = $record->doctor;
 
         return ['patient' => $patient->full_name, 'treatment' => mb_strtolower($treatment->name), 'doctor' => $doctor->name];
+    }
+
+    /** Se pasa a otro doctor a quien ya está en sala, y solo lo hace quien maneja todas las agendas. */
+    private static function canHandOver(Appointment $record): bool
+    {
+        /** @var AppointmentStatus $status */
+        $status = $record->status;
+
+        return $status === AppointmentStatus::CheckedIn && self::managesAllAgendas();
     }
 
     private static function managesAllAgendas(): bool
