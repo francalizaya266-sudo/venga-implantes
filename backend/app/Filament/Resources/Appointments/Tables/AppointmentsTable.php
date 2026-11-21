@@ -6,12 +6,14 @@ use App\Enums\AppointmentStatus;
 use App\Filament\Actions\AppointmentActions;
 use App\Filament\Support\VisitFlags;
 use App\Models\Appointment;
+use App\Models\Charge;
 use App\Models\Doctor;
 use App\Models\Treatment;
 use App\Models\User;
 use App\Support\Money;
 use App\Support\Phone;
 use Carbon\CarbonImmutable;
+use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Contracts\HasTable;
@@ -20,6 +22,7 @@ use Filament\Tables\Filters\Indicator;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Relations\Relation;
 
 class AppointmentsTable
 {
@@ -28,13 +31,23 @@ class AppointmentsTable
         /** @var User $user */
         $user = auth()->user();
         $showDoctor = self::showsDoctor($user);
+        // Administración y recepción ven "Debe S/" en cada cita, como en Hoy: se le recuerda al confirmar o al llegar.
+        $seesMoney = $user->can('viewAny', Charge::class);
 
         return $table
-            ->columns(self::columns(showDoctor: $showDoctor))
+            ->columns(self::columns(showDoctor: $showDoctor, withBalance: $seesMoney))
+            // El saldo de cada paciente viene en la misma consulta que lo trae (el alcance "withBalance" de Patient).
+            ->modifyQueryUsing(fn (Builder $query) => $seesMoney ? $query->with(['patient' => fn (Relation $patient) => $patient->getQuery()->scopes(['withBalance'])]) : $query)
             // Lo que viene, en orden de llegada; en "Todas" y "Sin cerrar", lo más reciente arriba.
-            ->defaultSort(fn (Builder $query, HasTable $livewire) => in_array($livewire->activeTab ?? null, ['all', 'unclosed'], true)
+            ->defaultSort(fn (Builder $query, HasTable $livewire) => self::latestFirst($livewire)
                 ? $query->orderByDesc('starts_at')->orderByDesc('id')
                 : $query->orderBy('starts_at')->orderBy('id'))
+            // En el celular, "Ordenar por" dice el orden de la pestaña en vez de un guion.
+            ->defaultSortOptionLabel(fn (HasTable $livewire) => self::latestFirst($livewire) ? 'Lo más reciente primero' : 'Lo más cercano primero')
+            // El buscador dice qué busca: el paciente, no el tratamiento ni el doctor (para eso están los filtros).
+            ->searchPlaceholder('Buscar paciente, DNI o celular')
+            ->filtersTriggerAction(fn (Action $action) => $action->button()->label('Filtros'))
+            ->recordActionsColumnLabel('Acciones')
             ->filters([
                 Filter::make('dates')
                     ->label('Fecha')
@@ -99,6 +112,12 @@ class AppointmentsTable
             ->emptyStateDescription('Usa "Nueva cita" para agendar una.');
     }
 
+    /** "Todas" y "Sin cerrar" van de lo más reciente a lo más antiguo; las demás, de lo más cercano a lo más lejano. */
+    private static function latestFirst(HasTable $livewire): bool
+    {
+        return in_array($livewire->activeTab ?? null, ['all', 'unclosed'], true);
+    }
+
     /** La columna "Doctor", para quien ve todas las agendas y solo si hay más de un doctor. */
     public static function showsDoctor(User $user): bool
     {
@@ -106,11 +125,11 @@ class AppointmentsTable
     }
 
     /**
-     * Columnas compartidas con la tabla de "Hoy".
+     * Las columnas de la lista: fecha y hora, paciente, tratamiento, doctor, estado y avisos.
      *
      * @return list<TextColumn>
      */
-    public static function columns(bool $showDoctor = true, bool $timeOnly = false): array
+    public static function columns(bool $showDoctor = true, bool $timeOnly = false, bool $withBalance = false): array
     {
         return [
             TextColumn::make('starts_at')
@@ -140,7 +159,7 @@ class AppointmentsTable
             TextColumn::make('status')
                 ->label('Estado')
                 ->badge(),
-            self::flagsColumn(),
+            self::flagsColumn($withBalance)->label('Avisos'),
         ];
     }
 

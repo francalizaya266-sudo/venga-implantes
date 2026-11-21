@@ -5,6 +5,7 @@ namespace Tests\Feature\Filament;
 use App\Enums\RequestedBy;
 use App\Enums\RescheduleRequestStatus;
 use App\Filament\Actions\AppointmentActions;
+use App\Filament\Actions\CheckoutAction;
 use App\Filament\Resources\Appointments\AppointmentResource;
 use App\Filament\Resources\Appointments\Pages\ListAppointments;
 use App\Filament\Resources\Appointments\Pages\ViewAppointment;
@@ -47,11 +48,27 @@ class AppointmentButtonsTest extends TestCase
 
     public function test_every_place_offers_the_same_buttons_in_the_same_order(): void
     {
+        // Una fila de la lista lleva además "Ver cita" al principio de su menú: la página y el panel ya son la cita.
         $rows = $this->namesInOrder(AppointmentActions::all());
+        $this->assertSame('openAppointment', $rows[array_search('whatsapp', $rows, true) - 1]);
+        $rows = array_values(array_diff($rows, ['openAppointment']));
 
         $this->assertSame($rows, $this->namesInOrder(AppointmentActions::page()));
         // El panel de la agenda lleva la ficha del paciente como enlace bajo los datos: su menú no la repite.
         $this->assertSame(array_values(array_diff($rows, ['patientProfile'])), $this->namesInOrder(AppointmentActions::panel()));
+    }
+
+    public function test_windows_that_do_not_cancel_the_visit_close_with_back_not_cancel(): void
+    {
+        // En una lista de citas, "Cancelar" se lee como cancelar la cita: las demás ventanas se cierran con "Volver".
+        foreach ([
+            AppointmentActions::arrived(), AppointmentActions::missed(), AppointmentActions::noShow(), AppointmentActions::complete(),
+            AppointmentActions::closeWithoutDoctor(), AppointmentActions::move(), AppointmentActions::handOver(),
+            AppointmentActions::changeTreatment(), AppointmentActions::notes(), AppointmentActions::whatsapp(),
+            AppointmentActions::cancel(), AppointmentActions::undo(), CheckoutAction::make(),
+        ] as $action) {
+            $this->assertSame('Volver', $action->getModalCancelActionLabel(), $action->getName());
+        }
     }
 
     public function test_the_appointment_page_shows_whatsapp_and_the_patient_profile_only_once(): void

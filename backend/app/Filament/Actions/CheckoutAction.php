@@ -51,6 +51,7 @@ final class CheckoutAction
             ->modalDescription(fn (Appointment $record) => $record->starts_at->translatedFormat('l j \d\e F').' · '.$record->treatment->name.' · '.$record->doctor->name)
             ->modalSubmitAction(fn (Action $action) => $action->label('Cobrar')->color('primary')->size(Size::Large))
             ->modalFooterActionsAlignment(Alignment::End)
+            ->modalCancelActionLabel('Volver')
             ->modalWidth('3xl')
             ->fillForm(function (Appointment $record) {
                 $billing = app(BillingService::class);

@@ -664,7 +664,10 @@ final class SlotPicker
             ->first(fn (string $time) => $time >= $preferred);
     }
 
-    /** "Su corona de zirconio llega del laboratorio el sáb. 14 nov.: si esta cita es para colocarla, agéndala desde ese día." */
+    /**
+     * 'Ojo: "Corona de zirconio" llega del laboratorio el sáb. 14 nov. Si la cita es para entregarla o colocarla, …'.
+     * Sin repetir el punto de la abreviatura del mes, y sin suponer si el trabajo es "el" o "la".
+     */
     private static function labWorkArrivingAfter(mixed $patientId, mixed $date): ?string
     {
         if (blank($patientId) || blank($date)) {
@@ -673,9 +676,14 @@ final class SlotPicker
 
         $order = LabOrder::query()->arrivingAfter((int) $patientId, CarbonImmutable::parse($date))->orderBy('due_on')->first();
 
-        return $order
-            ? 'Ojo: "'.$order->description.'" llega del laboratorio el '.$order->due_on->translatedFormat('D j M').'. Si esta cita es para colocarlo, agéndala desde ese día.'
-            : null;
+        if ($order === null) {
+            return null;
+        }
+
+        $day = $order->due_on->translatedFormat('D j M');
+
+        return 'Ojo: "'.$order->description.'" llega del laboratorio el '.$day.(str_ends_with($day, '.') ? '' : '.')
+            .' Si la cita es para su entrega o colocación, agéndala desde ese día.';
     }
 
     /** El tratamiento elegido no lo atiende ningún doctor activo: no hay con quién agendarlo. */
