@@ -9,7 +9,9 @@ use App\Enums\MessageTemplateKey;
 use App\Enums\ScheduleBlockType;
 use App\Enums\TreatmentPlanStatus;
 use App\Filament\Pages\Dashboard;
+use App\Filament\Pages\Earnings;
 use App\Filament\Pages\Settings;
+use App\Filament\Pages\Summary;
 use App\Filament\Resources\Appointments\AppointmentResource;
 use App\Filament\Resources\Appointments\Pages\ListAppointments;
 use App\Filament\Resources\Appointments\Pages\ViewAppointment;
@@ -600,6 +602,30 @@ class DashboardPanelTest extends TestCase
 
         Livewire::test(MonthOverview::class)
             ->assertSee('A este ritmo, noviembre cerraría en S/ 3,000.00, por debajo de la meta de S/ 4,500.');
+    }
+
+    public function test_the_month_updates_after_collecting_and_its_links_open_this_month(): void
+    {
+        $ramos = Doctor::factory()->create(['name' => 'Dr. Luis Ramos']);
+        $patient = $this->patient('Rosa', 'Quispe');
+        Payment::factory()->for($patient)->create(['doctor_id' => $ramos->id, 'amount' => 300, 'paid_at' => '2026-11-01 10:00']);
+        $this->actingAs(User::factory()->admin()->create());
+
+        // Los enlaces abren Ingresos y Resumen en este mes y con todos, no en el último período que se miró allí.
+        $month = Livewire::test(MonthOverview::class)
+            ->assertSee(['S/ 300.00', Earnings::getUrl(['filters' => ['period' => 'month']]), Summary::getUrl(['filters' => ['period' => 'month']])]);
+        $chart = Livewire::test(MonthTrendChart::class)->assertSee('En total, S/ 300.00.');
+
+        // Se cobra en otra ventana: el mes y su gráfico lo cuentan apenas "Hoy" se entera, sin esperar 5 minutos.
+        Payment::factory()->for($patient)->create(['doctor_id' => $ramos->id, 'amount' => 150, 'paid_at' => now()]);
+        $month->dispatch(Dashboard::CHANGED)->assertSee('S/ 450.00');
+        $chart->dispatch(Dashboard::CHANGED)->assertSee('En total, S/ 450.00.');
+
+        // Al doctor que ve sus números, con él elegido.
+        Setting::set('reports.doctors_see_own', true);
+        $this->actingAs($ramos->user);
+        Livewire::test(MonthOverview::class)
+            ->assertSee(Earnings::getUrl(['filters' => ['period' => 'month', 'doctor' => $ramos->id]]));
     }
 
     public function test_the_admin_who_treats_sees_the_clinic_month_with_a_line_for_their_own_visits(): void

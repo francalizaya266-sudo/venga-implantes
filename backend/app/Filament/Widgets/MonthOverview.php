@@ -2,6 +2,7 @@
 
 namespace App\Filament\Widgets;
 
+use App\Filament\Concerns\RefreshesWithToday;
 use App\Filament\Pages\Earnings;
 use App\Filament\Pages\OwingBalances;
 use App\Filament\Pages\Summary;
@@ -19,10 +20,14 @@ use Filament\Widgets\StatsOverviewWidget\Stat;
  * y a cuánto cerraría el mes si sigue al mismo ritmo. Va al final de "Hoy": primero lo del día.
  * Lo ve quien ve los reportes; un doctor, solo lo suyo ("Mis números de noviembre"). El administrador ve lo de
  * todos y, si además atiende, una línea con lo de sus citas. La meta y lo que se debe son del consultorio entero.
- * Con lo de todos, lo cobrado día por día va en su gráfico, debajo (MonthTrendChart).
+ * Con lo de todos, lo cobrado día por día va en su gráfico, debajo (MonthTrendChart). Se actualiza con "Hoy" (al
+ * cobrar, "Cobrado" sube aquí también) y sus enlaces abren Ingresos y Resumen en este mes, no en el último
+ * período que se miró allí.
  */
 class MonthOverview extends StatsOverviewWidget
 {
+    use RefreshesWithToday;
+
     /** Mientras carga, un recuadro del mismo alto: la página no salta. */
     protected ?string $placeholderHeight = '18rem';
 
@@ -111,16 +116,16 @@ class MonthOverview extends StatsOverviewWidget
             StatComparison::make('Cobrado', $figures['collected'], $figures['collected_before'], $before, Money::format(...))
                 ->icon('heroicon-o-banknotes')
                 ->chart(MonthTrendChart::canView() ? null : $figures['daily_collected'])
-                ->url(Earnings::getUrl()),
+                ->url($this->reportUrl(Earnings::class)),
             StatComparison::make('Realizado', $figures['produced'], $figures['produced_before'], $before, Money::format(...))
                 ->icon('heroicon-o-clipboard-document-check')
-                ->url(Earnings::getUrl()),
+                ->url($this->reportUrl(Earnings::class)),
             StatComparison::make('Citas atendidas', $figures['attended'], $figures['attended_before'], $before, $count)
                 ->icon('heroicon-o-check-badge')
-                ->url(Summary::getUrl()),
+                ->url($this->reportUrl(Summary::class)),
             StatComparison::points('Inasistencias', $figures['no_show_rate'], $figures['no_show_rate_before'], $before, higherIsBetter: false)
                 ->icon('heroicon-o-user-minus')
-                ->url(Summary::getUrl()),
+                ->url($this->reportUrl(Summary::class)),
         ];
 
         return array_values(array_filter([
@@ -128,6 +133,17 @@ class MonthOverview extends StatsOverviewWidget
             $this->doctorId() === null ? $this->outstanding() : null,
             $this->doctorId() === null ? $this->goal($figures['collected']) : null,
         ]));
+    }
+
+    /**
+     * Ingresos o Resumen en "Este mes" y con lo mismo que se ve aquí (todos o un doctor): si no, abren el último
+     * período y doctor que se eligieron allí y los números no coinciden.
+     *
+     * @param  class-string<Earnings|Summary>  $page
+     */
+    private function reportUrl(string $page): string
+    {
+        return $page::getUrl(['filters' => array_filter(['period' => 'month', 'doctor' => $this->doctorId()])]);
     }
 
     private function isEarly(): bool
