@@ -62,6 +62,13 @@ final class AppointmentActions
     private const DOCTOR_UNAVAILABLE = 'El doctor no podrá atender';
 
     /**
+     * Qué paso del día va como botón principal cuando hay varios, de más a menos importante. Si llegó, eso primero
+     * (aunque no haya confirmado); en sala, que pase; terminada, cobrar; si faltó, darle otra hora. "No asistió"
+     * nunca es el principal: va con borde rojo, al lado de "Llegó".
+     */
+    private const MAIN_STEPS = ['arrived', 'start', 'continueConsultation', 'complete', 'checkout', 'rebook', 'confirm', 'undo'];
+
+    /**
      * Las de una fila de tabla (Citas, Hoy, las citas de la ficha): el paso del día a la vista y lo demás en el menú,
      * porque en una fila no hay más sitio.
      *
@@ -88,7 +95,7 @@ final class AppointmentActions
     public static function panel(): array
     {
         return [
-            ...self::daySteps(),
+            ...self::withOneMainStep(self::daySteps()),
             // A la vista pero en gris: el botón de color es el paso del día (llegó, atender, cobrar).
             self::whatsapp()->color('gray'),
             self::more(),
@@ -103,7 +110,7 @@ final class AppointmentActions
     public static function page(): array
     {
         return [
-            ...self::daySteps(),
+            ...self::withOneMainStep(self::daySteps()),
             self::whatsapp()->color('gray'),
             self::patientProfile()->color('gray'),
             self::more(),
@@ -128,6 +135,40 @@ final class AppointmentActions
             self::rebook(),
             self::undo(),
         ];
+    }
+
+    /**
+     * Un solo botón protagonista: cuando la cita admite varios pasos a la vez (Confirmar, Llegó, Atender), el que toca
+     * ahora va relleno y en azul (y más ancho), y los demás con borde, cada uno con su color. Así "Atendido" ya no sale
+     * en gris cuando es el único paso, y tres botones de color no compiten. El orden es el de MAIN_STEPS.
+     *
+     * @param  list<Action>  $steps
+     * @return list<Action>
+     */
+    private static function withOneMainStep(array $steps): array
+    {
+        $byName = collect($steps)->keyBy(fn (Action $step) => $step->getName());
+        $chosen = [];
+
+        // Se calcula una vez por cita y estado (no una vez por botón); si la cita cambia, se vuelve a elegir.
+        $isMain = function (Action $action, Appointment $record) use ($byName, &$chosen): bool {
+            /** @var AppointmentStatus $status */
+            $status = $record->status;
+            $key = $record->getKey().'|'.$status->value.'|'.$record->updated_at?->getTimestamp();
+            $chosen[$key] ??= collect(self::MAIN_STEPS)->first(fn (string $name) => $byName->get($name)?->isVisible() ?? false) ?? '';
+
+            return $chosen[$key] === $action->getName();
+        };
+
+        foreach ($steps as $step) {
+            $color = $step->getColor();
+            $step
+                ->color(fn (Action $action, Appointment $record) => $isMain($action, $record) ? 'primary' : $color)
+                ->outlined(fn (Action $action, Appointment $record) => ! $isMain($action, $record))
+                ->extraAttributes(fn (Action $action, Appointment $record) => $isMain($action, $record) ? ['class' => 'appt-main-step'] : [], merge: true);
+        }
+
+        return $steps;
     }
 
     /**

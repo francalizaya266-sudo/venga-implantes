@@ -612,15 +612,40 @@ button.agenda-slot:focus-visible { outline: 2px solid var(--primary-600); outlin
 .dark .appt-panel dd { color: #fff; }
 .appt-panel dd a { color: var(--primary-600); text-decoration: none; }
 .dark .appt-panel dd a { color: var(--primary-400); }
-.appt-panel-box { border: 1px solid var(--gray-200); border-radius: .75rem; padding: .75rem; display: grid; gap: .4rem; }
-.dark .appt-panel-box { border-color: rgb(255 255 255 / .1); }
-.appt-panel-box h3 { font-size: .75rem; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; color: var(--gray-500); margin: 0; }
-.appt-panel-box ul { margin: 0; padding-left: 1rem; list-style: disc; }
-.appt-panel-total { display: flex; justify-content: space-between; font-weight: 700; color: var(--gray-950); font-size: 1rem; }
-.dark .appt-panel-total { color: #fff; }
-.appt-panel-owes { color: var(--danger-600); font-weight: 700; }
-.appt-panel-ok { color: var(--success-600); font-weight: 600; }
-.appt-panel-links { display: flex; flex-wrap: wrap; gap: .5rem 1.25rem; }
+.appt-panel-links { display: flex; flex-wrap: wrap; gap: .5rem; }
+
+/* Quién es: las iniciales en un círculo, el celular para tocar y llamar, el documento y las píldoras de estado. */
+.appt-panel-who { display: flex; gap: .75rem; align-items: flex-start; }
+.appt-panel-avatar { flex: none; display: grid; place-items: center; width: 2.75rem; height: 2.75rem; border-radius: 9999px; background: var(--primary-50); color: var(--primary-700); font-weight: 700; font-size: .95rem; letter-spacing: .02em; }
+.dark .appt-panel-avatar { background: color-mix(in oklab, var(--primary-500) 18%, transparent); color: var(--primary-300); }
+.appt-panel-who-body { display: grid; gap: .45rem; min-width: 0; }
+.appt-panel-contact { margin: 0; display: flex; flex-wrap: wrap; gap: .25rem 1rem; align-items: center; color: var(--gray-500); }
+.appt-panel-phone { display: inline-flex; align-items: center; gap: .3rem; color: var(--primary-600); font-weight: 600; text-decoration: none; }
+.dark .appt-panel-phone { color: var(--primary-400); }
+.appt-panel-phone-icon { width: 1rem; height: 1rem; }
+.appt-panel-health-link { text-decoration: none; }
+
+/* Cada bloque en su tarjeta, con su título chico arriba. */
+.appt-panel-card { border: 1px solid var(--gray-200); border-radius: .75rem; padding: .75rem .85rem; display: grid; gap: .5rem; }
+.dark .appt-panel-card { border-color: rgb(255 255 255 / .1); }
+.appt-panel-card h3 { font-size: .75rem; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; color: var(--gray-500); margin: 0; }
+.appt-panel-card p { margin: 0; overflow-wrap: anywhere; }
+.appt-panel-card-head { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
+.appt-panel-empty { color: var(--gray-500); }
+.appt-panel-hint { font-size: .75rem; color: var(--gray-500); }
+
+/* Lo que se cobra ese día, como una boleta: concepto a la izquierda, monto a la derecha y el total abajo. */
+.appt-panel-bill table { width: 100%; border-collapse: collapse; }
+.appt-panel-bill th { text-align: left; font-weight: 400; padding: .2rem .75rem .2rem 0; vertical-align: top; }
+.appt-panel-bill td { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; padding: .2rem 0; vertical-align: top; color: var(--gray-950); font-weight: 500; }
+.dark .appt-panel-bill td { color: #fff; }
+.appt-panel-bill small { color: var(--gray-500); }
+.appt-panel-bill tfoot th, .appt-panel-bill tfoot td { border-top: 1px solid var(--gray-200); padding-top: .45rem; font-weight: 700; font-size: 1rem; color: var(--gray-950); }
+.dark .appt-panel-bill tfoot th, .dark .appt-panel-bill tfoot td { border-color: rgb(255 255 255 / .1); color: #fff; }
+
+/* Abajo, un solo botón principal: primero, relleno y más ancho. "Más" queda a la derecha. */
+.fi-modal-footer-actions:has(.appt-main-step) .appt-main-step { order: -1; flex-grow: 1; }
+.fi-modal-footer-actions:has(.appt-main-step) > :last-child { margin-inline-start: auto; }
 
 /* ---------- Atención clínica: barra fija que hace de encabezado ---------- */
 

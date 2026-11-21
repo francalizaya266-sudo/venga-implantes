@@ -4,6 +4,7 @@ namespace App\Filament\Pages;
 
 use App\Enums\AppointmentStatus;
 use App\Enums\DayPeriod;
+use App\Enums\DocumentType;
 use App\Filament\Actions\AppointmentActions;
 use App\Filament\Actions\CheckoutAction;
 use App\Filament\Actions\CreateAppointmentAction;
@@ -30,6 +31,7 @@ use App\Services\Agenda\AvailabilityService;
 use App\Services\Agenda\GapFinder;
 use App\Services\Billing\BillingService;
 use App\Services\Booking\AppointmentService;
+use App\Services\Clinical\ConsentService;
 use App\Support\Dates;
 use App\Support\Money;
 use App\Support\Phone;
@@ -42,6 +44,7 @@ use Filament\Facades\Filament;
 use Filament\Forms\Components\Checkbox;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Filament\Support\Enums\Size;
 use Filament\Support\Enums\Width;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Database\Eloquent\Builder;
@@ -438,7 +441,15 @@ class Agenda extends Page
             ->modalHeading(fn (Appointment $record) => $record->patient->full_name)
             ->modalDescription(fn (Appointment $record) => ucfirst($record->starts_at->translatedFormat('l j \d\e F'))
                 .' · '.$record->starts_at->format('H:i').'–'.$record->ends_at->format('H:i'))
-            ->modalContent(fn (Appointment $record) => view('filament.pages.agenda-appointment', $this->panelData($record)))
+            ->modalContent(fn (Appointment $record, Action $action) => view('filament.pages.agenda-appointment', [...$this->panelData($record), 'action' => $action]))
+            // La nota interna se agrega o se edita desde su bloque, sin ir a "Más".
+            ->registerModalActions([
+                AppointmentActions::notes()
+                    ->name('editNotes')
+                    ->label(fn (Appointment $record) => filled($record->internal_notes) ? 'Editar' : 'Agregar nota')
+                    ->link()
+                    ->size(Size::Small),
+            ])
             ->modalSubmitAction(false)
             // Se cierra con la X o tocando fuera: un botón "Cerrar" más empujaba los del día a otra línea en el celular.
             ->modalCancelAction(false)
@@ -1258,6 +1269,34 @@ class Agenda extends Page
     }
 
     /**
+     * El estado de la cita con su tiempo, para el panel y la tarjeta: "En sala · 12 min" (en rojo con
+     * Appointment::LONG_WAIT_MINUTES de demora, como la sala de espera de Hoy) o "En atención · 28 min" (en ámbar si
+     * ya pasó la hora en que debía terminar). Si nadie la cerró, el tiempo no se cuenta: lo dice "Sin cerrar".
+     *
+     * @return array{label: string, color: string, long: bool}
+     */
+    public static function liveState(Appointment $appointment): array
+    {
+        /** @var AppointmentStatus $status */
+        $status = $appointment->status;
+        /** @var CarbonInterface $endsAt */
+        $endsAt = $appointment->ends_at;
+        /** @var CarbonInterface|null $startedAt */
+        $startedAt = $appointment->started_at;
+        $waiting = self::isUnclosed($appointment) ? null : $appointment->waitingMinutes();
+
+        return match (true) {
+            $waiting !== null => ['label' => 'En sala · '.Dates::duration($waiting), 'color' => $appointment->waitsTooLong() ? 'danger' : $status->getColor(), 'long' => $appointment->waitsTooLong()],
+            $status === AppointmentStatus::InProgress && $startedAt !== null && ! self::isUnclosed($appointment) => [
+                'label' => 'En atención · '.Dates::duration((int) $startedAt->diffInMinutes(now())),
+                'color' => $endsAt->isPast() ? 'warning' : $status->getColor(),
+                'long' => $endsAt->isPast(),
+            ],
+            default => ['label' => $status->getLabel(), 'color' => $status->getColor(), 'long' => false],
+        };
+    }
+
+    /**
      * El globo de la tarjeta al pasar el mouse: todo lo que dice la tarjeta, también las etiquetas que en la semana
      * (o en una tarjeta angosta) no entran.
      *
@@ -1365,21 +1404,61 @@ class Agenda extends Page
             ? app(BillingService::class)->estimateFor($appointment)
             : null;
 
+        $clinical = $user->canSeeClinical();
+
         return [
             'appointment' => $appointment,
             'unclosed' => self::isUnclosed($appointment),
+            ...self::panelBlocks($appointment, $clinical),
             'phone' => $appointment->patient->account ? Phone::display($appointment->patient->account->phone) : null,
             'phoneLink' => $appointment->patient->account ? 'tel:'.Phone::normalize($appointment->patient->account->phone) : null,
             'balance' => $balance,
             'toCharge' => $toCharge,
-            'alerts' => $user->canSeeClinical() ? ClinicalAlerts::for($appointment->patient) : null,
-            'alertsSevere' => $user->canSeeClinical() && ClinicalAlerts::isSevere($appointment->patient),
+            'alerts' => $clinical ? ClinicalAlerts::for($appointment->patient) : null,
+            'alertsSevere' => $clinical && ClinicalAlerts::isSevere($appointment->patient),
             'patientUrl' => PatientResource::getUrl('view', ['record' => $appointment->patient]),
             'appointmentUrl' => AppointmentResource::getUrl('view', ['record' => $appointment]),
             'series' => $appointment->seriesPosition(),
             'block' => $appointment->status->isChangeable() && ! $appointment->ends_at->isPast()
                 ? self::blockOver($appointment, ScheduleBlock::query()->affecting($appointment->doctor, $appointment->starts_at, $appointment->ends_at)->get())
                 : null,
+        ];
+    }
+
+    /**
+     * Lo nuevo del panel por bloques: el estado con sus minutos, las iniciales y el documento del paciente, cuánto
+     * dura la cita y, solo para quien atiende, si hay antecedentes (y si dicen algo) y el consentimiento cuando el
+     * tratamiento lo pide.
+     *
+     * @return array{state: array{label: string, color: string, long: bool}, initials: string, document: string|null, length: string, isToday: bool, health: array{background: string, url: string, consent: bool|null}|null}
+     */
+    private static function panelBlocks(Appointment $appointment, bool $clinical): array
+    {
+        /** @var Patient $patient */
+        $patient = $appointment->patient;
+        /** @var CarbonInterface $startsAt */
+        $startsAt = $appointment->starts_at;
+        /** @var CarbonInterface $endsAt */
+        $endsAt = $appointment->ends_at;
+        /** @var DocumentType|null $documentType */
+        $documentType = $patient->document_type;
+
+        return [
+            'state' => self::liveState($appointment),
+            // Nombre y apellido paterno: "María Quispe Huamán" es MQ.
+            'initials' => mb_strtoupper(mb_substr(trim((string) $patient->first_name), 0, 1).mb_substr(trim((string) $patient->last_name), 0, 1)),
+            'document' => $patient->document_number ? ($documentType?->getLabel() ?? 'Doc.').' '.$patient->document_number : null,
+            'length' => self::duration((int) $startsAt->diffInMinutes($endsAt)),
+            'isToday' => $startsAt->isToday(),
+            'health' => $clinical ? [
+                'background' => match (true) {
+                    $patient->medicalBackground === null => 'missing',
+                    ClinicalAlerts::for($patient) === [] => 'clear',
+                    default => 'alerts',
+                },
+                'url' => PatientResource::getUrl('clinical', ['record' => $patient]),
+                'consent' => app(ConsentService::class)->signedForVisit($appointment),
+            ] : null,
         ];
     }
 
