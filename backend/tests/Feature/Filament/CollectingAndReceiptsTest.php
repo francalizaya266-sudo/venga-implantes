@@ -15,6 +15,7 @@ use App\Filament\Widgets\TodayStats;
 use App\Models\Account;
 use App\Models\Appointment;
 use App\Models\Charge;
+use App\Models\DailyClosing;
 use App\Models\Doctor;
 use App\Models\Patient;
 use App\Models\Payment;
@@ -116,6 +117,34 @@ class CollectingAndReceiptsTest extends TestCase
         $visit->update(['status' => AppointmentStatus::Completed]);
         Charge::factory()->for($patient)->create(['description' => 'Endodoncia', 'amount' => 210, 'appointment_id' => $visit->id, 'charged_at' => now()]);
         $this->assertSame(0.0, $patient->balance());
+    }
+
+    public function test_collecting_more_than_owed_or_into_a_closed_day_is_pointed_out(): void
+    {
+        $this->freezeMonday();
+        $patient = Patient::factory()->create();
+        Charge::factory()->for($patient)->create(['description' => 'Curación', 'amount' => 150, 'charged_at' => now()->subWeek()]);
+        DailyClosing::factory()->create(['date' => '2026-10-31']);
+
+        // Un cero de más: se ve antes de cobrar.
+        $this->actingAs(User::factory()->reception()->create());
+        Livewire::test(Dashboard::class)
+            ->mountAction('registerPayment')
+            ->setActionData(['patient_id' => $patient->id])
+            ->assertMountedActionModalDontSee('más de lo que debe')
+            ->setActionData(['amount' => 1500])
+            ->assertMountedActionModalSee('Son S/ 1,350.00 más de lo que debe: quedan a favor.')
+            ->setActionData(['amount' => 150])
+            ->assertMountedActionModalDontSee('más de lo que debe');
+
+        // La administradora sí puede cobrar en un día cerrado, pero se le dice que cambia su cierre.
+        $this->actingAs(User::factory()->admin()->create());
+        Livewire::test(Dashboard::class)
+            ->mountAction('registerPayment')
+            ->setActionData(['patient_id' => $patient->id])
+            ->assertMountedActionModalDontSee('La caja de ese día ya se cerró')
+            ->setActionData(['paid_at' => '2026-10-31 10:00'])
+            ->assertMountedActionModalSee('La caja de ese día ya se cerró: este pago cambia su cierre.');
     }
 
     public function test_collecting_offers_first_who_was_charged_today_and_still_owes(): void
