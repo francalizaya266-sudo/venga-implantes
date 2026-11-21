@@ -28,6 +28,7 @@ use App\Services\Booking\WaitlistService;
 use Carbon\CarbonImmutable;
 use Filament\Actions\Testing\TestAction;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
+use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
 use Tests\Concerns\CreatesAgenda;
 use Tests\Concerns\ReadsNotifications;
@@ -425,6 +426,96 @@ class WaitlistPanelTest extends TestCase
         $this->assertSame(MessageTemplateKey::WaitlistOffer, $message->template_key);
         $this->assertSame(MessageStatus::Sent, $message->status);
         $this->assertSame($entry->patient_id, $message->patient_id);
+    }
+
+    public function test_the_offer_window_shows_the_days_of_their_window_and_a_full_day_is_not_a_dead_end(): void
+    {
+        $entry = WaitlistEntry::factory()
+            ->for(Patient::factory()->state(['first_name' => 'Rosa', 'last_name' => 'Quispe']))
+            ->for($this->treatment)
+            ->create(['latest_date' => '2026-11-05']);
+        ScheduleBlock::create(['doctor_id' => $this->doctor->id, 'type' => ScheduleBlockType::Course, 'starts_at' => '2026-11-03 06:00', 'ends_at' => '2026-11-03 22:00']);
+        $this->actingAs(User::factory()->reception()->create());
+        $nextDay = TestAction::make('nextDayWithSlots')->schemaComponent('slot', 'mountedActionSchema0');
+
+        Livewire::test(ManageWaitlistEntries::class)
+            ->mountTableAction('offer', $entry)
+            ->assertSchemaStateSet(['date' => '2026-11-02', 'slot' => '09:00'])
+            // Solo los días de su plazo (hasta el jueves), cada uno con cuántos horarios le sirven, y hasta cuándo se
+            // aparta (la de las 9:00 es en una hora: hasta media hora antes, para que alcance a llegar).
+            ->assertMountedActionModalSee(['Hoy', 'Mañana', 'Sin lugar', 'Mié 4', 'Jue 5', '30 libres', 'Al abrir WhatsApp queda apartado para Rosa hasta las 08:30 mientras responde'])
+            ->assertMountedActionModalDontSee('Vie 6')
+            // El martes el doctor no atiende: se dice cuál es el siguiente y se llega con un toque.
+            ->setTableActionData(['date' => '2026-11-03'])
+            ->assertSchemaStateSet(['slot' => null, 'body' => ''])
+            ->assertMountedActionModalSee('Ese día no hay un horario que le sirva. El siguiente con lugar es el miércoles 4 de noviembre.')
+            ->assertActionVisible($nextDay)
+            ->callAction($nextDay)
+            ->assertSchemaStateSet(['date' => '2026-11-04', 'slot' => '09:00'])
+            ->assertSchemaStateSet(['body' => 'Hola Rosa, se liberó un horario para limpieza dental el miércoles 4 de noviembre a las 9:00 am con Dra. Ana Torres. Te lo guardamos hasta las 10:00 am: ¿lo quieres? Respóndenos y te lo reservamos.']);
+
+        // Cerrar la ventana no cancela nada.
+        $this->assertSame('Volver', WaitlistEntryActions::offer()->getModalCancelActionLabel());
+    }
+
+    public function test_choosing_another_doctor_moves_to_their_next_day_with_room(): void
+    {
+        $other = $this->doctorOffering($this->treatment);
+        ScheduleBlock::create(['doctor_id' => $other->id, 'type' => ScheduleBlockType::Course, 'starts_at' => '2026-11-02 06:00', 'ends_at' => '2026-11-03 22:00']);
+        $entry = WaitlistEntry::factory()->for($this->treatment)->create();
+        $this->actingAs(User::factory()->reception()->create());
+
+        Livewire::test(ManageWaitlistEntries::class)
+            ->mountTableAction('offer', $entry)
+            ->assertSchemaStateSet(['doctor_id' => $this->doctor->id, 'date' => '2026-11-02'])
+            ->setTableActionData(['doctor_id' => $other->id])
+            ->assertSchemaStateSet(['date' => '2026-11-04', 'slot' => '09:00']);
+    }
+
+    public function test_the_list_flags_what_needs_doing_now_and_highlights_the_step_that_applies(): void
+    {
+        $service = app(WaitlistService::class);
+        $dueTomorrow = WaitlistEntry::factory()->for($this->treatment)->create(['latest_date' => '2026-11-03']);
+        $dueToday = WaitlistEntry::factory()->for($this->treatment)->create(['latest_date' => '2026-11-02']);
+        $holding = WaitlistEntry::factory()->for($this->treatment)->create();
+        $service->markOffered($holding, $this->doctor, $this->treatment, now()->parse('2026-11-04 10:00'));
+        // No respondió a tiempo (o dijo que no): el apartado se soltó y sigue en la lista.
+        $notTaken = WaitlistEntry::factory()->for($this->treatment)->create();
+        $service->markOffered($notTaken, $this->doctor, $this->treatment, now()->parse('2026-11-04 11:00'));
+        $service->release($notTaken);
+        $this->actingAs(User::factory()->reception()->create());
+
+        $list = Livewire::test(ManageWaitlistEntries::class)
+            ->assertSee(['Buscar paciente, DNI o celular', 'Filtros', 'Acciones', 'Quien se anotó primero'])
+            ->assertSeeHtml(['<span class="waitlist-alert">Vence mañana</span>', '<span class="waitlist-alert">Vence hoy</span>'])
+            ->assertTableColumnFormattedStateSet('status', 'En espera', $dueTomorrow)
+            ->assertTableColumnFormattedStateSet('status', 'Avisado', $holding)
+            ->assertTableColumnFormattedStateSet('status', 'No lo tomó', $notTaken);
+
+        // En ámbar solo lo que pide hacer algo: esperar es lo normal y va en gris.
+        $this->assertSame(['gray', 'info', 'warning'], [$this->statusColor($list, $dueTomorrow), $this->statusColor($list, $holding), $this->statusColor($list, $notTaken)]);
+
+        // El paso que toca: ofrecerle un horario, o agendarlo si ya tiene uno apartado.
+        $this->assertSame(['offer'], $this->mainSteps($dueTomorrow));
+        $this->assertSame(['offer'], $this->mainSteps($notTaken));
+        $this->assertSame(['book'], $this->mainSteps($holding));
+    }
+
+    /** @return list<string> */
+    private function mainSteps(WaitlistEntry $entry): array
+    {
+        return collect([WaitlistEntryActions::offer(), WaitlistEntryActions::book()])
+            ->filter(fn ($action) => str_contains($action->record($entry->fresh())->getExtraAttributeBag()->get('class', ''), 'appt-main-step'))
+            ->map(fn ($action) => $action->getName())
+            ->values()
+            ->all();
+    }
+
+    private function statusColor(Testable $list, WaitlistEntry $entry): string
+    {
+        $column = $list->instance()->getTable()->getColumn('status')->record($entry->fresh());
+
+        return (string) $column->getColor($column->getState());
     }
 
     public function test_a_slot_taken_meanwhile_is_not_offered(): void

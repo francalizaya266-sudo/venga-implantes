@@ -2726,11 +2726,6 @@ $ignoreErrors[] = [
     'path' => __DIR__.'/app/Filament/Resources/WaitlistEntries/WaitlistEntryActions.php',
 ];
 $ignoreErrors[] = [
-    'rawMessage' => 'Access to an undefined property Illuminate\\Database\\Eloquent\\Model::$account.',
-    'count' => 1,
-    'path' => __DIR__.'/app/Filament/Resources/WaitlistEntries/WaitlistEntryActions.php',
-];
-$ignoreErrors[] = [
     'rawMessage' => 'Access to an undefined property Illuminate\\Database\\Eloquent\\Model::$first_name.',
     'count' => 1,
     'path' => __DIR__.'/app/Filament/Resources/WaitlistEntries/WaitlistEntryActions.php',
