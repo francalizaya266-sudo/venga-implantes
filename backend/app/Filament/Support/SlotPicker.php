@@ -463,7 +463,7 @@ final class SlotPicker
     {
         $doctor = Doctor::find($get('doctor_id'));
         $treatment = Treatment::find($get('treatment_id'));
-        $patientId = $moving?->patient_id ?? (filled($get('patient_id')) ? (int) $get('patient_id') : null);
+        $patientId = $moving->patient_id ?? (filled($get('patient_id')) ? (int) $get('patient_id') : null);
 
         if (! $get('manual') || blank($get('date')) || blank($get('manual_time')) || ! $doctor || ! $treatment || $patientId === null) {
             return null;
