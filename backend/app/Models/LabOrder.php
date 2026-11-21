@@ -112,9 +112,10 @@ class LabOrder extends Model
     /**
      * Lo que el doctor tiene que saber de este trabajo antes de atender al paciente ("Tu próximo paciente"): si ya
      * llegó, o si sigue en el laboratorio y si se atrasó. Null si ya se atendió al paciente desde que llegó: se
-     * colocó, o esa visita ya pasó.
+     * colocó, o esa visita ya pasó. "tag" es lo corto que va en la etiqueta ("Corona: llegó hoy") y "text" la frase
+     * entera, al pasar el mouse.
      *
-     * @return array{text: string, tone: 'success'|'warning'|'danger'}|null
+     * @return array{tag: string, text: string, tone: 'success'|'warning'|'danger'}|null
      */
     public function beforeVisit(): ?array
     {
@@ -125,6 +126,7 @@ class LabOrder extends Model
 
         if ($received !== null) {
             return $this->attendedSinceArrival() ? null : [
+                'tag' => $this->description.': llegó '.($received->isToday() ? 'hoy' : 'el '.$received->translatedFormat('j M')),
                 'text' => $this->description.': ya llegó del laboratorio'.($received->isToday() ? ' hoy' : ' el '.$received->translatedFormat('j \d\e F')).'.',
                 'tone' => 'success',
             ];
@@ -132,11 +134,20 @@ class LabOrder extends Model
 
         return match (true) {
             $due->isBefore(today()) => [
+                'tag' => $this->description.': no llegó, debía el '.$due->translatedFormat('j M'),
                 'text' => $this->description.': no ha llegado del laboratorio; debía llegar '.$due->diffForHumans(today(), ['syntax' => CarbonInterface::DIFF_RELATIVE_TO_NOW, 'parts' => 1]).'.',
                 'tone' => 'danger',
             ],
-            $due->isToday() => ['text' => $this->description.': llega hoy del laboratorio; confirma que lo trajeron.', 'tone' => 'warning'],
-            default => ['text' => $this->description.': sigue en el laboratorio, llega el '.$due->translatedFormat('j \d\e F').'.', 'tone' => 'warning'],
+            $due->isToday() => [
+                'tag' => $this->description.': llega hoy',
+                'text' => $this->description.': llega hoy del laboratorio; confirma que lo trajeron.',
+                'tone' => 'warning',
+            ],
+            default => [
+                'tag' => $this->description.': llega el '.$due->translatedFormat('j M'),
+                'text' => $this->description.': sigue en el laboratorio, llega el '.$due->translatedFormat('j \d\e F').'.',
+                'tone' => 'warning',
+            ],
         };
     }
 

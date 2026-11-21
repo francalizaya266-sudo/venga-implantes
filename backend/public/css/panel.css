@@ -1278,9 +1278,19 @@ button.pt-chip { transition: transform 160ms ease-out; }
 .dash-appt { position: relative; }
 .dash-appt-checked_in { box-shadow: inset 2px 0 0 var(--primary-300); }
 .dash-appt-in_progress { box-shadow: inset 2px 0 0 var(--primary-600); background: color-mix(in oklab, var(--primary-50) 45%, transparent); }
-.dash-appt-completed .fi-ta-record-content, .dash-appt-no_show .fi-ta-record-content { opacity: .55; }
+/* Terminadas, en tenue; la atendida que debe sigue a la vista con su "Cobrar". */
+.dash-appt-completed:not(.dash-appt-owes) .fi-ta-record-content, .dash-appt-no_show .fi-ta-record-content { opacity: .55; }
 .dark .dash-appt-checked_in { box-shadow: inset 2px 0 0 var(--primary-500); }
 .dark .dash-appt-in_progress { box-shadow: inset 2px 0 0 var(--primary-400); background: color-mix(in oklab, var(--primary-500) 10%, transparent); }
+/* Sin cerrar: pasó su hora y nadie marcó si vino, o sigue en sala o en atención horas después. */
+.dash-appt-unclosed { box-shadow: inset 3px 0 0 var(--warning-500); background: color-mix(in oklab, var(--warning-50) 60%, transparent); }
+.dark .dash-appt-unclosed { box-shadow: inset 3px 0 0 var(--warning-400); background: color-mix(in oklab, var(--warning-500) 9%, transparent); }
+/* Al pie: "Terminadas 4 atendidas · 1 no asistió" y "Ver" u "Ocultar". */
+.dash-agenda-finished { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .25rem 1rem; padding: .7rem 1rem; border-top: 1px solid var(--gray-200); font-size: .8125rem; color: var(--gray-600); }
+.dash-agenda-finished p { margin: 0; }
+.dash-agenda-finished p span { margin-right: .35rem; font-weight: 600; color: var(--gray-800); }
+.dark .dash-agenda-finished { border-top-color: rgb(255 255 255 / .1); color: var(--gray-400); }
+.dark .dash-agenda-finished p span { color: var(--gray-100); }
 .dash-appt-time { min-width: 3.25rem; }
 .dash-appt-time .fi-ta-text-item { font-size: 1.05rem; line-height: 1.3; font-variant-numeric: tabular-nums; color: var(--gray-950); }
 .dark .dash-appt-time .fi-ta-text-item { color: #fff; }
@@ -1497,9 +1507,15 @@ a.dash-name:hover { color: var(--primary-600); }
 .dash-next-reason { margin: 0; color: var(--gray-700); font-size: .9rem; }
 .dark .dash-next-reason { color: var(--gray-300); }
 .dash-next-actions { display: flex; flex-wrap: wrap; gap: .5rem; }
-.dash-alerts { margin: .9rem 0 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: .4rem; }
-.dash-alerts li { display: inline-flex; align-items: center; gap: .35rem; padding: .35rem .65rem; border-radius: .6rem; font-size: .8rem; font-weight: 600; }
-.dash-alerts svg { width: 1rem; height: 1rem; flex: none; }
+/* Alergias, anticoagulantes, sangrado: enteras, una por línea y en rojo. */
+.dash-alerts-severe { margin: .9rem 0 0; padding: 0; list-style: none; display: grid; gap: .35rem; }
+.dash-alerts-severe li { display: flex; align-items: flex-start; gap: .45rem; padding: .5rem .75rem; border-radius: .6rem; background: var(--danger-50); color: var(--danger-700); box-shadow: inset 3px 0 0 var(--danger-500); font-size: .875rem; font-weight: 600; overflow-wrap: anywhere; }
+.dash-alerts-severe svg { width: 1.1rem; height: 1.1rem; flex: none; margin-top: .1rem; }
+.dark .dash-alerts-severe li { background: rgb(239 68 68 / .12); color: var(--danger-300); box-shadow: inset 3px 0 0 var(--danger-400); }
+/* Lo demás antes de atender (consentimiento, antecedentes, laboratorio): etiquetas cortas en una línea. */
+.dash-alerts { margin: .75rem 0 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: .35rem; }
+.dash-alerts li { display: inline-flex; align-items: center; gap: .3rem; padding: .2rem .55rem; border-radius: 999px; font-size: .75rem; font-weight: 600; line-height: 1.25rem; max-width: 100%; overflow-wrap: anywhere; }
+.dash-alerts svg { width: .875rem; height: .875rem; flex: none; }
 .dash-alerts .is-danger { background: var(--danger-50); color: var(--danger-700); }
 .dash-alerts .is-warning { background: var(--warning-50); color: var(--warning-700); }
 .dash-alerts .is-success { background: var(--gray-100); color: var(--gray-600); font-weight: 500; }

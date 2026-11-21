@@ -141,7 +141,7 @@ class NextPatient extends Widget implements HasActions, HasSchemas
     /**
      * Lo que el paciente espera del laboratorio (de lo que este usuario puede ver): si ya llegó o sigue allá.
      *
-     * @return list<array{text: string, tone: 'success'|'warning'|'danger'}>
+     * @return list<array{tag: string, text: string, tone: 'success'|'warning'|'danger'}>
      */
     private function labWork(Appointment $appointment): array
     {
