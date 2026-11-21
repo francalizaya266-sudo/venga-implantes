@@ -11,10 +11,12 @@ use App\Filament\Resources\Patients\PatientResource;
 use App\Filament\Widgets\FollowUpsToday;
 use App\Models\Appointment;
 use App\Models\Doctor;
+use App\Models\MessageTemplate;
 use App\Models\Patient;
 use App\Models\Treatment;
 use App\Models\TreatmentPlan;
 use App\Models\User;
+use App\Models\WaitlistEntry;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Livewire\Livewire;
 use Tests\Concerns\CreatesAgenda;
@@ -59,20 +61,35 @@ class MissedVisitFollowUpTest extends TestCase
         $longAgo = $this->patient('Carmen', 'Rojas');
         $this->visit($longAgo, '2026-08-20 10:00', AppointmentStatus::NoShow);
 
+        // Canceló y ya está en la lista de espera: se le avisa cuando se libere un horario. Si se retiró de la lista, sí sale.
+        $waiting = $this->patient('Jorge', 'Salas');
+        $this->visit($waiting, '2026-10-30 10:00', AppointmentStatus::Cancelled);
+        WaitlistEntry::factory()->for($waiting)->for($this->cleaning)->create();
+        $leftTheList = $this->patient('Marta', 'Cruz');
+        $this->visit($leftTheList, '2026-10-26 10:00', AppointmentStatus::NoShow);
+        WaitlistEntry::factory()->for($leftTheList)->for($this->cleaning)->removed()->create();
+
         // Dejó un plan a medias: ya sale en "Planes sin próxima cita".
         $withPlan = $this->patient('Elena', 'Vargas');
         $this->visit($withPlan, '2026-10-27 11:00', AppointmentStatus::NoShow);
         $plan = TreatmentPlan::create(['patient_id' => $withPlan->id, 'doctor_id' => $this->doctor->id, 'title' => 'Plan', 'status' => TreatmentPlanStatus::Accepted, 'accepted_at' => now()->subWeek()]);
         $plan->items()->create(['treatment_id' => $this->cleaning->id, 'description' => 'Limpieza', 'unit_price' => 100, 'accepted_at' => now()->subWeek()]);
 
-        $this->assertEqualsCanonicalizing([$noShow->id, $cancelled->id], Patient::query()->missedAndNotRebooked()->pluck('id')->all());
+        $this->assertEqualsCanonicalizing([$noShow->id, $cancelled->id, $leftTheList->id], Patient::query()->missedAndNotRebooked()->pluck('id')->all());
 
         $this->actingAs(User::factory()->reception()->create());
 
-        Livewire::test(FollowUpsToday::class)
-            ->assertSeeInOrder(['Faltaron o cancelaron', 'En los últimos 2 meses y siguen sin otra cita', 'Luis Mamani', 'Se canceló su cita del 5 de noviembre · Limpieza dental', 'Rosa Quispe', 'No asistió el 27 de octubre · Limpieza dental'])
+        $followUps = Livewire::test(FollowUpsToday::class)
+            ->assertSeeInOrder(['Faltaron o cancelaron', 'En los últimos 2 meses, sin otra cita ni lista de espera', 'Luis Mamani', 'Se canceló su cita del 5 de noviembre · Limpieza dental', 'Rosa Quispe', 'No asistió el 27 de octubre · Limpieza dental'])
             ->assertSee(AppointmentResource::newUrl(['patient' => $noShow->id, 'treatment' => $this->cleaning->id, 'doctor' => $this->doctor->id]))
-            ->assertDontSee(['Ana Flores', 'Pedro Huamán', 'Carmen Rojas'])
+            ->assertDontSee(['Ana Flores', 'Pedro Huamán', 'Carmen Rojas', 'Jorge Salas']);
+
+        // El aviso dice qué pasó: a quien canceló (aunque su cita todavía no llegaba) no se le dice "No pudimos verte".
+        $followUps
+            ->mountAction('whatsapp', ['template' => MessageTemplateKey::MissedVisit->value, 'patient' => $cancelled->id])
+            ->assertSchemaStateSet(['body' => "Hola Luis, te escribimos de Clínica Vega Implant.\nSe canceló tu cita de limpieza dental del jueves 5 de noviembre. ¿Te reservamos otro horario? Respóndenos con el día y la hora que te acomodan."]);
+
+        Livewire::test(FollowUpsToday::class)
             ->mountAction('whatsapp', ['template' => MessageTemplateKey::MissedVisit->value, 'patient' => $noShow->id])
             ->assertSchemaStateSet(['body' => "Hola Rosa, te escribimos de Clínica Vega Implant.\nNo pudimos verte en tu cita de limpieza dental del martes 27 de octubre. ¿Te reservamos otro horario? Respóndenos con el día y la hora que te acomodan."])
             ->callMountedAction()
@@ -83,8 +100,24 @@ class MissedVisitFollowUpTest extends TestCase
         // La lista completa está en Pacientes, con el mismo número.
         Livewire::withQueryParams(['tab' => 'missed'])
             ->test(ListPatients::class)
-            ->assertCanSeeTableRecords([$noShow, $cancelled])
-            ->assertCanNotSeeTableRecords([$cameBack, $rebooked, $longAgo, $withPlan]);
+            ->assertCanSeeTableRecords([$noShow, $cancelled, $leftTheList])
+            ->assertCanNotSeeTableRecords([$cameBack, $rebooked, $longAgo, $withPlan, $waiting]);
+    }
+
+    public function test_the_saved_notice_text_starts_saying_what_happened_unless_the_clinic_changed_it(): void
+    {
+        $oldBody = "Hola {nombre}, te escribimos de {consultorio}.\nNo pudimos verte en tu cita de {tratamiento} del {fecha}. ¿Te reservamos otro horario? Respóndenos con el día y la hora que te acomodan.";
+        $migration = require database_path('migrations/2026_11_21_124352_update_missed_visit_template_says_what_happened.php');
+
+        // Con el texto de antes, pasa al que dice qué pasó.
+        MessageTemplate::query()->where('key', MessageTemplateKey::MissedVisit)->update(['body' => $oldBody]);
+        $migration->up();
+        $this->assertSame(MessageTemplateKey::MissedVisit->defaultBody(), MessageTemplate::query()->where('key', MessageTemplateKey::MissedVisit)->value('body'));
+
+        // Si el consultorio ya lo había cambiado, se respeta.
+        MessageTemplate::query()->where('key', MessageTemplateKey::MissedVisit)->update(['body' => 'Hola {nombre}, ¿te reservamos otro horario?']);
+        $migration->up();
+        $this->assertSame('Hola {nombre}, ¿te reservamos otro horario?', MessageTemplate::query()->where('key', MessageTemplateKey::MissedVisit)->value('body'));
     }
 
     public function test_the_file_of_who_missed_offers_to_book_the_same_again(): void

@@ -112,6 +112,16 @@ class AppointmentWhatsAppTest extends TestCase
         $this->assertSame(MessageTemplateKey::MissedVisit, WhatsappMessage::sole()->template_key);
     }
 
+    public function test_a_cancelled_visit_is_not_told_we_missed_them(): void
+    {
+        $cancelled = $this->appointmentAt('2026-11-05 11:00', AppointmentStatus::Cancelled);
+
+        Livewire::test(ViewAppointment::class, ['record' => $cancelled->getKey()])
+            ->mountAction('whatsapp')
+            ->assertSchemaStateSet(fn (array $state) => $this->assertStringContainsString('Se canceló tu cita de limpieza dental del jueves 5 de noviembre. ¿Te reservamos otro horario?', $state['body']) ?? [])
+            ->assertSchemaStateSet(fn (array $state) => $this->assertStringNotContainsString('No pudimos verte', $state['body']) ?? []);
+    }
+
     public function test_the_notice_already_waiting_for_the_visit_is_the_one_that_opens(): void
     {
         $appointment = $this->appointmentAt('2026-11-05 11:00');

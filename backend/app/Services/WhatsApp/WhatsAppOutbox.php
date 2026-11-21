@@ -2,6 +2,7 @@
 
 namespace App\Services\WhatsApp;
 
+use App\Enums\AppointmentStatus;
 use App\Enums\MagicLinkPurpose;
 use App\Enums\MessageChannel;
 use App\Enums\MessageStatus;
@@ -10,6 +11,7 @@ use App\Models\Account;
 use App\Models\Appointment;
 use App\Models\MessageTemplate;
 use App\Models\Setting;
+use App\Models\Treatment;
 use App\Models\User;
 use App\Models\WhatsappMessage;
 use App\Services\Access\MagicLinkService;
@@ -244,6 +246,29 @@ class WhatsAppOutbox
             'direccion' => (string) Setting::get('clinic.address'),
             // Lo que ese tratamiento pide antes de venir ("Antes de venir: ven habiendo comido…"), o nada.
             'indicaciones' => filled($appointment->treatment->before_instructions) ? 'Antes de venir: '.trim($appointment->treatment->before_instructions) : '',
+            'que_paso' => $this->whatHappened($appointment),
         ];
+    }
+
+    /**
+     * Qué pasó con la cita, para el aviso a quien faltó o canceló: "No pudimos verte en tu cita de limpieza dental
+     * del martes 27 de octubre." si no vino, o "Se canceló tu cita de…" si se canceló (también la que todavía no
+     * llegaba: no se le dice que no lo vimos). Vacío para una cita que no faltó ni se canceló.
+     */
+    public function whatHappened(Appointment $appointment): string
+    {
+        /** @var AppointmentStatus $status */
+        $status = $appointment->status;
+        /** @var CarbonInterface $startsAt */
+        $startsAt = $appointment->starts_at;
+        /** @var Treatment $treatment */
+        $treatment = $appointment->treatment;
+        $visit = 'tu cita de '.mb_strtolower($treatment->name).' del '.$startsAt->translatedFormat('l j \d\e F').'.';
+
+        return match ($status) {
+            AppointmentStatus::NoShow => 'No pudimos verte en '.$visit,
+            AppointmentStatus::Cancelled => 'Se canceló '.$visit,
+            default => '',
+        };
     }
 }

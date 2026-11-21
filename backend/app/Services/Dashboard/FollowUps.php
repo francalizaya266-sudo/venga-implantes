@@ -239,6 +239,7 @@ final class FollowUps
 
             $params['tratamiento'] = mb_strtolower($missed->treatment->name);
             $params['fecha'] = $missed->starts_at->translatedFormat('l j \d\e F');
+            $params['que_paso'] = $this->outbox->whatHappened($missed);
         }
 
         if ($key === MessageTemplateKey::ReviewRequest) {
