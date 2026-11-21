@@ -26,6 +26,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 /**
  * Paciente. Cada familiar tiene su propia historia; comparten el celular de la cuenta.
@@ -40,6 +41,24 @@ class Patient extends Model
 
     /** Días que quien faltó o canceló sigue en la lista para ofrecerle otro horario. */
     public const MISSED_VISIT_DAYS = 60;
+
+    /** El nombre para buscar es una copia del nombre: no se muestra ni va a la auditoría. */
+    protected $hidden = ['search_name'];
+
+    protected static function booted(): void
+    {
+        static::saving(function (Patient $patient) {
+            if ($patient->isDirty(['first_name', 'last_name'])) {
+                $patient->search_name = self::searchable($patient->first_name.' '.$patient->last_name);
+            }
+        });
+    }
+
+    /** "María Ñañez" → "maria nanez": así se busca sin importar tildes ni mayúsculas (SQLite sí las distingue). */
+    public static function searchable(string $text): string
+    {
+        return Str::lower(Str::ascii(Str::squish($text)));
+    }
 
     protected function casts(): array
     {
@@ -331,7 +350,7 @@ class Patient extends Model
         return $this->hasOne(Odontogram::class)->latestOfMany();
     }
 
-    /** Busca por nombre, apellido, documento o celular. */
+    /** Busca por nombre, apellido, documento o celular. El nombre, sin importar tildes: "Maria" encuentra a "María". */
     #[Scope]
     protected function search(Builder $query, string $term): Builder
     {
@@ -341,7 +360,9 @@ class Patient extends Model
         return $query->where(function (Builder $q) use ($term, $digits) {
             $q->where(function (Builder $name) use ($term) {
                 foreach (preg_split('/\s+/', $term) as $word) {
-                    $name->where(fn (Builder $w) => $w->where('first_name', 'like', "%{$word}%")->orWhere('last_name', 'like', "%{$word}%"));
+                    $name->where(fn (Builder $w) => $w->where('search_name', 'like', '%'.self::searchable($word).'%')
+                        ->orWhere('first_name', 'like', "%{$word}%")
+                        ->orWhere('last_name', 'like', "%{$word}%"));
                 }
             });
 

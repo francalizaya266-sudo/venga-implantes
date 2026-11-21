@@ -22,6 +22,8 @@ use Filament\Schemas\Components\Text;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Components\View;
+use Filament\Support\Enums\Alignment;
+use Filament\Support\Enums\Size;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Facades\DB;
 
@@ -44,7 +46,8 @@ final class CheckoutAction
             ->authorize(fn () => self::user()->can('create', Charge::class))
             ->modalHeading(fn (Appointment $record) => 'Cobrar a '.$record->patient->full_name)
             ->modalDescription(fn (Appointment $record) => $record->starts_at->translatedFormat('l j \d\e F').' · '.$record->treatment->name.' · '.$record->doctor->name)
-            ->modalSubmitAction(fn (Action $action) => $action->label('Cobrar')->color('primary'))
+            ->modalSubmitAction(fn (Action $action) => $action->label('Cobrar')->color('primary')->size(Size::Large))
+            ->modalFooterActionsAlignment(Alignment::End)
             ->modalWidth('3xl')
             ->fillForm(function (Appointment $record) {
                 $billing = app(BillingService::class);

@@ -60,6 +60,12 @@ enum AppointmentStatus: string implements HasColor, HasLabel
         return [self::Pending, self::Confirmed, self::CheckedIn, self::InProgress];
     }
 
+    /** @return list<self> Está en el consultorio: en sala o con el doctor. Lo de hoy se carga al terminar. */
+    public static function inClinic(): array
+    {
+        return [self::CheckedIn, self::InProgress];
+    }
+
     /** @return list<self> Todavía no pasa con el doctor: aún se puede cambiar qué se le va a hacer o cuánto dura. */
     public static function notYetAttended(): array
     {

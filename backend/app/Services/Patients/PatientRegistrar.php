@@ -82,7 +82,8 @@ class PatientRegistrar
                     ->get(), 'mismo nombre y fecha de nacimiento');
             }
 
-            $add($patients()->where('first_name', 'like', $firstName)->where('last_name', 'like', $lastName)->get(), 'mismo nombre');
+            // Sin importar tildes: "Maria Quispe" es "María Quispe".
+            $add($patients()->where('search_name', Patient::searchable($firstName.' '.$lastName))->get(), 'mismo nombre');
         }
 
         if (filled($data['phone'] ?? null) && Phone::isValid($data['phone'])) {

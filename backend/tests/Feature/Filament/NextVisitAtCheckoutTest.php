@@ -87,6 +87,18 @@ class NextVisitAtCheckoutTest extends TestCase
         );
     }
 
+    public function test_who_pays_while_in_their_visit_today_is_not_offered_another_one(): void
+    {
+        $rosa = $this->patientOwing('Rosa', 'Quispe');
+        Appointment::factory()->for($this->doctor)->for($this->cleaning)->for($rosa)->at('2026-11-02 07:30')->create(['status' => AppointmentStatus::InProgress]);
+
+        $notice = $this->pay($rosa);
+
+        // Antes decía "Sin próxima cita" y ofrecía agendar, con la cita de hoy todavía en curso.
+        $this->assertStringContainsString('Hoy sigue en su cita de las 07:30: la próxima se agenda al terminar.', $notice['body']);
+        $this->assertSame(['Ver constancia'], array_column($notice['actions'], 'label'));
+    }
+
     private function patientOwing(string $firstName, string $lastName): Patient
     {
         $patient = Patient::factory()->create(['first_name' => $firstName, 'last_name' => $lastName]);

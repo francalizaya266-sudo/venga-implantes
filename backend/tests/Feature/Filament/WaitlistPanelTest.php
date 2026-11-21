@@ -118,10 +118,12 @@ class WaitlistPanelTest extends TestCase
         WaitlistEntry::factory()->for($patient)->for($other)->removed()->create();
         $this->actingAs(User::factory()->reception()->create());
 
-        // Se dice antes de guardar, con el enlace a la anotación que ya tiene.
+        // Se dice al elegir al paciente, con el enlace a la anotación que ya tiene; con el mismo tratamiento, no deja guardar.
         Livewire::test(ManageWaitlistEntries::class)
             ->mountAction('create')
-            ->setActionData(['patient_id' => $patient->id, 'treatment_id' => $this->treatment->id])
+            ->setActionData(['patient_id' => $patient->id])
+            ->assertMountedActionModalSee(['Ya está en la lista de espera para Limpieza dental', 'Si es para lo mismo, edita esa anotación; si es para otra cosa, elige el tratamiento.'])
+            ->setActionData(['treatment_id' => $this->treatment->id])
             ->assertMountedActionModalSee(['Ya está en la lista de espera para Limpieza dental', 'Lo anotaron el 2 de noviembre. Si cambió lo que puede, edita esa anotación en vez de anotarlo otra vez.'])
             ->assertActionHasUrl(
                 TestAction::make('editExistingEntry')->schemaComponent('alreadyWaiting', 'mountedActionSchema0'),
