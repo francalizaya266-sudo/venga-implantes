@@ -26,7 +26,13 @@
             railHidden: (() => { try { return localStorage.getItem('agenda-rail') === 'hidden' } catch (e) { return false } })(),
             railOpen: false,
             focus: (() => { try { return localStorage.getItem('agenda-focus') === 'on' } catch (e) { return false } })(),
+            {{-- El panel se calcula solo cuando se ve: al esconderlo se avisa sin recargar; al mostrarlo, se pide. --}}
+            syncRail() {
+                const shown = window.matchMedia('(min-width: 80rem)').matches ? ! this.railHidden : this.railOpen
+                if (shown !== this.$wire.railShown) this.$wire.$set('railShown', shown, shown)
+            },
         }"
+        x-init="syncRail(); window.matchMedia('(min-width: 80rem)').addEventListener('change', () => syncRail()); $watch('railHidden', () => syncRail()); $watch('railOpen', () => syncRail())"
         :class="{ 'is-rail-hidden': railHidden, 'is-rail-open': railOpen, 'is-focus': focus }"
     >
     <div class="agenda-main">
@@ -267,7 +273,7 @@
                  */
                 hoverAt(event, column) {
                     this.hover = null;
-                    if (column.dataset.past === 'true' || event.pointerType !== 'mouse' || this.press || this.dragging || event.target.closest('.agenda-appt')) return;
+                    if (column.dataset.past === 'true' || event.pointerType !== 'mouse' || this.press || this.dragging || event.target.closest('.agenda-appt, .agenda-appt-step')) return;
                     const start = Math.floor((this.from + (event.clientY - column.getBoundingClientRect().top) / this.scale) / 15) * 15;
                     const range = JSON.parse(column.dataset.working).find(([from, to]) => start >= from && start + 15 <= to);
                     const busy = JSON.parse(column.dataset.busy);
@@ -277,7 +283,7 @@
                 },
 
                 create(event, column, doctor, date) {
-                    if (event.target.closest('.agenda-appt') || this.justDropped()) return;
+                    if (event.target.closest('.agenda-appt, .agenda-appt-step') || this.justDropped()) return;
                     // Un día que ya pasó no se agenda: "Nueva cita" lo cambiaría por hoy sin decirlo.
                     if (column.dataset.past === 'true') {
                         this.$wire.pastDay(date);
@@ -549,6 +555,17 @@
                                 <small>{{ $mode === 'week' ? $appt['startTime'] : $appt['time'] }} · {{ $short ? $appt['state']['label'].' · ' : '' }}{{ $appt['treatment'] }}{{ $appt['flags']['session'] ? ' · '.mb_strtolower($appt['flags']['session']) : '' }}</small>
                                 <small>{{ $appt['state']['label'] }}@if ($appt['phone']) · {{ $appt['phone'] }}@endif</small>
                             </a>
+                            {{-- En el día, una cita larga trae su siguiente paso (Confirmar, Llegó, Atender, Cobrar), como en la Lista. Va al lado de la tarjeta, no dentro: tocarlo no abre el panel ni crea otra cita. --}}
+                            @if ($appt['step'] ?? false)
+                                @php
+                                    $steps = $this->nextSteps($appt['id'], $appt['status']);
+                                @endphp
+                                @if ($steps !== [])
+                                    <div class="agenda-appt-step" wire:key="step-{{ $appt['id'] }}" style="top: {{ ($appt['end'] - $from) * $scale - 6 }}px" x-on:click.stop x-on:pointerdown.stop>
+                                        {{ $steps[0]->size('xs') }}
+                                    </div>
+                                @endif
+                            @endif
                         @endforeach
                     </div>
                 @endforeach

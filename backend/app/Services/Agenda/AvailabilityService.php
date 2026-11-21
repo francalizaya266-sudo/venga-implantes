@@ -277,9 +277,20 @@ class AvailabilityService
      */
     public function holds(Doctor $doctor, CarbonInterface $from, CarbonInterface $to): Collection
     {
+        return $this->holdsOf([$doctor->getKey()], $from, $to);
+    }
+
+    /**
+     * Lo mismo para varios doctores a la vez (la semana de la agenda), en una sola consulta.
+     *
+     * @param  list<int>  $doctorIds
+     * @return Collection<int, WaitlistEntry>
+     */
+    public function holdsOf(array $doctorIds, CarbonInterface $from, CarbonInterface $to): Collection
+    {
         return WaitlistEntry::query()
             ->holding()
-            ->where('offered_doctor_id', $doctor->getKey())
+            ->whereIn('offered_doctor_id', $doctorIds)
             ->where('offered_starts_at', '<', $to)
             ->where('offered_until', '>', $from)
             ->when($this->holderPatientId, fn ($query, int $id) => $query->where('patient_id', '!=', $id))
@@ -428,12 +439,25 @@ class AvailabilityService
     {
         $day = CarbonImmutable::instance($date)->startOfDay();
 
-        return DoctorSchedule::query()
-            ->whereBelongsTo($doctor)
-            ->validOn($day)
-            ->orderBy('starts_at')
-            ->get()
+        return $this->rangesOf(DoctorSchedule::query()->whereBelongsTo($doctor)->validOn($day)->get(), $day);
+    }
+
+    /**
+     * Los tramos de un día con el horario ya cargado (todo el horario de un doctor, para ver varios días con una
+     * sola consulta): solo cuentan los tramos de ese día de la semana y vigentes en esa fecha.
+     *
+     * @param  Collection<int, DoctorSchedule>  $schedules
+     * @return Collection<int, array{start: CarbonImmutable, end: CarbonImmutable}>
+     */
+    public function rangesOf(Collection $schedules, CarbonInterface $date): Collection
+    {
+        $day = CarbonImmutable::instance($date)->startOfDay();
+
+        return $schedules
             ->toBase()
+            ->filter(fn (DoctorSchedule $s) => $s->isValidOn($day))
+            ->sortBy('starts_at')
+            ->values()
             ->map(fn (DoctorSchedule $s) => [
                 'start' => $day->setTimeFromTimeString($s->starts_at),
                 'end' => $day->setTimeFromTimeString($s->ends_at),

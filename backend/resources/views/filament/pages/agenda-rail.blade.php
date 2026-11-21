@@ -3,7 +3,9 @@
     "¿tienen hora para…?" con un toque, y quién de la lista de espera cabe ese día. En pantallas anchas va al
     costado de la agenda; en el celular y la tablet se abre con el botón "Buscar hueco", debajo de la barra.
 --}}
-<aside class="agenda-rail" id="agenda-rail" aria-label="Buscar horas libres">
+<aside class="agenda-rail" id="agenda-rail" aria-label="Buscar horas libres" @if (! $rail) aria-busy="true" @endif>
+    {{-- Escondido (o en el celular sin abrir) no se calcula: llega cuando se abre. --}}
+    @if ($rail)
     <section class="agenda-card">
         <div class="agenda-card-head">
             <h2 class="agenda-card-title">{{ $rail['month'] }}</h2>
@@ -177,5 +179,6 @@
                 <a href="{{ $rail['waitlistUrl'] }}" class="agenda-card-link">Ver toda la lista de espera</a>
             @endif
         </section>
+    @endif
     @endif
 </aside>
