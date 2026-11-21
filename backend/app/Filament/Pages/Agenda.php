@@ -358,7 +358,7 @@ class Agenda extends Page
 
                 Notify::run(
                     fn () => app(AppointmentService::class)->rescheduleByStaff($appointment, $start, auth()->user(), $doctor, $agreed),
-                    AppointmentActions::movedMessage($start, $agreed),
+                    AppointmentActions::movedMessage($appointment, $start, $agreed),
                 );
             });
     }

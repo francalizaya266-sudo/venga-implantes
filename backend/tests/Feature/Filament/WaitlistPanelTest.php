@@ -154,11 +154,12 @@ class WaitlistPanelTest extends TestCase
             ->setActionData(['patient_id' => $patient->id, 'treatment_id' => $this->treatment->id])
             ->assertMountedActionModalSee(['Ya hay un horario libre que le sirve', 'Lunes 2 de noviembre a las 09:00. Mejor agéndalo de una vez: no hace falta anotarlo.', 'Agendar ahí']);
 
-        // Si solo puede más adelante, anotarlo sí sirve; y se dice cuántos esperan lo mismo.
+        // Si desde el día que puede no hay nada libre, anotarlo sí sirve; y se dice cuántos esperan lo mismo.
+        ScheduleBlock::create(['doctor_id' => $this->doctor->id, 'type' => ScheduleBlockType::Course, 'starts_at' => '2026-11-30 06:00', 'ends_at' => '2026-12-13 22:00']);
         $window->setActionData(['earliest_date' => '2026-11-30'])
             ->assertMountedActionModalDontSee('Ya hay un horario libre que le sirve')
             ->assertMountedActionModalSee([
-                'No hay nada libre que le sirva en las próximas 2 semanas: anotarlo sí sirve.',
+                'No hay nada libre que le sirva en las 2 semanas desde el 30 de noviembre: anotarlo sí sirve.',
                 'Hay 2 personas más en espera para Limpieza dental. En la alerta sale primero quien espera hace más tiempo.',
             ]);
 
@@ -198,6 +199,20 @@ class WaitlistPanelTest extends TestCase
             // Solo para hoy: queda que alguien cancele o no llegue.
             ->setActionData(['latest_date' => '2026-11-02'])
             ->assertMountedActionModalSee('Hoy no queda nada libre. Si alguien cancela, te llega la alerta para ofrecérselo.');
+    }
+
+    public function test_who_can_only_come_later_is_searched_from_that_day(): void
+    {
+        ScheduleBlock::create(['doctor_id' => $this->doctor->id, 'type' => ScheduleBlockType::Course, 'starts_at' => '2026-12-01 06:00', 'ends_at' => '2026-12-14 22:00']);
+        $this->actingAs(User::factory()->reception()->create());
+
+        // Desde el 1 de diciembre: se buscan las dos semanas desde ese día, no las próximas.
+        Livewire::test(ManageWaitlistEntries::class)
+            ->mountAction('create')
+            ->setActionData(['patient_id' => Patient::factory()->create()->id, 'treatment_id' => $this->treatment->id, 'earliest_date' => '2026-12-01'])
+            ->assertMountedActionModalSee('No hay nada libre que le sirva en las 2 semanas desde el 1 de diciembre: anotarlo sí sirve.')
+            ->setActionData(['earliest_date' => '2026-12-15'])
+            ->assertMountedActionModalSee('Ya hay un horario libre que le sirve');
     }
 
     public function test_an_appointment_in_a_few_days_with_nothing_free_before_is_said_to_be_hard_to_bring_forward(): void

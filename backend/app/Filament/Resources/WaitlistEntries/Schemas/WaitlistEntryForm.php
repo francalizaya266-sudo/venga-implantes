@@ -447,12 +447,15 @@ final class WaitlistEntryForm
         }
 
         $until = filled($get('latest_date')) ? CarbonImmutable::parse((string) $get('latest_date')) : null;
+        $from = filled($get('earliest_date')) ? CarbonImmutable::parse((string) $get('earliest_date')) : null;
+        $weeks = intdiv(WaitlistService::SEARCH_DAYS, 7).' semanas';
 
         return match (true) {
             // Solo hoy (llegó sin cita, o el día que pidió está lleno): queda que alguien cancele o no llegue.
             $until !== null && $until->isSameDay(today()) => 'Hoy no queda nada libre. Si alguien cancela, te llega la alerta para ofrecérselo.',
             $until !== null && $until->lte(today()->addDays(3)) => 'No hay nada libre en ese plazo, y es corto: es difícil que se libere algo. Si puede esperar más, amplía "Hasta".',
-            default => 'No hay nada libre que le sirva en las próximas '.intdiv(WaitlistService::SEARCH_DAYS, 7).' semanas: anotarlo sí sirve. Cuando se libere un horario, te llega la alerta para ofrecérselo.',
+            default => 'No hay nada libre que le sirva en las '.($from?->isAfter(today()) ? $weeks.' desde el '.$from->translatedFormat('j \\d\\e F') : 'próximas '.$weeks)
+                .': anotarlo sí sirve. Cuando se libere un horario, te llega la alerta para ofrecérselo.',
         };
     }
 

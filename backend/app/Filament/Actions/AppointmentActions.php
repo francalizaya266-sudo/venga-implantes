@@ -17,6 +17,7 @@ use App\Filament\Support\VisitFlags;
 use App\Models\Appointment;
 use App\Models\Consultation;
 use App\Models\Doctor;
+use App\Models\Patient;
 use App\Models\Treatment;
 use App\Models\User;
 use App\Models\WaitlistEntry;
@@ -498,7 +499,7 @@ final class AppointmentActions
                     Doctor::findOrFail($data['doctor_id']),
                     (bool) ($data['agreed'] ?? false),
                 ),
-                self::movedMessage(SlotPicker::startsAt($data), (bool) ($data['agreed'] ?? false)),
+                self::movedMessage($record, SlotPicker::startsAt($data), (bool) ($data['agreed'] ?? false)),
                 $action,
             ));
     }
@@ -593,12 +594,16 @@ final class AppointmentActions
             });
     }
 
-    /** Lo que se dice al mover una cita: si quedó confirmada, si hay un aviso por enviar o si se movió a una hora que ya pasó. */
-    public static function movedMessage(CarbonInterface $startsAt, bool $agreed): string
+    /**
+     * Lo que se dice al mover una cita: si quedó confirmada, si hay un aviso por enviar (no, si no tiene celular) o si
+     * se movió a una hora que ya pasó.
+     */
+    public static function movedMessage(Appointment $appointment, CarbonInterface $startsAt, bool $agreed): string
     {
         return match (true) {
             $startsAt->isPast() => 'Cita movida a una hora que ya pasó. No se preparó aviso al paciente.',
             $agreed => 'Cita movida y confirmada.',
+            Patient::query()->whereKey($appointment->patient_id)->whereNull('account_id')->exists() => 'Cita movida. No tiene celular: no se preparó aviso al paciente.',
             default => 'Cita movida. El aviso al paciente está listo en Avisos.',
         };
     }
