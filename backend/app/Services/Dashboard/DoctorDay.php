@@ -13,9 +13,10 @@ final class DoctorDay
     public function __construct(public readonly int $doctorId) {}
 
     /**
-     * El siguiente paciente de hoy: quien ya está en sala (el que llegó primero) o, si nadie llegó,
-     * la próxima cita por hora. No cuenta lo que ya se está atendiendo, ni a quien no llegó y ya pasó
-     * su hora: eso es una inasistencia por marcar, no un paciente que viene.
+     * El siguiente paciente de hoy: quien recepción ya pasó al sillón y todavía no tiene su atención, quien está
+     * en sala (el que llegó primero) o, si nadie llegó, la próxima cita por hora. No cuenta la atención que el
+     * doctor ya empezó (esa va en "Atenciones sin terminar"), ni a quien no llegó y ya pasó su hora: eso es una
+     * inasistencia por marcar, no un paciente que viene.
      */
     public function next(): ?Appointment
     {
@@ -23,8 +24,9 @@ final class DoctorDay
     }
 
     /**
-     * Los que vienen, en el orden en que se atienden: primero los que esperan en sala (por orden de
-     * llegada) y después las citas que faltan, por hora. El segundo es el "Después:" de "Tu próximo paciente".
+     * Los que vienen, en el orden en que se atienden: primero quien ya pasó al sillón sin que el doctor abriera
+     * su atención (recepción tocó "Pasó a consulta"), luego los que esperan en sala (por orden de llegada) y
+     * después las citas que faltan, por hora. El segundo es el "Después:" de "Tu próximo paciente".
      *
      * @return Collection<int, Appointment>
      */
@@ -34,12 +36,13 @@ final class DoctorDay
             ->where('doctor_id', $this->doctorId)
             ->whereDate('starts_at', today())
             ->where(fn ($query) => $query
-                ->where(fn ($query) => $query->waitingNow())
+                ->where(fn ($query) => $query->inChairWithoutConsultation())
+                ->orWhere(fn ($query) => $query->waitingNow())
                 ->orWhere(fn ($query) => $query
                     ->whereIn('status', [AppointmentStatus::Confirmed, AppointmentStatus::Pending])
                     ->where('ends_at', '>', now())))
             ->with(['patient.medicalBackground', 'treatment', 'planItem'])
-            ->orderByRaw('case when status = ? then 0 else 1 end', [AppointmentStatus::CheckedIn->value])
+            ->orderByRaw('case status when ? then 0 when ? then 1 else 2 end', [AppointmentStatus::InProgress->value, AppointmentStatus::CheckedIn->value])
             ->orderByRaw('case when status = ? then checked_in_at end', [AppointmentStatus::CheckedIn->value])
             ->orderBy('starts_at')
             ->limit($count)

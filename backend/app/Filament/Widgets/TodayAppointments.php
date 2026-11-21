@@ -35,9 +35,6 @@ class TodayAppointments extends TableWidget
 {
     use RefreshesWithToday;
 
-    /** Desde aquí la espera se marca en rojo: alguien tiene que ver qué pasa. */
-    public const LONG_WAIT_MINUTES = 20;
-
     /** La agenda de hoy se ve apenas abre "Hoy", sin un recuadro vacío mientras carga. */
     protected static bool $isLazy = false;
 
@@ -103,7 +100,7 @@ class TodayAppointments extends TableWidget
                         TextColumn::make('waiting')
                             ->state(fn (Appointment $record) => ($minutes = $record->waitingMinutes()) !== null ? 'Esperando '.Dates::duration($minutes) : null)
                             ->icon('heroicon-m-clock')
-                            ->color(fn (Appointment $record) => $record->waitingMinutes() >= self::LONG_WAIT_MINUTES ? 'danger' : 'warning')
+                            ->color(fn (Appointment $record) => $record->waitsTooLong() ? 'danger' : 'warning')
                             ->size(TextSize::Small),
                         AppointmentsTable::flagsColumn(withBalance: $seesMoney),
                     ])->space(1)->alignEnd()->grow(false),

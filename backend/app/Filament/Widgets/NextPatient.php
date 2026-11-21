@@ -16,6 +16,7 @@ use App\Models\User;
 use App\Services\Clinical\ConsentService;
 use App\Services\Dashboard\DoctorDay;
 use App\Support\Dates;
+use Carbon\CarbonInterface;
 use Filament\Actions\Action;
 use Filament\Actions\Concerns\InteractsWithActions;
 use Filament\Actions\Contracts\HasActions;
@@ -86,15 +87,18 @@ class NextPatient extends Widget implements HasActions, HasSchemas
         $patient = $appointment->patient;
         $last = $day->lastVisit($appointment);
         $waiting = $appointment->waitingMinutes();
+        $inChairSince = self::inChairSince($appointment);
         // Minutos desde su hora, si ya pasó y todavía no llega (con 5 de tolerancia).
         $late = (int) $appointment->starts_at->diffInMinutes(now());
-        $late = $waiting === null && $late >= 5 ? $late : null;
+        $late = $waiting === null && $inChairSince === null && $late >= 5 ? $late : null;
 
         return [
             'id' => $appointment->getKey(),
             ...$this->summary($appointment),
             'age' => $patient->age !== null ? $patient->age.($patient->age === 1 ? ' año' : ' años') : null,
             'state' => match (true) {
+                // Recepción ya lo pasó al sillón: falta que el doctor abra su atención.
+                $inChairSince !== null => 'Pasó a consulta a las '.$inChairSince->format('H:i'),
                 $waiting !== null => 'Llegó hace '.Dates::duration($waiting),
                 $late !== null => 'Va '.Dates::duration($late).' tarde',
                 $appointment->status === AppointmentStatus::Confirmed => 'Confirmó, aún no llega',
@@ -102,7 +106,8 @@ class NextPatient extends Widget implements HasActions, HasSchemas
             },
             // Color solo para lo que pide atención: alguien esperando o que se atrasa. Lo demás, en gris.
             'stateColor' => match (true) {
-                $waiting !== null => $waiting >= TodayAppointments::LONG_WAIT_MINUTES ? 'danger' : 'warning',
+                $inChairSince !== null => 'primary',
+                $waiting !== null => $appointment->waitsTooLong() ? 'danger' : 'warning',
                 $late !== null => 'warning',
                 default => 'gray',
             },
@@ -118,6 +123,19 @@ class NextPatient extends Widget implements HasActions, HasSchemas
             'internalNotes' => $appointment->internal_notes,
             'historyUrl' => PatientResource::getUrl('clinical', ['record' => $patient]),
         ];
+    }
+
+    /** Desde cuándo está en el sillón, si recepción ya lo pasó a consulta y el doctor todavía no abrió su atención. */
+    private static function inChairSince(Appointment $appointment): ?CarbonInterface
+    {
+        /** @var AppointmentStatus $status */
+        $status = $appointment->status;
+        /** @var CarbonInterface|null $startedAt */
+        $startedAt = $appointment->started_at;
+        /** @var CarbonInterface $startsAt */
+        $startsAt = $appointment->starts_at;
+
+        return $status === AppointmentStatus::InProgress ? ($startedAt ?? $startsAt) : null;
     }
 
     /**

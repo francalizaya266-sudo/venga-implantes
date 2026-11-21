@@ -8,6 +8,7 @@ use App\Enums\BookingChannel;
 use App\Enums\CancelledBy;
 use App\Enums\ConfirmationChannel;
 use App\Models\Concerns\Auditable;
+use Carbon\CarbonInterface;
 use Database\Factories\AppointmentFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Scope;
@@ -29,6 +30,9 @@ class Appointment extends Model
 
     /** Horas después del fin de su cita en que alguien "en sala" deja de contarse como esperando. */
     public const WAIT_EXPIRES_HOURS = 3;
+
+    /** Desde cuántos minutos de demora la espera se marca en rojo: alguien tiene que ver qué pasa. */
+    public const LONG_WAIT_MINUTES = 20;
 
     protected function casts(): array
     {
@@ -216,6 +220,20 @@ class Appointment extends Model
             ->where('ends_at', '>', now()->subHours(self::WAIT_EXPIRES_HOURS));
     }
 
+    /**
+     * En el sillón sin atención escrita: recepción tocó "Pasó a consulta" y el doctor todavía no abrió la atención.
+     * Como en "waitingNow", si su cita terminó hace horas ya no cuenta: es una cita que nadie cerró.
+     */
+    #[Scope]
+    protected function inChairWithoutConsultation(Builder $query): Builder
+    {
+        return $query
+            ->whereDate('starts_at', today())
+            ->where('status', AppointmentStatus::InProgress)
+            ->whereDoesntHave('consultation')
+            ->where('ends_at', '>', now()->subHours(self::WAIT_EXPIRES_HOURS));
+    }
+
     /** Citas que quedaron dentro de un bloqueo de horario, de su doctor o de todo el consultorio. */
     #[Scope]
     protected function insideABlock(Builder $query): Builder
@@ -298,6 +316,31 @@ class Appointment extends Model
         }
 
         return (int) max(0, $this->checked_in_at->diffInMinutes(now()));
+    }
+
+    /**
+     * Minutos de demora: lo que lleva esperando desde que le tocaba pasar, que es la hora de su cita o, si llegó
+     * tarde, su llegada. Quien llegó media hora antes no tiene demora mientras no sea su hora. Null si no está en sala.
+     */
+    public function delayMinutes(): ?int
+    {
+        if ($this->waitingMinutes() === null) {
+            return null;
+        }
+
+        /** @var CarbonInterface $startsAt */
+        $startsAt = $this->starts_at;
+        /** @var CarbonInterface $arrivedAt */
+        $arrivedAt = $this->checked_in_at;
+        $due = $startsAt->gt($arrivedAt) ? $startsAt : $arrivedAt;
+
+        return (int) max(0, $due->diffInMinutes(now(), false));
+    }
+
+    /** Lleva LONG_WAIT_MINUTES o más de demora: la espera va en rojo y hay que avisar a su doctor o explicarle. */
+    public function waitsTooLong(): bool
+    {
+        return ($this->delayMinutes() ?? 0) >= self::LONG_WAIT_MINUTES;
     }
 
     /** "Por confirmar": falta poco y el paciente aún no confirmó con su enlace. */

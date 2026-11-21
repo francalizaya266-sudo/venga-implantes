@@ -8,7 +8,8 @@
                         <span @class(['dash-room-dot', 'is-busy' => $room['busy']]) aria-hidden="true"></span>
                         <span class="dash-room-text">
                             <strong>{{ $room['name'] }}</strong>
-                            <small>{{ $room['status'] }}@if ($room['waiting'] > 0) · <b @class(['is-call' => ! $room['busy']])>{{ $room['waiting'] }} esperando</b>@endif</small>
+                            {{-- Si la consulta ya se pasó de su hora, en ámbar y con enlace a la cita: quizá nadie marcó que terminó. --}}
+                            <small>@if ($room['url'])<a href="{{ $room['url'] }}" class="dash-room-overrun">{{ $room['status'] }}</a>@else{{ $room['status'] }}@endif @if ($room['waiting'] > 0) · <b @class(['is-call' => ! $room['busy'] || $room['overrun']])>{{ $room['waiting'] }} esperando</b>@endif</small>
                         </span>
                     </li>
                 @endforeach
