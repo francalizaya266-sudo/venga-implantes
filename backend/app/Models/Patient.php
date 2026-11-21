@@ -304,13 +304,15 @@ class Patient extends Model
     /**
      * Para recuperarlos: faltaron o cancelaron una cita en los últimos dos meses y después no vinieron ni tienen
      * otra cita. Quien dejó un plan a medias no sale aquí: ya está en Presupuestos y planes, "Sin próxima cita".
+     * Quien está en la lista de espera tampoco: ya se le busca un horario y se le avisa cuando se libere.
      */
     #[Scope]
     protected function missedAndNotRebooked(Builder $query): Builder
     {
         return $query
             ->whereHas('appointments', fn (Builder $missed) => $missed->missedAndNotRebooked())
-            ->whereDoesntHave('treatmentPlans', fn (Builder $plans) => $plans->unscheduled());
+            ->whereDoesntHave('treatmentPlans', fn (Builder $plans) => $plans->unscheduled())
+            ->whereNotIn($query->qualifyColumn('id'), WaitlistEntry::query()->active()->whereNotNull('patient_id')->select('patient_id'));
     }
 
     /** Tiene un presupuesto presentado hace una semana o más, sin respuesta. */
