@@ -15,13 +15,16 @@ use App\Models\Treatment;
 use App\Services\Agenda\Slot;
 use App\Services\Booking\AppointmentService;
 use Filament\Actions\Action;
+use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Text;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
+use Filament\Support\Enums\Alignment;
 use Filament\Support\Enums\FontWeight;
+use Filament\Support\Enums\Size;
 use Filament\Support\Enums\Width;
 use Filament\Support\Icons\Heroicon;
 
@@ -41,7 +44,11 @@ final class WalkInAction
             ->modalHeading('Llegó sin cita')
             ->modalDescription('Se le da el primer hueco de hoy y queda en sala de una vez.')
             ->modalWidth(Width::ThreeExtraLarge)
+            // Como "Nueva cita": "Pasar a sala" grande, abajo a la derecha.
+            ->extraModalWindowAttributes(['class' => 'appointment-window'])
+            ->modalFooterActionsAlignment(Alignment::End)
             ->modalSubmitActionLabel('Pasar a sala')
+            ->modalSubmitAction(fn (Action $action) => $action->size(Size::Large))
             ->schema([
                 AppointmentForm::patientSection(forToday: true),
                 Section::make(fn (Get $get) => self::todaysAppointmentHeading($get))
@@ -71,6 +78,15 @@ final class WalkInAction
                             ->visible(fn (Get $get) => filled($get('treatment_id')) && filled($get('doctor_id')))
                             ->columnSpanFull(),
                     ]),
+                // Quien llega sin cita suele venir con algo urgente: el doctor lo ve en "Tu próximo paciente".
+                Section::make()
+                    ->schema([
+                        Textarea::make('internal_notes')
+                            ->label('Nota para el doctor')
+                            ->placeholder('Viene con dolor en una muela…')
+                            ->helperText('No la ve el paciente. Si llegó a una cita que ya tenía, se agrega a sus notas.')
+                            ->rows(2),
+                    ]),
             ])
             ->fillForm(fn () => [
                 'new_patient' => false,
@@ -83,7 +99,10 @@ final class WalkInAction
 
                 if ($appointment?->status->isChangeable()) {
                     Notify::run(
-                        fn () => app(AppointmentService::class)->markArrived($appointment, auth()->user()),
+                        function () use ($appointment, $data): void {
+                            self::addNote($appointment, $data['internal_notes'] ?? null);
+                            app(AppointmentService::class)->markArrived($appointment, auth()->user());
+                        },
                         'Paciente en sala',
                         $action,
                         fn (Notification $notification) => ArrivalChecklist::addTo($notification, $appointment, auth()->user(), self::arrivalHeadline($appointment)),
@@ -105,6 +124,16 @@ final class WalkInAction
                     },
                 );
             });
+    }
+
+    /** La nota de recepción, debajo de las que la cita ya tenía (no las reemplaza). */
+    private static function addNote(Appointment $appointment, ?string $note): void
+    {
+        if (blank($note)) {
+            return;
+        }
+
+        $appointment->update(['internal_notes' => collect([$appointment->internal_notes, trim($note)])->filter(fn (?string $line) => filled($line))->implode("\n")]);
     }
 
     /** "Rosa Quispe pasa con Dra. Elena Ríos a las 11:30." */
