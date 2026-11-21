@@ -232,6 +232,47 @@ class WalkInTest extends TestCase
         $this->assertSame(['Paciente en sala', 'Rosa Quispe llegó a su cita de las 12:00 con '.$this->busy->name.'.'], [$notice['title'], $notice['body']]);
     }
 
+    public function test_who_arrives_early_can_go_in_earlier_when_their_doctor_is_free_and_their_time_is_left_for_another(): void
+    {
+        $rosa = Patient::factory()->create(['first_name' => 'Rosa', 'last_name' => 'Quispe', 'origin' => AppointmentOrigin::Recommendation]);
+        MedicalBackground::create(['patient_id' => $rosa->id]);
+        $booked = Appointment::factory()->for($this->busy)->for($this->cleaning)->for($rosa)->at('2026-11-02 12:00')->confirmed()->create();
+        $this->cleaning->update(['buffer_minutes' => 10]);
+
+        // Su doctor atiende a Carmen hasta las 10:30 y esteriliza hasta las 10:40: desde ahí está libre.
+        Livewire::test(Dashboard::class)
+            ->mountAction('walkIn')
+            ->setActionData(['patient_id' => $rosa->id])
+            ->assertMountedActionModalSee(['Adelantar su cita a las 10:40', 'La agenda de '.$this->busy->name.' está libre desde esa hora. Su hora de las 12:00 queda para otro paciente.'])
+            ->setActionData(['advance' => true])
+            ->callMountedAction()
+            ->assertHasNoActionErrors();
+
+        $this->assertSame(['10:40', AppointmentStatus::CheckedIn], [$booked->refresh()->starts_at->format('H:i'), $booked->status]);
+        // Ya lo sabe: está delante. No se le manda "tu cita cambió".
+        $this->assertSame(0, WhatsappMessage::count());
+        $this->assertSame('Rosa Quispe llegó antes: su cita pasó de las 12:00 a las 10:40 con '.$this->busy->name.'.', $this->lastNotification()['body']);
+    }
+
+    public function test_going_in_earlier_is_left_unmarked_when_another_patient_is_chosen(): void
+    {
+        $rosa = Patient::factory()->create(['first_name' => 'Rosa', 'last_name' => 'Quispe']);
+        $luis = Patient::factory()->create(['first_name' => 'Luis', 'last_name' => 'Paz']);
+        Appointment::factory()->for($this->busy)->for($this->cleaning)->for($rosa)->at('2026-11-02 12:00')->confirmed()->create();
+        $his = Appointment::factory()->for($this->free)->for($this->cleaning)->for($luis)->at('2026-11-02 12:30')->confirmed()->create();
+
+        Livewire::test(Dashboard::class)
+            ->mountAction('walkIn')
+            ->setActionData(['patient_id' => $rosa->id])
+            ->setActionData(['advance' => true])
+            ->setActionData(['patient_id' => $luis->id])
+            ->assertActionDataSet(['advance' => false, 'advance_to' => null])
+            ->callMountedAction()
+            ->assertHasNoActionErrors();
+
+        $this->assertSame(['12:30', AppointmentStatus::CheckedIn], [$his->refresh()->starts_at->format('H:i'), $his->status]);
+    }
+
     public function test_what_is_answered_in_how_they_found_us_is_kept_when_they_arrive_to_their_appointment(): void
     {
         $lucia = Patient::factory()->create(['first_name' => 'Lucía', 'last_name' => 'Rojas', 'first_visit_at' => null, 'origin' => null]);

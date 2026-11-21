@@ -6,6 +6,7 @@ use App\Enums\PatientRelationship;
 use App\Filament\Resources\Patients\PatientResource;
 use App\Models\Appointment;
 use App\Models\Charge;
+use App\Models\Doctor;
 use App\Models\LabOrder;
 use App\Models\Patient;
 use App\Models\User;
@@ -55,6 +56,19 @@ final class ArrivalChecklist
             $presentedAt ? 'Tiene un presupuesto sin respuesta desde el '.$presentedAt->translatedFormat('j \d\e F').': pregúntale si lo acepta.' : null,
             $inLab ? '"'.$inLab->description.'" todavía no llega del laboratorio ('.($inLab->due_on->isPast() && ! $inLab->due_on->isToday() ? 'debía llegar' : 'llega').' el '.$inLab->due_on->translatedFormat('D j M').').' : null,
         ]));
+    }
+
+    /** "Rosa Quispe llegó antes: su cita pasó de las 11:00 a las 10:15 con Dra. Ana Torres." */
+    public static function advancedHeadline(Appointment $appointment, CarbonInterface $bookedAt): string
+    {
+        /** @var Patient $patient */
+        $patient = $appointment->patient;
+        /** @var Doctor $doctor */
+        $doctor = $appointment->doctor;
+        /** @var CarbonInterface $startsAt */
+        $startsAt = $appointment->starts_at;
+
+        return $patient->full_name.' llegó antes: su cita pasó de las '.$bookedAt->format('H:i').' a las '.$startsAt->format('H:i').' con '.$doctor->name.'.';
     }
 
     /**

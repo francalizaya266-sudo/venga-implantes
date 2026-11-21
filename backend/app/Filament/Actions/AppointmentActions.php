@@ -22,6 +22,7 @@ use App\Models\Treatment;
 use App\Models\User;
 use App\Models\WaitlistEntry;
 use App\Models\WhatsappMessage;
+use App\Services\Agenda\Slot;
 use App\Services\Booking\AppointmentService;
 use App\Services\Booking\WaitlistService;
 use App\Services\Clinical\ConsultationService;
@@ -171,12 +172,97 @@ final class AppointmentActions
             ->color('info')
             ->visible(fn (Appointment $record) => $record->status->isChangeable() && $record->starts_at->isToday())
             ->authorize('update')
+            // Llegó antes de su hora y la agenda de su doctor está libre antes: se pregunta si pasa antes. Si no, se
+            // marca al tocar, sin preguntar nada.
+            ->modalHidden(fn (Appointment $record) => self::earlierRoom($record) === null)
+            ->modalHeading(fn (Appointment $record) => self::earlierRoomHeading($record))
+            ->modalDescription(fn (Appointment $record) => self::earlierRoomDescription($record))
+            ->modalWidth(Width::Medium)
+            ->modalSubmitAction(false)
+            ->extraModalFooterActions(fn (Action $action, Appointment $record) => self::earlierRoomChoices($action, $record))
             // Al llegar se dice lo que conviene resolver mientras espera: datos que faltan, deuda, laboratorio.
-            ->action(fn (Appointment $record) => Notify::run(
-                fn () => app(AppointmentService::class)->markArrived($record, auth()->user()),
-                'Paciente en sala',
-                decorate: fn (Notification $notification) => ArrivalChecklist::addTo($notification, $record, auth()->user()),
-            ));
+            ->action(function (Appointment $record, array $arguments): void {
+                /** @var CarbonInterface $bookedAt */
+                $bookedAt = $record->starts_at;
+                $earlier = filled($arguments['advance_to'] ?? null) ? today()->setTimeFromTimeString($arguments['advance_to']) : null;
+
+                Notify::run(
+                    function () use (&$record, $earlier): void {
+                        $record = $earlier
+                            ? app(AppointmentService::class)->arriveEarlier($record, $earlier, auth()->user())
+                            : tap($record, fn (Appointment $arriving) => app(AppointmentService::class)->markArrived($arriving, auth()->user()));
+                    },
+                    'Paciente en sala',
+                    decorate: fn (Notification $notification) => ArrivalChecklist::addTo(
+                        $notification,
+                        $record,
+                        auth()->user(),
+                        $earlier ? ArrivalChecklist::advancedHeadline($record, $bookedAt) : null,
+                    ),
+                );
+            });
+    }
+
+    /**
+     * El primer hueco que su doctor tiene antes de su hora, si llegó antes. Se pide varias veces al abrir la ventana:
+     * se busca una sola vez por pedido.
+     */
+    private static function earlierRoom(Appointment $record): ?Slot
+    {
+        $memo = 'arrived.earlier-room.'.$record->getKey();
+
+        if (! request()->attributes->has($memo)) {
+            request()->attributes->set($memo, app(AppointmentService::class)->earlierRoomToday($record));
+        }
+
+        return request()->attributes->get($memo);
+    }
+
+    /** "Rosa Quispe llegó antes de su hora" */
+    private static function earlierRoomHeading(Appointment $record): string
+    {
+        /** @var Patient $patient */
+        $patient = $record->patient;
+
+        return $patient->full_name.' llegó antes de su hora';
+    }
+
+    /** "Su cita es a las 11:00 con Dra. Ana Torres, y su agenda está libre desde las 10:15. Si pasa antes, ..." */
+    private static function earlierRoomDescription(Appointment $record): ?string
+    {
+        /** @var Doctor $doctor */
+        $doctor = $record->doctor;
+        /** @var CarbonInterface $startsAt */
+        $startsAt = $record->starts_at;
+        $room = self::earlierRoom($record);
+
+        return $room ? 'Su cita es a las '.$startsAt->format('H:i').' con '.$doctor->name.', y su agenda está libre desde las '.$room->label()
+            .'. Si pasa antes, su hora de las '.$startsAt->format('H:i').' queda para otro paciente.' : null;
+    }
+
+    /**
+     * Pasa antes o se queda con su hora; las dos marcan que llegó. La hora que se adelanta es la que se ve: si al
+     * tocarlo ya no está libre, se dice en vez de darle otra.
+     *
+     * @return list<Action>
+     */
+    private static function earlierRoomChoices(Action $action, Appointment $record): array
+    {
+        /** @var CarbonInterface $startsAt */
+        $startsAt = $record->starts_at;
+        $room = self::earlierRoom($record);
+
+        if ($room === null) {
+            return [];
+        }
+
+        return [
+            $action->makeModalSubmitAction('advance', ['advance_to' => $room->label()])
+                ->label('Adelantar a las '.$room->label())
+                ->color('primary'),
+            $action->makeModalSubmitAction('keep', ['advance_to' => null])
+                ->label('Dejarla a las '.$startsAt->format('H:i')),
+        ];
     }
 
     /**
