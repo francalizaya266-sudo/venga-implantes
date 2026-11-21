@@ -426,26 +426,6 @@ $ignoreErrors[] = [
     'path' => __DIR__.'/app/Filament/Actions/WalkInAction.php',
 ];
 $ignoreErrors[] = [
-    'rawMessage' => 'Cannot call method format() on string.',
-    'count' => 3,
-    'path' => __DIR__.'/app/Filament/Actions/WalkInAction.php',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Cannot call method isChangeable() on string.',
-    'count' => 4,
-    'path' => __DIR__.'/app/Filament/Actions/WalkInAction.php',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Match arm comparison between string|null and App\\Enums\\AppointmentStatus::CheckedIn is always false.',
-    'count' => 1,
-    'path' => __DIR__.'/app/Filament/Actions/WalkInAction.php',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Match arm comparison between string|null and App\\Enums\\AppointmentStatus::InProgress is always false.',
-    'count' => 1,
-    'path' => __DIR__.'/app/Filament/Actions/WalkInAction.php',
-];
-$ignoreErrors[] = [
     'rawMessage' => 'Parameter #1 $appointment of static method App\\Filament\\Actions\\WalkInAction::headline() expects App\\Models\\Appointment, null given.',
     'count' => 1,
     'path' => __DIR__.'/app/Filament/Actions/WalkInAction.php',
@@ -717,16 +697,6 @@ $ignoreErrors[] = [
 ];
 $ignoreErrors[] = [
     'rawMessage' => 'Access to an undefined property Illuminate\\Database\\Eloquent\\Model::$doctor_id.',
-    'count' => 1,
-    'path' => __DIR__.'/app/Filament/Resources/Appointments/Schemas/AppointmentForm.php',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Access to an undefined property Illuminate\\Database\\Eloquent\\Model::$starts_at.',
-    'count' => 4,
-    'path' => __DIR__.'/app/Filament/Resources/Appointments/Schemas/AppointmentForm.php',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Access to an undefined property Illuminate\\Database\\Eloquent\\Model::$treatment.',
     'count' => 1,
     'path' => __DIR__.'/app/Filament/Resources/Appointments/Schemas/AppointmentForm.php',
 ];

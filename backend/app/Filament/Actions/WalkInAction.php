@@ -17,6 +17,7 @@ use App\Models\Treatment;
 use App\Models\User;
 use App\Services\Agenda\Slot;
 use App\Services\Booking\AppointmentService;
+use Carbon\CarbonInterface;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Toggle;
@@ -93,7 +94,7 @@ final class WalkInAction
             ->action(function (array $data, Action $action) {
                 $appointment = ($data['use_appointment'] ?? false) ? self::todaysAppointmentOf($data['patient_id'] ?? null) : null;
 
-                if ($appointment?->status->isChangeable()) {
+                if ($appointment !== null && self::canMarkArrival($appointment)) {
                     Notify::run(
                         function () use ($appointment, $data): void {
                             self::addNote($appointment, $data['internal_notes'] ?? null);
@@ -135,13 +136,13 @@ final class WalkInAction
     /** "Rosa Quispe pasa con Dra. Elena Ríos a las 11:30." */
     private static function headline(Appointment $appointment): string
     {
-        return $appointment->patient->full_name.' pasa con '.$appointment->doctor->name.' a las '.$appointment->starts_at->format('H:i').'.';
+        return $appointment->patient->full_name.' pasa con '.$appointment->doctor->name.' a las '.self::startsAt($appointment)->format('H:i').'.';
     }
 
     /** "Rosa Quispe llegó a su cita de las 11:30 con Dra. Elena Ríos." */
     private static function arrivalHeadline(Appointment $appointment): string
     {
-        return $appointment->patient->full_name.' llegó a su cita de las '.$appointment->starts_at->format('H:i').' con '.$appointment->doctor->name.'.';
+        return $appointment->patient->full_name.' llegó a su cita de las '.self::startsAt($appointment)->format('H:i').' con '.$appointment->doctor->name.'.';
     }
 
     /** "Extracción simple con Dra. Elena Ríos" (el doctor, solo si hay más de uno). */
@@ -157,19 +158,52 @@ final class WalkInAction
     {
         $appointment = self::todaysAppointment($get);
 
+        if (! $appointment) {
+            return null;
+        }
+
+        $startsAt = self::startsAt($appointment);
+        /** @var CarbonInterface|null $checkedInAt */
+        $checkedInAt = $appointment->checked_in_at;
+        /** @var CarbonInterface|null $startedAt */
+        $startedAt = $appointment->started_at;
+
         return match (true) {
-            $appointment === null => null,
-            $appointment->status === AppointmentStatus::InProgress => 'Lo están atendiendo desde las '.($appointment->started_at ?? $appointment->starts_at)->format('H:i'),
-            $appointment->status === AppointmentStatus::CheckedIn => 'Ya está en sala desde las '.($appointment->checked_in_at ?? $appointment->starts_at)->format('H:i'),
-            $appointment->starts_at->isPast() => 'Tenía cita hoy a las '.$appointment->starts_at->format('H:i'),
-            default => 'Tiene cita hoy a las '.$appointment->starts_at->format('H:i'),
+            self::statusOf($appointment) === AppointmentStatus::InProgress => 'Lo están atendiendo desde las '.($startedAt ?? $startsAt)->format('H:i'),
+            self::statusOf($appointment) === AppointmentStatus::CheckedIn => 'Ya está en sala desde las '.($checkedInAt ?? $startsAt)->format('H:i'),
+            $startsAt->isPast() => 'Tenía cita hoy a las '.$startsAt->format('H:i'),
+            default => 'Tiene cita hoy a las '.$startsAt->format('H:i'),
         };
+    }
+
+    /** ¿Todavía se puede marcar que llegó a esa cita? No, si ya está en sala o lo están atendiendo. */
+    private static function canMarkArrival(?Appointment $appointment): bool
+    {
+        return $appointment !== null && self::statusOf($appointment)->isChangeable();
+    }
+
+    /** El estado de la cita, con su tipo (el análisis estático no lo ve). */
+    private static function statusOf(Appointment $appointment): AppointmentStatus
+    {
+        /** @var AppointmentStatus $status */
+        $status = $appointment->status;
+
+        return $status;
+    }
+
+    /** La hora de la cita, con su tipo (el análisis estático no lo ve). */
+    private static function startsAt(Appointment $appointment): CarbonInterface
+    {
+        /** @var CarbonInterface $startsAt */
+        $startsAt = $appointment->starts_at;
+
+        return $startsAt;
     }
 
     /** ¿Se va a marcar que llegó a la cita que ya tenía? Entonces no se elige tratamiento ni doctor. */
     private static function arrivesToAppointment(Get $get): bool
     {
-        return (bool) $get('use_appointment') && (self::todaysAppointment($get)?->status->isChangeable() ?? false);
+        return (bool) $get('use_appointment') && self::canMarkArrival(self::todaysAppointment($get));
     }
 
     /** La cita de hoy del paciente elegido que sigue sin cerrarse, si la hay. Un paciente nuevo no tiene. */
@@ -234,7 +268,7 @@ final class WalkInAction
     {
         $patientId = ($state['new_patient'] ?? false) ? null : ($state['patient_id'] ?? null);
 
-        if (($state['use_appointment'] ?? false) && (self::todaysAppointmentOf($patientId)?->status->isChangeable() ?? false)) {
+        if (($state['use_appointment'] ?? false) && self::canMarkArrival(self::todaysAppointmentOf($patientId))) {
             return false;
         }
 
@@ -263,7 +297,7 @@ final class WalkInAction
     {
         $appointment = ($state['new_patient'] ?? false) ? null : self::todaysAppointmentOf($state['patient_id'] ?? null);
 
-        return $appointment !== null && ! $appointment->status->isChangeable();
+        return $appointment !== null && ! self::canMarkArrival($appointment);
     }
 
     /** El primer hueco de hoy. Se pide varias veces al pintar la ventana: se calcula una sola vez por pedido. */
@@ -301,7 +335,7 @@ final class WalkInAction
                 Toggle::make('use_appointment')
                     ->label('Marcar que llegó a esa cita')
                     ->helperText('Así esa cita no queda como falta ni se le abre otra. Desmárcalo solo si viene por otra atención aparte.')
-                    ->visible(fn (Get $get) => self::todaysAppointment($get)?->status->isChangeable() ?? false)
+                    ->visible(fn (Get $get) => self::canMarkArrival(self::todaysAppointment($get)))
                     ->live(),
             ])
             ->visible(fn (Get $get) => self::todaysAppointment($get) !== null);
@@ -316,12 +350,12 @@ final class WalkInAction
         }
 
         $advice = match (true) {
-            ! $appointment->status->isChangeable() => 'Sigue solo si viene por otra atención aparte: se le abrirá una cita más.',
-            $appointment->starts_at->isFuture() => 'Llegó antes de su hora.',
+            ! self::canMarkArrival($appointment) => 'Sigue solo si viene por otra atención aparte: se le abrirá una cita más.',
+            self::startsAt($appointment)->isFuture() => 'Llegó antes de su hora.',
             default => null,
         };
 
-        return new HtmlString(e(self::describe($appointment).' · '.$appointment->status->getLabel()).($advice ? '<br>'.e($advice) : ''));
+        return new HtmlString(e(self::describe($appointment).' · '.self::statusOf($appointment)->getLabel()).($advice ? '<br>'.e($advice) : ''));
     }
 
     /**

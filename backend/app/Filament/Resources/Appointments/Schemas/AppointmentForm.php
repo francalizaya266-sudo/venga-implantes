@@ -24,6 +24,7 @@ use App\Support\Dates;
 use App\Support\Money;
 use App\Support\Phone;
 use Carbon\CarbonImmutable;
+use Carbon\CarbonInterface;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Checkbox;
 use Filament\Forms\Components\Field;
@@ -375,46 +376,60 @@ class AppointmentForm
             return null;
         }
 
-        $sameDay = filled($chosenDate) && $appointment->starts_at->toDateString() === $chosenDate;
+        // El análisis estático no ve los tipos de la cita: se dicen aquí.
+        /** @var CarbonInterface $startsAt */
+        $startsAt = $appointment->starts_at;
+        /** @var AppointmentStatus $status */
+        $status = $appointment->status;
+        /** @var Treatment $treatment */
+        $treatment = $appointment->treatment;
+        /** @var Doctor $doctor */
+        $doctor = $appointment->doctor;
+
+        $sameDay = filled($chosenDate) && $startsAt->toDateString() === $chosenDate;
         $changeRequested = (bool) $appointment->getAttribute('has_pending_change');
         $sameVisit = filled($get('treatment_plan_item_id'))
             ? (int) $get('treatment_plan_item_id') === $appointment->treatment_plan_item_id
             : filled($get('treatment_id')) && (int) $get('treatment_id') === $appointment->treatment_id;
+        $withinAWeek = $startsAt->lt(today()->addDays(7));
         // Una de su serie de controles o de su plan es lo normal: solo una suelta y cercana hace dudar.
-        $soonAndOnItsOwn = $appointment->starts_at->lt(today()->addDays(7)) && $appointment->series_id === null && $appointment->treatment_plan_item_id === null;
-        $warn = $sameDay || $changeRequested || $sameVisit || $soonAndOnItsOwn || ($forToday && $appointment->starts_at->lt(today()->addDays(7)));
+        $soonAndOnItsOwn = $withinAWeek && $appointment->series_id === null && $appointment->treatment_plan_item_id === null;
+        $warn = $sameDay || $changeRequested || $sameVisit || $soonAndOnItsOwn || ($forToday && $withinAWeek);
 
-        $visit = $appointment->treatment->name
-            .(SlotPicker::onlyActiveDoctorId() === null ? ' con '.$appointment->doctor->name : '')
-            .' · '.$appointment->status->getLabel()
-            .($count > 1 ? ' (y '.($count - 1).' '.($count === 2 ? 'cita' : 'citas').' más)' : '');
+        $lines = [
+            $treatment->name
+                .(SlotPicker::onlyActiveDoctorId() === null ? ' con '.$doctor->name : '')
+                .' · '.$status->getLabel()
+                .($count > 1 ? ' (y '.($count - 1).' '.($count === 2 ? 'cita' : 'citas').' más)' : ''),
+        ];
 
-        $advice = match (true) {
-            ! $warn => null,
-            $changeRequested => 'Pidió cambiar esta cita: resuélvelo en "Cambios pedidos" en vez de crear otra.',
-            $forToday => '¿Se confundió de día? Esa cita sigue en pie: muévela o cancélala después.',
-            $sameVisit && filled($get('treatment_plan_item_id')) => 'Esta sesión de su plan ya está agendada. Continúa solo si necesita otra.',
-            default => 'Continúa solo si necesita una cita adicional.',
-        };
+        if ($warn) {
+            $lines[] = match (true) {
+                $changeRequested => 'Pidió cambiar esta cita: resuélvelo en "Cambios pedidos" en vez de crear otra.',
+                $forToday => '¿Se confundió de día? Esa cita sigue en pie: muévela o cancélala después.',
+                $sameVisit && filled($get('treatment_plan_item_id')) => 'Esta sesión de su plan ya está agendada. Continúa solo si necesita otra.',
+                default => 'Continúa solo si necesita una cita adicional.',
+            };
+        }
 
         return [
-            'heading' => $sameDay ? 'Ese día ya tiene cita a las '.$appointment->starts_at->format('H:i') : self::upcomingHeading($appointment),
-            'lines' => array_values(array_filter([$visit, $advice])),
+            'heading' => $sameDay ? 'Ese día ya tiene cita a las '.$startsAt->format('H:i') : self::upcomingHeading($startsAt),
+            'lines' => $lines,
             'warn' => $warn,
             'link' => $forToday ? null : self::upcomingLink($appointment, $changeRequested),
         ];
     }
 
     /** "Ya tiene cita mañana a las 10:00" o "Ya tiene cita el miércoles 4 de noviembre a las 16:00". */
-    private static function upcomingHeading(Appointment $appointment): string
+    private static function upcomingHeading(CarbonInterface $startsAt): string
     {
         $day = match (true) {
-            $appointment->starts_at->isToday() => 'hoy',
-            $appointment->starts_at->isTomorrow() => 'mañana',
-            default => 'el '.$appointment->starts_at->translatedFormat('l j \d\e F'),
+            $startsAt->isToday() => 'hoy',
+            $startsAt->isTomorrow() => 'mañana',
+            default => 'el '.$startsAt->translatedFormat('l j \d\e F'),
         };
 
-        return 'Ya tiene cita '.$day.' a las '.$appointment->starts_at->format('H:i');
+        return 'Ya tiene cita '.$day.' a las '.$startsAt->format('H:i');
     }
 
     /**
@@ -426,7 +441,10 @@ class AppointmentForm
     private static function upcomingLink(Appointment $appointment, bool $changeRequested): array
     {
         if ($changeRequested && RescheduleRequestResource::canViewAny()) {
-            return ['label' => 'Ver el cambio que pidió', 'url' => RescheduleRequestResource::forPatientUrl($appointment->patient)];
+            /** @var Patient $patient */
+            $patient = $appointment->patient;
+
+            return ['label' => 'Ver el cambio que pidió', 'url' => RescheduleRequestResource::forPatientUrl($patient)];
         }
 
         $canMove = auth()->user()?->can('update', $appointment) ?? false;
