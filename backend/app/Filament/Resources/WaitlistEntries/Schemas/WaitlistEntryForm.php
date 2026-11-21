@@ -251,10 +251,13 @@ final class WaitlistEntryForm
     private static function upcomingAppointmentCallout(): Callout
     {
         return Callout::make(fn (Get $get) => ($appointment = self::upcomingAppointment($get))
-            ? 'Ya tiene cita el '.self::startsAt($appointment)->translatedFormat('l j \d\e F').' a las '.self::startsAt($appointment)->format('H:i')
+            ? AppointmentForm::upcomingHeading(self::startsAt($appointment))
             : null)
             ->key('upcomingAppointment')
-            ->description('Se anota para adelantarla: si se libera un horario antes, se mueve esa cita en vez de darle otra. Por eso "Hasta" queda un día antes.')
+            // Si su cita es hoy, no hay un día antes que poner en "Hasta".
+            ->description(fn (Get $get) => ($appointment = self::upcomingAppointment($get)) && self::startsAt($appointment)->isToday()
+                ? 'Se anota solo para pasarla más temprano: si hoy se libera un horario antes, se mueve esa cita en vez de darle otra.'
+                : 'Se anota para adelantarla: si se libera un horario antes, se mueve esa cita en vez de darle otra. Por eso "Hasta" queda un día antes.')
             ->icon(Heroicon::OutlinedCalendarDays)
             ->color('gray')
             ->visible(fn (Get $get) => self::upcomingAppointment($get) !== null);
@@ -364,7 +367,7 @@ final class WaitlistEntryForm
 
         return match (true) {
             // Solo hoy (llegó sin cita, o el día que pidió está lleno): queda que alguien cancele o no llegue.
-            $until !== null && $until->isSameDay(today()) => 'Hoy no queda nada libre. Si alguien cancela o no llega, te llega la alerta para ofrecérselo.',
+            $until !== null && $until->isSameDay(today()) => 'Hoy no queda nada libre. Si alguien cancela, te llega la alerta para ofrecérselo.',
             $until !== null && $until->lte(today()->addDays(3)) => 'No hay nada libre en ese plazo, y es corto: es difícil que se libere algo. Si puede esperar más, amplía "Hasta".',
             default => 'No hay nada libre que le sirva en las próximas '.intdiv(WaitlistService::SEARCH_DAYS, 7).' semanas: anotarlo sí sirve. Cuando se libere un horario, te llega la alerta para ofrecérselo.',
         };

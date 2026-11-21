@@ -11,6 +11,7 @@ use App\Enums\RescheduleRequestStatus;
 use App\Filament\Resources\Appointments\AppointmentResource;
 use App\Filament\Resources\Patients\Schemas\PatientForm;
 use App\Filament\Resources\RescheduleRequests\RescheduleRequestResource;
+use App\Filament\Support\PatientContext;
 use App\Filament\Support\SlotPicker;
 use App\Models\Appointment;
 use App\Models\Doctor;
@@ -26,6 +27,7 @@ use App\Support\Money;
 use App\Support\Phone;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
+use Closure;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Checkbox;
 use Filament\Forms\Components\Field;
@@ -46,10 +48,12 @@ use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Components\View;
 use Filament\Schemas\Schema;
+use Filament\Support\Enums\Size;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\HtmlString;
+use Illuminate\Validation\Rules\Unique;
 
 /** Nueva cita desde el panel (recepción o doctor). */
 class AppointmentForm
@@ -267,8 +271,9 @@ class AppointmentForm
      *
      * @param  bool  $forToday  La cita es para hoy ("Llegó sin cita"): no se propone el día en que suele venir, y su cita de hoy la muestra esa ventana.
      * @param  list<Component>  $notices  Lo que esa ventana avisa del paciente elegido, justo bajo su nombre.
+     * @param  Closure|null  $hidePlanWhen  Cuándo no se pregunta por la sesión de su plan (llegó a una cita que ya la dice).
      */
-    public static function patientSection(bool $forToday = false, array $notices = []): Section
+    public static function patientSection(bool $forToday = false, array $notices = [], ?Closure $hidePlanWhen = null): Section
     {
         return Section::make('Paciente')
             ->afterHeader([self::patientKindToggle()])
@@ -295,6 +300,10 @@ class AppointmentForm
                             }
                         }
                     }),
+                // Bajo su nombre, lo que recepción le recuerda al agendar: lo que debe y si suele faltar.
+                Text::make(fn (Get $get) => self::reminders($get))
+                    ->color('gray')
+                    ->visible(fn (Get $get) => ! $forToday && self::reminders($get) !== null),
                 ...$notices,
                 self::upcomingAppointmentCallout($forToday),
                 ...($forToday ? [] : [self::waitlistCallout()]),
@@ -302,8 +311,9 @@ class AppointmentForm
                     ->statePath('patient')
                     ->visible(fn (Get $get) => (bool) $get('new_patient'))
                     ->schema(self::newPatientFields()),
-                self::planItemSelect(),
-                self::planAcceptedCheckbox(),
+                self::patientContextCallout($forToday)->hidden($hidePlanWhen ?? false),
+                self::planItemSelect()->hidden($hidePlanWhen ?? false),
+                self::planAcceptedCheckbox()->hidden($hidePlanWhen ?? false),
                 // Junto al paciente, donde recepción lo pregunta. Solo a quien viene por primera vez: a los
                 // demás ya se les preguntó (los reportes usan el origen del paciente).
                 Select::make('origin')
@@ -311,6 +321,102 @@ class AppointmentForm
                     ->options(AppointmentOrigin::class)
                     ->visible(fn (Get $get) => self::isFirstTime($get)),
             ]);
+    }
+
+    /**
+     * Lo que toca con el paciente elegido, con el botón que deja la ventana lista: que lo elegido es una sesión de su
+     * plan, que ya tuvo su evaluación, lo que le toca de su plan, el presupuesto sin respuesta o la cita a la que faltó.
+     * En gris azulado si es una sugerencia; en ámbar si conviene preguntarle antes de seguir.
+     */
+    private static function patientContextCallout(bool $forToday): Callout
+    {
+        return Callout::make(fn (Get $get) => self::patientContext($get, $forToday)['heading'] ?? null)
+            ->key('patientContext')
+            ->description(fn (Get $get) => self::patientContext($get, $forToday)['detail'] ?? null)
+            ->icon(fn (Get $get) => match (self::patientContext($get, $forToday)['key'] ?? null) {
+                'missedVisit' => Heroicon::OutlinedArrowPath,
+                'evaluationAgain' => Heroicon::OutlinedExclamationTriangle,
+                default => Heroicon::OutlinedClipboardDocumentList,
+            })
+            ->color(fn (Get $get) => (self::patientContext($get, $forToday)['warn'] ?? false) ? 'warning' : 'info')
+            ->actions([
+                Action::make('usePatientContext')
+                    ->label(fn (Get $get) => self::patientContext($get, $forToday)['button'] ?? null)
+                    ->url(fn (Get $get) => self::patientContext($get, $forToday)['url'] ?? null, shouldOpenInNewTab: true)
+                    ->button()
+                    ->size(Size::Small)
+                    ->visible(fn (Get $get) => filled(self::patientContext($get, $forToday)['button'] ?? null))
+                    ->action(fn (Get $get, Set $set) => self::usePatientContext($get, $set, $forToday)),
+            ])
+            ->visible(fn (Get $get) => self::patientContext($get, $forToday) !== null);
+    }
+
+    /**
+     * Llena la ventana con lo que propone el aviso: la sesión, el tratamiento y el doctor. En "Nueva cita" se busca
+     * de nuevo el día con lugar y el horario, como al elegirlos a mano.
+     */
+    private static function usePatientContext(Get $get, Set $set, bool $forToday): void
+    {
+        $fill = self::patientContext($get, $forToday)['fill'] ?? [];
+
+        foreach ($fill as $field => $value) {
+            $set($field, $value);
+        }
+
+        if (! $forToday) {
+            SlotPicker::refreshAfterDoctorChange($get, $set);
+        }
+    }
+
+    /**
+     * El aviso de lo que toca con el paciente elegido, para lo que ya se eligió. Se pide varias veces al pintar la
+     * ventana: se calcula una sola vez por pedido.
+     *
+     * @return array{key: string, heading: string, detail: string, warn: bool, button: string|null, fill: array<string, int|null>, url: string|null}|null
+     */
+    private static function patientContext(Get $get, bool $forToday): ?array
+    {
+        $patientId = $get('patient_id');
+
+        if ($get('new_patient') || blank($patientId)) {
+            return null;
+        }
+
+        $treatmentId = filled($get('treatment_id')) ? (int) $get('treatment_id') : null;
+        $planItemId = filled($get('treatment_plan_item_id')) ? (int) $get('treatment_plan_item_id') : null;
+        $memo = 'appointment-form.context.'.($forToday ? 'today' : 'new').'.'.$patientId.'.'.$treatmentId.'.'.$planItemId;
+
+        if (! request()->attributes->has($memo)) {
+            $patient = Patient::find($patientId);
+            /** @var User $user */
+            $user = auth()->user();
+
+            request()->attributes->set($memo, $patient ? PatientContext::notice($patient, $user, $forToday, $treatmentId, $planItemId) : null);
+        }
+
+        return request()->attributes->get($memo);
+    }
+
+    /** Lo que debe (y si una cuota se le pasó) y si suele faltar, en una línea. Una sola vez por pedido. */
+    private static function reminders(Get $get): ?string
+    {
+        $patientId = $get('patient_id');
+
+        if ($get('new_patient') || blank($patientId)) {
+            return null;
+        }
+
+        $memo = 'appointment-form.reminders.'.$patientId;
+
+        if (! request()->attributes->has($memo)) {
+            $patient = Patient::find($patientId);
+            /** @var User $user */
+            $user = auth()->user();
+
+            request()->attributes->set($memo, $patient ? PatientContext::reminders($patient, $user) : null);
+        }
+
+        return request()->attributes->get($memo);
     }
 
     /**
@@ -460,8 +566,10 @@ class AppointmentForm
 
         $sameDay = filled($chosenDate) && $startsAt->toDateString() === $chosenDate;
         $changeRequested = (bool) $appointment->getAttribute('has_pending_change');
+        $sameItem = filled($get('treatment_plan_item_id')) && (int) $get('treatment_plan_item_id') === $appointment->treatment_plan_item_id;
+        // Con sesiones por agendar, la cita de ese procedimiento es la sesión anterior, no la misma.
         $sameVisit = filled($get('treatment_plan_item_id'))
-            ? (int) $get('treatment_plan_item_id') === $appointment->treatment_plan_item_id
+            ? $sameItem && self::allSessionsBooked((int) $get('treatment_plan_item_id'))
             : filled($get('treatment_id')) && (int) $get('treatment_id') === $appointment->treatment_id;
         $withinAWeek = $startsAt->lt(today()->addDays(7));
         // Una de su serie de controles o de su plan es lo normal: solo una suelta y cercana hace dudar.
@@ -480,20 +588,47 @@ class AppointmentForm
                 $changeRequested => 'Pidió cambiar esta cita: resuélvelo en "Cambios pedidos" en vez de crear otra.',
                 $forToday => '¿Se confundió de día? Esa cita sigue en pie: muévela o cancélala después.',
                 $sameVisit && filled($get('treatment_plan_item_id')) => 'Esta sesión de su plan ya está agendada. Continúa solo si necesita otra.',
+                $sameItem => 'Esa es la sesión anterior de este procedimiento: esta cita sería la siguiente.',
                 default => 'Continúa solo si necesita una cita adicional.',
             };
         }
 
         return [
-            'heading' => $sameDay ? 'Ese día ya tiene cita a las '.$startsAt->format('H:i') : self::upcomingHeading($startsAt),
+            'heading' => $sameDay ? self::sameDayHeading($startsAt) : self::upcomingHeading($startsAt),
             'lines' => $lines,
             'warn' => $warn,
             'link' => $forToday ? null : self::upcomingLink($appointment, $changeRequested),
         ];
     }
 
+    /** "Hoy ya tiene cita a las 11:00", "Mañana ya tiene cita a las 9:00" o "Ese día ya tiene cita a las 16:00". */
+    private static function sameDayHeading(CarbonInterface $startsAt): string
+    {
+        $day = match (true) {
+            $startsAt->isToday() => 'Hoy',
+            $startsAt->isTomorrow() => 'Mañana',
+            default => 'Ese día',
+        };
+
+        return $day.' ya tiene cita a las '.$startsAt->format('H:i');
+    }
+
+    /** ¿Ya tienen cita todas las sesiones que le faltan a ese procedimiento de su plan? */
+    private static function allSessionsBooked(int $itemId): bool
+    {
+        $item = TreatmentPlanItem::find($itemId);
+
+        if ($item === null) {
+            return false;
+        }
+
+        $booked = app(TreatmentPlanService::class)->bookedSessions([$itemId])[$itemId] ?? 0;
+
+        return TreatmentPlanService::nextSessionToBook($item, $booked) === null;
+    }
+
     /** "Ya tiene cita mañana a las 10:00" o "Ya tiene cita el miércoles 4 de noviembre a las 16:00". */
-    private static function upcomingHeading(CarbonInterface $startsAt): string
+    public static function upcomingHeading(CarbonInterface $startsAt): string
     {
         $day = match (true) {
             $startsAt->isToday() => 'hoy',
@@ -594,6 +729,7 @@ class AppointmentForm
 
                 if ($item?->treatment_id) {
                     $set('treatment_id', $item->treatment_id);
+                    SlotPicker::syncTreatmentShortcut($get, $set);
                 }
             });
     }
@@ -615,8 +751,8 @@ class AppointmentForm
     }
 
     /**
-     * Procedimientos pendientes de los planes vigentes del paciente. Recepción ve el tratamiento;
-     * la pieza solo la ve quien puede ver lo clínico.
+     * Procedimientos pendientes de los planes vigentes del paciente, con la sesión que toca agendar: si la 1 ya tiene
+     * cita, se ofrece la 2. Recepción ve el tratamiento; la pieza solo la ve quien puede ver lo clínico.
      *
      * @return array<int, string>
      */
@@ -630,12 +766,27 @@ class AppointmentForm
 
         /** @var User $user */
         $user = auth()->user();
+        $plans = app(TreatmentPlanService::class);
+        $items = $plans->workableItems($patient);
+        $booked = $plans->bookedSessions($items->modelKeys());
 
-        return app(TreatmentPlanService::class)->workableItems($patient)
+        return $items
             ->mapWithKeys(fn (TreatmentPlanItem $item) => [$item->getKey() => $item->label(withTooth: $user->canSeeClinical())
-                .($item->sessions_planned > 1 ? ' · sesión '.min($item->sessions_done + 1, $item->sessions_planned).' de '.$item->sessions_planned : '')
+                .self::sessionLabel($item, $booked[$item->getKey()] ?? 0)
                 .($item->in_payment_schedule ? ' · ya incluida en su forma de pago' : '')])
             ->all();
+    }
+
+    /** " · sesión 2 de 3", o " · ya agendada" si todas las que le faltan ya tienen cita. */
+    private static function sessionLabel(TreatmentPlanItem $item, int $booked): string
+    {
+        $next = TreatmentPlanService::nextSessionToBook($item, $booked);
+
+        return match (true) {
+            $next === null => ' · ya agendada',
+            $item->sessions_planned > 1 => ' · sesión '.$next.' de '.$item->sessions_planned,
+            default => '',
+        };
     }
 
     public static function patientSelect(): Select
@@ -687,8 +838,11 @@ class AppointmentForm
                         ->default(DocumentType::Dni->value)
                         ->selectablePlaceholder(false)
                         ->live(),
+                    // Como en la ficha: con un documento que ya está registrado, se dice en vez de fallar al guardar.
                     PatientForm::documentNumberInput()
                         ->label('Número')
+                        ->unique(table: Patient::class, column: 'document_number', modifyRuleUsing: fn (Unique $rule, Get $get) => $rule->where('document_type', $get('document_type') instanceof DocumentType ? $get('document_type')->value : $get('document_type')))
+                        ->validationMessages(['unique' => 'Ya hay un paciente con este documento: elígelo como existente.'])
                         ->columnSpan(2),
                 ]),
             // Si ya está registrado, se agenda a su nombre en vez de crear otro paciente.

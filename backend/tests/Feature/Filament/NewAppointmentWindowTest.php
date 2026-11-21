@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Filament;
 
+use App\Enums\DocumentType;
 use App\Enums\RequestedBy;
 use App\Enums\RescheduleRequestStatus;
 use App\Filament\Pages\Agenda;
@@ -266,6 +267,56 @@ class NewAppointmentWindowTest extends TestCase
             // Ese mismo día: se dice que ya tiene una ahí, aunque sea otro tratamiento.
             ->setActionData(['treatment_id' => $this->treatment->id, 'date' => '2026-11-30'])
             ->assertMountedActionModalSee(['Ese día ya tiene cita a las 10:00', 'Continúa solo si necesita una cita adicional.']);
+    }
+
+    public function test_a_treatment_outside_the_most_booked_ones_can_be_booked(): void
+    {
+        $others = collect(range(1, 5))->map(fn (int $order) => Treatment::factory()->create(['name' => 'Tratamiento '.$order, 'duration_minutes' => 30, 'sort_order' => $order]));
+        $this->doctor->treatments()->attach($others->pluck('id')->all());
+        $rare = $others->last();
+
+        Livewire::test(Dashboard::class)
+            ->mountAction('newAppointment')
+            ->setActionData(['patient_id' => $this->patient->id, 'doctor_id' => $this->doctor->id])
+            // Elegido de la lista: no es un atajo, y no queda marcado como si lo fuera.
+            ->setActionData(['treatment_id' => $rare->id])
+            ->assertActionDataSet(['treatment_shortcut' => null])
+            ->setActionData(['date' => '2026-11-03', 'slot' => '10:00'])
+            ->callMountedAction()
+            ->assertHasNoActionErrors();
+
+        $this->assertSame($rare->id, $this->patient->appointments()->sole()->treatment_id);
+    }
+
+    public function test_a_new_patient_with_a_document_already_registered_is_told_instead_of_failing(): void
+    {
+        $this->patient->update(['document_type' => DocumentType::Dni, 'document_number' => '45678912']);
+
+        Livewire::test(Dashboard::class)
+            ->mountAction('newAppointment')
+            ->setActionData([
+                'new_patient' => true,
+                'patient' => ['first_name' => 'Rosa', 'last_name' => 'Quispe', 'phone' => '987654321', 'document_type' => DocumentType::Dni->value, 'document_number' => '45678912'],
+                'doctor_id' => $this->doctor->id,
+                'treatment_id' => $this->treatment->id,
+                'date' => '2026-11-03',
+                'slot' => '10:00',
+            ])
+            ->callMountedAction()
+            ->assertHasActionErrors(['patient.document_number' => 'unique']);
+
+        $this->assertSame(1, Patient::query()->count());
+    }
+
+    public function test_an_appointment_on_the_same_day_says_today_when_it_is_today(): void
+    {
+        Appointment::factory()->for($this->doctor)->for($this->treatment)->for($this->patient)->at('2026-11-02 11:00')->confirmed()->create();
+
+        Livewire::test(Dashboard::class)
+            ->mountAction('newAppointment')
+            ->setActionData(['patient_id' => $this->patient->id, 'date' => '2026-11-02'])
+            ->assertMountedActionModalSee('Hoy ya tiene cita a las 11:00')
+            ->assertMountedActionModalDontSee('Ese día ya tiene cita');
     }
 
     public function test_a_change_the_patient_asked_for_is_pointed_out_instead_of_booking_another(): void

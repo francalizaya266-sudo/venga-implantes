@@ -67,7 +67,8 @@ final class WalkInAction
                 Grid::make(['default' => 1, 'lg' => 5])
                     ->schema([
                         Group::make([
-                            AppointmentForm::patientSection(forToday: true, notices: [self::todaysAppointmentCallout()]),
+                            // Si llegó a su cita, esa ya dice qué sesión de su plan es: no se pregunta.
+                            AppointmentForm::patientSection(forToday: true, notices: [self::todaysAppointmentCallout()], hidePlanWhen: fn (Get $get) => self::arrivesToAppointment($get)),
                             Section::make('Atención')
                                 ->columns(2)
                                 ->hidden(fn (Get $get) => self::arrivesToAppointment($get))
@@ -96,7 +97,8 @@ final class WalkInAction
                 'doctor_id' => SlotPicker::defaultDoctorId(),
             ])
             ->action(function (array $data, Action $action) {
-                $appointment = ($data['use_appointment'] ?? false) ? self::todaysAppointmentOf($data['patient_id'] ?? null) : null;
+                // Recién leída: la de la lista de hoy viene con las demás y no carga lo que el aviso al doctor necesita.
+                $appointment = ($data['use_appointment'] ?? false) ? self::todaysAppointmentOf($data['patient_id'] ?? null)?->fresh() : null;
 
                 if ($appointment !== null && self::canMarkArrival($appointment)) {
                     Notify::run(
@@ -217,24 +219,38 @@ final class WalkInAction
     }
 
     /**
-     * La primera cita de hoy del paciente que todavía espera un cierre, entre las que quien mira puede manejar
-     * (el doctor, solo las suyas). Se pide varias veces al pintar la ventana: se busca una sola vez por pedido.
+     * Su cita de hoy a la que puede estar llegando: la primera que todavía espera que llegue o, si ya está en sala o lo
+     * atienden en todas, la primera de ellas.
      */
     private static function todaysAppointmentOf(mixed $patientId): ?Appointment
     {
+        $today = self::todaysAppointmentsOf($patientId);
+
+        return $today->first(fn (Appointment $appointment) => self::canMarkArrival($appointment)) ?? $today->first();
+    }
+
+    /**
+     * Sus citas de hoy que todavía esperan un cierre, entre las que quien mira puede manejar (el doctor, solo las
+     * suyas). Se pide varias veces al pintar la ventana: se busca una sola vez por pedido.
+     *
+     * @return Collection<int, Appointment>
+     */
+    private static function todaysAppointmentsOf(mixed $patientId): Collection
+    {
         if (blank($patientId)) {
-            return null;
+            return new Collection;
         }
 
-        $memo = 'walk-in.todays-appointment.'.$patientId;
+        $memo = 'walk-in.todays-appointments.'.$patientId;
 
         if (! request()->attributes->has($memo)) {
             request()->attributes->set($memo, AppointmentResource::getEloquentQuery()
+                ->with(['treatment', 'doctor'])
                 ->where('patient_id', $patientId)
                 ->whereDate('starts_at', today())
                 ->whereIn('status', AppointmentStatus::open())
                 ->orderBy('starts_at')
-                ->first());
+                ->get());
         }
 
         return request()->attributes->get($memo);
@@ -461,7 +477,14 @@ final class WalkInAction
             default => null,
         };
 
-        return new HtmlString(e(self::describe($appointment).' · '.self::statusOf($appointment)->getLabel()).($advice ? '<br>'.e($advice) : ''));
+        $others = self::todaysAppointmentsOf($get('patient_id'))
+            ->reject(fn (Appointment $other) => $other->is($appointment))
+            ->map(fn (Appointment $other) => 'También tiene hoy '.self::describe($other).' a las '.self::startsAt($other)->format('H:i').' · '.self::statusOf($other)->getLabel().'.');
+
+        return new HtmlString(collect([self::describe($appointment).' · '.self::statusOf($appointment)->getLabel(), $advice, ...$others])
+            ->filter()
+            ->map(fn (string $line) => e($line))
+            ->implode('<br>'));
     }
 
     /**
