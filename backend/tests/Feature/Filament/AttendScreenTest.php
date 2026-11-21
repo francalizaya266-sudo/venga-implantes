@@ -43,7 +43,9 @@ class AttendScreenTest extends TestCase
         $page = Livewire::test(EditConsultation::class, ['record' => $consultation->getRouteKey()])
             ->assertSeeHtml('<h1 class="cb-name">Laura Zayas</h1>')
             ->assertSee(['46 años', $consultation->appointment->treatment->name, 'Se guarda solo'])
-            ->assertSeeInOrder(['Antes de empezar', 'Motivo y examen', 'Radiografías y fotos', 'Lo que hiciste', 'Odontograma', 'Diagnóstico', 'Lo que se hizo', 'Nota de evolución', 'Para el paciente', 'Indicaciones y receta']);
+            ->assertSeeInOrder(['Antes de empezar', 'Motivo y examen', 'Radiografías y fotos', 'Lo que hiciste', 'Odontograma', 'Diagnóstico', 'Lo que se hizo', 'Nota de evolución', 'Para el paciente', 'Indicaciones y receta'])
+            // Dictar la evolución no necesita nada más que el micrófono del teclado.
+            ->assertSee('Para dictar, toca el micrófono del teclado');
 
         $this->assertSame(1, substr_count($page->html(), 'Terminar atención'));
 

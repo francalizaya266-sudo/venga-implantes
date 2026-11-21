@@ -18,6 +18,7 @@ use App\Filament\Support\ClinicalAlerts;
 use App\Filament\Support\MenuPending;
 use App\Filament\Support\Notify;
 use App\Filament\Support\VisitFlags;
+use App\Filament\Support\VisitReadiness;
 use App\Models\Appointment;
 use App\Models\Charge;
 use App\Models\Doctor;
@@ -1160,6 +1161,13 @@ class Agenda extends Page
     private function column(Doctor $doctor, CarbonImmutable $day): array
     {
         $blocks = ScheduleBlock::query()->affecting($doctor, $day->startOfDay(), $day->endOfDay())->get();
+        // Quien ya no atiende no tiene horario abierto: su columna muestra solo las citas que le quedan.
+        $working = $doctor->is_active
+            ? app(AvailabilityService::class)->workingRanges($doctor, $day)
+                ->map(fn (array $r) => ['start' => $this->minuteOf($r['start']), 'end' => $this->minuteOf($r['end'])])
+                ->all()
+            : [];
+        $appointments = $this->appointmentsFor($doctor, $day, $blocks)->all();
 
         return [
             ...$this->dayHeading($day),
@@ -1171,12 +1179,7 @@ class Agenda extends Page
             'doctorId' => $doctor->getKey(),
             'attending' => $doctor->is_active,
             'treatments' => $doctor->treatments->modelKeys(),
-            // Quien ya no atiende no tiene horario abierto: su columna muestra solo las citas que le quedan.
-            'working' => $doctor->is_active
-                ? app(AvailabilityService::class)->workingRanges($doctor, $day)
-                    ->map(fn (array $r) => ['start' => $this->minuteOf($r['start']), 'end' => $this->minuteOf($r['end'])])
-                    ->all()
-                : [],
+            'working' => $working,
             'blocks' => [
                 ...$blocks->map(fn (ScheduleBlock $block) => $this->blockCard($block, $day)),
                 // Lo ofrecido a alguien de la lista de espera queda apartado mientras responde.
@@ -1190,7 +1193,38 @@ class Agenda extends Page
                         'own' => true,
                     ]),
             ],
-            'appointments' => $this->appointmentsFor($doctor, $day, $blocks)->all(),
+            'appointments' => $appointments,
+            // Hoy, en el día: a quién atiende ahora y cuántos lo esperan en sala.
+            'live' => $this->mode === 'day' && $day->isToday() ? self::doctorNow($appointments, $working) : null,
+        ];
+    }
+
+    /**
+     * "Atendiendo a Rosa Quispe · 28 min · 1 en sala" o "Libre · 2 en sala", con lo que ya dicen sus citas (las que
+     * nadie cerró no cuentan). Fuera de su horario y sin nadie, nada.
+     *
+     * @param  list<array<string, mixed>>  $cards
+     * @param  list<array{start: int, end: int}>  $working
+     * @return array{text: string, busy: bool, waiting: int}|null
+     */
+    private static function doctorNow(array $cards, array $working): ?array
+    {
+        $now = now()->hour * 60 + now()->minute;
+        $current = collect($cards)->first(fn (array $card) => $card['status'] === AppointmentStatus::InProgress->value && ! $card['unclosed']);
+        $waiting = collect($cards)->filter(fn (array $card) => $card['status'] === AppointmentStatus::CheckedIn->value && ! $card['unclosed'])->count();
+        $atWork = collect($working)->contains(fn (array $range) => $now >= $range['start'] && $now < $range['end']);
+
+        if ($current === null && $waiting === 0 && ! $atWork) {
+            return null;
+        }
+
+        return [
+            'text' => collect([
+                $current ? 'Atendiendo a '.$current['shortName'].($current['state']['minutes'] !== null ? ' · '.Dates::duration($current['state']['minutes']) : '') : 'Libre',
+                $waiting > 0 ? $waiting.' en sala' : null,
+            ])->filter()->implode(' · '),
+            'busy' => $current !== null,
+            'waiting' => $waiting,
         ];
     }
 
@@ -1224,6 +1258,7 @@ class Agenda extends Page
             ->orderBy('starts_at')
             ->get();
         $flags = VisitFlags::for($appointments, $user);
+        $readiness = VisitReadiness::for($appointments, $user);
 
         return $appointments
             ->map(fn (Appointment $a) => [
@@ -1252,11 +1287,29 @@ class Agenda extends Page
                 'hasNote' => filled($a->patient_note) || filled($a->internal_notes),
                 // Alerta médica (solo para quien ve lo clínico), sesión del plan, pidió cambio y si suele faltar.
                 'flags' => $flags[$a->getKey()],
+                // Con su tiempo: "En sala · 12 min", "En atención · 28 min".
+                'state' => self::liveState($a),
+                // Consentimiento (solo si el tratamiento lo pide, para quien atiende) y lo que espera del laboratorio.
+                'consent' => $readiness[$a->getKey()]['consent'],
+                'lab' => $readiness[$a->getKey()]['lab'],
+                // Atendida y sin deuda: es lo que "Enfoque" atenúa.
+                'settled' => self::isSettled($a, $seesMoney),
                 'url' => AppointmentResource::getUrl('view', ['record' => $a]),
                 'draggable' => $a->status->isChangeable() && $user->can('update', $a),
             ])
             ->map(fn (array $card) => [...$card, 'hint' => self::hint($card)])
             ->pipe(fn (Collection $cards) => self::inLanes($cards));
+    }
+
+    /** Atendida y sin deuda (para quien no ve los saldos, atendida basta): lo que "Enfoque" deja tenue. */
+    private static function isSettled(Appointment $appointment, bool $seesMoney): bool
+    {
+        /** @var AppointmentStatus $status */
+        $status = $appointment->status;
+        /** @var Patient $patient */
+        $patient = $appointment->patient;
+
+        return $status === AppointmentStatus::Completed && ! ($seesMoney && (float) $patient->getAttribute('balance_due') > 0);
     }
 
     /**
@@ -1273,7 +1326,7 @@ class Agenda extends Page
      * Appointment::LONG_WAIT_MINUTES de demora, como la sala de espera de Hoy) o "En atención · 28 min" (en ámbar si
      * ya pasó la hora en que debía terminar). Si nadie la cerró, el tiempo no se cuenta: lo dice "Sin cerrar".
      *
-     * @return array{label: string, color: string, long: bool}
+     * @return array{label: string, color: string, long: bool, minutes: int|null}
      */
     public static function liveState(Appointment $appointment): array
     {
@@ -1284,15 +1337,12 @@ class Agenda extends Page
         /** @var CarbonInterface|null $startedAt */
         $startedAt = $appointment->started_at;
         $waiting = self::isUnclosed($appointment) ? null : $appointment->waitingMinutes();
+        $attending = $status === AppointmentStatus::InProgress && $startedAt !== null && ! self::isUnclosed($appointment) ? (int) $startedAt->diffInMinutes(now()) : null;
 
         return match (true) {
-            $waiting !== null => ['label' => 'En sala · '.Dates::duration($waiting), 'color' => $appointment->waitsTooLong() ? 'danger' : $status->getColor(), 'long' => $appointment->waitsTooLong()],
-            $status === AppointmentStatus::InProgress && $startedAt !== null && ! self::isUnclosed($appointment) => [
-                'label' => 'En atención · '.Dates::duration((int) $startedAt->diffInMinutes(now())),
-                'color' => $endsAt->isPast() ? 'warning' : $status->getColor(),
-                'long' => $endsAt->isPast(),
-            ],
-            default => ['label' => $status->getLabel(), 'color' => $status->getColor(), 'long' => false],
+            $waiting !== null => ['label' => 'En sala · '.Dates::duration($waiting), 'color' => $appointment->waitsTooLong() ? 'danger' : $status->getColor(), 'long' => $appointment->waitsTooLong(), 'minutes' => $waiting],
+            $attending !== null => ['label' => 'En atención · '.Dates::duration($attending), 'color' => $endsAt->isPast() ? 'warning' : $status->getColor(), 'long' => $endsAt->isPast(), 'minutes' => $attending],
+            default => ['label' => $status->getLabel(), 'color' => $status->getColor(), 'long' => false, 'minutes' => null],
         };
     }
 
@@ -1310,7 +1360,7 @@ class Agenda extends Page
             $card['time'],
             $card['patient'],
             $card['treatment'].($card['flags']['session'] ? ' ('.mb_strtolower($card['flags']['session']).')' : ''),
-            $card['statusLabel'],
+            $card['state']['label'],
             $card['phone'],
             $card['unclosed'] ? 'Sin cerrar: '.($changeable ? 'falta marcar si vino' : 'vino y falta cerrar su atención') : null,
             $card['needsCall'] ? 'Por confirmar: llamar' : null,
@@ -1322,6 +1372,12 @@ class Agenda extends Page
             $card['isNew'] ? 'Paciente nuevo' : null,
             $card['owes'] ? 'Debe '.$card['owes'] : null,
             $card['hasNote'] ? 'Tiene una nota' : null,
+            match ($card['consent']) {
+                true => 'Consentimiento firmado',
+                false => 'Falta el consentimiento',
+                default => null,
+            },
+            $card['lab'] ? 'Laboratorio: '.$card['lab']['title'] : null,
         ])->filter()->implode(' · ');
     }
 

@@ -148,6 +148,44 @@ class Backups extends Page
             });
     }
 
+    /**
+     * Para el administrador, al pie del menú: "Respaldo de hoy ✓" y cuándo se bajó la última copia fuera del hosting.
+     * En ámbar si toca bajarla, en rojo si la copia diaria dejó de hacerse. Sin la palabra "cifrado": las copias
+     * todavía no lo están.
+     *
+     * @return array{tone: 'success'|'warning'|'danger', text: string, detail: string, url: string}|null
+     */
+    public static function sidebarStatus(): ?array
+    {
+        if (! self::canAccess()) {
+            return null;
+        }
+
+        $database = app(DatabaseBackup::class);
+        $copies = app(OffsiteCopies::class);
+        $latest = $database->latestAt();
+        $downloaded = $copies->lastDatabaseDownload();
+        $due = $copies->due();
+
+        return [
+            'tone' => match (true) {
+                $database->isStale() => 'danger',
+                $due !== null => 'warning',
+                default => 'success',
+            },
+            'text' => match (true) {
+                $latest === null => 'Todavía no hay respaldo',
+                $database->isStale() => 'Respaldo atrasado: el último es de '.$latest->diffForHumans(),
+                $latest->isToday() => 'Respaldo de hoy ✓',
+                default => 'Respaldo de ayer ✓',
+            },
+            'detail' => $downloaded === null
+                ? 'Aún no se bajó una copia fuera del hosting'
+                : 'Copia fuera del hosting '.$downloaded['at']->diffForHumans(),
+            'url' => self::getUrl(),
+        ];
+    }
+
     /** "Hay 4 copias de más: las más viejas se borran al crear la próxima copia." */
     private static function extraCopies(int $extra): string
     {

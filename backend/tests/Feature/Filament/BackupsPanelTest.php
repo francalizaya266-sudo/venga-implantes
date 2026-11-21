@@ -326,4 +326,25 @@ class BackupsPanelTest extends TestCase
             ->assertSee('La última descarga de los datos fue hace 1 semana. Avísale a Ana Torres para que descargue lo que falta y lo guarde fuera del sistema.')
             ->assertDontSee('Descarga aquí abajo lo que falta');
     }
+
+    public function test_the_admin_sees_at_the_foot_of_the_menu_if_the_backup_is_up_to_date(): void
+    {
+        $admin = User::factory()->admin(isDentist: true)->create(['name' => 'Ana Torres']);
+        $this->actingAs($admin);
+        $this->stored('respaldos/respaldo_2026-10-23_030000.sql.gz', '2026-10-23 03:00');
+        app(OffsiteCopies::class)->recordDatabaseDownload($admin, 'respaldo_2026-10-23_030000.sql.gz');
+        $this->travel(3)->days();
+        $this->stored('respaldos/respaldo_2026-10-26_030000.sql.gz', '2026-10-26 03:00');
+
+        $this->assertSame(['tone' => 'success', 'text' => 'Respaldo de hoy ✓', 'detail' => 'Copia fuera del hosting hace 3 días', 'url' => Backups::getUrl()], Backups::sidebarStatus());
+        $this->get(Backups::getUrl())->assertOk()->assertSee(['Respaldo de hoy ✓', 'Copia fuera del hosting hace 3 días']);
+
+        // Dos días sin copia: en rojo.
+        $this->travel(2)->days();
+        $this->assertSame(['danger', 'Respaldo atrasado: el último es de hace 2 días'], [Backups::sidebarStatus()['tone'], Backups::sidebarStatus()['text']]);
+
+        // Recepción no lo ve.
+        $this->actingAs(User::factory()->reception()->create());
+        $this->assertNull(Backups::sidebarStatus());
+    }
 }

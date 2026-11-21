@@ -62,7 +62,7 @@ class AppointmentSidePanelTest extends TestCase
         $reception = User::factory()->reception()->create();
 
         $this->panel($appointment, $reception)->assertMountedActionModalSee("En sala · 14\u{00A0}min");
-        $this->assertSame(['label' => "En sala · 14\u{00A0}min", 'color' => 'info', 'long' => false], Agenda::liveState($appointment->fresh()));
+        $this->assertSame(['label' => "En sala · 14\u{00A0}min", 'color' => 'info', 'long' => false, 'minutes' => 14], Agenda::liveState($appointment->fresh()));
 
         $this->travelTo(CarbonImmutable::parse('2026-11-02 10:25', 'America/Lima'));
         $this->assertSame('danger', Agenda::liveState($appointment->fresh())['color']);
