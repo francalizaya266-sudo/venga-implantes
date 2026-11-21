@@ -122,6 +122,9 @@ final class RegisterPaymentAction
                 Text::make('La caja de ese día ya se cerró: este pago cambia su cierre.')
                     ->color('warning')
                     ->visible(fn (Get $get) => filled($get('paid_at')) && self::user()->isAdmin() && DailyClosing::isClosed($get('paid_at'))),
+                Text::make(fn (Get $get) => self::pastDayNotice($get('paid_at')))
+                    ->color('warning')
+                    ->visible(fn (Get $get) => self::pastDayNotice($get('paid_at')) !== null),
                 TextInput::make('notes')
                     ->label('Nota')
                     ->placeholder('Por ejemplo: cuota 2 de ortodoncia')
@@ -271,6 +274,24 @@ final class RegisterPaymentAction
 
         return $balance !== null && $balance > 0 && $amount - $balance >= 0.01
             ? 'Son '.Money::format($amount - $balance).' más de lo que debe: quedan a favor.'
+            : null;
+    }
+
+    /**
+     * Un pago que se anota tarde, con la fecha en que se recibió, entra en la caja de ese día y no en la de hoy: se
+     * dice, para que una fecha mal puesta no cambie sin querer la caja de otro día. Si ese día ya se cerró, lo dice
+     * el aviso del cierre (o no se deja guardar).
+     */
+    private static function pastDayNotice(mixed $paidAt): ?string
+    {
+        if (blank($paidAt) || ! is_string($paidAt)) {
+            return null;
+        }
+
+        $day = CarbonImmutable::parse($paidAt)->startOfDay();
+
+        return $day->lt(today()) && ! DailyClosing::isClosed($day)
+            ? 'Ese día ya pasó: el pago entra en la caja del '.$day->translatedFormat('l j \d\e F').', no en la de hoy.'
             : null;
     }
 

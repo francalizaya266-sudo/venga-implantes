@@ -239,6 +239,34 @@ class AppointmentChangeAndCancelTest extends TestCase
         $this->assertSame(1, WaitlistEntry::count());
     }
 
+    public function test_when_the_doctor_is_the_reason_what_follows_is_not_tied_to_that_doctor(): void
+    {
+        $first = $this->book('2026-11-03 10:00');
+        $second = $this->book('2026-11-04 10:00');
+
+        // A la lista de espera, con cualquier doctor que haga la limpieza: con el suyo esperaría justo por quien no está.
+        $this->page($first)
+            ->mountAction('cancel')
+            ->setActionData(['who' => CancelledBy::Clinic->value])
+            ->setActionData(['motive' => 'El doctor no podrá atender'])
+            ->assertMountedActionModalSee('Queda anotado para ese tratamiento con cualquier doctor que lo haga')
+            ->setActionData(['then' => 'waitlist'])
+            ->callMountedAction()
+            ->assertHasNoActionErrors();
+
+        $this->assertSame([$first->patient_id, null], [WaitlistEntry::sole()->patient_id, WaitlistEntry::sole()->doctor_id]);
+        $this->assertStringContainsString('con cualquier doctor que lo haga', $this->lastNotification()['body']);
+
+        // Agendarle otra: "Nueva cita" llega sin ese doctor puesto.
+        $this->page($second)
+            ->mountAction('cancel')
+            ->setActionData(['who' => CancelledBy::Clinic->value])
+            ->setActionData(['motive' => 'El doctor no podrá atender'])
+            ->setActionData(['then' => 'rebook'])
+            ->callMountedAction()
+            ->assertRedirect(AppointmentResource::newUrl(['patient' => $second->patient_id, 'treatment' => $this->cleaning->id]));
+    }
+
     public function test_cancelling_one_of_a_series_offers_to_cancel_the_ones_that_follow(): void
     {
         $patient = Patient::factory()->create();

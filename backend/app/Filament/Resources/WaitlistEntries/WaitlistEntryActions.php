@@ -5,6 +5,7 @@ namespace App\Filament\Resources\WaitlistEntries;
 use App\Enums\DayPeriod;
 use App\Enums\PatientRelationship;
 use App\Enums\WaitlistStatus;
+use App\Filament\Actions\SendWhatsAppAction;
 use App\Filament\Resources\Appointments\AppointmentResource;
 use App\Filament\Support\SlotPicker;
 use App\Models\Doctor;
@@ -15,7 +16,9 @@ use App\Services\Agenda\Slot;
 use App\Services\Booking\WaitlistService;
 use App\Services\Patients\PatientRegistrar;
 use App\Services\WhatsApp\WhatsAppOutbox;
+use App\Support\Dates;
 use Carbon\CarbonImmutable;
+use Carbon\CarbonInterface;
 use Closure;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
@@ -152,6 +155,8 @@ final class WaitlistEntryActions
             ->modalHeading(fn (WaitlistEntry $record) => 'Ofrecer un horario a '.$record->patient->full_name)
             ->modalDescription('Elige el horario. Se abrirá WhatsApp con el mensaje listo: solo presiona Enviar. El horario queda apartado mientras responde: no se le ofrece a nadie más ni se puede reservar en la web.')
             ->modalSubmitActionLabel('Abrir WhatsApp')
+            // Como "Enviar por WhatsApp": la pestaña se abre en el mismo toque, para que el navegador no la bloquee.
+            ->modalSubmitAction(fn (Action $action) => $action->extraAttributes(SendWhatsAppAction::OPENS_TAB_ON_CLICK))
             ->modalWidth(Width::TwoExtraLarge)
             ->fillForm(function (WaitlistEntry $record, array $arguments) {
                 $service = app(WaitlistService::class);
@@ -220,6 +225,7 @@ final class WaitlistEntryActions
                     ->contains(fn (Slot $slot) => $slot->startsAt->eq($startsAt));
 
                 if (! $stillFree) {
+                    SendWhatsAppAction::closeTab($livewire);
                     Notification::make()->danger()->title('Ese horario ya no está libre. Elige otro.')->send();
                     $action->halt();
                 }
@@ -227,6 +233,7 @@ final class WaitlistEntryActions
                 $message = $service->offerDraft($record, $doctor, $treatment, $startsAt);
 
                 if (! $message) {
+                    SendWhatsAppAction::closeTab($livewire);
                     Notification::make()->danger()->title('El paciente no tiene celular registrado.')->send();
                     $action->halt();
                 }
@@ -235,13 +242,14 @@ final class WaitlistEntryActions
                 $url = app(WhatsAppOutbox::class)->clickToChatUrl($message, auth()->user(), $data['body']);
                 $service->markOffered($record, $doctor, $treatment, $startsAt);
 
-                $livewire->js('window.open('.json_encode($url).', "_blank")');
+                SendWhatsAppAction::goToTab($url, $livewire);
+                self::offerOpenedNotification($record, $url)->send();
             });
     }
 
     /**
-     * Si ya tiene una cita para lo mismo, se le adelanta; si no, se abre "Nueva cita" con el paciente,
-     * el tratamiento y el horario que se le ofreció. Al agendarla sale solo de la lista.
+     * Si ya tiene una cita para lo mismo, se abre "Mover" en esa cita, con el horario que se le ofreció si sigue en pie;
+     * si no, "Nueva cita" con el paciente, el tratamiento y ese horario. Al agendarla o moverla sale solo de la lista.
      */
     public static function book(): Action
     {
@@ -251,7 +259,11 @@ final class WaitlistEntryActions
             ->color('gray')
             ->visible(fn (WaitlistEntry $record) => $record->isActive())
             ->url(fn (WaitlistEntry $record) => $record->upcoming_appointment_id !== null
-                ? AppointmentResource::getUrl('view', ['record' => $record->upcoming_appointment_id])
+                ? AppointmentResource::getUrl('view', array_filter([
+                    'record' => $record->upcoming_appointment_id,
+                    'action' => 'move',
+                    'actionArguments' => self::offeredSlotArguments($record),
+                ]))
                 : AppointmentResource::newUrl(array_filter([
                     'patient' => $record->patient_id,
                     'treatment' => $record->treatment_id,
@@ -259,6 +271,23 @@ final class WaitlistEntryActions
                     'date' => ($record->offered_starts_at?->isFuture() ? $record->offered_starts_at : $record->firstDate())->toDateString(),
                     'time' => $record->offered_starts_at?->isFuture() ? $record->offered_starts_at->format('H:i') : null,
                 ])));
+    }
+
+    /**
+     * El horario que se le ofreció, para que "Mover" llegue con él elegido: solo si sigue apartado y no pasó.
+     *
+     * @return array{doctor: int|null, date: string, time: string}|null
+     */
+    private static function offeredSlotArguments(WaitlistEntry $record): ?array
+    {
+        /** @var CarbonInterface|null $offeredAt */
+        $offeredAt = $record->offered_starts_at;
+
+        if (! $record->isHolding() || $offeredAt === null || ! $offeredAt->isFuture()) {
+            return null;
+        }
+
+        return ['doctor' => $record->offered_doctor_id, 'date' => $offeredAt->toDateString(), 'time' => $offeredAt->format('H:i')];
     }
 
     /** No quiere el horario ofrecido (o ya se sabe que no viene): queda libre para otro y él sigue en la lista. */
@@ -337,6 +366,30 @@ final class WaitlistEntryActions
                     ->close(),
             ])
             ->duration(self::FREED_NOTICE_SECONDS * 1000);
+    }
+
+    /**
+     * Se abrió WhatsApp con la oferta y el horario quedó apartado. Si el navegador no dejó abrirlo, queda el botón; si
+     * al final no se le envió, se dice cómo dejar el horario para otro (antes quedaba apartado sin que él lo supiera).
+     */
+    private static function offerOpenedNotification(WaitlistEntry $entry, string $url): Notification
+    {
+        /** @var Patient $patient */
+        $patient = $entry->patient;
+        /** @var CarbonImmutable $startsAt */
+        $startsAt = $entry->offered_starts_at;
+        /** @var CarbonImmutable $heldUntil */
+        $heldUntil = $entry->held_until;
+
+        return Notification::make()
+            ->success()
+            ->title('Oferta para '.$patient->full_name.' abierta en WhatsApp')
+            ->body('El '.Dates::dayAndTime($startsAt).' queda apartado para '.$patient->first_name.' hasta el '.Dates::dayAndTime($heldUntil)
+                .'. Si al final no se le envió, toca «Liberar el horario» en la lista de espera para ofrecérselo a otro.')
+            ->actions([
+                Action::make('reopen')->label('Abrir de nuevo')->url($url, shouldOpenInNewTab: true)->link(),
+            ])
+            ->persistent();
     }
 
     /** Al cambiar algo, la hora pasa a la primera libre (si la elegida ya no sirve) y el mensaje se reescribe. */

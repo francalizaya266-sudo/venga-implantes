@@ -9,6 +9,7 @@ use App\Models\Charge;
 use App\Models\Doctor;
 use App\Models\LabOrder;
 use App\Models\Patient;
+use App\Models\Payment;
 use App\Models\User;
 use App\Services\Clinical\ConsentService;
 use App\Services\Patients\PatientInsights;
@@ -87,13 +88,22 @@ final class ArrivalChecklist
 
         return $notification
             ->body(implode('<br>', [$headline ?? $patient->full_name, ...$pending]))
-            ->actions([
+            ->actions(array_filter([
                 Action::make('patient')
                     ->label($user->can('update', $patient) ? 'Completar su ficha' : 'Ver su ficha')
                     ->icon(Heroicon::OutlinedUser)
                     ->url(PatientResource::getUrl($user->can('update', $patient) ? 'edit' : 'view', ['record' => $patient]))
                     ->button(),
-            ])
+                // Si debe de antes, se le cobra mientras espera: abre su ficha con "Cobrar" y lo que debe ya puesto.
+                $user->can('create', Payment::class) && $user->can('viewAny', Charge::class) && $patient->balance() > 0
+                    ? Action::make('collect')
+                        ->label('Cobrar')
+                        ->icon(Heroicon::OutlinedBanknotes)
+                        ->color('success')
+                        ->url(PatientResource::getUrl('view', ['record' => $patient, 'action' => 'registerPayment']))
+                        ->button()
+                    : null,
+            ]))
             ->persistent();
     }
 }

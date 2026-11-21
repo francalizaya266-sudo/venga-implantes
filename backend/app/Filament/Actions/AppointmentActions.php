@@ -41,6 +41,7 @@ use Filament\Forms\Components\Toggle;
 use Filament\Forms\Components\ToggleButtons;
 use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
+use Filament\Schemas\Components\Text;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Support\Enums\Width;
@@ -56,6 +57,9 @@ use Illuminate\Support\Collection;
  */
 final class AppointmentActions
 {
+    /** El motivo con que el consultorio cancela porque el doctor no estará: lo que sigue no se ata a ese doctor. */
+    private const DOCTOR_UNAVAILABLE = 'El doctor no podrá atender';
+
     /**
      * Las de una fila de tabla (Citas, Hoy, las citas de la ficha): el paso del día a la vista y lo demás en el menú,
      * porque en una fila no hay más sitio.
@@ -134,6 +138,7 @@ final class AppointmentActions
         return [
             self::viewConsultation(),
             self::move(),
+            self::handOver(),
             self::changeTreatment(),
             self::notes(),
             self::changeRequest(),
@@ -567,10 +572,7 @@ final class AppointmentActions
             ->modalSubmitActionLabel('Mover cita')
             ->visible(fn (Appointment $record) => $record->status->isChangeable())
             ->authorize('update')
-            ->fillForm(fn (Appointment $record) => [
-                'doctor_id' => $record->doctor_id,
-                'date' => $record->starts_at->toDateString(),
-            ])
+            ->fillForm(fn (Appointment $record, array $arguments) => self::moveDefaults($record, $arguments))
             ->schema(fn (Appointment $record) => [
                 ...SlotPicker::fields($record),
                 Checkbox::make('agreed')
@@ -588,6 +590,132 @@ final class AppointmentActions
                 self::movedMessage($record, SlotPicker::startsAt($data), (bool) ($data['agreed'] ?? false)),
                 $action,
             ));
+    }
+
+    /**
+     * "Mover" llega con su horario de ahora. Desde la lista de espera ("Adelantar cita") llega con el horario que se le
+     * ofreció y que aceptó: ya elegido, y como acordado con él, para no pedirle que confirme lo que acaba de pedir.
+     *
+     * @param  array<string, mixed>  $arguments
+     * @return array<string, mixed>
+     */
+    private static function moveDefaults(Appointment $record, array $arguments): array
+    {
+        if (isset($arguments['doctor'], $arguments['date'], $arguments['time'])) {
+            return ['doctor_id' => (int) $arguments['doctor'], 'date' => (string) $arguments['date'], 'slot' => (string) $arguments['time'], 'agreed' => true];
+        }
+
+        return ['doctor_id' => $record->doctor_id, 'date' => $record->starts_at->toDateString()];
+    }
+
+    /**
+     * Ya está en sala y su doctor no puede atenderlo ahora (no vino, se atrasó): recepción lo pasa con otro que hace
+     * el tratamiento y está libre, sin deshacer la llegada ni mover la cita a mano. Desde ahí, ese doctor lo ve.
+     */
+    public static function handOver(): Action
+    {
+        return Action::make('handOver')
+            ->label('Pasar con otro doctor')
+            ->icon(Heroicon::OutlinedUsers)
+            ->color('gray')
+            ->modalHeading(fn (Appointment $record) => 'Pasar a '.self::handOverParts($record)['patient'].' con otro doctor')
+            ->modalDescription(fn (Appointment $record) => 'Está en sala para '.self::handOverParts($record)['treatment'].' con '.self::handOverParts($record)['doctor'].'. Elige quién lo atiende: cada uno dice desde qué hora está libre.')
+            ->modalSubmitActionLabel('Pasarlo')
+            ->modalWidth(Width::Large)
+            ->visible(fn (Appointment $record) => self::canHandOver($record))
+            ->authorize('update')
+            ->schema(fn (Appointment $record) => [
+                Radio::make('doctor_id')
+                    ->label('Doctor')
+                    ->options(fn () => self::handOverOptions($record))
+                    ->required()
+                    ->validationMessages(['required' => 'Elige con qué doctor pasa.', 'in' => 'Ese doctor ya no está libre hoy. Elige otro.']),
+                Text::make('Ningún otro doctor que haga '.self::handOverParts($record)['treatment'].' tiene un hueco hoy. Si puede esperar, sigue en sala con su doctor.')
+                    ->color('warning')
+                    ->visible(fn () => self::handOverOptions($record) === []),
+            ])
+            ->action(function (array $data, Appointment $record, Action $action): void {
+                /** @var User $user */
+                $user = auth()->user();
+                $doctor = Doctor::findOrFail($data['doctor_id']);
+                $slot = app(AppointmentService::class)->firstRoomTodayFor($record, $doctor);
+
+                if ($slot === null) {
+                    Notification::make()->danger()->title($doctor->name.' ya no tiene un hueco hoy. Elige otro doctor.')->send();
+                    $action->halt();
+                }
+
+                Notify::run(
+                    fn () => app(AppointmentService::class)->handOver($record, $doctor, $slot->startsAt, $user),
+                    self::handOverParts($record)['patient'].' pasa con '.$doctor->name.' a las '.$slot->label().'.',
+                    $action,
+                );
+            });
+    }
+
+    /**
+     * Los otros doctores que hacen su tratamiento y hoy tienen un hueco, del que se desocupa primero al último:
+     * "Dr. Luis Ramos · libre desde las 10:40".
+     *
+     * @return array<int, string>
+     */
+    private static function handOverOptions(Appointment $record): array
+    {
+        $memo = 'appointment.hand-over.'.$record->getKey();
+
+        if (! request()->attributes->has($memo)) {
+            $service = app(AppointmentService::class);
+
+            request()->attributes->set($memo, Doctor::query()
+                ->active()
+                ->whereKeyNot($record->doctor_id)
+                ->whereHas('treatments', fn (Builder $query) => $query->whereKey($record->treatment_id))
+                ->orderBy('sort_order')
+                ->get()
+                ->map(fn (Doctor $doctor) => ['doctor' => $doctor, 'slot' => $service->firstRoomTodayFor($record, $doctor)])
+                ->filter(fn (array $option) => $option['slot'] !== null)
+                ->sortBy(fn (array $option) => $option['slot']->startsAt->getTimestamp())
+                ->mapWithKeys(fn (array $option) => [$option['doctor']->getKey() => $option['doctor']->name.' · libre desde las '.$option['slot']->label()])
+                ->all());
+        }
+
+        /** @var array<int, string> */
+        return request()->attributes->get($memo);
+    }
+
+    /**
+     * Los nombres que dice "Pasar con otro doctor": el paciente, su tratamiento (en minúscula, dentro de una frase) y
+     * su doctor de ahora.
+     *
+     * @return array{patient: string, treatment: string, doctor: string}
+     */
+    private static function handOverParts(Appointment $record): array
+    {
+        /** @var Patient $patient */
+        $patient = $record->patient;
+        /** @var Treatment $treatment */
+        $treatment = $record->treatment;
+        /** @var Doctor $doctor */
+        $doctor = $record->doctor;
+
+        return ['patient' => $patient->full_name, 'treatment' => mb_strtolower($treatment->name), 'doctor' => $doctor->name];
+    }
+
+    /** Se pasa a otro doctor a quien ya está en sala, y solo lo hace quien maneja todas las agendas. */
+    private static function canHandOver(Appointment $record): bool
+    {
+        /** @var AppointmentStatus $status */
+        $status = $record->status;
+
+        return $status === AppointmentStatus::CheckedIn && self::managesAllAgendas();
+    }
+
+    private static function managesAllAgendas(): bool
+    {
+        /** @var User $user */
+        $user = auth()->user();
+
+        return $user->managesAllAgendas();
     }
 
     /**
@@ -751,10 +879,15 @@ final class AppointmentActions
                         'rebook' => AppointmentResource::canCreate() ? 'Agendarle otra cita ahora' : null,
                         'waitlist' => auth()->user()->can('create', WaitlistEntry::class) ? 'Pasarlo a la lista de espera' : null,
                     ]))
-                    ->descriptions([
-                        'rebook' => 'Se abre "Nueva cita" con el paciente, el doctor y el tratamiento ya puestos.',
-                        'waitlist' => 'Queda anotado para ese tratamiento: llega la alerta cuando se libere un horario.',
-                    ])
+                    ->descriptions(fn (Get $get) => self::doctorIsTheReason($get('who'), $get('motive'))
+                        ? [
+                            'rebook' => 'Se abre "Nueva cita" con el paciente y el tratamiento ya puestos, para elegir otro doctor.',
+                            'waitlist' => 'Queda anotado para ese tratamiento con cualquier doctor que lo haga: llega la alerta cuando se libere un horario.',
+                        ]
+                        : [
+                            'rebook' => 'Se abre "Nueva cita" con el paciente, el doctor y el tratamiento ya puestos.',
+                            'waitlist' => 'Queda anotado para ese tratamiento: llega la alerta cuando se libere un horario.',
+                        ])
                     ->default('nothing'),
             ])
             ->action(function (array $data, Appointment $record, Action $action): void {
@@ -780,14 +913,17 @@ final class AppointmentActions
                     },
                 );
 
+                // Si el motivo es que su doctor no podrá atender, no se lo ata a ese doctor.
+                $anyDoctor = self::doctorIsTheReason($data['who'] ?? null, $data['motive'] ?? null);
+
                 match ($data['then'] ?? 'nothing') {
                     'rebook' => $action->redirect(AppointmentResource::newUrl([
                         'patient' => $record->patient_id,
-                        'doctor' => $record->doctor_id,
+                        'doctor' => $anyDoctor ? null : $record->doctor_id,
                         'treatment' => $record->treatment_id,
                         'plan_item' => $record->treatment_plan_item_id,
                     ])),
-                    'waitlist' => self::passToWaitlist($record, $user),
+                    'waitlist' => self::passToWaitlist($record, $user, $anyDoctor),
                     default => null,
                 };
             });
@@ -802,7 +938,7 @@ final class AppointmentActions
     {
         return match (CancelledBy::tryFrom((string) $who)) {
             CancelledBy::Patient => ['No puede venir ese día', 'Está enfermo', 'Por el costo', 'Ya no quiere el tratamiento', 'Otro'],
-            CancelledBy::Clinic => ['El doctor no podrá atender', 'No se atiende ese día', 'Se agendó por error', 'Otro'],
+            CancelledBy::Clinic => [self::DOCTOR_UNAVAILABLE, 'No se atiende ese día', 'Se agendó por error', 'Otro'],
             default => [],
         };
     }
@@ -819,19 +955,25 @@ final class AppointmentActions
         return collect([$motive, $data['reason'] ?? null])->filter()->implode(': ') ?: null;
     }
 
+    /** El consultorio cancela porque el doctor no podrá atender: lo que sigue no se ata a ese doctor. */
+    private static function doctorIsTheReason(mixed $who, mixed $motive): bool
+    {
+        return $who === CancelledBy::Clinic->value && $motive === self::DOCTOR_UNAVAILABLE;
+    }
+
     /** Tras cancelar: el paciente queda en la lista de espera (si no estaba ya) y se dice dónde verlo. */
-    private static function passToWaitlist(Appointment $record, User $by): void
+    private static function passToWaitlist(Appointment $record, User $by, bool $anyDoctor = false): void
     {
         if (! $by->can('create', WaitlistEntry::class)) {
             return;
         }
 
-        $entry = app(WaitlistService::class)->addAfterCancellation($record, $by);
+        $entry = app(WaitlistService::class)->addAfterCancellation($record, $by, $anyDoctor);
 
         Notification::make()
             ->success()
             ->title($record->patient->full_name.($entry ? ' quedó en la lista de espera' : ' ya estaba en la lista de espera'))
-            ->body($entry ? 'Para '.mb_strtolower($record->treatment->name).', desde hoy y a cualquier hora. Si pidió algo más preciso, ajústalo en la lista.' : null)
+            ->body($entry ? 'Para '.mb_strtolower($record->treatment->name).($anyDoctor ? ', con cualquier doctor que lo haga' : '').', desde hoy y a cualquier hora. Si pidió algo más preciso, ajústalo en la lista.' : null)
             ->actions([Action::make('seeWaitlist')->label('Ver la lista de espera')->url(WaitlistEntryResource::getUrl())])
             ->send();
     }
