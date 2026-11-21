@@ -780,14 +780,13 @@ class AppointmentForm
      */
     public static function planItemOptions(mixed $patientId): array
     {
-        $patient = filled($patientId) ? Patient::find($patientId) : null;
+        $user = self::user();
+        // Las sesiones dicen la pieza: un doctor solo las ve de sus pacientes.
+        $patient = filled($patientId) ? Patient::query()->visibleTo($user)->find($patientId) : null;
 
         if (! $patient) {
             return [];
         }
-
-        /** @var User $user */
-        $user = auth()->user();
         $plans = app(TreatmentPlanService::class);
         $items = $plans->workableItems($patient);
         $booked = $plans->bookedSessions($items->map(fn (TreatmentPlanItem $item) => $item->getKey())->all());
@@ -819,7 +818,9 @@ class AppointmentForm
             ->searchable()
             ->required()
             ->default(fn () => request()->integer('patient') ?: null)
+            // Un doctor solo encuentra a sus pacientes (Ley 29733); a uno nuevo para él se lo agenda recepción.
             ->getSearchResultsUsing(fn (string $search) => Patient::query()
+                ->visibleTo(self::user())
                 ->search($search)
                 ->with('account')
                 ->limit(20)
@@ -880,5 +881,13 @@ class AppointmentForm
                 $set('../patient_id', $patientId);
             }),
         ];
+    }
+
+    private static function user(): User
+    {
+        /** @var User $user */
+        $user = auth()->user();
+
+        return $user;
     }
 }

@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Services\Billing\BillingService;
 use App\Services\Patients\PatientInsights;
 use App\Support\Money;
+use Carbon\CarbonInterface;
 use Closure;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Hidden;
@@ -25,6 +26,7 @@ use Filament\Schemas\Components\View;
 use Filament\Support\Enums\Alignment;
 use Filament\Support\Enums\Size;
 use Filament\Support\Icons\Heroicon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -39,10 +41,10 @@ final class CheckoutAction
             ->label('Cobrar')
             ->icon(Heroicon::OutlinedBanknotes)
             ->color('success')
-            // Mientras el paciente deba algo, o si la cita aún no tiene ningún pago.
+            // Mientras el paciente deba algo, o si todavía no pagó nada por la cita ni ese día.
             ->visible(fn (Appointment $record) => $record->status === AppointmentStatus::Completed
                 && self::user()->managesAllAgendas()
-                && ($record->patient->balance() > 0 || ! Payment::query()->whereBelongsTo($record)->whereNull('voided_at')->exists()))
+                && ($record->patient->balance() > 0 || ! self::paidThatDay($record)))
             ->authorize(fn () => self::user()->can('create', Charge::class))
             ->modalHeading(fn (Appointment $record) => 'Cobrar a '.$record->patient->full_name)
             ->modalDescription(fn (Appointment $record) => $record->starts_at->translatedFormat('l j \d\e F').' · '.$record->treatment->name.' · '.$record->doctor->name)
@@ -204,6 +206,24 @@ final class CheckoutAction
         $next = app(PatientInsights::class)->upcomingInstallment($record->patient, today()->addDays(7));
 
         return $next ? 'El '.$next['on']->translatedFormat('l j \d\e F').' vence su cuota de '.Money::format($next['due']).': si quiere, la puede pagar hoy.' : null;
+    }
+
+    /**
+     * Ya pagó algo por esta cita, o ese mismo día desde Hoy o su ficha. Sin deuda y sin ningún pago, "Cobrar" sigue a
+     * mano para revisar lo cargado (pudo cubrirlo lo que tenía a favor). Con un pago de ese día ya se le cobró: antes
+     * el botón seguía ahí, y quien no leía el aviso podía cobrarle dos veces.
+     */
+    private static function paidThatDay(Appointment $record): bool
+    {
+        /** @var CarbonInterface $startsAt */
+        $startsAt = $record->starts_at;
+
+        return Payment::query()
+            ->where('patient_id', $record->patient_id)
+            ->whereNull('voided_at')
+            ->where('amount', '>', 0)
+            ->where(fn (Builder $query) => $query->whereBelongsTo($record)->orWhereDate('paid_at', $startsAt->toDateString()))
+            ->exists();
     }
 
     private static function user(): User

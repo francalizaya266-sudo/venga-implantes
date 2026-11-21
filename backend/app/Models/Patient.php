@@ -350,6 +350,24 @@ class Patient extends Model
         return $this->hasOne(Odontogram::class)->latestOfMany();
     }
 
+    /**
+     * Los pacientes que ese usuario puede buscar y ver (Ley 29733): recepción y administración, a todos; cada doctor,
+     * solo a los que atiende, con cita o atención con él. La misma regla que la lista de pacientes y su política.
+     */
+    #[Scope]
+    protected function visibleTo(Builder $query, User $user): Builder
+    {
+        if ($user->managesAllAgendas()) {
+            return $query;
+        }
+
+        $doctorId = $user->doctorId();
+
+        return $query->where(fn (Builder $mine) => $mine
+            ->whereHas('appointments', fn (Builder $appointments) => $appointments->where('doctor_id', $doctorId))
+            ->orWhereHas('consultations', fn (Builder $consultations) => $consultations->where('doctor_id', $doctorId)));
+    }
+
     /** Busca por nombre, apellido, documento o celular. El nombre, sin importar tildes: "Maria" encuentra a "María". */
     #[Scope]
     protected function search(Builder $query, string $term): Builder

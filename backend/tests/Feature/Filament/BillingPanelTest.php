@@ -131,6 +131,30 @@ class BillingPanelTest extends TestCase
             ->assertMountedActionModalDontSee('Ya pagó');
     }
 
+    public function test_once_they_paid_from_today_the_appointment_no_longer_offers_to_collect_again(): void
+    {
+        $this->freezeMonday();
+        $appointment = $this->completedCleaning();
+        // Pagó los S/ 120 desde "Cobrar" de Hoy, mientras lo atendían: ese pago no queda en la cita.
+        Payment::factory()->for($appointment->patient)->create(['amount' => 120, 'paid_at' => '2026-11-02 10:20']);
+        $this->actingAs(User::factory()->reception()->create());
+
+        Livewire::test(TodayAppointments::class)
+            ->assertActionHidden(TestAction::make('checkout')->table($appointment));
+    }
+
+    public function test_a_visit_covered_by_money_left_before_still_offers_to_review_what_was_charged(): void
+    {
+        $this->freezeMonday();
+        $appointment = $this->completedCleaning();
+        // Lo cubre un adelanto de la semana pasada: no debe nada, pero hoy no pagó, y recepción revisa lo cargado.
+        Payment::factory()->for($appointment->patient)->create(['amount' => 120, 'paid_at' => '2026-10-26 10:00']);
+        $this->actingAs(User::factory()->reception()->create());
+
+        Livewire::test(TodayAppointments::class)
+            ->assertActionVisible(TestAction::make('checkout')->table($appointment));
+    }
+
     public function test_doctors_do_not_handle_money(): void
     {
         $this->freezeMonday();
