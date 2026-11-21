@@ -14,8 +14,8 @@ use Filament\Widgets\Widget;
 /**
  * Los próximos 7 días en una fila, empezando hoy: qué tan llena está la agenda de cada uno y cuántas horas
  * quedan libres. Al tocar un día, debajo, sus huecos por doctor (para ofrecer a quien llama, a la lista de
- * espera o a un plan sin agendar), quién de la lista de espera puede venir y el enlace a su agenda. Abre en el
- * primer día que todavía tiene huecos. Arriba, cuántas horas libres suman entre todos.
+ * espera o a un plan sin agendar), quiénes de la lista de espera pueden venir con cada uno y el enlace a su
+ * agenda. Abre en el primer día que todavía tiene huecos. Arriba, cuántas horas libres suman entre todos.
  */
 class WeekGaps extends Widget
 {
@@ -37,7 +37,7 @@ class WeekGaps extends Widget
     }
 
     /**
-     * @return array{summary: string|null, selected: int, days: list<array{label: string, short: string, number: string, occupancy: int, free: string, free_short: string, url: string, waiting: string|null, waiting_url: string, doctors: list<array{name: string|null, gaps: string}>}>}
+     * @return array{summary: string|null, selected: int, days: list<array{label: string, short: string, number: string, occupancy: int, free: string, free_short: string, url: string, doctors: list<array{name: string|null, gaps: string, waiting: string|null, waiting_url: string}>}>}
      */
     protected function getViewData(): array
     {
@@ -65,18 +65,24 @@ class WeekGaps extends Widget
                 'free' => $day['free_minutes'] > 0 ? Dates::duration($day['free_minutes']).' libres' : 'Sin huecos',
                 'free_short' => self::shortDuration($day['free_minutes']),
                 'url' => Agenda::getUrl(['date' => $day['date']->toDateString(), 'mode' => 'day']),
-                'waiting' => match ($day['waiting']) {
-                    0 => null,
-                    1 => '1 de la lista de espera puede venir',
-                    default => $day['waiting'].' de la lista de espera pueden venir',
-                },
-                'waiting_url' => WaitlistEntryResource::getUrl('index', ['filters' => ['fits' => ['date' => $day['date']->toDateString()]]]),
                 'doctors' => array_values(array_filter(array_map(fn (array $row) => $row['gaps'] === [] ? null : [
                     'name' => $severalDoctors ? $row['doctor']->name : null,
                     'gaps' => collect($row['gaps'])->map(fn (array $gap) => self::range($gap['start'], $gap['end']))->implode(' · '),
+                    'waiting' => self::waiting($row['waiting'], $severalDoctors ? $row['doctor']->name : null),
+                    'waiting_url' => WaitlistEntryResource::getUrl('index', ['filters' => ['fits' => ['date' => $day['date']->toDateString(), 'doctor_id' => $row['doctor']->getKey()]]]),
                 ], $day['doctors']))),
             ], $days),
         ];
+    }
+
+    /** "2 de la lista de espera pueden venir", y "con Dr. Vega" cuando hay más de un doctor. */
+    private static function waiting(int $count, ?string $doctor): ?string
+    {
+        if ($count === 0) {
+            return null;
+        }
+
+        return ($count === 1 ? '1 de la lista de espera puede venir' : $count.' de la lista de espera pueden venir').($doctor ? ' con '.$doctor : '');
     }
 
     /** Lo libre de un día en la fila de arriba, donde hay poco espacio: "3 h", "2 h 50", "40 min" o "Lleno". */

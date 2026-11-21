@@ -45,12 +45,15 @@
                         @foreach ($day['doctors'] as $doctor)
                             <small>@if ($doctor['name'])<b>{{ $doctor['name'] }}:</b> @endif{{ $doctor['gaps'] }}</small>
                         @endforeach
-                        @if ($day['waiting'])
-                            <a href="{{ $day['waiting_url'] }}" class="dash-day-wait">
-                                <x-filament::icon icon="heroicon-m-queue-list" class="dash-day-wait-icon" />
-                                {{ $day['waiting'] }}
-                            </a>
-                        @endif
+                        {{-- Quiénes de la lista de espera caben con cada doctor: el enlace abre esa misma lista. --}}
+                        @foreach ($day['doctors'] as $doctor)
+                            @if ($doctor['waiting'])
+                                <a href="{{ $doctor['waiting_url'] }}" class="dash-day-wait">
+                                    <x-filament::icon icon="heroicon-m-queue-list" class="dash-day-wait-icon" />
+                                    {{ $doctor['waiting'] }}
+                                </a>
+                            @endif
+                        @endforeach
                         <x-filament::link :href="$day['url']" size="sm" class="dash-day-open">Abrir la agenda de ese día</x-filament::link>
                     </div>
                 @endforeach

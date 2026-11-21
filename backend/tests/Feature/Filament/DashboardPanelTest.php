@@ -16,6 +16,8 @@ use App\Filament\Resources\Appointments\Pages\ViewAppointment;
 use App\Filament\Resources\Consultations\ConsultationResource;
 use App\Filament\Resources\TreatmentPlans\Pages\ListTreatmentPlans;
 use App\Filament\Resources\TreatmentPlans\TreatmentPlanResource;
+use App\Filament\Resources\WaitlistEntries\Pages\ManageWaitlistEntries;
+use App\Filament\Resources\WaitlistEntries\WaitlistEntryResource;
 use App\Filament\Widgets\DayMomentCard;
 use App\Filament\Widgets\FollowUpsToday;
 use App\Filament\Widgets\MonthOverview;
@@ -42,6 +44,7 @@ use App\Models\Setting;
 use App\Models\Treatment;
 use App\Models\TreatmentPlan;
 use App\Models\User;
+use App\Models\WaitlistEntry;
 use App\Models\WhatsappMessage;
 use App\Services\Booking\AppointmentService;
 use App\Services\Clinical\TreatmentPlanService;
@@ -837,6 +840,45 @@ class DashboardPanelTest extends TestCase
             ->assertSeeHtml('x-data="{ day: 0 }"')
             // El domingo no se atiende.
             ->assertDontSee('Domingo');
+    }
+
+    public function test_today_counts_from_now_and_each_doctor_shows_who_on_the_waitlist_fits(): void
+    {
+        $this->travelTo(now()->setTime(17, 0));
+        $cleaning = Treatment::factory()->create(['name' => 'Limpieza dental']);
+        $implant = Treatment::factory()->create(['name' => 'Implante']);
+        $whitening = Treatment::factory()->create(['name' => 'Blanqueamiento']);
+        $vega = Doctor::factory()->withSchedule()->create(['name' => 'Dr. Vega']);
+        $vega->treatments()->attach([$cleaning->id, $whitening->id]);
+        $ana = Doctor::factory()->withSchedule()->create(['name' => 'Dra. Ana']);
+        $ana->treatments()->attach([$cleaning->id, $implant->id]);
+
+        // A las 17:00, a Dr. Vega solo le quedan 20 minutos (no entra una cita) y a Dra. Ana una hora.
+        Appointment::factory()->for($vega)->for($cleaning)->for($this->patient('Eva', 'Sol'))->at('2026-11-02 17:00', minutes: 100, buffer: 0)->create();
+        Appointment::factory()->for($ana)->for($implant)->for($this->patient('Luz', 'Ramos'))->at('2026-11-02 17:00', minutes: 60, buffer: 0)->create();
+
+        WaitlistEntry::factory()->for($this->patient('Rosa', 'Quispe'))->for($implant)->create();
+        WaitlistEntry::factory()->for($this->patient('Luis', 'Mamani'))->for($cleaning)->create(['doctor_id' => $vega->id]);
+        WaitlistEntry::factory()->for($this->patient('Marta', 'Cruz'))->for($cleaning)->create();
+        WaitlistEntry::factory()->for($this->patient('Jorge', 'Salas'))->for($whitening)->create();
+
+        $this->actingAs(User::factory()->reception()->create());
+
+        $fits = fn (Doctor $doctor, string $date) => WaitlistEntryResource::getUrl('index', ['filters' => ['fits' => ['date' => $date, 'doctor_id' => $doctor->id]]]);
+
+        Livewire::test(WeekGaps::class)
+            // Lo que ya pasó de hoy no cuenta: queda 1 h de 4 h, así que la barra va al 75 %, no casi vacía.
+            ->assertSeeHtml('style="width: 75%"')
+            // La lista de espera va con cada doctor que tiene huecos, y solo con quien hace ese tratamiento.
+            ->assertSeeInOrder(['Hoy', 'Dra. Ana:', '18:00–19:00', '2 de la lista de espera pueden venir con Dra. Ana', 'Mañana', 'Dr. Vega:', 'Dra. Ana:', '3 de la lista de espera pueden venir con Dr. Vega', '2 de la lista de espera pueden venir con Dra. Ana'])
+            // Su enlace abre esa misma lista: ese día y con ese doctor.
+            ->assertSee([$fits($ana, '2026-11-02'), $fits($vega, '2026-11-03')])
+            ->assertDontSee($fits($vega, '2026-11-02'));
+
+        Livewire::test(ManageWaitlistEntries::class)
+            ->filterTable('fits', ['date' => '2026-11-02', 'doctor_id' => $ana->id])
+            ->assertCanSeeTableRecords(WaitlistEntry::query()->whereHas('patient', fn ($patient) => $patient->whereIn('first_name', ['Rosa', 'Marta']))->get())
+            ->assertCountTableRecords(2);
     }
 
     public function test_the_doctor_sees_the_patient_waiting_with_their_alerts_and_can_start_from_home(): void

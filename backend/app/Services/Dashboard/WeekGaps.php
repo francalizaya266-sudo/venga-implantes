@@ -9,7 +9,7 @@ use Carbon\CarbonImmutable;
 
 /**
  * Los próximos días con atención: qué parte del horario ya está ocupada y los huecos donde aún
- * entra una cita, por doctor, y cuántos de la lista de espera pueden venir ese día para ofrecérselos.
+ * entra una cita, por doctor, y cuántos de la lista de espera pueden venir con cada uno para ofrecérselos.
  * Hoy cuenta desde ahora. Usa el mismo cálculo que la agenda inteligente.
  */
 final class WeekGaps
@@ -19,7 +19,10 @@ final class WeekGaps
     public function __construct(private readonly AvailabilityService $availability) {}
 
     /**
-     * @return list<array{date: CarbonImmutable, occupancy: int, free_minutes: int, waiting: int, doctors: list<array{doctor: Doctor, free_minutes: int, gaps: list<array{start: CarbonImmutable, end: CarbonImmutable}>}>}>
+     * Lo ocupado es lo que no es hueco: un rato libre más corto que una cita no se puede ofrecer, así que "Lleno" y la
+     * barra completa van juntos.
+     *
+     * @return list<array{date: CarbonImmutable, occupancy: int, free_minutes: int, doctors: list<array{doctor: Doctor, free_minutes: int, waiting: int, gaps: list<array{start: CarbonImmutable, end: CarbonImmutable}>}>}>
      */
     public function days(): array
     {
@@ -28,7 +31,6 @@ final class WeekGaps
 
         for ($date = CarbonImmutable::today(), $offset = 0; $offset < self::DAYS; $offset++, $date = $date->addDay()) {
             $open = 0;
-            $free = 0;
             $rows = [];
 
             foreach ($doctors as $doctor) {
@@ -39,10 +41,10 @@ final class WeekGaps
                 }
 
                 $open += $day['open'];
-                $free += $day['free'];
                 $rows[] = [
                     'doctor' => $doctor,
                     'free_minutes' => self::minutes($day['gaps']),
+                    'waiting' => $day['gaps'] === [] ? 0 : $this->waiting($date, $doctor),
                     'gaps' => $day['gaps'],
                 ];
             }
@@ -51,13 +53,12 @@ final class WeekGaps
                 continue;
             }
 
-            $withGaps = array_values(array_filter($rows, fn (array $row) => $row['gaps'] !== []));
+            $free = array_sum(array_column($rows, 'free_minutes'));
 
             $days[] = [
                 'date' => $date,
                 'occupancy' => (int) min(100, max(0, round(($open - $free) / $open * 100))),
-                'free_minutes' => array_sum(array_column($rows, 'free_minutes')),
-                'waiting' => $withGaps === [] ? 0 : $this->waiting($date, array_map(fn (array $row) => $row['doctor']->getKey(), $withGaps)),
+                'free_minutes' => $free,
                 'doctors' => $rows,
             ];
         }
@@ -65,17 +66,12 @@ final class WeekGaps
         return $days;
     }
 
-    /**
-     * De la lista de espera, quienes pueden venir ese día con alguno de los doctores que tienen huecos.
-     *
-     * @param  list<int>  $doctorIds
-     */
-    private function waiting(CarbonImmutable $date, array $doctorIds): int
+    /** De la lista de espera, quienes pueden venir ese día con ese doctor: lo mismo que muestra su enlace. */
+    private function waiting(CarbonImmutable $date, Doctor $doctor): int
     {
         return WaitlistEntry::query()
-            ->availableOn($date)
+            ->availableOn($date, $doctor->getKey())
             ->whereHas('patient')
-            ->where(fn ($query) => $query->whereNull('doctor_id')->orWhereIn('doctor_id', $doctorIds))
             ->count();
     }
 
