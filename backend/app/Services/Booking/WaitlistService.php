@@ -309,9 +309,10 @@ final class WaitlistService
 
     /**
      * Al cancelar una cita, el paciente pasa a la lista de espera para ese tratamiento con su doctor, desde hoy y a
-     * cualquier hora: no se le pierde. Null si ya estaba esperando por lo mismo.
+     * cualquier hora: no se le pierde. Si se canceló porque su doctor no podrá atender, con cualquier doctor que lo
+     * haga: atado a ese doctor, esperaría justo por quien no está. Null si ya estaba esperando por lo mismo.
      */
-    public function addAfterCancellation(Appointment $appointment, User $by): ?WaitlistEntry
+    public function addAfterCancellation(Appointment $appointment, User $by, bool $anyDoctor = false): ?WaitlistEntry
     {
         $alreadyWaiting = WaitlistEntry::query()
             ->active()
@@ -326,7 +327,7 @@ final class WaitlistService
         return WaitlistEntry::create([
             'patient_id' => $appointment->patient_id,
             'treatment_id' => $appointment->treatment_id,
-            'doctor_id' => $appointment->doctor_id,
+            'doctor_id' => $anyDoctor ? null : $appointment->doctor_id,
             'earliest_date' => today(),
             'preferred_period' => DayPeriod::Any,
             'status' => WaitlistStatus::Waiting,

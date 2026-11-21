@@ -144,7 +144,28 @@ class CollectingAndReceiptsTest extends TestCase
             ->setActionData(['patient_id' => $patient->id])
             ->assertMountedActionModalDontSee('La caja de ese día ya se cerró')
             ->setActionData(['paid_at' => '2026-10-31 10:00'])
-            ->assertMountedActionModalSee('La caja de ese día ya se cerró: este pago cambia su cierre.');
+            ->assertMountedActionModalSee('La caja de ese día ya se cerró: este pago cambia su cierre.')
+            ->assertMountedActionModalDontSee('Ese día ya pasó');
+    }
+
+    public function test_a_payment_dated_a_past_day_that_was_not_closed_says_whose_cash_it_goes_into(): void
+    {
+        $this->freezeMonday();
+        $patient = Patient::factory()->create();
+        Charge::factory()->for($patient)->create(['description' => 'Curación', 'amount' => 150, 'charged_at' => now()->subWeek()]);
+        $this->actingAs(User::factory()->reception()->create());
+
+        // Se anota tarde, con el día en que pagó: se acepta, pero se dice que no entra en la caja de hoy.
+        Livewire::test(Dashboard::class)
+            ->mountAction('registerPayment')
+            ->setActionData(['patient_id' => $patient->id])
+            ->assertMountedActionModalDontSee('Ese día ya pasó')
+            ->setActionData(['paid_at' => '2026-10-30 17:00'])
+            ->assertMountedActionModalSee('Ese día ya pasó: el pago entra en la caja del viernes 30 de octubre, no en la de hoy.')
+            ->callMountedAction()
+            ->assertHasNoActionErrors();
+
+        $this->assertSame('2026-10-30', Payment::sole()->paid_at->toDateString());
     }
 
     public function test_collecting_offers_first_who_was_charged_today_and_still_owes(): void

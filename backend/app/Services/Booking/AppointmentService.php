@@ -417,6 +417,71 @@ class AppointmentService
         });
     }
 
+    /**
+     * Está en sala y su doctor no puede atenderlo (no vino, se atrasó): pasa con otro que hace el tratamiento, a la
+     * hora en que ese doctor está libre. Sigue en sala y el nuevo doctor recibe "Llegó"; al anterior se le avisa y
+     * se le quita su "Llegó". Si su hora le sirve a alguien de la lista de espera, recepción se entera.
+     */
+    public function handOver(Appointment $appointment, Doctor $doctor, CarbonInterface $startsAt, User $by): Appointment
+    {
+        /** @var Doctor $previous */
+        $previous = $appointment->doctor;
+        /** @var Patient $patient */
+        $patient = $appointment->patient;
+        /** @var Treatment $treatment */
+        $treatment = $appointment->treatment;
+        /** @var AppointmentStatus $status */
+        $status = $appointment->status;
+        /** @var User|null $previousUser */
+        $previousUser = $previous->user;
+        $this->assertCanManage($by, $previous);
+        $this->assertCanManage($by, $doctor);
+
+        if ($status !== AppointmentStatus::CheckedIn || $doctor->is($previous)) {
+            throw BookingException::notChangeable();
+        }
+
+        $this->assertDoctorOffers($doctor, $treatment);
+
+        /** @var CarbonInterface $bookedAt */
+        $bookedAt = $appointment->starts_at;
+        // Su hora con el doctor anterior, tal como estaba: lo que queda de ella se le puede dar a la lista de espera.
+        $freed = $appointment->replicate()->setRelation('doctor', $previous);
+        $this->alerts->arrivalAttended($appointment);
+        $appointment = $this->move($appointment, $doctor, $startsAt, requireWorkingHours: false, actor: 'staff');
+        $appointment->setRelation('doctor', $doctor);
+        // Ya libre: desde cuando alguien de la lista alcanza a llegar, si su hora ya empezó.
+        $waitlist = $this->waitlist->noShowNotice($freed);
+
+        $this->alerts->patientArrived($appointment, $by);
+        $this->alerts->toUser($previousUser, "{$patient->full_name} pasó con {$doctor->name}", 'Estaba en sala para su cita de las '.$bookedAt->format('H:i').'.');
+
+        if ($waitlist) {
+            $this->alerts->toReception(
+                'Se liberó un horario',
+                ucfirst($waitlist['startsAt']->translatedFormat('D j M, g:i a'))." con {$previous->name}. {$waitlist['text']}",
+                link: $waitlist['link'],
+            );
+        }
+
+        return $appointment;
+    }
+
+    /**
+     * Para pasar esta cita con otro doctor: el primer hueco que ese doctor tiene hoy desde ahora, con lo que dura la
+     * cita. La cita misma no cuenta como otra del paciente. Null si ya no tiene.
+     */
+    public function firstRoomTodayFor(Appointment $appointment, Doctor $doctor): ?Slot
+    {
+        /** @var Treatment $treatment */
+        $treatment = $appointment->treatment;
+        $duration = $appointment->custom_duration ? $appointment->durationMinutes() : $doctor->durationFor($treatment);
+
+        return $this->availability->forPatient($appointment->patient_id)
+            ->slotsFor($doctor, $treatment, today(), earliest: now(), ignoreAppointmentId: $appointment->getKey(), durationMinutes: $duration)
+            ->first();
+    }
+
     /** El primer hueco que le queda hoy a ese doctor para ese tratamiento, desde ahora. Null si ya no tiene. */
     public function firstRoomToday(Doctor $doctor, Treatment $treatment, ?int $patientId = null): ?Slot
     {

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Filament;
 
+use App\Enums\AppointmentStatus;
 use App\Enums\DayPeriod;
 use App\Enums\MessageStatus;
 use App\Enums\MessageTemplateKey;
@@ -10,6 +11,7 @@ use App\Enums\WaitlistStatus;
 use App\Filament\Pages\Agenda;
 use App\Filament\Pages\Dashboard;
 use App\Filament\Resources\Appointments\AppointmentResource;
+use App\Filament\Resources\Appointments\Pages\ViewAppointment;
 use App\Filament\Resources\WaitlistEntries\Pages\ManageWaitlistEntries;
 use App\Filament\Resources\WaitlistEntries\WaitlistEntryActions;
 use App\Filament\Resources\WaitlistEntries\WaitlistEntryResource;
@@ -405,6 +407,14 @@ class WaitlistPanelTest extends TestCase
             ->callMountedTableAction()
             ->assertHasNoTableActionErrors();
 
+        // La pestaña se abre en el mismo toque (si no, el navegador la puede bloquear) y el aviso se queda con el
+        // enlace y con qué hacer si al final no se le envió.
+        $notice = $this->lastNotification();
+        $this->assertSame('Oferta para Rosa Quispe abierta en WhatsApp', $notice['title']);
+        $this->assertSame('El martes 3 de noviembre a las 16:30 queda apartado para Rosa hasta el lunes 2 de noviembre a las 10:00. Si al final no se le envió, toca «Liberar el horario» en la lista de espera para ofrecérselo a otro.', $notice['body']);
+        $this->assertSame('Abrir de nuevo', $notice['actions'][0]['label']);
+        $this->assertStringStartsWith('https://wa.me/', (string) $notice['actions'][0]['url']);
+
         $entry->refresh();
         $this->assertSame(WaitlistStatus::Offered, $entry->status);
         $this->assertSame('2026-11-03 16:30', $entry->offered_starts_at->format('Y-m-d H:i'));
@@ -453,8 +463,31 @@ class WaitlistPanelTest extends TestCase
                 'time' => '16:30',
             ]), $offered)
             ->assertTableActionHasLabel('book', 'Adelantar cita', $hasAppointment)
-            ->assertTableActionHasUrl('book', AppointmentResource::getUrl('view', ['record' => $appointment]), $hasAppointment)
+            ->assertTableActionHasUrl('book', AppointmentResource::getUrl('view', ['record' => $appointment, 'action' => 'move']), $hasAppointment)
             ->assertSee('Ya tiene cita el vie. 20 nov., 10:00: adelántasela');
+    }
+
+    public function test_advancing_an_appointment_opens_move_with_the_offered_time_already_agreed(): void
+    {
+        $entry = WaitlistEntry::factory()->for($this->treatment)->for(Patient::factory()->state(['first_name' => 'Rosa', 'last_name' => 'Quispe']))->create();
+        $appointment = Appointment::factory()->for($entry->patient)->for($this->doctor)->for($this->treatment)->confirmed()->at('2026-11-20 10:00')->create();
+        app(WaitlistService::class)->markOffered($entry, $this->doctor, $this->treatment, now()->parse('2026-11-04 10:00'));
+        $this->actingAs(User::factory()->reception()->create());
+
+        $arguments = ['doctor' => $this->doctor->id, 'date' => '2026-11-04', 'time' => '10:00'];
+        Livewire::test(ManageWaitlistEntries::class)
+            ->assertTableActionHasUrl('book', AppointmentResource::getUrl('view', ['record' => $appointment, 'action' => 'move', 'actionArguments' => $arguments]), $entry);
+
+        // Aceptó por WhatsApp: "Mover" ya trae ese horario, acordado con ella. Al moverla, sale de la lista.
+        Livewire::withQueryParams(['action' => 'move', 'actionArguments' => $arguments])
+            ->test(ViewAppointment::class, ['record' => $appointment->getKey()])
+            ->call('mountDefaultActions')
+            ->assertActionDataSet(['doctor_id' => $this->doctor->id, 'date' => '2026-11-04', 'slot' => '10:00', 'agreed' => true])
+            ->callMountedAction()
+            ->assertHasNoActionErrors();
+
+        $this->assertSame(['2026-11-04 10:00', AppointmentStatus::Confirmed], [$appointment->fresh()->starts_at->format('Y-m-d H:i'), $appointment->fresh()->status]);
+        $this->assertFalse($entry->fresh()->isActive());
     }
 
     public function test_reception_removes_someone_who_no_longer_waits(): void

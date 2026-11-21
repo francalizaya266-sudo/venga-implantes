@@ -109,9 +109,25 @@ final class SendWhatsAppAction
             ->icon(Heroicon::OutlinedChatBubbleLeftEllipsis)
             ->color('success')
             ->modalSubmitActionLabel('Abrir WhatsApp')
-            ->modalSubmitAction(fn (Action $action) => $action->extraAttributes([
-                'x-on:click' => "window.waTab = window.open('', '_blank')",
-            ]));
+            ->modalSubmitAction(fn (Action $action) => $action->extraAttributes(self::OPENS_TAB_ON_CLICK));
+    }
+
+    /**
+     * Para el botón que abre WhatsApp: abre una pestaña vacía en el mismo toque (el navegador no bloquea lo que abre
+     * un toque). Cuando el servidor arma el enlace, goToTab() la lleva a WhatsApp.
+     */
+    public const OPENS_TAB_ON_CLICK = ['x-on:click' => "window.waTab = window.open('', '_blank')"];
+
+    /** Lleva a WhatsApp la pestaña que abrió el toque; si el navegador no la dejó abrir, la intenta abrir ahora. */
+    public static function goToTab(string $url, Component $livewire): void
+    {
+        $livewire->js('(() => { const url = '.json_encode($url).'; const tab = window.waTab; window.waTab = null; if (tab && ! tab.closed) { tab.location.href = url; } else { window.open(url, "_blank"); } })()');
+    }
+
+    /** Al final no se abre WhatsApp (el horario se ocupó, no tiene celular): se cierra la pestaña vacía. */
+    public static function closeTab(Component $livewire): void
+    {
+        $livewire->js('(() => { const tab = window.waTab; window.waTab = null; if (tab && ! tab.closed) { tab.close(); } })()');
     }
 
     private static function open(WhatsappMessage $message, string $body, Component $livewire): void
@@ -119,7 +135,7 @@ final class SendWhatsAppAction
         $url = app(WhatsAppOutbox::class)->clickToChatUrl($message, auth()->user(), $body);
         $to = $message->patient?->full_name ?? Phone::display($message->phone);
 
-        $livewire->js('(() => { const url = '.json_encode($url).'; const tab = window.waTab; window.waTab = null; if (tab && ! tab.closed) { tab.location.href = url; } else { window.open(url, "_blank"); } })()');
+        self::goToTab($url, $livewire);
 
         // Si el navegador no dejó abrirlo, queda el enlace a mano; y si al final no se envió, se puede deshacer.
         Notification::make()

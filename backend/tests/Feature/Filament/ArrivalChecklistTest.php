@@ -4,6 +4,7 @@ namespace Tests\Feature\Filament;
 
 use App\Enums\AppointmentOrigin;
 use App\Enums\AppointmentStatus;
+use App\Filament\Resources\Patients\Pages\ViewPatient;
 use App\Filament\Resources\Patients\PatientResource;
 use App\Filament\Widgets\TodayAppointments;
 use App\Models\Appointment;
@@ -62,8 +63,14 @@ class ArrivalChecklistTest extends TestCase
             'Debe S/ 80.00 de antes.',
             '"Corona de zirconio" todavía no llega del laboratorio (llega el jue. 5 nov.).',
         ]), $notice['body']);
-        $this->assertSame(['Completar su ficha'], array_column($notice['actions'], 'label'));
+        // Debe de antes: se le cobra mientras espera, desde su ficha con "Cobrar" ya abierto.
+        $this->assertSame(['Completar su ficha', 'Cobrar'], array_column($notice['actions'], 'label'));
         $this->assertSame(PatientResource::getUrl('edit', ['record' => $rosa]), $notice['actions'][0]['url']);
+        $this->assertSame(PatientResource::getUrl('view', ['record' => $rosa, 'action' => 'registerPayment']), $notice['actions'][1]['url']);
+        Livewire::withQueryParams(['action' => 'registerPayment'])
+            ->test(ViewPatient::class, ['record' => $rosa->getKey()])
+            ->call('mountDefaultActions')
+            ->assertActionDataSet(['patient_id' => $rosa->id, 'amount' => 80.0]);
         // Se queda en pantalla hasta que recepción la cierre.
         $this->assertSame('persistent', $notice['duration']);
     }
