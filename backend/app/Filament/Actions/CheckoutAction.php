@@ -41,10 +41,11 @@ final class CheckoutAction
             ->label('Cobrar')
             ->icon(Heroicon::OutlinedBanknotes)
             ->color('success')
-            // Mientras el paciente deba algo, o si todavía no pagó nada por la cita ni ese día.
+            // Mientras el paciente deba algo, o si todavía no pagó nada por la cita ni ese día (salvo que lo cargado
+            // no cueste nada, como una evaluación gratis: ahí no hay nada que cobrar).
             ->visible(fn (Appointment $record) => $record->status === AppointmentStatus::Completed
                 && self::user()->managesAllAgendas()
-                && ($record->patient->balance() > 0 || ! self::paidThatDay($record)))
+                && ($record->patient->balance() > 0 || (! self::paidThatDay($record) && ! self::chargedNothing($record))))
             ->authorize(fn () => self::user()->can('create', Charge::class))
             ->modalHeading(fn (Appointment $record) => 'Cobrar a '.$record->patient->full_name)
             ->modalDescription(fn (Appointment $record) => $record->starts_at->translatedFormat('l j \d\e F').' · '.$record->treatment->name.' · '.$record->doctor->name)
@@ -224,6 +225,12 @@ final class CheckoutAction
             ->where('amount', '>', 0)
             ->where(fn (Builder $query) => $query->whereBelongsTo($record)->orWhereDate('paid_at', $startsAt->toDateString()))
             ->exists();
+    }
+
+    /** Por la cita no se cargó nada: un tratamiento gratis, una sesión que se paga con el cronograma de su plan, o todo en cero. */
+    private static function chargedNothing(Appointment $record): bool
+    {
+        return app(BillingService::class)->chargesFor($record)->sum(fn (Charge $charge) => $charge->net()) <= 0;
     }
 
     private static function user(): User

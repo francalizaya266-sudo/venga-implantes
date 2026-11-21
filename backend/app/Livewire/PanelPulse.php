@@ -8,6 +8,7 @@ use App\Filament\Resources\Consultations\ConsultationResource;
 use App\Filament\Support\Notify;
 use App\Models\Appointment;
 use App\Models\User;
+use App\Services\Booking\AppointmentService;
 use App\Services\Clinical\ConsultationService;
 use App\Services\Dashboard\TodayPulse;
 use Filament\Actions\Action;
@@ -40,6 +41,9 @@ class PanelPulse extends Component
 
     /** El botón de un aviso en pantalla: lo deja como leído en la campana y lleva a resolverlo. */
     public const OPEN_ALERT = 'open-alert';
+
+    /** "Deshacer" del aviso de una cita cancelada, desde cualquier pantalla. */
+    public const UNDO_CANCEL = 'undo-cancellation';
 
     /** Avisos que se muestran de una vez; si llegaron más, están en la campana. */
     private const ALERTS_AT_ONCE = 3;
@@ -127,6 +131,31 @@ class PanelPulse extends Component
             Notify::heldMedications($consultations->heldMedications());
             $this->redirect(ConsultationResource::getUrl('edit', ['record' => $consultation]));
         }
+    }
+
+    /**
+     * "Deshacer" del aviso de "Cita cancelada": la cita vuelve a la agenda si su horario sigue libre. Va aquí porque
+     * el aviso sale en cualquier pantalla (la agenda, Citas, Hoy) y, en la agenda, la cita ya no está para abrirla.
+     */
+    #[On(self::UNDO_CANCEL)]
+    public function undoCancellation(int $appointment): void
+    {
+        $this->skipRender();
+
+        /** @var User $user */
+        $user = auth()->user();
+        $service = app(AppointmentService::class);
+        $record = Appointment::find($appointment);
+
+        if ($record === null || ! $user->can('update', $record) || $service->undoableStep($record) !== AppointmentStatus::Cancelled) {
+            Notification::make()->warning()->title('Esa cancelación ya no se puede deshacer')->body('Pasó más de un día o ya se deshizo. Búscala en Citas.')->send();
+
+            return;
+        }
+
+        Notify::run(fn () => $service->undoLastStep($record, $user), 'Listo, la cita volvió a la agenda');
+
+        $this->dispatch(Dashboard::CHANGED);
     }
 
     /** El botón de un aviso en pantalla: en la campana queda como leído y se va adonde se resuelve. */

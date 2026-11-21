@@ -121,6 +121,34 @@ class ClinicWeekAndPrintTest extends TestCase
             ->assertActionDataSet(['doctor_id' => null]);
     }
 
+    public function test_a_doctors_own_time_off_shows_in_their_lane_of_the_whole_clinic_week(): void
+    {
+        ScheduleBlock::query()->create(['doctor_id' => $this->luis->id, 'type' => 'vacation', 'starts_at' => '2026-11-03 00:00', 'ends_at' => '2026-11-04 00:00']);
+
+        $html = Livewire::test(Agenda::class)
+            ->set('mode', 'week')
+            ->set('doctor', 0)
+            ->html();
+
+        // El martes Luis va en el segundo carril: sus vacaciones se dibujan solo ahí, con sus iniciales.
+        $this->assertSame(1, substr_count($html, 'agenda-block in-lane'));
+        $this->assertStringContainsString('title="Dr. Luis Paz: Vacaciones"', $html);
+        $this->assertStringContainsString('--lane: 1; --span: 1; --lanes: 2;">LP · Vacaciones<', $html);
+    }
+
+    public function test_the_day_sheet_keeps_a_doctor_who_no_longer_works_here_while_they_have_appointments(): void
+    {
+        $this->luis->update(['is_active' => false]);
+
+        $this->get(Agenda::printUrl('2026-11-03'))
+            ->assertOk()
+            ->assertSeeInOrder(['Dra. Ana Ríos', 'Lucía Prueba', 'Dr. Luis Paz', 'Bruno Prueba']);
+
+        $this->get(Agenda::printUrl('2026-11-06'))
+            ->assertOk()
+            ->assertDontSee('Dr. Luis Paz');
+    }
+
     public function test_the_day_sheet_lists_each_doctor_with_their_appointments_to_tick_by_hand(): void
     {
         $this->lucia->update(['internal_notes' => 'Viene con su mamá', 'is_new_patient' => true]);

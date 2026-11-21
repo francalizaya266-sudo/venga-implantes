@@ -201,6 +201,8 @@ class AdminPanelProvider extends PanelProvider
             ->renderHook(PanelsRenderHook::USER_MENU_BEFORE, fn () => auth()->check() ? view('filament.user-badge', ['user' => auth()->user()]) : '')
             ->renderHook(PanelsRenderHook::USER_MENU_PROFILE_BEFORE, fn () => auth()->check() ? view('filament.user-menu-header', ['user' => auth()->user()]) : '')
             ->renderHook(PanelsRenderHook::BODY_END, fn () => auth()->check() ? view('filament.mobile-bar', ['items' => MobileBar::items()]) : '')
+            // Para el administrador: si el respaldo está al día, sin entrar a Copias de seguridad.
+            ->renderHook(PanelsRenderHook::SIDEBAR_FOOTER, fn () => auth()->check() ? view('filament.backup-status', ['status' => Backups::sidebarStatus()]) : '')
             // En todas las pantallas: lo que guarda otra persona se ve en pocos segundos, sin recargar.
             ->renderHook(PanelsRenderHook::BODY_END, fn () => auth()->check() ? Blade::render('<livewire:panel-pulse />') : '')
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')

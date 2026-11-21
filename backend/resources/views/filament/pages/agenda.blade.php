@@ -22,8 +22,12 @@
     {{-- En el celular y la tablet no entra al costado: empieza cerrado y "Buscar hueco" lo abre debajo de la barra. --}}
     <div
         class="agenda-layout"
-        x-data="{ railHidden: (() => { try { return localStorage.getItem('agenda-rail') === 'hidden' } catch (e) { return false } })(), railOpen: false }"
-        :class="{ 'is-rail-hidden': railHidden, 'is-rail-open': railOpen }"
+        x-data="{
+            railHidden: (() => { try { return localStorage.getItem('agenda-rail') === 'hidden' } catch (e) { return false } })(),
+            railOpen: false,
+            focus: (() => { try { return localStorage.getItem('agenda-focus') === 'on' } catch (e) { return false } })(),
+        }"
+        :class="{ 'is-rail-hidden': railHidden, 'is-rail-open': railOpen, 'is-focus': focus }"
     >
     <div class="agenda-main">
     {{-- La barra y los colores van juntos, pegados a la grilla: en el celular la agenda empieza más arriba. --}}
@@ -41,7 +45,8 @@
                     </button>
                 </div>
                 <x-filament::input.wrapper class="agenda-date">
-                    <x-filament::input type="date" wire:model.live="date" aria-label="Ir a la fecha" />
+                    {{-- Al escribir la fecha a mano se espera a que termine: cada tecla no recarga la agenda. --}}
+                    <x-filament::input type="date" wire:model.live.debounce.800ms="date" aria-label="Ir a la fecha" />
                 </x-filament::input.wrapper>
             </div>
 
@@ -75,6 +80,21 @@
                     Buscar hueco
                 </button>
 
+                {{-- Enfoque: lo atendido y pagado queda tenue, y resalta lo que todavía pide algo. Cada computadora lo recuerda. --}}
+                <div class="agenda-nav agenda-focus-toggle">
+                    <button
+                        type="button"
+                        class="agenda-nav-btn"
+                        x-on:click="focus = ! focus; try { localStorage.setItem('agenda-focus', focus ? 'on' : 'off') } catch (e) {}"
+                        :aria-pressed="focus.toString()"
+                        aria-pressed="false"
+                        title="Atenuar las citas atendidas y pagadas"
+                    >
+                        <x-filament::icon icon="heroicon-m-eye" class="agenda-nav-icon" />
+                        Enfoque
+                    </button>
+                </div>
+
                 <div class="agenda-nav agenda-rail-toggle">
                     <button
                         type="button"
@@ -91,26 +111,24 @@
         </div>
 
         <div class="agenda-info">
-            <div class="agenda-legend">
-                @foreach ($legend as $class => $label)
-                    <span class="{{ $class }}"><i aria-hidden="true"></i>{{ $label }}</span>
-                @endforeach
-            </div>
-            {{-- La ayuda se abre cuando se necesita: el que usa la agenda todos los días ya la sabe. En el celular, los colores van aquí. --}}
+            {{-- Los colores y la ayuda se abren cuando se necesitan: el que usa la agenda todos los días ya los sabe. --}}
             <details class="agenda-help">
-                <summary><span class="agenda-help-long">Cómo usar la agenda</span><span class="agenda-help-short">Ayuda</span></summary>
-                <p>Toca una cita para ver sus datos y botones, o un espacio libre para agendar ahí. Arrastra una cita para cambiarla de horario (en celular, mantenla presionada y luego arrástrala).</p>
-                <p>"Sin cerrar": ya pasó su hora y falta marcar si vino. Ábrela y usa "Llegó" y "Atendido", o "No asistió".</p>
-                <p>En la semana no entran las etiquetas: un punto rojo en la cita avisa que está sin cerrar, que toca llamar para confirmarla o que cayó en un bloqueo. Ábrela para ver cuál.</p>
-                <p>"En bloqueo": ese horario se bloqueó con la cita ya dada. Muévela para que el paciente reciba el aviso.</p>
-                <p>¿Marcaste "Llegó", "No asistió", "Confirmar" o "Cancelar" por error? Tienes un día para usar "Deshacer" en la misma cita.</p>
-                <p>"Sobrecupo": una urgencia que se agendó a propósito encima de otra cita. Se ven lado a lado; la web nunca ofrece esa hora.</p>
-                <p>En la semana, "Todo el consultorio" pone a los doctores lado a lado en cada día, cada uno con su color, y arriba dice qué tan lleno está el día.</p>
+                <summary><span class="agenda-help-long">Colores y ayuda</span><span class="agenda-help-short">Ayuda</span></summary>
                 <div class="agenda-legend">
                     @foreach ($legend as $class => $label)
                         <span class="{{ $class }}"><i aria-hidden="true"></i>{{ $label }}</span>
                     @endforeach
                 </div>
+                <p>Toca una cita para ver sus datos y botones, o un espacio libre para agendar ahí. Arrastra una cita para cambiarla de horario (en celular, mantenla presionada y luego arrástrala).</p>
+                <p>"Sin cerrar": ya pasó su hora y falta marcar si vino. Ábrela y usa "Llegó" y "Atendido", o "No asistió".</p>
+                <p>En la semana no entran las etiquetas: un punto rojo en la cita avisa que está sin cerrar, que toca llamar para confirmarla o que cayó en un bloqueo. Ábrela para ver cuál.</p>
+                <p>"En bloqueo": ese horario se bloqueó con la cita ya dada. Muévela para que el paciente reciba el aviso.</p>
+                <p>¿Marcaste "Llegó", "No asistió", "Confirmar" o "Cancelar" por error? Tienes un día para usar "Deshacer" en la misma cita. Una cita cancelada sale de la grilla: está al final de la vista Lista, y el aviso de "Cita cancelada" trae su "Deshacer".</p>
+                <p>Un día que ya pasó solo se mira: las citas nuevas se agendan desde hoy.</p>
+                <p>"Sobrecupo": una urgencia que se agendó a propósito encima de otra cita. Se ven lado a lado; la web nunca ofrece esa hora.</p>
+                <p>En la semana, "Todo el consultorio" pone a los doctores lado a lado en cada día, cada uno con su color, y arriba dice qué tan lleno está el día.</p>
+                <p>"Enfoque" deja tenues las citas atendidas y pagadas, para ver de un vistazo lo que todavía pide algo.</p>
+                <p>"Falta consentimiento" y "Lab pendiente", "Lab atrasado" o "Lab listo" avisan antes de que llegue el paciente. Pasa el mouse para ver el detalle.</p>
             </details>
         </div>
 
@@ -249,7 +267,7 @@
                  */
                 hoverAt(event, column) {
                     this.hover = null;
-                    if (event.pointerType !== 'mouse' || this.press || this.dragging || event.target.closest('.agenda-appt')) return;
+                    if (column.dataset.past === 'true' || event.pointerType !== 'mouse' || this.press || this.dragging || event.target.closest('.agenda-appt')) return;
                     const start = Math.floor((this.from + (event.clientY - column.getBoundingClientRect().top) / this.scale) / 15) * 15;
                     const range = JSON.parse(column.dataset.working).find(([from, to]) => start >= from && start + 15 <= to);
                     const busy = JSON.parse(column.dataset.busy);
@@ -260,6 +278,11 @@
 
                 create(event, column, doctor, date) {
                     if (event.target.closest('.agenda-appt') || this.justDropped()) return;
+                    // Un día que ya pasó no se agenda: "Nueva cita" lo cambiaría por hoy sin decirlo.
+                    if (column.dataset.past === 'true') {
+                        this.$wire.pastDay(date);
+                        return;
+                    }
                     const time = this.hover?.key === column.dataset.key ? this.hover.time : this.label(this.minuteAt(event.clientY, column));
                     this.$wire.mountAction('createAppointment', { doctor, date, time });
                 },
@@ -433,6 +456,9 @@
                             <span class="agenda-head-text">
                                 <span class="agenda-head-title">{{ $column['title'] }}</span>
                                 <span class="agenda-head-sub">{{ collect([$column['subtitle'], $countLabel])->filter()->implode(' · ') }}</span>
+                                @if ($column['live'] ?? null)
+                                    <span @class(['agenda-head-live', 'is-busy' => $column['live']['busy'], 'has-waiting' => $column['live']['waiting'] > 0])><i aria-hidden="true"></i>{{ $column['live']['text'] }}</span>
+                                @endif
                             </span>
                         @endif
                     </div>
@@ -450,8 +476,9 @@
                 @foreach ($columns as $column)
                     <div
                         wire:key="col-{{ $column['key'] }}"
-                        class="agenda-col"
+                        @class(['agenda-col', 'is-past' => $column['isPast']])
                         data-key="{{ $column['key'] }}"
+                        data-past="{{ $column['isPast'] ? 'true' : 'false' }}"
                         data-doctor="{{ $column['doctorId'] }}"
                         data-treatments="{{ implode(',', $column['treatments']) }}"
                         data-working="{{ json_encode(array_map(fn (array $range) => [$range['start'], $range['end']], $column['working'])) }}"
@@ -485,18 +512,26 @@
                             <div @class(['agenda-block', 'is-hold' => $block['hold']]) style="top: {{ (max($block['start'], $from) - $from) * $scale }}px; height: {{ (min($block['end'], $to) - max($block['start'], $from)) * $scale }}px">{{ $block['label'] }}</div>
                         @endforeach
 
+                        {{-- En la semana de todo el consultorio: las vacaciones de un doctor y lo apartado, solo en su carril. --}}
+                        @foreach ($column['laneBlocks'] ?? [] as $block)
+                            <div @class(['agenda-block', 'in-lane', 'is-hold' => $block['hold']]) title="{{ $block['title'] }}" style="top: {{ (max($block['start'], $from) - $from) * $scale }}px; height: {{ (min($block['end'], $to) - max($block['start'], $from)) * $scale }}px; --lane: {{ $block['lane'] }}; --span: {{ $block['span'] }}; --lanes: {{ $block['lanes'] }};">{{ $block['label'] }}</div>
+                        @endforeach
+
                         @if ($column['date'] === today()->toDateString() && $nowMinute > $from && $nowMinute < $to)
                             <div class="agenda-now" style="top: {{ ($nowMinute - $from) * $scale }}px"></div>
                         @endif
 
                         @foreach ($column['appointments'] as $appt)
+                            @php
+                                $short = $appt['end'] - $appt['start'] <= 30;
+                            @endphp
                             <div class="agenda-buffer" style="top: {{ ($appt['end'] - $from) * $scale }}px; height: {{ ($appt['until'] - $appt['end']) * $scale }}px"></div>
                             <a
                                 wire:key="appt-{{ $appt['id'] }}"
                                 href="{{ $appt['url'] }}"
-                                @class(['agenda-appt', 's-'.$appt['status'], 'is-movable' => $appt['draggable'], 'is-short' => $appt['end'] - $appt['start'] <= 30, 'is-unclosed' => $appt['unclosed'], 'needs-call' => $appt['needsCall'], 'in-block' => $appt['inBlock'], 'in-lane' => $appt['lanes'] > 1, 'is-overbooked' => $appt['overbooked'], 'has-doc' => isset($appt['doctor'])])
+                                @class(['agenda-appt', 's-'.$appt['status'], 'is-movable' => $appt['draggable'], 'is-short' => $short, 'is-unclosed' => $appt['unclosed'], 'needs-call' => $appt['needsCall'], 'in-block' => $appt['inBlock'], 'in-lane' => $appt['lanes'] > 1, 'is-overbooked' => $appt['overbooked'], 'has-doc' => isset($appt['doctor']), 'is-settled' => $appt['settled'], 'is-long' => $appt['state']['long']])
                                 style="top: {{ ($appt['start'] - $from) * $scale }}px; height: {{ max(($appt['end'] - $appt['start']) * $scale - 2, 18) }}px;@if ($appt['lanes'] > 1) --lane: {{ $appt['lane'] }}; --lanes: {{ $appt['lanes'] }};@endif @isset($appt['doctor'])--doc: {{ $appt['doctor']['color'] }};@endisset"
-                                title="{{ $appt['time'] }} · {{ $appt['patient'] }} · {{ $appt['treatment'] }}{{ isset($appt['doctor']) ? ' · '.$appt['doctor']['name'] : '' }} · {{ $appt['statusLabel'] }}{{ $appt['overbooked'] ? ' · Sobrecupo' : '' }}{{ $appt['phone'] ? ' · '.$appt['phone'] : '' }}{{ $appt['unclosed'] ? ' · Sin cerrar: '.(in_array($appt['status'], ['pending', 'confirmed'], true) ? 'falta marcar si vino' : 'vino y falta cerrar su atención') : '' }}{{ $appt['inBlock'] ? ' · Cae en un horario bloqueado: hay que moverla' : '' }}"
+                                title="{{ $appt['hint'] }}{{ isset($appt['doctor']) ? ' · '.$appt['doctor']['name'] : '' }}"
                                 draggable="false"
                                 x-on:click="open($event, {{ $appt['id'] }})"
                                 @if ($appt['draggable'])
@@ -509,9 +544,10 @@
                                 @endif
                             >
                                 {{-- En la semana la columna es angosta: nombre corto y solo la hora de inicio (el alto de la tarjeta ya dice cuánto dura). --}}
-                                <b>{{ $mode === 'week' ? $appt['shortName'] : $appt['patient'] }}@if ($appt['unclosed'])<span class="tag tag-unclosed">Sin cerrar</span>@endif @if ($appt['needsCall'])<span class="tag tag-call">Llamar</span>@endif @if ($appt['inBlock'])<span class="tag tag-block">En bloqueo</span>@endif @if ($appt['overbooked'])<span class="tag tag-over">Sobrecupo</span>@endif @if ($appt['flags']['alert'])<span @class(['tag', 'tag-alert', 'is-caution' => ! $appt['flags']['alertSevere']]) title="{{ $appt['flags']['alert'] }}">Alerta médica</span>@endif @if ($appt['flags']['reschedule'])<span class="tag tag-change">Pidió cambio</span>@endif @if ($appt['flags']['noShows'])<span class="tag tag-missed">{{ $appt['flags']['noShows'] }}</span>@endif @if ($appt['isNew'])<span class="tag tag-new">Nuevo</span>@endif @if ($appt['owes'])<span class="tag tag-owes">Debe {{ $appt['owes'] }}</span>@endif @if ($appt['hasNote'])<span class="tag tag-note">Nota</span>@endif</b>
-                                <small>{{ $mode === 'week' ? $appt['startTime'] : $appt['time'] }} · {{ $appt['treatment'] }}{{ $appt['flags']['session'] ? ' · '.mb_strtolower($appt['flags']['session']) : '' }}</small>
-                                <small>{{ $appt['statusLabel'] }}@if ($appt['phone']) · {{ $appt['phone'] }}@endif</small>
+                                <b>{{ $mode === 'week' ? $appt['shortName'] : $appt['patient'] }}@if ($appt['flags']['alert'])<span @class(['appt-alert-mark', 'is-caution' => ! $appt['flags']['alertSevere']]) aria-hidden="true">⚠</span>@endif @if ($appt['unclosed'])<span class="tag tag-unclosed">Sin cerrar</span>@endif @if ($appt['needsCall'])<span class="tag tag-call">Llamar</span>@endif @if ($appt['inBlock'])<span class="tag tag-block">En bloqueo</span>@endif @if ($appt['overbooked'])<span class="tag tag-over">Sobrecupo</span>@endif @if ($appt['flags']['alert'])<span @class(['tag', 'tag-alert', 'is-caution' => ! $appt['flags']['alertSevere']]) title="{{ $appt['flags']['alert'] }}">Alerta médica</span>@endif @if ($appt['flags']['reschedule'])<span class="tag tag-change">Pidió cambio</span>@endif @if ($appt['flags']['noShows'])<span class="tag tag-missed">{{ $appt['flags']['noShows'] }}</span>@endif @if ($appt['isNew'])<span class="tag tag-new">Nuevo</span>@endif @if ($appt['owes'])<span class="tag tag-owes">Debe {{ $appt['owes'] }}</span>@endif @if ($appt['hasNote'])<span class="tag tag-note">Nota</span>@endif @if ($appt['consent'] === false)<span class="tag tag-consent">Falta consentimiento</span>@endif @if ($appt['lab'])<span class="tag tag-lab is-{{ $appt['lab']['tone'] }}" title="{{ $appt['lab']['title'] }}">{{ $appt['lab']['label'] }}</span>@endif @if ($appt['consent'] === true)<span class="tag tag-consent is-ok">Consentimiento ✓</span>@endif</b>
+                                {{-- En una cita corta no entra la línea del estado: va junto a la hora, para no depender solo del color. --}}
+                                <small>{{ $mode === 'week' ? $appt['startTime'] : $appt['time'] }} · {{ $short ? $appt['state']['label'].' · ' : '' }}{{ $appt['treatment'] }}{{ $appt['flags']['session'] ? ' · '.mb_strtolower($appt['flags']['session']) : '' }}</small>
+                                <small>{{ $appt['state']['label'] }}@if ($appt['phone']) · {{ $appt['phone'] }}@endif</small>
                             </a>
                         @endforeach
                     </div>

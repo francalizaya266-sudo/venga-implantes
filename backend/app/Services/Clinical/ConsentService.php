@@ -15,6 +15,7 @@ use App\Models\User;
 use App\Support\Signatures;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -44,18 +45,49 @@ final class ConsentService
      */
     public function signedForVisit(Appointment $appointment): ?bool
     {
-        $treatment = $appointment->treatment;
+        return $this->signedForVisits(new Collection([$appointment]))[$appointment->getKey()] ?? null;
+    }
 
-        if (! $treatment || ! ConsentTemplate::query()->where('is_active', true)->where('treatment_id', $treatment->getKey())->exists()) {
-            return null;
+    /**
+     * Lo mismo para varias citas a la vez (las tarjetas de la agenda), con dos consultas. Solo vienen las citas
+     * cuyo tratamiento tiene consentimiento propio: true si ya se firmó desde que se agendó, false si falta.
+     *
+     * @param  Collection<int, Appointment>  $appointments
+     * @return array<int, bool> Por id de la cita.
+     */
+    public function signedForVisits(Collection $appointments): array
+    {
+        $withConsent = ConsentTemplate::query()
+            ->where('is_active', true)
+            ->whereIn('treatment_id', $appointments->pluck('treatment_id')->filter()->unique()->values()->all())
+            ->pluck('treatment_id')
+            ->flip();
+        $visits = $appointments->filter(fn (Appointment $appointment) => $withConsent->has($appointment->treatment_id));
+
+        if ($visits->isEmpty()) {
+            return [];
         }
 
-        return Consent::query()
-            ->where('patient_id', $appointment->patient_id)
-            ->where('treatment_id', $treatment->getKey())
+        $signed = Consent::query()
+            ->whereIn('patient_id', $visits->pluck('patient_id')->unique()->values()->all())
+            ->whereIn('treatment_id', $withConsent->keys()->all())
             ->whereNull('revoked_at')
-            ->where('signed_at', '>=', $appointment->created_at->startOfDay())
-            ->exists();
+            ->get(['patient_id', 'treatment_id', 'signed_at']);
+
+        return $visits->mapWithKeys(function (Appointment $appointment) use ($signed): array {
+            /** @var CarbonInterface $bookedAt */
+            $bookedAt = $appointment->created_at;
+
+            return [$appointment->getKey() => $signed->contains(function (Consent $consent) use ($appointment, $bookedAt): bool {
+                /** @var CarbonInterface|null $signedAt */
+                $signedAt = $consent->signed_at;
+
+                return (int) $consent->patient_id === (int) $appointment->patient_id
+                    && (int) $consent->treatment_id === (int) $appointment->treatment_id
+                    && $signedAt !== null
+                    && $signedAt->gte($bookedAt->copy()->startOfDay());
+            })];
+        })->all();
     }
 
     /**

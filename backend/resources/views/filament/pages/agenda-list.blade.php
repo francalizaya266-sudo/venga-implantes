@@ -29,7 +29,7 @@
             @forelse ($list['items'] as $item)
                 @switch($item['type'])
                     @case('appointment')
-                        <li wire:key="list-appt-{{ $item['id'] }}" @class(['agenda-item', 's-'.$item['status'], 'is-unclosed' => $item['unclosed']])>
+                        <li wire:key="list-appt-{{ $item['id'] }}" @class(['agenda-item', 's-'.$item['status'], 'is-unclosed' => $item['unclosed'], 'is-settled' => $item['settled']])>
                             <div class="agenda-item-time">
                                 <b>{{ $item['startTime'] }}</b>
                                 <small>{{ $item['length'] }}</small>
@@ -46,6 +46,9 @@
                                     @if ($item['isNew'])<span class="tag tag-new">Nuevo</span>@endif
                                     @if ($item['owes'])<span class="tag tag-owes">Debe {{ $item['owes'] }}</span>@endif
                                     @if ($item['hasNote'])<span class="tag tag-note">Nota</span>@endif
+                                    @if ($item['consent'] === false)<span class="tag tag-consent">Falta consentimiento</span>@endif
+                                    @if ($item['lab'])<span class="tag tag-lab is-{{ $item['lab']['tone'] }}" title="{{ $item['lab']['title'] }}">{{ $item['lab']['label'] }}</span>@endif
+                                    @if ($item['consent'] === true)<span class="tag tag-consent is-ok">Consentimiento ✓</span>@endif
                                 </div>
                                 <p class="agenda-item-meta">
                                     {{ $item['treatment'] }}{{ $item['flags']['session'] ? ' · '.mb_strtolower($item['flags']['session']) : '' }}
@@ -54,7 +57,7 @@
                                     @endif
                                 </p>
                                 <div class="agenda-item-foot">
-                                    <span class="agenda-pill"><i aria-hidden="true"></i>{{ $item['statusLabel'] }}</span>
+                                    <span @class(['agenda-pill', 'is-long' => $item['state']['long']])><i aria-hidden="true"></i>{{ $item['state']['label'] }}</span>
                                     <div class="agenda-item-actions">
                                         @if ($item['needsCall'] && $item['phoneLink'])
                                             <a href="{{ $item['phoneLink'] }}" class="agenda-call">
@@ -104,5 +107,26 @@
                 <li class="agenda-list-empty">{{ $list['empty'] }}</li>
             @endforelse
         </ol>
+
+        {{-- Las canceladas ya no ocupan la agenda: al final, plegadas, con su motivo y "Deshacer" durante un día. --}}
+        @if ($list['cancelled'] !== [])
+            <details class="agenda-list-cancelled" wire:key="list-cancelled-{{ $date }}">
+                <summary>{{ count($list['cancelled']) === 1 ? '1 cita cancelada' : count($list['cancelled']).' citas canceladas' }} este día</summary>
+                <ul>
+                    @foreach ($list['cancelled'] as $cancelled)
+                        <li wire:key="list-cancelled-{{ $cancelled['id'] }}">
+                            <span class="agenda-list-cancelled-time">{{ $cancelled['time'] }}</span>
+                            <span class="agenda-list-cancelled-body">
+                                <a href="{{ $cancelled['url'] }}" class="agenda-item-name">{{ $cancelled['patient'] }}</a>
+                                <small>{{ $cancelled['treatment'] }}{{ $cancelled['reason'] ? ' · '.$cancelled['reason'] : '' }}</small>
+                            </span>
+                            @foreach ($this->nextSteps($cancelled['id'], 'cancelled') as $step)
+                                {{ $step->size('sm') }}
+                            @endforeach
+                        </li>
+                    @endforeach
+                </ul>
+            </details>
+        @endif
     </div>
 </div>

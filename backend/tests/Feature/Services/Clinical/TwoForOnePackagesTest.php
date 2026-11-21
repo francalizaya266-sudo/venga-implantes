@@ -141,7 +141,7 @@ class TwoForOnePackagesTest extends TestCase
 
         $estimate = app(BillingService::class)->estimateFor($appointment);
 
-        $this->assertSame([['label' => 'Limpieza dental · incluida en el 2x1 de Rosa Quispe', 'amount' => null]], $estimate['lines']);
+        $this->assertSame([['label' => 'Limpieza dental · incluida en el 2x1 de Rosa Quispe', 'amount' => null, 'kind' => 'visit', 'approx' => false]], $estimate['lines']);
         $this->assertEquals(0, $estimate['total']);
     }
 

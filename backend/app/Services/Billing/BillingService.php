@@ -483,9 +483,10 @@ final class BillingService
 
     /**
      * Lo que se espera cobrar el día de la cita: el saldo pendiente, las cuotas que vencen hasta ese día
-     * y la sesión o el tratamiento de la cita (o "incluida" si ya se paga con el plan).
+     * y la sesión o el tratamiento de la cita (o "incluida" si ya se paga con el plan). El tratamiento suelto va a su
+     * precio "desde": es aproximado ("approx"), el doctor puede cobrar más según lo que haga.
      *
-     * @return array{lines: list<array{label: string, amount: float|null}>, total: float}
+     * @return array{lines: list<array{label: string, amount: float|null, kind: string, approx: bool}>, total: float, approx: bool}
      */
     public function estimateFor(Appointment $appointment, bool $withTooth = false): array
     {
@@ -499,9 +500,9 @@ final class BillingService
             $owed = $this->unpaidCharges($patient)->map(fn (array $row) => $row['charge']->description);
             $detail = $owed->take(3)->implode(', ').($owed->count() > 3 ? ' y '.($owed->count() - 3).' más' : '');
 
-            $lines[] = ['label' => 'Saldo pendiente'.($detail !== '' ? " ({$detail})" : ''), 'amount' => $balance];
+            $lines[] = ['label' => 'Saldo pendiente'.($detail !== '' ? " ({$detail})" : ''), 'amount' => $balance, 'kind' => 'balance', 'approx' => false];
         } elseif ($balance < 0) {
-            $lines[] = ['label' => 'Tiene a favor', 'amount' => $balance];
+            $lines[] = ['label' => 'Tiene a favor', 'amount' => $balance, 'kind' => 'credit', 'approx' => false];
         }
 
         $upcoming = TreatmentPlanInstallment::query()
@@ -516,6 +517,8 @@ final class BillingService
             $lines[] = [
                 'label' => $installment->label().' · '.($installment->plan->title ?: 'Plan de tratamiento').' · vence '.$installment->due_on->format('d/m'),
                 'amount' => $installment->net(),
+                'kind' => 'installment',
+                'approx' => false,
             ];
         }
 
@@ -526,10 +529,10 @@ final class BillingService
             $label = $item->label($withTooth).($item->sessions_planned > 1 ? " · sesión {$session} de {$item->sessions_planned}" : '');
 
             $lines[] = match (true) {
-                $item->in_payment_schedule => ['label' => $label.' · incluida en el plan ('.mb_strtolower($item->plan->payment_mode->getLabel()).')', 'amount' => null],
+                $item->in_payment_schedule => ['label' => $label.' · incluida en el plan ('.mb_strtolower($item->plan->payment_mode->getLabel()).')', 'amount' => null, 'kind' => 'visit', 'approx' => false],
                 // Lo del paquete en un 2x1 lo paga la otra persona; lo que se agregue aparte sí se cobra.
-                $item->plan->included_in_plan_id !== null && $item->treatment_package_id !== null && $item->subtotal() <= 0 => ['label' => $label.' · incluida en el 2x1 de '.$item->plan->includedIn?->patient?->full_name, 'amount' => null],
-                default => ['label' => $label, 'amount' => $this->nextSession($item)[0]],
+                $item->plan->included_in_plan_id !== null && $item->treatment_package_id !== null && $item->subtotal() <= 0 => ['label' => $label.' · incluida en el 2x1 de '.$item->plan->includedIn?->patient?->full_name, 'amount' => null, 'kind' => 'visit', 'approx' => false],
+                default => ['label' => $label, 'amount' => $this->nextSession($item)[0], 'kind' => 'visit', 'approx' => false],
             };
         } elseif ((float) $appointment->treatment?->price_from > 0) {
             $price = (float) $appointment->treatment->price_from;
@@ -538,12 +541,15 @@ final class BillingService
             $lines[] = [
                 'label' => $appointment->treatment->name.($discount > 0 ? ' · precio normal '.Money::format($price).', con '.$appointment->campaign->name : ''),
                 'amount' => round($price - $discount, 2),
+                'kind' => 'visit',
+                'approx' => true,
             ];
         }
 
         return [
             'lines' => $lines,
             'total' => max(0, round(collect($lines)->sum(fn (array $line) => (float) $line['amount']), 2)),
+            'approx' => in_array(true, array_column($lines, 'approx'), true),
         ];
     }
 

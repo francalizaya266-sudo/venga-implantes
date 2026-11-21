@@ -349,6 +349,9 @@ class ConsultationForm
                                     QuickTextarea::make('procedures')
                                         ->hiddenLabel()
                                         ->label('Nota de evolución')
+                                        // Dictar no necesita nada más: el micrófono del teclado escribe en el campo. Va arriba: abajo
+                                        // están las frases de "Escritura rápida".
+                                        ->aboveContent('Para dictar, toca el micrófono del teclado del celular o la tablet (en Windows, Windows + H).')
                                         ->snippets(SnippetField::Procedures),
                                     QuickTextarea::make('next_steps')
                                         ->label('Próximos pasos')

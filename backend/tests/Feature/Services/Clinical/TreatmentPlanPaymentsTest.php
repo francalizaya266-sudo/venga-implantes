@@ -230,20 +230,23 @@ class TreatmentPlanPaymentsTest extends TestCase
 
         $this->assertSame(
             ['lines' => [
-                ['label' => 'Cuota 1 de 3 · Ortodoncia · vence 10/11', 'amount' => 667.0],
-                ['label' => 'Control de ortodoncia · sesión 1 de 2 · incluida en el plan (en cuotas)', 'amount' => null],
-            ], 'total' => 667.0],
+                ['label' => 'Cuota 1 de 3 · Ortodoncia · vence 10/11', 'amount' => 667.0, 'kind' => 'installment', 'approx' => false],
+                ['label' => 'Control de ortodoncia · sesión 1 de 2 · incluida en el plan (en cuotas)', 'amount' => null, 'kind' => 'visit', 'approx' => false],
+            ], 'total' => 667.0, 'approx' => false],
             $this->billing()->estimateFor($appointment),
         );
 
-        // Una cita suelta: el precio de lista, con la promoción con que reservó.
+        // Una cita suelta: el precio de lista ("desde", por eso aproximado), con la promoción con que reservó.
         $resin = $this->treatment('curacion-con-resina');
         $resin->update(['price_from' => 150]);
         Charge::factory()->for($this->patient)->create(['description' => 'Radiografía', 'amount' => 40]);
         $single = Appointment::factory()->for($this->patient)->for($this->doctor)->for($resin)->create(['starts_at' => '2026-11-04 10:00', 'ends_at' => '2026-11-04 11:00']);
 
         $this->assertSame(
-            ['lines' => [['label' => 'Saldo pendiente (Radiografía)', 'amount' => 40.0], ['label' => 'Curación con resina', 'amount' => 150.0]], 'total' => 190.0],
+            ['lines' => [
+                ['label' => 'Saldo pendiente (Radiografía)', 'amount' => 40.0, 'kind' => 'balance', 'approx' => false],
+                ['label' => 'Curación con resina', 'amount' => 150.0, 'kind' => 'visit', 'approx' => true],
+            ], 'total' => 190.0, 'approx' => true],
             $this->billing()->estimateFor($single),
         );
     }

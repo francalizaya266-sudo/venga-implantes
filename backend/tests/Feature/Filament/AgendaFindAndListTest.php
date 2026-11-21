@@ -3,9 +3,12 @@
 namespace Tests\Feature\Filament;
 
 use App\Enums\AppointmentStatus;
+use App\Enums\CancelledBy;
 use App\Enums\DayPeriod;
 use App\Filament\Pages\Agenda;
+use App\Filament\Resources\Appointments\AppointmentResource;
 use App\Models\Appointment;
+use App\Models\Charge;
 use App\Models\Doctor;
 use App\Models\Patient;
 use App\Models\ScheduleBlock;
@@ -13,6 +16,7 @@ use App\Models\Treatment;
 use App\Models\User;
 use App\Models\WaitlistEntry;
 use App\Services\Agenda\GapFinder;
+use App\Services\Booking\AppointmentService;
 use Carbon\CarbonImmutable;
 use Database\Seeders\CatalogSeeder;
 use Filament\Actions\Testing\TestAction;
@@ -264,7 +268,8 @@ class AgendaFindAndListTest extends TestCase
     {
         $treatment = Treatment::factory()->create(['duration_minutes' => 30]);
         $doctor = $this->doctorOffering($treatment);
-        Appointment::factory()->for($doctor)->for($treatment)->for(Patient::factory()->state(['first_name' => 'Rosa']))->at('2026-10-30 10:00')->create(['status' => AppointmentStatus::Completed]);
+        $rosa = Appointment::factory()->for($doctor)->for($treatment)->for(Patient::factory()->state(['first_name' => 'Rosa']))->at('2026-10-30 10:00')->create(['status' => AppointmentStatus::Completed]);
+        Charge::factory()->for($rosa->patient)->create(['appointment_id' => $rosa->id, 'amount' => 120]);
 
         $this->actingAs(User::factory()->reception()->create());
 
@@ -275,6 +280,48 @@ class AgendaFindAndListTest extends TestCase
             ->assertDontSee(['Libre ', 'Ahora ·'])
             ->set('date', '2026-11-08')
             ->assertSee('Nadie atiende este día.');
+    }
+
+    public function test_a_cancelled_appointment_waits_folded_at_the_end_of_the_list_with_undo(): void
+    {
+        $treatment = Treatment::factory()->create(['duration_minutes' => 30]);
+        $doctor = $this->doctorOffering($treatment);
+        $reception = User::factory()->reception()->create();
+        Appointment::factory()->for($doctor)->for($treatment)->for(Patient::factory()->state(['first_name' => 'Lucía']))->confirmed()->at('2026-11-02 09:00')->create();
+        $rosa = Appointment::factory()->for($doctor)->for($treatment)->for(Patient::factory()->state(['first_name' => 'Rosa']))->confirmed()->at('2026-11-02 11:00')->create();
+        app(AppointmentService::class)->cancelByStaff($rosa, $reception, 'Está enfermo', notifyPatient: false, onBehalfOf: CancelledBy::Patient);
+
+        $this->actingAs($reception);
+
+        Livewire::test(Agenda::class)
+            ->set('mode', 'list')
+            ->assertSee('1 cita')
+            ->assertSeeHtmlInOrder(['Lucía', 'class="agenda-list-cancelled"', '1 cita cancelada', 'Rosa', 'Está enfermo', 'Deshacer'])
+            ->callAction(TestAction::make('listUndo')->arguments(['id' => $rosa->id]))
+            ->assertDontSeeHtml('class="agenda-list-cancelled"');
+
+        $this->assertSame(AppointmentStatus::Confirmed, $rosa->fresh()->status);
+    }
+
+    public function test_a_no_show_in_the_list_can_be_rebooked_without_opening_the_panel(): void
+    {
+        $treatment = Treatment::factory()->create(['duration_minutes' => 30]);
+        $doctor = $this->doctorOffering($treatment);
+        $this->travelTo(CarbonImmutable::parse('2026-11-02 11:00', 'America/Lima'));
+        $rosa = Appointment::factory()->for($doctor)->for($treatment)->for(Patient::factory()->state(['first_name' => 'Rosa']))->confirmed()->at('2026-11-02 09:00')->create();
+        app(AppointmentService::class)->markNoShow($rosa, $reception = User::factory()->reception()->create());
+
+        $this->actingAs($reception);
+
+        Livewire::test(Agenda::class)
+            ->set('mode', 'list')
+            ->assertSeeHtmlInOrder(['Rosa', 'No asistió', 'Reagendar', 'Deshacer'])
+            ->assertActionHasUrl(TestAction::make('listRebook')->arguments(['id' => $rosa->id]), AppointmentResource::newUrl([
+                'patient' => $rosa->patient_id,
+                'doctor' => $doctor->id,
+                'treatment' => $treatment->id,
+                'plan_item' => null,
+            ]));
     }
 
     public function test_small_screens_get_a_button_that_opens_the_find_a_gap_panel(): void
