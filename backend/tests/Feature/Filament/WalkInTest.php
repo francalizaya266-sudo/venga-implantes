@@ -190,7 +190,7 @@ class WalkInTest extends TestCase
         $window = Livewire::test(Dashboard::class)
             ->mountAction('walkIn')
             ->setActionData(['patient_id' => $rosa->id])
-            ->setActionData(['doctor_id' => $this->busy->id, 'treatment_id' => $this->cleaning->id])
+            ->setActionData(['doctor_id' => $this->busy->id, 'treatment_id' => $this->cleaning->id, 'internal_notes' => 'Viene con dolor en una muela.'])
             ->mountAction(TestAction::make('bookAnotherDay')->schemaComponent('roomToday', 'mountedActionSchema0'))
             // "Nueva cita" encima, en el primer día con lugar.
             ->assertSchemaStateSet([
@@ -198,13 +198,15 @@ class WalkInTest extends TestCase
                 'treatment_id' => $this->cleaning->id,
                 'doctor_id' => $this->busy->id,
                 'date' => '2026-11-03',
+                // La nota para el doctor va con la cita de otro día.
+                'internal_notes' => 'Viene con dolor en una muela.',
             ], 'mountedActionSchema1')
             ->setActionData(['slot' => '09:00'])
             ->callMountedAction()
             ->assertHasNoActionErrors();
 
         $this->assertSame([], $window->get('mountedActions'));
-        $this->assertSame('2026-11-03 09:00', $rosa->appointments()->sole()->starts_at->format('Y-m-d H:i'));
+        $this->assertSame(['2026-11-03 09:00', 'Viene con dolor en una muela.'], [$rosa->appointments()->sole()->starts_at->format('Y-m-d H:i'), $rosa->appointments()->sole()->internal_notes]);
     }
 
     public function test_who_already_had_an_appointment_today_is_marked_as_arrived_instead_of_getting_another(): void
@@ -254,19 +256,21 @@ class WalkInTest extends TestCase
         $this->assertSame('Rosa Quispe llegó antes: su cita pasó de las 12:00 a las 10:40 con '.$this->busy->name.'.', $this->lastNotification()['body']);
     }
 
-    public function test_going_in_earlier_is_left_unmarked_when_another_patient_is_chosen(): void
+    public function test_what_was_chosen_for_one_patients_appointment_is_reset_when_another_patient_is_chosen(): void
     {
         $rosa = Patient::factory()->create(['first_name' => 'Rosa', 'last_name' => 'Quispe']);
         $luis = Patient::factory()->create(['first_name' => 'Luis', 'last_name' => 'Paz']);
         Appointment::factory()->for($this->busy)->for($this->cleaning)->for($rosa)->at('2026-11-02 12:00')->confirmed()->create();
         $his = Appointment::factory()->for($this->free)->for($this->cleaning)->for($luis)->at('2026-11-02 12:30')->confirmed()->create();
 
+        // Para Rosa se desmarcó "Marcar que llegó" y se marcó adelantar: con Luis vuelve a lo normal y llega a su cita.
         Livewire::test(Dashboard::class)
             ->mountAction('walkIn')
             ->setActionData(['patient_id' => $rosa->id])
             ->setActionData(['advance' => true])
+            ->setActionData(['use_appointment' => false])
             ->setActionData(['patient_id' => $luis->id])
-            ->assertActionDataSet(['advance' => false, 'advance_to' => null])
+            ->assertActionDataSet(['use_appointment' => true, 'advance' => false, 'advance_to' => null])
             ->callMountedAction()
             ->assertHasNoActionErrors();
 

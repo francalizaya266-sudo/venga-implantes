@@ -25,12 +25,13 @@ use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
 use Tests\Concerns\CreatesAgenda;
+use Tests\Concerns\ReadsNotifications;
 use Tests\TestCase;
 
 /** "Nueva cita" es una sola: la ventana. Se abre desde cualquier pantalla y, al agendar, se vuelve a ella. */
 class NewAppointmentWindowTest extends TestCase
 {
-    use CreatesAgenda, LazilyRefreshDatabase;
+    use CreatesAgenda, LazilyRefreshDatabase, ReadsNotifications;
 
     private Treatment $treatment;
 
@@ -71,10 +72,22 @@ class NewAppointmentWindowTest extends TestCase
             ->setActionData(['doctor_id' => $this->doctor->id, 'treatment_id' => $this->treatment->id, 'date' => '2026-11-03', 'slot' => '10:00'])
             ->callMountedAction()
             ->assertHasNoActionErrors()
-            ->assertNotified('Cita creada. El aviso al paciente está listo en Avisos.')
             ->assertRedirect($patientPage);
 
-        $this->assertSame('2026-11-03 10:00', $this->patient->appointments()->sole()->starts_at->format('Y-m-d H:i'));
+        $appointment = $this->patient->appointments()->sole();
+        $this->assertSame('2026-11-03 10:00', $appointment->starts_at->format('Y-m-d H:i'));
+
+        // A un toque: enviarle ya el aviso (por ejemplo, mientras sigue en el teléfono) o abrir la cita.
+        $notice = $this->lastNotification();
+        $this->assertSame('Cita creada. El aviso al paciente está listo en Avisos.', $notice['title']);
+        $this->assertSame([
+            ['label' => 'Enviar aviso ahora', 'url' => AppointmentResource::getUrl('view', ['record' => $appointment, 'action' => 'whatsapp'])],
+            ['label' => 'Ver cita', 'url' => AppointmentResource::getUrl('view', ['record' => $appointment])],
+        ], array_map(fn (array $action) => ['label' => $action['label'], 'url' => $action['url']], $notice['actions']));
+        Livewire::withQueryParams(['action' => 'whatsapp'])
+            ->test(ViewAppointment::class, ['record' => $appointment->getKey()])
+            ->call('mountDefaultActions')
+            ->assertMountedActionModalSee('Revisa el mensaje. Se abrirá WhatsApp con el texto listo');
     }
 
     public function test_a_patient_without_a_phone_is_not_promised_a_whatsapp_notice(): void
@@ -88,9 +101,10 @@ class NewAppointmentWindowTest extends TestCase
             ->assertMountedActionModalDontSee('Enviar aviso por WhatsApp')
             ->setActionData(['doctor_id' => $this->doctor->id, 'treatment_id' => $this->treatment->id, 'date' => '2026-11-03', 'slot' => '10:00'])
             ->callMountedAction()
-            ->assertHasNoActionErrors()
-            ->assertNotified('Cita creada. No tiene celular: no se preparó aviso al paciente.');
+            ->assertHasNoActionErrors();
 
+        $notice = $this->lastNotification();
+        $this->assertSame(['Cita creada. No tiene celular: no se preparó aviso al paciente.', ['Ver cita']], [$notice['title'], array_column($notice['actions'], 'label')]);
         $this->assertSame(0, WhatsappMessage::query()->count());
         $appointment = $this->patient->appointments()->sole();
         $this->assertSame('Cita movida. No tiene celular: no se preparó aviso al paciente.', AppointmentActions::movedMessage($appointment, now()->addDays(3), agreed: false));
@@ -307,6 +321,30 @@ class NewAppointmentWindowTest extends TestCase
             ->assertHasNoActionErrors();
 
         $this->assertSame($rare->id, $this->patient->appointments()->sole()->treatment_id);
+    }
+
+    public function test_an_hour_taken_meanwhile_or_a_day_left_behind_at_midnight_is_said_plainly(): void
+    {
+        $window = Livewire::test(Dashboard::class)
+            ->mountAction('newAppointment')
+            ->setActionData(['patient_id' => $this->patient->id, 'doctor_id' => $this->doctor->id, 'treatment_id' => $this->treatment->id])
+            ->setActionData(['date' => '2026-11-03', 'slot' => '10:00']);
+
+        // Mientras se llenaba la ventana, otra persona tomó esa hora.
+        Appointment::factory()->for($this->doctor)->for($this->treatment)->confirmed()->at('2026-11-03 10:00')->create();
+
+        $window->callMountedAction()->assertHasActionErrors(['slot']);
+        $this->assertSame(['Esa hora ya no está libre: la tomaron mientras tanto. Elige otra.'], $window->errors()->get('mountedActions.0.data.slot'));
+
+        // Se dejó abierta con el día de hoy y se agenda pasada la medianoche: ese día ya pasó.
+        $late = Livewire::test(Dashboard::class)
+            ->mountAction('newAppointment')
+            ->setActionData(['patient_id' => $this->patient->id, 'doctor_id' => $this->doctor->id, 'treatment_id' => $this->treatment->id])
+            ->setActionData(['date' => '2026-11-02', 'slot' => '18:00']);
+        $this->travelTo(now()->parse('2026-11-03 00:20'));
+
+        $late->callMountedAction()->assertHasActionErrors(['date']);
+        $this->assertSame(['Ese día ya pasó. Elige hoy u otro día.'], $late->errors()->get('mountedActions.0.data.date'));
     }
 
     public function test_a_new_patient_with_a_document_already_registered_is_told_instead_of_failing(): void
