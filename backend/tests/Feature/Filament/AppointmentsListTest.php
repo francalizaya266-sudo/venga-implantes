@@ -7,11 +7,13 @@ use App\Filament\Pages\Agenda;
 use App\Filament\Resources\Appointments\Pages\ListAppointments;
 use App\Filament\Widgets\FollowUpsToday;
 use App\Models\Appointment;
+use App\Models\Charge;
 use App\Models\Doctor;
 use App\Models\Patient;
 use App\Models\Treatment;
 use App\Models\User;
 use Database\Seeders\CatalogSeeder;
+use Filament\Actions\Testing\TestAction;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Livewire\Livewire;
 use Tests\Concerns\CreatesAgenda;
@@ -59,10 +61,68 @@ class AppointmentsListTest extends TestCase
         $this->assertSame(1, substr_count($agenda->html(), 'class="tag tag-unclosed"'));
         $agenda->assertSeeHtmlInOrder(['Lucía', 'Sin cerrar', 'Bruno', 'En sala', 'Diego']);
 
-        // Cada cita por venir o sin marcar está en una sola pestaña.
+        // Cada cita por venir o sin marcar está en una sola pestaña. Quien está en sala hoy sigue en Próximas.
         Livewire::test(ListAppointments::class, ['activeTab' => 'upcoming'])
-            ->assertCanSeeTableRecords([$happeningNow, $later])
-            ->assertCanNotSeeTableRecords([$unmarked, $inTheRoom, $leftInTheRoom]);
+            ->assertCanSeeTableRecords([$inTheRoom, $happeningNow, $later], inOrder: true)
+            ->assertCanNotSeeTableRecords([$unmarked, $leftInTheRoom]);
+    }
+
+    public function test_a_patient_who_arrives_stays_in_upcoming_until_the_visit_is_closed(): void
+    {
+        $visit = $this->visit('Lucía', '2026-11-02 10:00');
+        $this->travelTo('2026-11-02 10:05');
+
+        Livewire::test(ListAppointments::class)
+            ->callAction(TestAction::make('arrived')->table($visit))
+            ->assertCanSeeTableRecords([$visit]);
+        $this->assertSame(AppointmentStatus::CheckedIn, $visit->fresh()->status);
+
+        $visit->update(['status' => AppointmentStatus::InProgress, 'started_at' => now()]);
+        Livewire::test(ListAppointments::class)->assertCanSeeTableRecords([$visit]);
+
+        $visit->update(['status' => AppointmentStatus::Completed, 'finished_at' => now()]);
+        Livewire::test(ListAppointments::class)->assertCanNotSeeTableRecords([$visit]);
+    }
+
+    public function test_only_visits_forgotten_on_earlier_days_bring_the_notice(): void
+    {
+        $this->visit('Lucía', '2026-11-02 09:00');
+        $this->travelTo('2026-11-02 11:00');
+
+        // La de hoy que nadie marcó todavía se cierra en el día: solo cuenta en la pestaña.
+        Livewire::test(ListAppointments::class)->assertDontSee(['días anteriores sin cerrar', 'Revisar ahora']);
+
+        $this->visit('Bruno', '2026-10-30 10:00');
+        $this->visit('Carla', '2026-10-31 10:00', ['status' => AppointmentStatus::CheckedIn, 'checked_in_at' => '2026-10-31 09:55']);
+
+        $list = Livewire::test(ListAppointments::class)
+            ->assertSee(['Quedaron 2 citas de días anteriores sin cerrar', 'Revisar ahora'])
+            ->assertSeeHtml(e(ListAppointments::getResource()::getUrl('index', ['tab' => 'unclosed'])));
+        $this->assertSame('3', (string) $list->instance()->getTabs()['unclosed']->getBadge());
+
+        // En la pestaña misma ya no hace falta.
+        Livewire::test(ListAppointments::class, ['activeTab' => 'unclosed'])->assertDontSee('Revisar ahora');
+    }
+
+    public function test_the_list_says_what_it_searches_who_owes_and_how_to_open_a_visit(): void
+    {
+        $owing = $this->visit('Lucía', '2026-11-05 10:00');
+        Charge::factory()->for($owing->patient)->create(['amount' => 120, 'doctor_id' => $this->doctor->id]);
+        $upToDate = $this->visit('Bruno', '2026-11-06 10:00');
+
+        Livewire::test(ListAppointments::class)
+            ->assertSee(['Buscar paciente, DNI o celular', 'Filtros', 'Avisos', 'Acciones', 'Lo más cercano primero'])
+            ->assertTableColumnStateSet('flags', ['Debe S/ 120'], $owing)
+            ->assertTableColumnStateNotSet('flags', ['Debe S/ 120'], $upToDate)
+            // La fila entera abre la cita, y el menú también lo dice.
+            ->assertActionVisible(TestAction::make('openAppointment')->table($owing))
+            ->assertActionHasUrl(TestAction::make('openAppointment')->table($owing), ListAppointments::getResource()::getUrl('view', ['record' => $owing]));
+
+        Livewire::test(ListAppointments::class, ['activeTab' => 'all'])->assertSee('Lo más reciente primero');
+
+        // El doctor no ve cuánto debe el paciente.
+        $this->actingAs($this->doctor->user);
+        Livewire::test(ListAppointments::class)->assertTableColumnStateNotSet('flags', ['Debe S/ 120'], $owing);
     }
 
     public function test_the_number_on_to_confirm_is_the_number_of_rows_and_turns_to_warning_when_someone_must_be_called(): void

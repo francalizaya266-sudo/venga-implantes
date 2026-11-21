@@ -1398,13 +1398,13 @@ button.pt-chip { transition: transform 160ms ease-out; }
     .dash-appt .fi-ta-record-content-ctn > :first-child { flex: 1 1 24rem; min-width: 0; }
     .dash-appt .fi-ta-actions { margin-inline-start: auto; }
 }
-/* El primer botón de cada cita es el paso que sigue: se ve como botón, en un azul suave que se llena al pasar el
-   mouse (cinco botones macizos en fila pesaban más que la agenda). Los demás quedan como enlace. */
-.dash-appt .fi-ta-actions > .fi-link:first-child { --text: var(--primary-700); color: var(--primary-700); background: var(--primary-50); padding: .35rem .75rem; border-radius: .55rem; font-weight: 600; box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--primary-300) 55%, transparent); transition: background-color .15s ease, color .15s ease; }
-.dash-appt .fi-ta-actions > .fi-link:first-child .fi-icon, .dash-appt .fi-ta-actions > .fi-link:first-child .fi-link-label { color: inherit; text-decoration: none; }
-.dash-appt .fi-ta-actions > .fi-link:first-child:hover { --text: #fff; color: #fff; background: var(--primary-600); text-decoration: none; }
-.dark .dash-appt .fi-ta-actions > .fi-link:first-child { --text: var(--primary-200); color: var(--primary-200); background: color-mix(in oklab, var(--primary-400) 16%, transparent); box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--primary-400) 30%, transparent); }
-.dark .dash-appt .fi-ta-actions > .fi-link:first-child:hover { --text: #fff; color: #fff; background: var(--primary-500); }
+/* En cada fila de citas (Hoy y Citas) el paso que toca se ve como botón, en un azul suave que se llena al pasar el
+   mouse (cinco botones macizos en fila pesaban más que la lista). Los demás quedan como enlace de su color. */
+.fi-ta-actions > .fi-link.appt-main-step { --text: var(--primary-700); color: var(--primary-700); background: var(--primary-50); padding: .35rem .75rem; border-radius: .55rem; font-weight: 600; box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--primary-300) 55%, transparent); transition: background-color .15s ease, color .15s ease; }
+.fi-ta-actions > .fi-link.appt-main-step .fi-icon, .fi-ta-actions > .fi-link.appt-main-step .fi-link-label { color: inherit; text-decoration: none; }
+.fi-ta-actions > .fi-link.appt-main-step:hover { --text: #fff; color: #fff; background: var(--primary-600); text-decoration: none; }
+.dark .fi-ta-actions > .fi-link.appt-main-step { --text: var(--primary-200); color: var(--primary-200); background: color-mix(in oklab, var(--primary-400) 16%, transparent); box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--primary-400) 30%, transparent); }
+.dark .fi-ta-actions > .fi-link.appt-main-step:hover { --text: #fff; color: #fff; background: var(--primary-500); }
 
 /* Sala de espera: quien más espera arriba; desde los 20 minutos, en rojo. */
 .dash-waiting { display: flex; align-items: center; justify-content: space-between; gap: .75rem; padding: .6rem 0; text-decoration: none; color: inherit; }

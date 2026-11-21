@@ -84,7 +84,8 @@ class LabOrdersTest extends TestCase
         Livewire::test(Agenda::class)
             ->mountAction('createAppointment')
             ->setActionData(['patient_id' => $this->rosa->id, 'date' => '2026-11-06'])
-            ->assertMountedActionModalSee('llega del laboratorio el sáb. 7 nov.')
+            // Un solo punto tras "nov.", y sin suponer si el trabajo es "el" o "la".
+            ->assertMountedActionModalSee('llega del laboratorio el sáb. 7 nov. Si la cita es para su entrega o colocación')
             ->setActionData(['date' => '2026-11-07'])
             ->assertMountedActionModalDontSee('llega del laboratorio');
 

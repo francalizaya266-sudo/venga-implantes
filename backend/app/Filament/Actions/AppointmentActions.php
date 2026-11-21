@@ -69,16 +69,18 @@ final class AppointmentActions
     private const MAIN_STEPS = ['arrived', 'start', 'continueConsultation', 'complete', 'checkout', 'rebook', 'confirm', 'undo'];
 
     /**
-     * Las de una fila de tabla (Citas, Hoy, las citas de la ficha): el paso del día a la vista y lo demás en el menú,
-     * porque en una fila no hay más sitio.
+     * Las de una fila de tabla (Citas y Hoy): el paso del día a la vista y lo demás en el menú, porque en una fila no
+     * hay más sitio. Como en el panel y en la página, el paso que toca se distingue (en la fila, como botón de color
+     * suave) y los demás quedan como enlace. El menú empieza por abrir la cita: que la fila entera la abre no se adivina.
      *
      * @return list<Action|ActionGroup>
      */
     public static function all(): array
     {
         return [
-            ...self::daySteps(),
+            ...self::withOneMainStep(self::daySteps()),
             ActionGroup::make([
+                self::open(),
                 self::whatsapp(),
                 self::patientProfile(),
                 ...self::others(),
@@ -150,12 +152,13 @@ final class AppointmentActions
         $byName = collect($steps)->keyBy(fn (Action $step) => $step->getName());
         $chosen = [];
 
-        // Se calcula una vez por cita y estado (no una vez por botón); si la cita cambia, se vuelve a elegir.
+        // Se calcula una vez por cita y estado (no una vez por botón); si la cita cambia, se vuelve a elegir. En una
+        // tabla cada fila tiene su copia de los botones: se pregunta con una copia atada a esa cita.
         $isMain = function (Action $action, Appointment $record) use ($byName, &$chosen): bool {
             /** @var AppointmentStatus $status */
             $status = $record->status;
             $key = $record->getKey().'|'.$status->value.'|'.$record->updated_at?->getTimestamp();
-            $chosen[$key] ??= collect(self::MAIN_STEPS)->first(fn (string $name) => $byName->get($name)?->isVisible() ?? false) ?? '';
+            $chosen[$key] ??= collect(self::MAIN_STEPS)->first(fn (string $name) => $byName->get($name)?->getClone()->record($record)->isVisible() ?? false) ?? '';
 
             return $chosen[$key] === $action->getName();
         };
@@ -225,8 +228,9 @@ final class AppointmentActions
             ->modalHidden(fn (Appointment $record) => self::earlierRoom($record) === null)
             ->modalHeading(fn (Appointment $record) => self::earlierRoomHeading($record))
             ->modalDescription(fn (Appointment $record) => self::earlierRoomDescription($record))
-            ->modalWidth(Width::Medium)
+            ->modalWidth(Width::Large)
             ->modalSubmitAction(false)
+            ->modalCancelActionLabel('Volver')
             ->extraModalFooterActions(fn (Action $action, Appointment $record) => self::earlierRoomChoices($action, $record))
             // Al llegar se dice lo que conviene resolver mientras espera: datos que faltan, deuda, laboratorio.
             ->action(function (Appointment $record, array $arguments): void {
@@ -366,6 +370,16 @@ final class AppointmentActions
             ->url(fn (Appointment $record) => ConsultationResource::getUrl('edit', ['record' => $record->consultation]));
     }
 
+    /** La página de la cita, desde una fila de la lista. */
+    public static function open(): Action
+    {
+        return Action::make('openAppointment')
+            ->label('Ver cita')
+            ->icon(Heroicon::OutlinedEye)
+            ->visible(fn (Appointment $record) => AppointmentResource::canView($record))
+            ->url(fn (Appointment $record) => AppointmentResource::getUrl('view', ['record' => $record]));
+    }
+
     /** De la cita a la ficha del paciente. No aparece en las citas de la ficha misma. */
     public static function patientProfile(): Action
     {
@@ -441,6 +455,7 @@ final class AppointmentActions
                 : 'Lo normal es que '.$record->loadMissing('doctor')->doctor->name.' la cierre al terminar. Si la cierras tú, se registra lo programado: '.self::scheduled($record).'.')
                 .(self::doctorUsesThePanel($record) ? ' Queda sin historia clínica escrita.' : ''))
             ->modalSubmitActionLabel(fn (Appointment $record) => $record->isFromAnEarlierDay() || $record->endedWithoutArriving() ? 'Sí, se atendió' : 'Sí, cerrarla')
+            ->modalCancelActionLabel('Volver')
             ->authorize('update')
             ->action(fn (Appointment $record) => Notify::run(
                 fn () => app(AppointmentService::class)->markCompleted($record, auth()->user()),
@@ -501,6 +516,7 @@ final class AppointmentActions
             // Qué pasa después, en vez de un "¿Seguro?" que no dice nada.
             ->modalDescription('Cuenta como una falta del paciente y entra en "Faltaron o cancelaron" (en Pacientes), para darle otro horario. Si fue un error, tienes un día para deshacerlo.')
             ->modalSubmitActionLabel('Marcar inasistencia')
+            ->modalCancelActionLabel('Volver')
             ->authorize('update')
             ->action(fn (Appointment $record) => Notify::run(
                 fn () => app(AppointmentService::class)->markNoShow($record, auth()->user()),
@@ -654,6 +670,7 @@ final class AppointmentActions
             ->modalHeading('Mover cita')
             ->modalDescription(fn (Appointment $record) => 'Ahora: '.Dates::dayAndTime($record->starts_at).'. Elige el nuevo horario.')
             ->modalSubmitActionLabel('Mover cita')
+            ->modalCancelActionLabel('Volver')
             ->visible(fn (Appointment $record) => $record->status->isChangeable())
             ->authorize('update')
             ->fillForm(fn (Appointment $record, array $arguments) => self::moveDefaults($record, $arguments))
@@ -705,6 +722,7 @@ final class AppointmentActions
             ->modalHeading(fn (Appointment $record) => 'Pasar a '.self::handOverParts($record)['patient'].' con otro doctor')
             ->modalDescription(fn (Appointment $record) => 'Está en sala para '.self::handOverParts($record)['treatment'].' con '.self::handOverParts($record)['doctor'].'. Elige quién lo atiende: cada uno dice desde qué hora está libre.')
             ->modalSubmitActionLabel('Pasarlo')
+            ->modalCancelActionLabel('Volver')
             ->modalWidth(Width::Large)
             ->visible(fn (Appointment $record) => self::canHandOver($record))
             ->authorize('update')
@@ -815,6 +833,7 @@ final class AppointmentActions
             ->modalHeading('Cambiar tratamiento o duración')
             ->modalDescription(fn (Appointment $record) => 'La cita sigue el '.Dates::dayAndTime($record->starts_at).' con '.$record->doctor->name.': solo cambia qué se le hace o cuánto dura.')
             ->modalSubmitActionLabel('Guardar cambio')
+            ->modalCancelActionLabel('Volver')
             ->modalWidth(Width::Large)
             ->visible(fn (Appointment $record) => in_array($record->status, AppointmentStatus::notYetAttended(), true))
             ->authorize('update')
@@ -871,6 +890,7 @@ final class AppointmentActions
             ->color('gray')
             ->modalHeading('Notas de la cita')
             ->modalSubmitActionLabel('Guardar')
+            ->modalCancelActionLabel('Volver')
             ->modalWidth(Width::Large)
             ->visible(fn (Appointment $record) => $record->status !== AppointmentStatus::Cancelled)
             ->authorize('update')
@@ -1098,6 +1118,7 @@ final class AppointmentActions
         return SendWhatsAppAction::compose('whatsapp', fn (Appointment $record) => self::whatsappDraft($record))
             ->label('WhatsApp')
             ->modalHeading(fn (Appointment $record) => 'WhatsApp para '.$record->patient->full_name)
+            ->modalCancelActionLabel('Volver')
             ->modalDescription(fn (Appointment $record) => Phone::display($record->patient->account->phone)
                 .'. Revisa el mensaje. Se abrirá WhatsApp con el texto listo: solo presiona Enviar. Si lleva {enlace}, se cambia por su enlace personal al abrirlo.')
             ->url(
