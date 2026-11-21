@@ -13,6 +13,7 @@ use App\Models\Patient;
 use App\Models\Treatment;
 use App\Models\TreatmentPlan;
 use App\Models\User;
+use App\Models\WaitlistEntry;
 use App\Services\Billing\BillingService;
 use Filament\Actions\Testing\TestAction;
 use Filament\Forms\Components\Select;
@@ -22,7 +23,7 @@ use Tests\Concerns\CreatesAgenda;
 use Tests\TestCase;
 
 /**
- * "Nueva cita" y "Llegó sin cita" dicen lo que toca con el paciente que se elige (lo que le falta de su plan, que lo
+ * "Nueva cita", "Llegó sin cita" y "Anotar en lista de espera" dicen lo que toca con el paciente que se elige (lo que le falta de su plan, que lo
  * elegido es una sesión de su plan, que ya tuvo su evaluación, el presupuesto sin respuesta, la cita a la que faltó)
  * y lo dejan listo de un toque.
  */
@@ -165,6 +166,38 @@ class PatientContextInWindowsTest extends TestCase
             ->setActionData(['patient_id' => $this->patient->id])
             ->assertMountedActionModalSee(['Faltó a su cita del 19 de octubre', '¿Viene por eso?', 'Sí, viene por eso'])
             ->callAction($reschedule)
+            ->assertActionDataSet(['treatment_id' => $this->filling->id, 'doctor_id' => $this->doctor->id]);
+    }
+
+    public function test_the_waitlist_offers_to_wait_for_the_plan_session_or_what_was_missed(): void
+    {
+        $this->plan(TreatmentPlanStatus::InProgress)->items()->create(['treatment_id' => $this->control->id, 'description' => 'Control de ortodoncia', 'unit_price' => 80, 'sessions_planned' => 12, 'sessions_done' => 2, 'status' => PlanItemStatus::InProgress, 'accepted_at' => now()->subMonths(2)]);
+        $useIt = TestAction::make('usePatientContext')->schemaComponent('patientContext', 'mountedActionSchema0');
+
+        Livewire::test(Dashboard::class)
+            ->mountAction('waitlist')
+            ->setActionData(['patient_id' => $this->patient->id])
+            ->assertMountedActionModalSee(['Le toca de su plan: Control de ortodoncia · sesión 3 de 12', 'Esperar esa sesión'])
+            ->callAction($useIt)
+            ->assertActionDataSet(['treatment_id' => $this->control->id, 'doctor_id' => $this->doctor->id])
+            ->assertMountedActionModalDontSee('Le toca de su plan');
+
+        // Si ya espera eso, no se le propone otra vez: lo dice el aviso de que ya está anotado.
+        WaitlistEntry::factory()->for($this->patient)->for($this->control)->create();
+        Livewire::test(Dashboard::class)
+            ->mountAction('waitlist')
+            ->setActionData(['patient_id' => $this->patient->id])
+            ->assertMountedActionModalSee('Ya está en la lista de espera para Control de ortodoncia')
+            ->assertMountedActionModalDontSee('Le toca de su plan');
+
+        // A quien faltó y no volvió se le propone esperar eso.
+        $missed = Patient::factory()->create();
+        Appointment::factory()->for($this->doctor)->for($this->filling)->for($missed)->at('2026-10-19 10:00')->create(['status' => AppointmentStatus::NoShow]);
+        Livewire::test(Dashboard::class)
+            ->mountAction('waitlist')
+            ->setActionData(['patient_id' => $missed->id])
+            ->assertMountedActionModalSee(['Faltó a su cita del 19 de octubre', 'Curación con resina · sigue sin otra cita.', 'Esperar eso'])
+            ->callAction($useIt)
             ->assertActionDataSet(['treatment_id' => $this->filling->id, 'doctor_id' => $this->doctor->id]);
     }
 

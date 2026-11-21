@@ -74,7 +74,48 @@ class CollectingAndReceiptsTest extends TestCase
             ->mountAction('registerPayment')
             ->setActionData(['patient_id' => $patient->id])
             ->assertActionDataSet(['amount' => 225.0])
-            ->assertMountedActionModalSee('Debe S/ 225.00: Blanqueamiento · cuota 1 de 2 S/ 225.00 (2/11).');
+            ->assertMountedActionModalSee(['Debe S/ 225.00: Blanqueamiento · cuota 1 de 2 S/ 225.00 (2/11).', 'Próxima cuota: S/ 225.00, vence el miércoles 2 de diciembre.'])
+            ->assertMountedActionModalDontSee('Cuota vencida');
+    }
+
+    public function test_collecting_says_since_when_an_installment_is_late_and_when_the_next_one_falls_due(): void
+    {
+        $this->freezeMonday();
+        $patient = Patient::factory()->create();
+        $plan = TreatmentPlan::create(['patient_id' => $patient->id, 'doctor_id' => Doctor::factory()->create()->id, 'title' => 'Ortodoncia', 'status' => TreatmentPlanStatus::Accepted, 'payment_mode' => PlanPaymentMode::Installments, 'accepted_at' => now()->subMonths(2)]);
+        $plan->installments()->create(['number' => 1, 'due_on' => '2026-10-01', 'amount' => 250]);
+        $plan->installments()->create(['number' => 2, 'due_on' => '2026-12-01', 'amount' => 250]);
+        $this->actingAs(User::factory()->reception()->create());
+
+        Livewire::test(Dashboard::class)
+            ->mountAction('registerPayment')
+            ->setActionData(['patient_id' => $patient->id])
+            ->assertActionDataSet(['amount' => 250.0])
+            ->assertMountedActionModalSee('Cuota vencida desde el 1 de octubre. La próxima, S/ 250.00, vence el martes 1 de diciembre.');
+    }
+
+    public function test_collecting_from_someone_in_their_visit_today_says_that_todays_part_comes_at_the_end(): void
+    {
+        $this->freezeMonday();
+        $treatment = Treatment::factory()->create(['name' => 'Endodoncia']);
+        $doctor = $this->doctorOffering($treatment);
+        $patient = Patient::factory()->create();
+        Charge::factory()->for($patient)->create(['description' => 'Radiografía', 'amount' => 40, 'charged_at' => now()->subWeek()]);
+        $visit = Appointment::factory()->for($doctor)->for($treatment)->for($patient)->at('2026-11-02 07:30')->create(['status' => AppointmentStatus::InProgress]);
+        $this->actingAs(User::factory()->reception()->create());
+
+        Livewire::test(Dashboard::class)
+            ->mountAction('registerPayment')
+            ->setActionData(['patient_id' => $patient->id])
+            ->assertMountedActionModalSee(['Lo están atendiendo: Endodoncia de las 07:30', 'Lo de hoy se carga al terminar y todavía no está en lo que debe.'])
+            ->setActionData(['amount' => 250])
+            ->callMountedAction()
+            ->assertHasNoActionErrors();
+
+        // Si igual pagó por adelantado, el cobro de su cita al terminar ya lo descuenta: no se le cobra dos veces.
+        $visit->update(['status' => AppointmentStatus::Completed]);
+        Charge::factory()->for($patient)->create(['description' => 'Endodoncia', 'amount' => 210, 'appointment_id' => $visit->id, 'charged_at' => now()]);
+        $this->assertSame(0.0, $patient->balance());
     }
 
     public function test_collecting_offers_first_who_was_charged_today_and_still_owes(): void
@@ -97,6 +138,16 @@ class CollectingAndReceiptsTest extends TestCase
         $earlier = Patient::factory()->create(['first_name' => 'Rosa', 'last_name' => 'Quispe']);
         $seen($earlier, '2026-10-30 10:00');
         Charge::factory()->for($earlier)->create(['amount' => 60, 'charged_at' => '2026-10-30 10:40']);
+        // Quienes están en la clínica y deben de antes salen después: a primera hora son los únicos.
+        $inClinic = fn (string $firstName, AppointmentStatus $status, string $at, float $owed) => tap(Patient::factory()->create(['first_name' => $firstName, 'last_name' => 'Torres']), function (Patient $patient) use ($doctor, $treatment, $status, $at, $owed) {
+            Appointment::factory()->for($doctor)->for($treatment)->for($patient)->at($at)->create(['status' => $status]);
+            if ($owed > 0) {
+                Charge::factory()->for($patient)->create(['amount' => $owed, 'charged_at' => '2026-10-20 10:00']);
+            }
+        });
+        $inChair = $inClinic('Marta', AppointmentStatus::InProgress, '2026-11-02 07:30', 300);
+        $waiting = $inClinic('Hugo', AppointmentStatus::CheckedIn, '2026-11-02 08:00', 45);
+        $inClinic('Elena', AppointmentStatus::CheckedIn, '2026-11-02 08:15', 0);
         $this->actingAs(User::factory()->reception()->create());
 
         Livewire::test(Dashboard::class)
@@ -104,19 +155,33 @@ class CollectingAndReceiptsTest extends TestCase
             ->assertFormFieldExists('patient_id', 'mountedActionSchema0', fn (Select $field) => $field->getOptions() === [
                 $owes->id => 'Olivia Arenas · debe S/ 120.00',
                 $urgency->id => 'Luis Mamani · debe S/ 90.00',
+                $inChair->id => 'Marta Torres · en atención · debe S/ 300.00',
+                $waiting->id => 'Hugo Torres · en sala · debe S/ 45.00',
             ])
             // A los demás se les sigue encontrando al escribir.
             ->assertFormFieldExists('patient_id', 'mountedActionSchema0', fn (Select $field) => array_keys($field->getSearchResults('Quispe')) === [$earlier->id])
             ->setActionData(['patient_id' => $owes->id])
             ->assertActionDataSet(['amount' => 120.0]);
 
-        // Son los mismos que cuenta "Cobrado hoy" y lista el cierre del día, a donde lleva ese número.
+        // Los de hoy son los mismos que cuenta "Cobrado hoy" y lista el cierre del día, a donde lleva ese número. Los que
+        // están en la clínica no cuentan ahí: su cita sale en "Citas sin cerrar".
         Livewire::test(TodayStats::class)
             ->assertSee('Falta cobrar S/ 210.00 a 2 pacientes')
             ->assertSeeHtml('href="'.e(CashClosing::getUrl()).'"');
         Livewire::test(CashClosingCheck::class)
             ->assertSeeInOrder(['Se fueron debiendo', 'Olivia Arenas', 'S/ 120.00', 'Luis Mamani', 'S/ 90.00'])
             ->assertDontSee(['Pedro Huamán', 'Rosa Quispe']);
+
+        // Si a quien está en sala ya se le cargó algo hoy, sale con los de hoy y se dice que sigue aquí.
+        Charge::factory()->for($waiting)->create(['amount' => 30]);
+        Livewire::test(Dashboard::class)
+            ->mountAction('registerPayment')
+            ->assertFormFieldExists('patient_id', 'mountedActionSchema0', fn (Select $field) => $field->getOptions() === [
+                $owes->id => 'Olivia Arenas · debe S/ 120.00',
+                $urgency->id => 'Luis Mamani · debe S/ 90.00',
+                $waiting->id => 'Hugo Torres · en sala · debe S/ 75.00',
+                $inChair->id => 'Marta Torres · en atención · debe S/ 300.00',
+            ]);
     }
 
     public function test_the_receipt_says_what_was_paid_and_what_is_left(): void
@@ -156,6 +221,37 @@ class CollectingAndReceiptsTest extends TestCase
         // Los doctores no ven la caja.
         $this->actingAs($this->doctorOffering(Treatment::factory()->create())->user);
         $this->get($url)->assertForbidden();
+    }
+
+    public function test_the_receipt_counts_what_was_charged_while_the_window_was_open(): void
+    {
+        $this->freezeMonday();
+        $patient = Patient::factory()->create();
+        $plan = TreatmentPlan::create(['patient_id' => $patient->id, 'doctor_id' => Doctor::factory()->create()->id, 'title' => 'Blanqueamiento', 'status' => TreatmentPlanStatus::Accepted, 'payment_mode' => PlanPaymentMode::Installments, 'accepted_at' => now()->subWeek()]);
+        $plan->installments()->create(['number' => 1, 'due_on' => '2026-11-02', 'amount' => 225]);
+        $this->actingAs(User::factory()->reception()->create());
+
+        // Se abre la ventana a las 8:00 y se elige al paciente un rato después: ahí entra su cuota de hoy.
+        $window = Livewire::test(Dashboard::class)->mountAction('registerPayment');
+        $this->travel(90)->seconds();
+        $window->setActionData(['patient_id' => $patient->id])
+            ->assertActionDataSet(['amount' => 225.0])
+            ->callMountedAction()
+            ->assertHasNoActionErrors();
+
+        // Antes el pago quedaba a las 8:00, antes de la cuota, y la constancia decía "A favor S/ 225.00".
+        $payment = Payment::sole();
+        $this->assertSame('2026-11-02 08:01:30', $payment->paid_at->format('Y-m-d H:i:s'));
+        $this->assertSame(0.0, app(PaymentReceipt::class)->balanceAfter($payment));
+
+        // Una fecha elegida a mano se respeta.
+        Charge::factory()->for($patient)->create(['amount' => 50, 'charged_at' => now()->subDays(3)]);
+        Livewire::test(Dashboard::class)
+            ->mountAction('registerPayment')
+            ->setActionData(['patient_id' => $patient->id, 'paid_at' => '2026-11-02 07:15'])
+            ->callMountedAction()
+            ->assertHasNoActionErrors();
+        $this->assertSame('2026-11-02 07:15', Payment::query()->latest('id')->first()->paid_at->format('Y-m-d H:i'));
     }
 
     public function test_caja_and_the_patient_file_link_each_payment_to_its_receipt(): void

@@ -123,6 +123,14 @@ class PatientResource extends Resource
         return ['first_name', 'last_name', 'document_number', 'account.phone'];
     }
 
+    /** Ctrl + K busca como los demás buscadores de pacientes: el nombre sin importar tildes, el DNI o el celular. */
+    protected static function applyGlobalSearchAttributeConstraints(Builder $query, string $search): void
+    {
+        /** @var Builder<Patient> $patients */
+        $patients = $query;
+        $patients->search($search);
+    }
+
     public static function getGlobalSearchResultDetails(Model $record): array
     {
         /** @var Patient $record */

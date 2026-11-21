@@ -19,8 +19,8 @@ use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 
 /**
- * Lo que conviene saber del paciente al agendarle ("Nueva cita") o cuando llega sin cita, con el botón que deja la
- * ventana lista: que lo que se eligió es una sesión de su plan, que ya tuvo su evaluación, lo que le toca de su plan,
+ * Lo que conviene saber del paciente al agendarle ("Nueva cita"), cuando llega sin cita o al anotarlo en la lista de
+ * espera, con el botón que deja la ventana lista: que lo que se eligió es una sesión de su plan, que ya tuvo su evaluación, lo que le toca de su plan,
  * el presupuesto que no respondió o la cita a la que faltó. Uno a la vez, el más útil para lo que se está haciendo,
  * con lo mismo que calcula su ficha: así todas las pantallas dicen lo mismo.
  *
@@ -47,6 +47,30 @@ final class PatientContext
             ?? self::planItemToBook($patient, $user, $forToday)
             ?? ($forToday ? null : self::planAwaitingAnswer($patient, $user))
             ?? self::missedVisit($patient, $forToday, $treatment);
+    }
+
+    /**
+     * Para "Anotar en lista de espera": lo que le toca de su plan o lo que perdió, para anotarlo para eso. Solo llena el
+     * tratamiento y el doctor (la anotación no guarda la sesión). Null si ya se eligió eso mismo.
+     *
+     * @return Notice|null
+     */
+    public static function toWaitFor(Patient $patient, User $user, ?int $treatmentId): ?array
+    {
+        $treatment = $treatmentId !== null ? Treatment::find($treatmentId) : null;
+        $planned = self::planItemToBook($patient, $user, forToday: false);
+        $notice = $planned !== null && ($planned['fill']['treatment_id'] ?? null) !== $treatmentId
+            ? $planned
+            : self::missedVisit($patient, forToday: false, treatment: $treatment);
+
+        if ($notice === null) {
+            return null;
+        }
+
+        return [
+            'button' => $notice['key'] === 'planItemToBook' ? 'Esperar esa sesión' : 'Esperar eso',
+            'fill' => array_intersect_key($notice['fill'], array_flip(['treatment_id', 'doctor_id'])),
+        ] + $notice;
     }
 
     /**

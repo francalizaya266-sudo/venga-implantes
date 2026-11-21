@@ -40,9 +40,27 @@ class PatientRegistrationTest extends TestCase
         $this->assertSame([$rosa->id => 'mismo documento'], $reasons(['document_number' => ' 0765-4321 ']));
         $this->assertSame([$rosa->id => 'mismo nombre y fecha de nacimiento'], $reasons(['first_name' => 'Rosa', 'last_name' => 'Huamán', 'birth_date' => '1956-01-20']));
         $this->assertSame([$rosa->id => 'mismo nombre'], $reasons(['first_name' => 'rosa maría', 'last_name' => 'Huamán Torres']));
+        // Escrito sin tildes también es ella (en SQLite, la laptop, antes no la encontraba).
+        $this->assertSame([$rosa->id => 'mismo nombre'], $reasons(['first_name' => 'Rosa Maria', 'last_name' => 'Huaman Torres']));
         $this->assertSame([$mateo->id => 'mismo celular', $rosa->id => 'mismo celular'], $reasons(['phone' => '987 654 321']));
         $this->assertSame([], $reasons(['first_name' => 'Rosa', 'last_name' => 'Huamán']));
         $this->assertSame([], $registrar->possibleDuplicates(['document_number' => '07654321'], ignore: $rosa)->all());
+    }
+
+    public function test_patients_are_found_without_typing_accents(): void
+    {
+        $maria = Patient::factory()->create(['first_name' => 'María José', 'last_name' => 'Ñañez Quispe']);
+        Patient::factory()->create(['first_name' => 'Mario', 'last_name' => 'Quispe']);
+        $this->actingAs(User::factory()->reception()->create());
+
+        $this->assertSame([$maria->id], Patient::query()->search('maria nanez')->pluck('id')->all());
+        $this->assertSame([$maria->id], Patient::query()->search('MARÍA quispe')->pluck('id')->all());
+        // Ctrl + K busca igual.
+        $this->assertSame(['María José Ñañez Quispe'], PatientResource::getGlobalSearchResults('jose nanez')->map(fn ($result) => (string) $result->title)->values()->all());
+
+        // Al corregir el nombre, se busca por el nuevo.
+        $maria->update(['last_name' => 'Ramírez']);
+        $this->assertSame([$maria->id], Patient::query()->search('ramirez')->pluck('id')->all());
     }
 
     public function test_registering_someone_already_registered_opens_their_file_instead(): void

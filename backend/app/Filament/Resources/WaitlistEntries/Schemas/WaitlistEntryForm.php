@@ -9,11 +9,13 @@ use App\Filament\Resources\Appointments\AppointmentResource;
 use App\Filament\Resources\Appointments\Schemas\AppointmentForm;
 use App\Filament\Resources\Patients\PatientResource;
 use App\Filament\Resources\WaitlistEntries\WaitlistEntryResource;
+use App\Filament\Support\PatientContext;
 use App\Filament\Support\SlotPicker;
 use App\Models\Appointment;
 use App\Models\Doctor;
 use App\Models\Patient;
 use App\Models\Treatment;
+use App\Models\User;
 use App\Models\WaitlistEntry;
 use App\Services\Agenda\Slot;
 use App\Services\Booking\WaitlistService;
@@ -81,6 +83,7 @@ final class WaitlistEntryForm
                     ->visible(fn (Get $get) => (bool) $get('new_patient'))
                     ->schema(self::newPatientFields()),
                 self::alreadyWaitingCallout(),
+                self::patientContextCallout(),
                 self::upcomingAppointmentCallout(),
                 self::noPhoneCallout(),
             ]);
@@ -210,28 +213,106 @@ final class WaitlistEntryForm
         );
     }
 
-    /** Ya está anotado para lo mismo: se dice antes de guardar (antes salía como error al final), con su anotación. */
+    /**
+     * Ya está anotado: se dice al elegir al paciente, antes de escribir lo demás. Si ya se eligió el mismo tratamiento
+     * es un aviso (al guardar no lo deja); si todavía no, puede ser para otra cosa.
+     */
     private static function alreadyWaitingCallout(): Callout
     {
-        return Callout::make(fn (Get $get, ?WaitlistEntry $record) => ($entry = self::existingEntry($get('patient_id'), $get('treatment_id'), $record))
+        return Callout::make(fn (Get $get, ?WaitlistEntry $record) => ($entry = self::waitingEntry($get, $record))
             ? 'Ya está en la lista de espera para '.(self::treatmentOf($entry)->name ?? 'ese tratamiento')
             : null)
             ->key('alreadyWaiting')
-            ->description(fn (Get $get, ?WaitlistEntry $record) => ($entry = self::existingEntry($get('patient_id'), $get('treatment_id'), $record))
-                ? self::alreadyWaitingDescription($entry)
+            ->description(fn (Get $get, ?WaitlistEntry $record) => ($entry = self::waitingEntry($get, $record))
+                ? self::alreadyWaitingDescription($entry, sameTreatment: filled($get('treatment_id')))
                 : null)
-            ->warning()
+            ->icon(Heroicon::OutlinedQueueList)
+            ->color(fn (Get $get) => filled($get('treatment_id')) ? 'warning' : 'info')
             ->actions([
                 Action::make('editExistingEntry')
                     ->label('Editar esa anotación')
-                    ->url(fn (Get $get, ?WaitlistEntry $record) => ($entry = self::existingEntry($get('patient_id'), $get('treatment_id'), $record))
+                    ->url(fn (Get $get, ?WaitlistEntry $record) => ($entry = self::waitingEntry($get, $record))
                         ? WaitlistEntryResource::getUrl('index', ['tableAction' => 'edit', 'tableActionRecord' => $entry->getKey()])
                         : null),
             ])
-            ->visible(fn (Get $get, ?WaitlistEntry $record) => self::existingEntry($get('patient_id'), $get('treatment_id'), $record) !== null);
+            ->visible(fn (Get $get, ?WaitlistEntry $record) => self::waitingEntry($get, $record) !== null);
     }
 
-    private static function alreadyWaitingDescription(WaitlistEntry $entry): string
+    /**
+     * Lo que le toca de su plan, o lo que perdió (faltó o se canceló y no volvió), con un botón que lo pone en "Qué
+     * espera". Solo al anotarlo, y no si ya está anotado para eso.
+     */
+    private static function patientContextCallout(): Callout
+    {
+        return Callout::make(fn (Get $get, ?WaitlistEntry $record) => self::patientContext($get, $record)['heading'] ?? null)
+            ->key('patientContext')
+            ->description(fn (Get $get, ?WaitlistEntry $record) => self::patientContext($get, $record)['detail'] ?? null)
+            ->icon(fn (Get $get, ?WaitlistEntry $record) => (self::patientContext($get, $record)['key'] ?? null) === 'missedVisit' ? Heroicon::OutlinedArrowPath : Heroicon::OutlinedClipboardDocumentList)
+            ->color(fn (Get $get, ?WaitlistEntry $record) => (self::patientContext($get, $record)['warn'] ?? false) ? 'warning' : 'info')
+            ->actions([
+                Action::make('usePatientContext')
+                    ->label(fn (Get $get, ?WaitlistEntry $record) => self::patientContext($get, $record)['button'] ?? null)
+                    ->button()
+                    ->size(Size::Small)
+                    ->action(function (Get $get, Set $set, ?WaitlistEntry $record) {
+                        foreach (self::patientContext($get, $record)['fill'] ?? [] as $field => $value) {
+                            $set($field, $value);
+                        }
+
+                        self::untilTheDayBefore($get, $set, $record);
+                    }),
+            ])
+            ->visible(fn (Get $get, ?WaitlistEntry $record) => self::patientContext($get, $record) !== null);
+    }
+
+    /**
+     * El aviso de lo que toca con el paciente elegido. Se pide varias veces al pintar la ventana: una sola vez por pedido.
+     *
+     * @return array{key: string, heading: string, detail: string, warn: bool, button: string|null, fill: array<string, int|null>, url: string|null}|null
+     */
+    private static function patientContext(Get $get, ?WaitlistEntry $record): ?array
+    {
+        $patient = $record === null ? self::chosenPatient($get) : null;
+
+        if ($patient === null) {
+            return null;
+        }
+
+        $treatmentId = filled($get('treatment_id')) ? (int) $get('treatment_id') : null;
+        $memo = 'waitlist-form.context.'.$patient->getKey().'.'.$treatmentId;
+
+        if (! request()->attributes->has($memo)) {
+            /** @var User $user */
+            $user = auth()->user();
+            $notice = PatientContext::toWaitFor($patient, $user, $treatmentId);
+            // Si ya está anotado para eso, lo dice el aviso de arriba.
+            $alreadyWaiting = $notice !== null && self::existingEntry($patient->getKey(), $notice['fill']['treatment_id'] ?? null, null) !== null;
+
+            request()->attributes->set($memo, $alreadyWaiting ? null : $notice);
+        }
+
+        return request()->attributes->get($memo);
+    }
+
+    /** Su anotación para el tratamiento elegido o, si todavía no se elige, la que tenga (la más antigua). */
+    private static function waitingEntry(Get $get, ?WaitlistEntry $record): ?WaitlistEntry
+    {
+        if ($get('new_patient') || blank($get('patient_id'))) {
+            return null;
+        }
+
+        $memo = 'waitlist-form.waiting.'.$get('patient_id').'.'.$get('treatment_id').'.'.$record?->getKey();
+
+        if (! request()->attributes->has($memo)) {
+            request()->attributes->set($memo, filled($get('treatment_id'))
+                ? self::existingEntry($get('patient_id'), $get('treatment_id'), $record)
+                : self::existingEntry($get('patient_id'), null, $record, anyTreatment: true));
+        }
+
+        return request()->attributes->get($memo);
+    }
+
+    private static function alreadyWaitingDescription(WaitlistEntry $entry, bool $sameTreatment): string
     {
         /** @var CarbonInterface $createdAt */
         $createdAt = $entry->created_at;
@@ -244,7 +325,9 @@ final class WaitlistEntryForm
             ? ' Tiene apartado el '.$offeredStartsAt->translatedFormat('l j').' a las '.$offeredStartsAt->format('H:i').' hasta las '.$heldUntil->format('H:i').', esperando su respuesta.'
             : '';
 
-        return 'Lo anotaron el '.$createdAt->translatedFormat('j \d\e F').'.'.$held.' Si cambió lo que puede, edita esa anotación en vez de anotarlo otra vez.';
+        return 'Lo anotaron el '.$createdAt->translatedFormat('j \d\e F').'.'.$held.($sameTreatment
+            ? ' Si cambió lo que puede, edita esa anotación en vez de anotarlo otra vez.'
+            : ' Si es para lo mismo, edita esa anotación; si es para otra cosa, elige el tratamiento.');
     }
 
     /** Ya tiene cita para lo mismo: se anota para adelantarla (al salir un horario antes, se mueve esa cita). */
@@ -462,10 +545,10 @@ final class WaitlistEntryForm
         return request()->attributes->get($memo);
     }
 
-    /** Su anotación que sigue en espera para ese tratamiento, sin contar la que se está editando. */
-    private static function existingEntry(mixed $patientId, mixed $treatmentId, ?WaitlistEntry $editing): ?WaitlistEntry
+    /** Su anotación que sigue en espera para ese tratamiento (o para cualquiera), sin contar la que se está editando. */
+    private static function existingEntry(mixed $patientId, mixed $treatmentId, ?WaitlistEntry $editing, bool $anyTreatment = false): ?WaitlistEntry
     {
-        if (blank($patientId) || blank($treatmentId)) {
+        if (blank($patientId) || (blank($treatmentId) && ! $anyTreatment)) {
             return null;
         }
 
@@ -473,7 +556,7 @@ final class WaitlistEntryForm
             ->active()
             ->with('treatment')
             ->where('patient_id', $patientId)
-            ->where('treatment_id', $treatmentId)
+            ->when(! $anyTreatment, fn (Builder $query) => $query->where('treatment_id', $treatmentId))
             ->when($editing, fn (Builder $query) => $query->whereKeyNot($editing->getKey()))
             ->oldest()
             ->first();
