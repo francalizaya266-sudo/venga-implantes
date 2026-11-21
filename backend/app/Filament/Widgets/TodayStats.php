@@ -122,7 +122,7 @@ class TodayStats extends Widget
 
         return match (true) {
             $status === AppointmentStatus::Completed => 'done',
-            in_array($status, AppointmentStatus::inClinic(), true) => $endsAt->gt(now()->subHours(Appointment::WAIT_EXPIRES_HOURS)) ? 'here' : 'unmarked',
+            in_array($status, AppointmentStatus::inClinic(), true) => $appointment->isForgottenInClinic() ? 'unmarked' : 'here',
             $status->isChangeable() => $endsAt->isFuture() ? 'toCome' : 'unmarked',
             default => 'missed',
         };

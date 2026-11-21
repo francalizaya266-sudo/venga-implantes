@@ -308,6 +308,20 @@ class Appointment extends Model
         return $this->endedWithoutArriving() || $this->isLeftOpen();
     }
 
+    /**
+     * Sigue "en sala" o "en atención" horas después de su hora (WAIT_EXPIRES_HOURS): ya no es alguien en la clínica,
+     * es una cita que nadie cerró. Lo mismo que dicen la sala de espera y "Citas de hoy".
+     */
+    public function isForgottenInClinic(): bool
+    {
+        /** @var AppointmentStatus $status */
+        $status = $this->status;
+        /** @var CarbonInterface $endsAt */
+        $endsAt = $this->ends_at;
+
+        return in_array($status, AppointmentStatus::inClinic(), true) && $endsAt->lte(now()->subHours(self::WAIT_EXPIRES_HOURS));
+    }
+
     /** Minutos que lleva en sala desde que llegó; null si no está esperando. */
     public function waitingMinutes(): ?int
     {

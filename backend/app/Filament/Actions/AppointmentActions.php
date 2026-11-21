@@ -110,7 +110,7 @@ final class AppointmentActions
     }
 
     /**
-     * El paso que toca según el estado de la cita, y deshacer el último.
+     * El paso que toca según el estado de la cita, y deshacer el último. A quien no asistió, darle otro horario.
      *
      * @return list<Action>
      */
@@ -124,6 +124,7 @@ final class AppointmentActions
             self::continueConsultation(),
             self::complete(),
             CheckoutAction::make(),
+            self::rebook(),
             self::undo(),
         ];
     }
@@ -463,6 +464,47 @@ final class AppointmentActions
                 fn () => app(AppointmentService::class)->markNoShow($record, auth()->user()),
                 'Marcada como inasistencia',
             ));
+    }
+
+    /**
+     * No asistió y nadie le dio otro horario: "Nueva cita" con el paciente, el doctor, el tratamiento y la sesión de
+     * su plan ya puestos. La cita que faltó no se mueve: sigue contando como falta ("Faltó 1 de 3"). Si ya tiene otra
+     * cita después de esta, no aparece.
+     */
+    public static function rebook(): Action
+    {
+        return Action::make('rebook')
+            ->label('Reagendar')
+            ->icon(Heroicon::OutlinedCalendarDays)
+            ->color('primary')
+            ->visible(fn (Appointment $record) => self::wasMissed($record)
+                && AppointmentResource::canCreate()
+                && ! self::hasAnotherVisitAfter($record))
+            ->url(fn (Appointment $record) => AppointmentResource::newUrl([
+                'patient' => $record->patient_id,
+                'doctor' => $record->doctor_id,
+                'treatment' => $record->treatment_id,
+                'plan_item' => $record->treatment_plan_item_id,
+            ]));
+    }
+
+    private static function wasMissed(Appointment $record): bool
+    {
+        /** @var AppointmentStatus $status */
+        $status = $record->status;
+
+        return $status === AppointmentStatus::NoShow;
+    }
+
+    /** Ya tiene otra cita después de la que faltó (por venir, o a la que vino): ya se le dio un horario. */
+    private static function hasAnotherVisitAfter(Appointment $record): bool
+    {
+        return Appointment::query()
+            ->where('patient_id', $record->patient_id)
+            ->whereKeyNot($record->getKey())
+            ->where('starts_at', '>', $record->starts_at)
+            ->whereNotIn('status', AppointmentStatus::missed())
+            ->exists();
     }
 
     /**

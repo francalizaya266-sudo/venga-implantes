@@ -14,23 +14,40 @@
                     </div>
                 </div>
 
-                <ul class="dash-alerts" aria-label="Antes de atender">
-                    @if ($next['consentMissing'])
-                        <li class="is-warning"><x-filament::icon icon="heroicon-m-pencil-square" /> Falta firmar el consentimiento: se firma al empezar la atención.</li>
-                    @endif
-                    @if (! $next['hasBackground'])
-                        <li class="is-warning"><x-filament::icon icon="heroicon-m-exclamation-circle" /> Faltan los antecedentes médicos: pregunta por alergias, enfermedades y medicamentos.</li>
-                    @elseif ($next['alerts'] === [])
-                        <li class="is-success"><x-filament::icon icon="heroicon-m-shield-check" /> Sin alergias ni enfermedades registradas.</li>
-                    @else
-                        @foreach ($next['alerts'] as $alert)
-                            <li @class(['is-danger' => $alert['severe'], 'is-warning' => ! $alert['severe']])><x-filament::icon :icon="$alert['severe'] ? 'heroicon-m-exclamation-triangle' : 'heroicon-m-information-circle'" /> {{ $alert['text'] }}</li>
+                @php
+                    $severeAlerts = collect($next['alerts'])->where('severe', true);
+                    $otherAlerts = collect($next['alerts'])->where('severe', false);
+                    // Sin antecedentes tampoco hay alertas: "Faltan los antecedentes" va en lugar de "Sin alergias".
+                    $hasTags = $next['consentMissing'] || $next['alerts'] === [] || $otherAlerts->isNotEmpty() || $next['lab'] !== [];
+                @endphp
+
+                {{-- Lo que puede hacer daño en el sillón va entero y en rojo; lo demás, en etiquetas cortas en una línea. --}}
+                @if ($severeAlerts->isNotEmpty())
+                    <ul class="dash-alerts-severe" aria-label="Alertas médicas">
+                        @foreach ($severeAlerts as $alert)
+                            <li><x-filament::icon icon="heroicon-m-exclamation-triangle" /> {{ $alert['text'] }}</li>
                         @endforeach
-                    @endif
-                    @foreach ($next['lab'] as $lab)
-                        <li class="is-{{ $lab['tone'] }}"><x-filament::icon icon="heroicon-m-beaker" /> {{ $lab['text'] }}</li>
-                    @endforeach
-                </ul>
+                    </ul>
+                @endif
+
+                @if ($hasTags)
+                    <ul class="dash-alerts" aria-label="Antes de atender">
+                        @if ($next['consentMissing'])
+                            <li class="is-warning" title="Se firma al empezar la atención."><x-filament::icon icon="heroicon-m-pencil-square" /> Falta firmar el consentimiento</li>
+                        @endif
+                        @if (! $next['hasBackground'])
+                            <li class="is-warning" title="Pregunta por alergias, enfermedades y medicamentos."><x-filament::icon icon="heroicon-m-exclamation-circle" /> Faltan los antecedentes</li>
+                        @elseif ($next['alerts'] === [])
+                            <li class="is-success" title="Sin alergias ni enfermedades registradas."><x-filament::icon icon="heroicon-m-shield-check" /> Sin alergias ni enfermedades</li>
+                        @endif
+                        @foreach ($otherAlerts as $alert)
+                            <li class="is-warning"><x-filament::icon icon="heroicon-m-information-circle" /> {{ $alert['text'] }}</li>
+                        @endforeach
+                        @foreach ($next['lab'] as $lab)
+                            <li class="is-{{ $lab['tone'] }}" title="{{ $lab['text'] }}"><x-filament::icon icon="heroicon-m-beaker" /> {{ $lab['tag'] }}</li>
+                        @endforeach
+                    </ul>
+                @endif
 
                 <dl class="dash-next-facts">
                     <div><dt>Última atención</dt><dd>{{ $next['last'] ?? 'Es su primera visita' }}</dd></div>

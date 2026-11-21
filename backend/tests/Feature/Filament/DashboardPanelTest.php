@@ -55,6 +55,7 @@ use App\Services\Dashboard\DoctorDay;
 use App\Services\Dashboard\FollowUps;
 use App\Services\Dashboard\MonthFigures;
 use Carbon\CarbonImmutable;
+use Filament\Actions\Testing\TestAction;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
@@ -176,6 +177,66 @@ class DashboardPanelTest extends TestCase
         Livewire::test(TodayAppointments::class)->call('showDoctor', $luis->id)->assertDontSee('Rosa Quispe');
         $luis->update(['is_active' => false]);
         Livewire::test(TodayAppointments::class)->assertSee(['Rosa Quispe', 'Pedro Paz'])->assertDontSeeHtml('>Dr. Luis Rojas</button>');
+    }
+
+    public function test_the_agenda_puts_first_what_needs_something_and_folds_what_ended(): void
+    {
+        $this->travelTo(CarbonImmutable::parse('2026-11-02 12:00', 'America/Lima'));
+        $treatment = Treatment::factory()->create(['name' => 'Limpieza dental']);
+        $ana = $this->doctorOffering($treatment);
+        $luis = $this->doctorOffering($treatment);
+        $visit = fn (string $firstName, string $at, AppointmentStatus $status, ?Doctor $doctor = null) => Appointment::factory()
+            ->for($doctor ?? $ana)->for($treatment)->for($this->patient($firstName, 'Prueba'))->at($at)
+            ->create(['status' => $status, 'checked_in_at' => $status === AppointmentStatus::CheckedIn ? now()->subMinutes(10) : null]);
+        $visit('Alba', '2026-11-02 08:00', AppointmentStatus::Completed);
+        $owes = $visit('Berta', '2026-11-02 08:30', AppointmentStatus::Completed);
+        Charge::factory()->for($owes->patient)->create(['amount' => 120]);
+        $visit('Carlos', '2026-11-02 09:00', AppointmentStatus::NoShow);
+        // Pasó su hora y nadie marcó si vino.
+        $visit('Diana', '2026-11-02 10:00', AppointmentStatus::Pending);
+        $visit('Elena', '2026-11-02 11:30', AppointmentStatus::CheckedIn);
+        $visit('Fabio', '2026-11-02 13:00', AppointmentStatus::Confirmed);
+        $visit('Gina', '2026-11-02 09:30', AppointmentStatus::Completed, $luis);
+        $this->actingAs(User::factory()->reception()->create());
+
+        // Arriba lo que pide algo (en sala, quien terminó y debe, la que nadie cerró), después lo que viene y al pie
+        // cuántas terminaron. Quien debe no queda en tenue, la que nadie cerró va en ámbar y "Ahora" va antes de Fabio.
+        $agenda = Livewire::test(TodayAppointments::class)
+            ->assertSeeInOrder(['Elena Prueba', 'Berta Prueba', 'Debe S/', 'Cobrar', 'Diana Prueba', 'Fabio Prueba', 'Terminadas', '2 atendidas · 1 no asistió', 'Ver'])
+            ->assertDontSee(['Alba Prueba', 'Carlos Prueba', 'Gina Prueba'])
+            ->assertSeeHtml(['dash-appt-completed dash-appt-owes', 'dash-appt-pending dash-appt-unclosed', 'dash-appt-confirmed dash-appt-next']);
+
+        // "Ver" las pone al final, por hora; la elección se recuerda y "Ocultar" las vuelve a plegar.
+        $agenda->call('toggleFinished')->assertSeeInOrder(['Fabio Prueba', 'Alba Prueba', 'Carlos Prueba', 'Gina Prueba', 'Ocultar']);
+        Livewire::test(TodayAppointments::class)->assertSee('Alba Prueba')->call('toggleFinished')->assertDontSee('Alba Prueba');
+
+        // Si en la agenda que se ve no queda nada más, las terminadas están a la vista y no hay nada que plegar.
+        Livewire::test(TodayAppointments::class)->call('showDoctor', $luis->id)->assertSee('Gina Prueba')->assertDontSee('Terminadas');
+
+        // El doctor no cobra: quien debe es una atendida más, plegada con las otras.
+        $this->actingAs($ana->user);
+        Livewire::test(TodayAppointments::class)
+            ->assertSeeInOrder(['Elena Prueba', 'Diana Prueba', 'Fabio Prueba', 'Terminadas', '2 atendidas · 1 no asistió'])
+            ->assertDontSee(['Berta Prueba', 'Gina Prueba']);
+    }
+
+    public function test_who_did_not_come_is_rebooked_from_the_agenda_with_the_same_visit(): void
+    {
+        $treatment = Treatment::factory()->create(['name' => 'Limpieza dental']);
+        $doctor = $this->doctorOffering($treatment);
+        $rosa = $this->patient('Rosa', 'Quispe');
+        $missed = Appointment::factory()->for($doctor)->for($treatment)->for($rosa)->at('2026-11-02 08:00')->create(['status' => AppointmentStatus::NoShow]);
+        $this->actingAs(User::factory()->reception()->create());
+
+        // "Reagendar" abre "Nueva cita" con el paciente, el doctor y el tratamiento; la que faltó sigue como falta.
+        Livewire::test(TodayAppointments::class)
+            ->assertActionVisible(TestAction::make('rebook')->table($missed))
+            ->assertActionHasUrl(TestAction::make('rebook')->table($missed), AppointmentResource::newUrl(['patient' => $rosa->id, 'doctor' => $doctor->id, 'treatment' => $treatment->id]));
+        $this->assertSame(AppointmentStatus::NoShow, $missed->fresh()->status);
+
+        // Con otra cita después de la que faltó, ya tiene su horario.
+        Appointment::factory()->for($doctor)->for($treatment)->for($rosa)->at('2026-11-04 10:00')->create();
+        Livewire::test(TodayAppointments::class)->assertActionHidden(TestAction::make('rebook')->table($missed));
     }
 
     public function test_each_visit_is_settled_on_the_card_without_opening_it(): void
@@ -421,7 +482,13 @@ class DashboardPanelTest extends TestCase
             // "Por confirmar" son las de hoy y mañana, y lleva a la lista con esas mismas.
             ->assertSeeHtmlInOrder(['Por confirmar', '<strong class="dash-kpi-value">2</strong>', 'Hoy y mañana'])
             ->assertSeeHtml('href="'.e(AppointmentResource::toConfirmUrl(today(), today()->addDay())).'"');
-        Livewire::test(TodayAppointments::class)->assertSee(['Rosa Prueba', 'Luis Prueba'])->assertDontSee('Carmen Prueba');
+        // Quien faltó sigue en la agenda, plegado al pie con las terminadas; la cancelada, no.
+        Livewire::test(TodayAppointments::class)
+            ->assertSee(['Rosa Prueba', 'Terminadas', '1 no asistió'])
+            ->assertDontSee(['Luis Prueba', 'Carmen Prueba'])
+            ->call('toggleFinished')
+            ->assertSee(['Rosa Prueba', 'Luis Prueba'])
+            ->assertDontSee('Carmen Prueba');
 
         Livewire::test(ListAppointments::class, ['activeTab' => 'pending'])
             ->assertCanSeeTableRecords([$today, $tomorrow, $later])
@@ -975,13 +1042,40 @@ class DashboardPanelTest extends TestCase
         $this->actingAs($doctor->user);
 
         Livewire::test(NextPatient::class)
+            // Una etiqueta corta por trabajo, con la frase entera al pasar el mouse.
             ->assertSee([
-                'Corona de zirconio: ya llegó del laboratorio el 31 de octubre.',
-                'Férula de descarga: no ha llegado del laboratorio; debía llegar hace 1 día.',
-                'Puente de tres piezas: sigue en el laboratorio, llega el 10 de noviembre.',
+                'Corona de zirconio: llegó el 31 oct.',
+                'Férula de descarga: no llegó, debía el 1 nov.',
+                'Puente de tres piezas: llega el 10 nov.',
             ])
-            ->assertSeeHtml(['class="is-success"', 'class="is-danger"', 'class="is-warning"'])
+            ->assertSeeHtml([
+                'class="is-success" title="Corona de zirconio: ya llegó del laboratorio el 31 de octubre."',
+                'class="is-danger" title="Férula de descarga: no ha llegado del laboratorio; debía llegar hace 1 día."',
+                'class="is-warning" title="Puente de tres piezas: sigue en el laboratorio, llega el 10 de noviembre."',
+            ])
             ->assertDontSee(['Incrustación de resina', 'Prótesis total', 'Carilla de porcelana']);
+    }
+
+    public function test_the_next_patient_shows_what_can_hurt_in_full_and_the_rest_in_short_tags(): void
+    {
+        $treatment = Treatment::factory()->create(['name' => 'Curación con resina']);
+        $doctor = $this->doctorOffering($treatment);
+        $jose = $this->patient('José', 'Condori');
+        $jose->medicalBackground()->create(['allergies' => 'Penicilina', 'medications' => 'Warfarina 5 mg', 'conditions' => ['hypertension']]);
+        Appointment::factory()->for($doctor)->for($treatment)->for($jose)->at('2026-11-02 10:00')->confirmed()->create();
+        $this->actingAs($doctor->user);
+
+        // La alergia y el anticoagulante, enteros y en rojo, antes que lo demás; la presión, en una etiqueta.
+        Livewire::test(NextPatient::class)
+            ->assertSeeHtmlInOrder(['class="dash-alerts-severe"', 'Alergia: Penicilina', 'Toma: Warfarina 5 mg', 'class="dash-alerts"', 'Hipertensión'])
+            ->assertDontSee('Sin alergias');
+
+        // Sin antecedentes, una etiqueta corta que explica qué preguntar al pasar el mouse.
+        $jose->medicalBackground()->delete();
+        Livewire::test(NextPatient::class)
+            ->assertSeeHtml('title="Pregunta por alergias, enfermedades y medicamentos."')
+            ->assertSee('Faltan los antecedentes')
+            ->assertDontSeeHtml('dash-alerts-severe');
     }
 
     public function test_more_unfinished_visits_than_fit_on_home_lead_to_their_tab_in_the_list(): void
