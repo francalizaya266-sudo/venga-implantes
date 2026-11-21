@@ -18,6 +18,7 @@ use App\Models\Patient;
 use App\Models\Treatment;
 use App\Models\TreatmentPlanItem;
 use App\Models\User;
+use App\Models\WaitlistEntry;
 use App\Services\Booking\AppointmentService;
 use App\Services\Clinical\TreatmentPlanService;
 use App\Support\Dates;
@@ -47,6 +48,7 @@ use Filament\Schemas\Components\View;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
 use Illuminate\Support\HtmlString;
 
 /** Nueva cita desde el panel (recepción o doctor). */
@@ -269,26 +271,7 @@ class AppointmentForm
     public static function patientSection(bool $forToday = false, array $notices = []): Section
     {
         return Section::make('Paciente')
-            // Arriba a la derecha, como en la ficha: uno ya registrado o uno nuevo que se registra aquí mismo.
-            ->afterHeader([
-                ToggleButtons::make('new_patient')
-                    ->label('¿Ya está registrado?')
-                    ->hiddenLabel()
-                    ->options([0 => 'Existente', 1 => 'Nuevo'])
-                    ->icons([1 => Heroicon::OutlinedPlus])
-                    ->grouped()
-                    ->stateCast(app(BooleanStateCast::class, ['isNullable' => false, 'isStoredAsInt' => true]))
-                    ->extraAttributes(['class' => 'patient-kind'])
-                    ->live()
-                    ->afterStateUpdated(function (mixed $state, Get $get, Set $set): void {
-                        if ((bool) $state) {
-                            $set('patient_before_new', $get('patient_id'));
-                            $set('patient_id', null);
-                        } else {
-                            $set('patient_id', $get('patient_before_new'));
-                        }
-                    }),
-            ])
+            ->afterHeader([self::patientKindToggle()])
             ->schema([
                 // El paciente que estaba elegido al marcar "paciente nuevo": si se desmarca, vuelve.
                 Hidden::make('patient_before_new')->dehydrated(false),
@@ -314,6 +297,7 @@ class AppointmentForm
                     }),
                 ...$notices,
                 self::upcomingAppointmentCallout($forToday),
+                ...($forToday ? [] : [self::waitlistCallout()]),
                 Grid::make(2)
                     ->statePath('patient')
                     ->visible(fn (Get $get) => (bool) $get('new_patient'))
@@ -327,6 +311,94 @@ class AppointmentForm
                     ->options(AppointmentOrigin::class)
                     ->visible(fn (Get $get) => self::isFirstTime($get)),
             ]);
+    }
+
+    /**
+     * "Existente | Nuevo", arriba a la derecha del paciente, como en la ficha: uno ya registrado o uno nuevo que se
+     * registra en la misma ventana. Si se vuelve a "Existente", regresa el paciente que estaba elegido (va con un
+     * Hidden "patient_before_new" en la misma sección).
+     */
+    public static function patientKindToggle(): ToggleButtons
+    {
+        return ToggleButtons::make('new_patient')
+            ->label('¿Ya está registrado?')
+            ->hiddenLabel()
+            ->options([0 => 'Existente', 1 => 'Nuevo'])
+            ->icons([1 => Heroicon::OutlinedPlus])
+            ->grouped()
+            ->stateCast(app(BooleanStateCast::class, ['isNullable' => false, 'isStoredAsInt' => true]))
+            ->extraAttributes(['class' => 'patient-kind'])
+            ->live()
+            ->afterStateUpdated(function (mixed $state, Get $get, Set $set): void {
+                if ((bool) $state) {
+                    $set('patient_before_new', $get('patient_id'));
+                    $set('patient_id', null);
+                } else {
+                    $set('patient_id', $get('patient_before_new'));
+                }
+            });
+    }
+
+    /**
+     * Si el paciente está en la lista de espera, se dice: al agendarle lo que espera, sale solo de la lista (y así
+     * nadie le ofrece después un horario que ya no necesita). Si se le está agendando justo eso, se dice que esta cita
+     * lo saca de la lista.
+     */
+    private static function waitlistCallout(): Callout
+    {
+        return Callout::make(fn (Get $get) => ($entry = self::waitingEntry($get)) ? 'Está en la lista de espera desde el '.self::entryDate($entry) : null)
+            ->key('onTheWaitlist')
+            ->description(fn (Get $get) => ($entry = self::waitingEntry($get)) ? self::waitlistDescription($entry, $get('treatment_id')) : null)
+            ->icon(Heroicon::OutlinedQueueList)
+            ->color('gray')
+            ->visible(fn (Get $get) => self::waitingEntry($get) !== null);
+    }
+
+    private static function waitlistDescription(WaitlistEntry $entry, mixed $chosenTreatmentId): string
+    {
+        /** @var Treatment|null $treatment */
+        $treatment = $entry->treatment;
+
+        if ($treatment === null) {
+            return 'Espera cualquier horario: al agendarle esta cita, sale solo de la lista.';
+        }
+
+        return (int) $chosenTreatmentId === $treatment->getKey()
+            ? 'Espera un horario para '.$treatment->name.': al agendarle esta cita, sale solo de la lista.'
+            : 'Espera un horario para '.$treatment->name.'. Si le agendas eso, sale solo de la lista.';
+    }
+
+    /** "10 de noviembre": el día en que lo anotaron. */
+    private static function entryDate(WaitlistEntry $entry): string
+    {
+        /** @var CarbonInterface $createdAt */
+        $createdAt = $entry->created_at;
+
+        return $createdAt->translatedFormat('j \d\e F');
+    }
+
+    /**
+     * Su anotación que sigue en espera (la del tratamiento que se elige, si tiene una; si no, la más antigua), si quien
+     * mira ve la lista. Se busca una sola vez por pedido.
+     */
+    private static function waitingEntry(Get $get): ?WaitlistEntry
+    {
+        $patientId = $get('patient_id');
+
+        if ($get('new_patient') || blank($patientId) || ! (auth()->user()?->can('viewAny', WaitlistEntry::class) ?? false)) {
+            return null;
+        }
+
+        $memo = 'appointment-form.waiting.'.$patientId;
+
+        if (! request()->attributes->has($memo)) {
+            request()->attributes->set($memo, WaitlistEntry::query()->active()->with('treatment')->where('patient_id', $patientId)->oldest()->get());
+        }
+
+        /** @var Collection<int, WaitlistEntry> $entries */
+        $entries = request()->attributes->get($memo);
+
+        return $entries->first(fn (WaitlistEntry $entry) => filled($get('treatment_id')) && $entry->treatment_id === (int) $get('treatment_id')) ?? $entries->first();
     }
 
     /**

@@ -13,6 +13,8 @@ use Filament\Actions\ActionGroup;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
+use Filament\Support\Enums\Alignment;
+use Filament\Support\Enums\Width;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Filters\Filter;
@@ -98,8 +100,13 @@ class WaitlistEntriesTable
                 WaitlistEntryActions::offer(),
                 WaitlistEntryActions::book(),
                 ActionGroup::make([
+                    // La misma ventana en dos columnas que al anotarlo: a la derecha, si ya hay un horario que le sirve.
                     EditAction::make()
-                        ->modalHeading('Editar lo que espera'),
+                        ->modalHeading('Editar lo que espera')
+                        ->modalWidth(Width::FiveExtraLarge)
+                        ->extraModalWindowAttributes(['class' => 'appointment-window'])
+                        ->stickyModalFooter()
+                        ->modalFooterActionsAlignment(Alignment::End),
                     WaitlistEntryActions::release(),
                     WaitlistEntryActions::remove(),
                 ]),

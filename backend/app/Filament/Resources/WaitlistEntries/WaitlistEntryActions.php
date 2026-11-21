@@ -2,15 +2,21 @@
 
 namespace App\Filament\Resources\WaitlistEntries;
 
+use App\Enums\DayPeriod;
+use App\Enums\PatientRelationship;
 use App\Enums\WaitlistStatus;
 use App\Filament\Resources\Appointments\AppointmentResource;
+use App\Filament\Support\SlotPicker;
 use App\Models\Doctor;
+use App\Models\Patient;
 use App\Models\Treatment;
 use App\Models\WaitlistEntry;
 use App\Services\Agenda\Slot;
 use App\Services\Booking\WaitlistService;
+use App\Services\Patients\PatientRegistrar;
 use App\Services\WhatsApp\WhatsAppOutbox;
 use Carbon\CarbonImmutable;
+use Closure;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Forms\Components\DatePicker;
@@ -20,36 +26,112 @@ use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
+use Filament\Support\Enums\Alignment;
+use Filament\Support\Enums\Size;
 use Filament\Support\Enums\Width;
 use Filament\Support\Icons\Heroicon;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 
 /** Anotarlo en la lista, ofrecerle un horario por WhatsApp (queda apartado mientras responde), agendarlo cuando dice que sí, liberarlo o retirarlo. */
 final class WaitlistEntryActions
 {
     /**
-     * Anotar a alguien en la lista: la misma ventana en la lista de espera y en "Hoy", sin salir de donde se está.
-     * El aviso dice qué pasa después, porque quien anota no vuelve a mirar la lista hasta que se libera un horario.
+     * Anotar a alguien en la lista: la misma ventana en la lista de espera y en "Hoy", sin salir de donde se está. En
+     * dos columnas, como "Nueva cita": la derecha dice qué va a pasar, porque quien anota no vuelve a mirar la lista
+     * hasta que se libera un horario (y si ya hay uno que le sirve, no hace falta anotarlo). El paciente nuevo se
+     * registra en la misma ventana.
      */
     public static function add(string $name = 'create'): CreateAction
     {
         return CreateAction::make($name)
             ->model(WaitlistEntry::class)
             ->label('Anotar paciente')
-            ->visible(fn () => auth()->user()->can('create', WaitlistEntry::class))
+            ->visible(fn () => self::canAdd())
             ->modalHeading('Anotar en lista de espera')
-            ->modalDescription('Para quien quiere un horario antes o un día que hoy está lleno. Cuando se libere uno que le sirva, llega la alerta para ofrecérselo.')
+            ->modalDescription('Para quien quiere un horario antes o un día que hoy está lleno.')
+            ->modalWidth(Width::FiveExtraLarge)
+            ->extraModalWindowAttributes(['class' => 'appointment-window'])
+            ->stickyModalFooter()
+            ->modalFooterActionsAlignment(Alignment::End)
             ->modalSubmitActionLabel('Anotar')
-            ->modalWidth(Width::ThreeExtraLarge)
+            ->modalSubmitAction(fn (Action $action) => $action->size(Size::Large))
             ->schema(fn (Schema $schema) => WaitlistEntryResource::form($schema))
+            ->fillForm(fn (array $arguments) => self::defaults($arguments))
             ->createAnother(false)
             ->mutateDataUsing(fn (array $data) => $data + [
                 'status' => WaitlistStatus::Waiting,
                 'created_by_user_id' => auth()->id(),
             ])
+            ->using(fn (array $data) => self::create($data))
             ->successNotification(fn (Notification $notification, WaitlistEntry $record) => $notification
                 ->title($record->patient->full_name.' quedó en la lista de espera')
                 ->body('Cuando se libere un horario que le sirva, llegará la alerta para ofrecérselo.'));
+    }
+
+    /**
+     * "Anotar en lista de espera" desde otra ventana que no encontró horario ("Nueva cita" con el día lleno, "Llegó
+     * sin cita" sin hueco hoy): se abre encima, con el paciente (también el nuevo, con lo ya escrito), el tratamiento,
+     * el doctor y el plazo puestos. Al anotarlo se cierran las dos; con la X se vuelve a la de antes, tal como estaba.
+     *
+     * @param  Closure(Get): array<string, mixed>  $with  Lo que se sabe en esa ventana, como los argumentos de defaults().
+     */
+    public static function addFrom(string $name, Closure $with): CreateAction
+    {
+        return self::add($name)
+            ->label('Anotar en lista de espera')
+            ->icon(Heroicon::OutlinedQueueList)
+            ->fillForm(fn (Get $get) => self::defaults($with($get)))
+            ->cancelParentActions();
+    }
+
+    public static function canAdd(): bool
+    {
+        return auth()->user()?->can('create', WaitlistEntry::class) ?? false;
+    }
+
+    /**
+     * Cómo se abre la ventana: con lo que ya se sabe del paciente y de lo que espera, y desde hoy. Lo que no sirve
+     * (un día que ya pasó, un tratamiento o doctor inactivo) se descarta.
+     *
+     * @param  array<string, mixed>  $with  patient, new_patient y patient_data (lo escrito del paciente nuevo), treatment, doctor, from y until (Y-m-d).
+     * @return array<string, mixed>
+     */
+    public static function defaults(array $with = []): array
+    {
+        $date = fn (mixed $value) => is_string($value) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $value) && CarbonImmutable::parse($value)->gte(today()) ? $value : null;
+        $newPatient = (bool) ($with['new_patient'] ?? false);
+        $patientData = is_array($with['patient_data'] ?? null) ? $with['patient_data'] : [];
+        $from = $date($with['from'] ?? null) ?? today()->toDateString();
+        $until = $date($with['until'] ?? null);
+
+        return [
+            'new_patient' => $newPatient,
+            'patient_id' => ! $newPatient && filled($with['patient'] ?? null) ? Patient::query()->whereKey((int) $with['patient'])->value('id') : null,
+            'patient' => $patientData + ['relationship' => PatientRelationship::Self->value],
+            'treatment_id' => Treatment::query()->active()->whereKey((int) ($with['treatment'] ?? 0))->value('id'),
+            'doctor_id' => SlotPicker::onlyActiveDoctorId() === null ? Doctor::query()->active()->whereKey((int) ($with['doctor'] ?? 0))->value('id') : null,
+            'earliest_date' => $from,
+            'latest_date' => $until !== null && $until >= $from ? $until : null,
+            'preferred_period' => DayPeriod::Any->value,
+        ];
+    }
+
+    /**
+     * Si es nuevo, se registra en la misma transacción: si algo falla, no queda un paciente suelto.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    private static function create(array $data): WaitlistEntry
+    {
+        return DB::transaction(function () use ($data): WaitlistEntry {
+            $patientId = ($data['new_patient'] ?? false)
+                ? app(PatientRegistrar::class)->register(array_filter($data['patient'] ?? [], fn (mixed $value) => $value !== null && $value !== ''))->getKey()
+                : $data['patient_id'];
+
+            return WaitlistEntry::create(['patient_id' => $patientId] + Arr::except($data, ['new_patient', 'patient', 'patient_id', 'patient_before_new']));
+        });
     }
 
     /**

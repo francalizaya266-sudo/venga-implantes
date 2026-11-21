@@ -4,15 +4,19 @@ namespace Tests\Feature\Filament;
 
 use App\Enums\AppointmentOrigin;
 use App\Enums\AppointmentStatus;
+use App\Enums\ScheduleBlockType;
 use App\Filament\Pages\Dashboard;
 use App\Models\Appointment;
 use App\Models\Doctor;
 use App\Models\MedicalBackground;
 use App\Models\Patient;
+use App\Models\ScheduleBlock;
 use App\Models\Treatment;
 use App\Models\User;
+use App\Models\WaitlistEntry;
 use App\Models\WhatsappMessage;
 use Carbon\CarbonImmutable;
+use Filament\Actions\Testing\TestAction;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Livewire\Livewire;
 use Tests\Concerns\CreatesAgenda;
@@ -107,7 +111,7 @@ class WalkInTest extends TestCase
             ->setActionData(['new_patient' => true])
             ->setActionData(['patient' => ['first_name' => 'Pedro', 'last_name' => 'Huamán', 'relationship' => 'self']])
             ->setActionData(['doctor_id' => $this->busy->id, 'treatment_id' => $this->cleaning->id])
-            ->assertMountedActionModalSee(['Ya no tiene un hueco hoy para ese tratamiento.', 'Elige otro doctor, o agéndalo con "Nueva cita" para otro día.']);
+            ->assertMountedActionModalSee(['Hoy ya no hay hueco para ese tratamiento con ningún doctor.', 'Agéndalo otro día o anótalo en la lista de espera: si hoy se libera un hueco, te llega la alerta.']);
 
         // No hay a dónde pasarlo: el botón no se ofrece. Y si igual llegara el pedido, no se crea nada.
         $this->assertTrue($window->instance()->getMountedAction()->getModalSubmitAction()->isDisabled());
@@ -117,6 +121,88 @@ class WalkInTest extends TestCase
 
         $this->assertSame(1, Appointment::count());
         $this->assertFalse(Patient::query()->where('first_name', 'Pedro')->exists());
+    }
+
+    public function test_without_room_with_the_chosen_doctor_it_says_who_can_see_them_today(): void
+    {
+        ScheduleBlock::create(['doctor_id' => $this->busy->id, 'type' => ScheduleBlockType::Course, 'starts_at' => '2026-11-02 06:00', 'ends_at' => '2026-11-02 22:00']);
+        $rosa = Patient::factory()->create();
+
+        Livewire::test(Dashboard::class)
+            ->mountAction('walkIn')
+            ->setActionData(['patient_id' => $rosa->id, 'doctor_id' => $this->busy->id])
+            ->setActionData(['treatment_id' => $this->cleaning->id])
+            ->assertMountedActionModalSee(['Ya no tiene un hueco hoy para ese tratamiento.', $this->free->name.' sí puede hoy a las 10:15. Si no, agéndalo otro día o anótalo en la lista de espera']);
+    }
+
+    public function test_when_nobody_has_room_today_the_window_still_says_so_and_what_to_do(): void
+    {
+        $this->travelTo(CarbonImmutable::parse('2026-11-02 18:50', 'America/Lima'));
+
+        // Antes no quedaba ningún doctor puesto y la ventana no decía nada.
+        Livewire::test(Dashboard::class)
+            ->mountAction('walkIn')
+            ->setActionData(['patient_id' => Patient::factory()->create()->id])
+            ->setActionData(['treatment_id' => $this->cleaning->id])
+            ->assertActionDataSet(fn (array $data) => filled($data['doctor_id']))
+            ->assertMountedActionModalSee(['Hoy ya no hay hueco para ese tratamiento con ningún doctor.', 'Agendarlo otro día', 'Anotar en lista de espera para hoy']);
+    }
+
+    public function test_without_room_today_they_wait_for_a_freed_time_today_with_what_was_typed(): void
+    {
+        $this->travelTo(CarbonImmutable::parse('2026-11-02 18:50', 'America/Lima'));
+        $waitForToday = TestAction::make('waitForToday')->schemaComponent('roomToday', 'mountedActionSchema0');
+
+        $window = Livewire::test(Dashboard::class)
+            ->mountAction('walkIn')
+            ->setActionData(['new_patient' => true])
+            ->setActionData(['patient' => ['first_name' => 'Pedro', 'last_name' => 'Huamán', 'phone' => '987654321', 'relationship' => 'self']])
+            ->setActionData(['doctor_id' => $this->busy->id, 'treatment_id' => $this->cleaning->id])
+            ->assertActionVisible(TestAction::make('bookAnotherDay')->schemaComponent('roomToday', 'mountedActionSchema0'))
+            ->mountAction($waitForToday)
+            // Lo ya escrito del paciente nuevo pasa a la lista, para hoy y con cualquier doctor.
+            ->assertSchemaStateSet([
+                'new_patient' => true,
+                'patient.first_name' => 'Pedro',
+                'patient.phone' => '987654321',
+                'treatment_id' => $this->cleaning->id,
+                'doctor_id' => null,
+                'earliest_date' => '2026-11-02',
+                'latest_date' => '2026-11-02',
+            ], 'mountedActionSchema1')
+            ->callMountedAction()
+            ->assertHasNoActionErrors()
+            ->assertNotified('Pedro Huamán quedó en la lista de espera');
+
+        $this->assertSame([], $window->get('mountedActions'));
+        $entry = WaitlistEntry::sole();
+        $this->assertSame(['Pedro Huamán', null, '2026-11-02'], [$entry->patient->full_name, $entry->doctor_id, $entry->latest_date->toDateString()]);
+        $this->assertSame(1, Appointment::count());
+    }
+
+    public function test_without_room_today_they_are_booked_another_day_with_what_was_chosen(): void
+    {
+        $this->travelTo(CarbonImmutable::parse('2026-11-02 18:50', 'America/Lima'));
+        $rosa = Patient::factory()->create(['first_name' => 'Rosa', 'last_name' => 'Quispe']);
+
+        $window = Livewire::test(Dashboard::class)
+            ->mountAction('walkIn')
+            ->setActionData(['patient_id' => $rosa->id])
+            ->setActionData(['doctor_id' => $this->busy->id, 'treatment_id' => $this->cleaning->id])
+            ->mountAction(TestAction::make('bookAnotherDay')->schemaComponent('roomToday', 'mountedActionSchema0'))
+            // "Nueva cita" encima, en el primer día con lugar.
+            ->assertSchemaStateSet([
+                'patient_id' => $rosa->id,
+                'treatment_id' => $this->cleaning->id,
+                'doctor_id' => $this->busy->id,
+                'date' => '2026-11-03',
+            ], 'mountedActionSchema1')
+            ->setActionData(['slot' => '09:00'])
+            ->callMountedAction()
+            ->assertHasNoActionErrors();
+
+        $this->assertSame([], $window->get('mountedActions'));
+        $this->assertSame('2026-11-03 09:00', $rosa->appointments()->sole()->starts_at->format('Y-m-d H:i'));
     }
 
     public function test_who_already_had_an_appointment_today_is_marked_as_arrived_instead_of_getting_another(): void
