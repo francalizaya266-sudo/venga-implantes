@@ -1,8 +1,9 @@
 {{-- Arriba, los pendientes que recepción anota a mano; lo hecho hoy queda tachado para el turno que sigue.
      Luego dos bloques: "Resolver hoy" (lo que espera a alguien hoy) y "Seguimiento" (a quién escribirle o llamar),
      plegado si es largo y hay algo que resolver. Solo se pinta el número de lo que no puede esperar, y arriba se
-     cuenta cuántos son. El primer grupo con personas va abierto. --}}
-<x-filament-widgets::widget class="dash-tall">
+     cuenta cuántos son. El primer grupo con personas va abierto. Se revisa sola cada minuto: la demora y las citas
+     sin cerrar dependen de la hora, no de que alguien guarde algo. --}}
+<x-filament-widgets::widget class="dash-tall" wire:poll.60s>
     <x-filament::section heading="Por hacer hoy" icon="heroicon-o-clipboard-document-check" description="Avisos, respuestas y a quién escribirle hoy.">
         <x-slot name="afterHeader">
             @if ($urgent > 0)
@@ -47,7 +48,7 @@
                 <details class="dash-block" wire:key="follow-up-block" wire:ignore.self>
                     <summary class="dash-block-title">
                         Seguimiento
-                        <small>{{ count($followUp) }} grupos: presupuestos, planes, controles y más</small>
+                        <small>{{ $followUpTopics }}</small>
                     </summary>
                     @include('filament.widgets.follow-ups-today-groups', ['groups' => $followUp, 'openKey' => $openKey])
                 </details>

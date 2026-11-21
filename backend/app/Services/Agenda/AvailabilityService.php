@@ -289,10 +289,10 @@ class AvailabilityService
     }
 
     /**
-     * Cómo está el día del doctor: minutos de atención, cuántos quedan libres y los huecos
-     * donde aún entra una cita (los de al menos "hueco útil" minutos, desde $from si es hoy).
+     * Cómo está el día del doctor: los minutos de atención y los huecos donde aún entra una cita (los de al menos
+     * "hueco útil" minutos). Si es hoy, los dos cuentan desde $from: lo que ya pasó no está ni libre ni ocupado.
      *
-     * @return array{open: int, free: int, gaps: list<array{start: CarbonImmutable, end: CarbonImmutable}>}
+     * @return array{open: int, gaps: list<array{start: CarbonImmutable, end: CarbonImmutable}>}
      */
     public function dayGaps(Doctor $doctor, CarbonInterface $date, ?CarbonInterface $from = null): array
     {
@@ -310,11 +310,13 @@ class AvailabilityService
             }
         }
 
-        return [
-            'open' => (int) $this->workingRanges($doctor, $date)->sum(fn (array $range) => $range['start']->diffInMinutes($range['end'])),
-            'free' => (int) collect($windows)->sum(fn (array $window) => $window['start']->diffInMinutes($window['end'])),
-            'gaps' => $gaps,
-        ];
+        $open = $this->workingRanges($doctor, $date)->sum(function (array $range) use ($from) {
+            $start = $from ? $range['start']->max($from) : $range['start'];
+
+            return max(0, $start->diffInMinutes($range['end'], false));
+        });
+
+        return ['open' => (int) $open, 'gaps' => $gaps];
     }
 
     /**

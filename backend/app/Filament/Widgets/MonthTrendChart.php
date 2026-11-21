@@ -2,6 +2,7 @@
 
 namespace App\Filament\Widgets;
 
+use App\Filament\Concerns\RefreshesWithToday;
 use App\Filament\Widgets\Reports\ReportChart;
 use App\Models\User;
 use App\Services\Dashboard\MonthFigures;
@@ -12,11 +13,13 @@ use Carbon\CarbonImmutable;
 /**
  * Lo cobrado día por día en los últimos 30 días, debajo de "Noviembre hasta hoy": para ver la forma del mes
  * (los días flojos, los buenos) sin entrar a Reportes. Solo para el administrador y al fondo de la página: el
- * inicio no es un panel de estadísticas. Carga después del resto y usa las mismas cifras del mes,
- * guardadas 5 minutos. Hoy va más claro: el día sigue.
+ * inicio no es un panel de estadísticas. Carga después del resto y usa las mismas cifras del mes: se
+ * actualiza con "Hoy", así que lo cobrado hoy sube al cobrar. Hoy va más claro: el día sigue.
  */
 class MonthTrendChart extends ReportChart
 {
+    use RefreshesWithToday;
+
     protected ?string $heading = 'Cobrado por día · últimos 30 días';
 
     protected string $unit = 'money';

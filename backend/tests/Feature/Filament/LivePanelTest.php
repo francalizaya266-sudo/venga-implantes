@@ -3,6 +3,7 @@
 namespace Tests\Feature\Filament;
 
 use App\Enums\AppointmentStatus;
+use App\Enums\TreatmentPlanStatus;
 use App\Filament\Pages\Agenda;
 use App\Filament\Pages\Dashboard;
 use App\Filament\Resources\Appointments\Pages\ListAppointments;
@@ -12,8 +13,11 @@ use App\Livewire\PanelPulse;
 use App\Models\Appointment;
 use App\Models\Consultation;
 use App\Models\Doctor;
+use App\Models\LabOrder;
 use App\Models\Patient;
+use App\Models\Supply;
 use App\Models\Treatment;
+use App\Models\TreatmentPlan;
 use App\Models\User;
 use App\Services\Booking\AppointmentService;
 use App\Services\Dashboard\TodayPulse;
@@ -259,6 +263,45 @@ class LivePanelTest extends TestCase
         // Borrar también cuenta.
         $this->rosa->delete();
         $this->assertNotSame($mark, TodayPulse::stamp());
+    }
+
+    public function test_the_bell_keeps_todays_alerts_and_reads_the_ones_from_earlier_days(): void
+    {
+        $reception = User::factory()->reception()->create();
+        $alerts = app(StaffAlerts::class);
+
+        // Lo de días anteriores: una cita web del sábado y un horario que se liberó anoche, a las 23:59.
+        $this->travelTo(now()->subDays(2));
+        $alerts->toReception('Nueva cita web');
+        $this->travelTo(now()->addDays(2)->setTime(0, 0)->subMinute());
+        $alerts->toReception('Se liberó un horario');
+        $this->travelTo(now()->addMinutes(2));
+        $alerts->toReception('Pidió su enlace de Mi cuenta');
+
+        $this->artisan('campana:limpiar')
+            ->expectsOutput('2 avisos de días anteriores quedaron leídos.')
+            ->assertSuccessful();
+
+        // La campana muestra lo de hoy; lo anterior sigue ahí, ya leído.
+        $this->assertSame(['Pidió su enlace de Mi cuenta'], $reception->unreadNotifications()->pluck('data')->pluck('title')->all());
+        $this->assertSame(3, $reception->notifications()->count());
+    }
+
+    public function test_what_por_hacer_hoy_shows_also_moves_the_mark(): void
+    {
+        $rosa = $this->rosa->patient;
+        $saves = [
+            'un presupuesto' => fn () => TreatmentPlan::create(['patient_id' => $rosa->id, 'doctor_id' => $this->rosa->doctor_id, 'status' => TreatmentPlanStatus::Proposed]),
+            'un trabajo de laboratorio' => fn () => LabOrder::factory()->create(),
+            'un material' => fn () => Supply::factory()->create(),
+        ];
+
+        // Un presupuesto aceptado, el laboratorio o un material desde otra computadora: "Por hacer hoy" se entera.
+        foreach ($saves as $what => $save) {
+            $mark = TodayPulse::stamp();
+            $save();
+            $this->assertNotSame($mark, TodayPulse::stamp(), "Guardar {$what} no movió la marca.");
+        }
     }
 
     public function test_the_pulse_is_on_every_screen_of_whoever_is_signed_in_and_the_agenda_and_the_list_listen(): void

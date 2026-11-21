@@ -186,6 +186,7 @@ Los 87 requerimientos están implementados y probados, así que la tabla no repi
 | RN-22 | Una promoción cuenta una visita por persona y sus cupos son personas, no citas; terminada, ofrece las vigentes. | `SiteContentTest`, `CampaignReportTest` |
 | RN-23 | Un caso de antes y después solo se publica con el consentimiento escrito del paciente. | `SmileCaseResource`, `WebContentPanelTest` |
 | RN-24 | El doctor no maneja dinero: si el paciente debe algo al terminar la atención, recepción recibe el aviso para cobrarle. La administradora que también atiende elige cobrar ella o pasarlo a recepción; si no hay nadie activo en recepción, cobra ella. | `VisitCloseOut`, `VisitCloseOutTest` |
+| RN-25 | La campana muestra lo de hoy: los avisos de días anteriores quedan leídos, porque lo que pedían sigue en "Hoy" y en sus listas. El aviso de cobrarle se cierra al cobrar o cuando el paciente ya no debe nada. | `StaffAlerts`, `campana:limpiar`, `LivePanelTest`, `VisitCloseOutTest` |
 
 ## Restricciones
 

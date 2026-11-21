@@ -14,7 +14,8 @@ use Illuminate\Support\Facades\Cache;
  * las citas atendidas, las inasistencias, lo cobrado día por día en los últimos 30 días y en qué
  * cerró el mes pasado entero (para decir a cuánto llegaría este).
  * Sale de los mismos reportes que la pantalla Reportes, así las cifras coinciden.
- * Se guarda 5 minutos por doctor (o para todos), para que "Hoy" abra rápido.
+ * Se guarda 5 minutos por doctor (o para todos), para que "Hoy" abra rápido, pero solo mientras nadie guarde
+ * un cobro, un cargo o una cita (TodayPulse): después de cobrar, el mes ya lo cuenta.
  */
 final class MonthFigures
 {
@@ -43,7 +44,7 @@ final class MonthFigures
     public function figures(): array
     {
         return Cache::remember(
-            'dashboard.month-figures.'.today()->toDateString().'.'.($this->doctorId ?? 'all'),
+            'dashboard.month-figures.'.today()->toDateString().'.'.($this->doctorId ?? 'all').'.'.TodayPulse::stamp(),
             self::CACHE_SECONDS,
             fn () => $this->compute(),
         );
@@ -63,7 +64,7 @@ final class MonthFigures
     /** Lo que deben hoy todos los pacientes juntos. */
     public static function outstanding(): float
     {
-        return Cache::remember('dashboard.outstanding', self::CACHE_SECONDS, fn () => EarningsReport::outstanding());
+        return Cache::remember('dashboard.outstanding.'.TodayPulse::stamp(), self::CACHE_SECONDS, fn () => EarningsReport::outstanding());
     }
 
     /**
