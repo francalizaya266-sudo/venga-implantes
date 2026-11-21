@@ -7,6 +7,7 @@ use App\Enums\PatientRelationship;
 use App\Filament\Resources\Appointments\AppointmentResource;
 use App\Filament\Resources\Appointments\Schemas\AppointmentForm;
 use App\Filament\Resources\Patients\PatientResource;
+use App\Filament\Resources\WaitlistEntries\WaitlistEntryActions;
 use App\Filament\Support\ArrivalChecklist;
 use App\Filament\Support\Notify;
 use App\Filament\Support\SlotPicker;
@@ -33,6 +34,7 @@ use Filament\Support\Enums\Alignment;
 use Filament\Support\Enums\Size;
 use Filament\Support\Enums\Width;
 use Filament\Support\Icons\Heroicon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\HtmlString;
 
 /**
@@ -76,8 +78,10 @@ final class WalkInAction
                                     SlotPicker::doctorSelect(),
                                     Callout::make(fn (Get $get) => self::roomToday($get))
                                         ->key('roomToday')
-                                        ->description(fn (Get $get) => self::slot($get) ? null : self::otherwise())
+                                        ->description(fn (Get $get) => self::slot($get) ? null : self::otherwise($get))
                                         ->status(fn (Get $get) => self::slot($get) ? 'success' : 'danger')
+                                        // Sin hueco hoy, lo que se hace con él a un toque, con lo ya escrito.
+                                        ->actions([self::bookAnotherDayAction(), self::waitForTodayAction()])
                                         ->visible(fn (Get $get) => filled($get('treatment_id')) && filled($get('doctor_id')))
                                         ->columnSpanFull(),
                                 ]),
@@ -241,17 +245,119 @@ final class WalkInAction
     {
         $slot = self::slot($get);
 
-        return $slot
-            ? 'Lo puede atender hoy a las '.$slot->label().'.'
-            : 'Ya no tiene un hueco hoy para ese tratamiento.';
+        return match (true) {
+            $slot !== null => 'Lo puede atender hoy a las '.$slot->label().'.',
+            SlotPicker::onlyActiveDoctorId() === null && self::otherDoctorWithRoom($get) === null => 'Hoy ya no hay hueco para ese tratamiento con ningún doctor.',
+            default => 'Ya no tiene un hueco hoy para ese tratamiento.',
+        };
     }
 
-    /** Sin hueco: con un solo doctor no hay a quién más pedírselo, queda agendarlo otro día. */
-    private static function otherwise(): string
+    /**
+     * Sin hueco: si otro doctor sí puede hoy, se dice quién y a qué hora; si no, queda agendarlo otro día o esperar a
+     * que hoy se libere uno.
+     */
+    private static function otherwise(Get $get): string
     {
-        return SlotPicker::onlyActiveDoctorId() === null
-            ? 'Elige otro doctor, o agéndalo con "Nueva cita" para otro día.'
-            : 'Agéndalo con "Nueva cita" para otro día.';
+        $then = WaitlistEntryActions::canAdd()
+            ? 'agéndalo otro día o anótalo en la lista de espera: si hoy se libera un hueco, te llega la alerta.'
+            : 'agéndalo otro día.';
+        $other = self::otherDoctorWithRoom($get);
+
+        return $other !== null
+            ? $other['doctor']->name.' sí puede hoy a las '.$other['slot']->label().'. Si no, '.$then
+            : ucfirst($then);
+    }
+
+    /**
+     * El otro doctor que hace el tratamiento y se desocupa primero hoy, si hay alguno.
+     *
+     * @return array{doctor: Doctor, slot: Slot}|null
+     */
+    private static function otherDoctorWithRoom(Get $get): ?array
+    {
+        return self::doctorsWithRoomToday($get)
+            ->first(fn (array $option) => $option['doctor']->getKey() !== (int) $get('doctor_id'));
+    }
+
+    /**
+     * Los doctores que hacen el tratamiento y hoy tienen un hueco, del que se desocupa primero al último.
+     *
+     * @return Collection<int, array{doctor: Doctor, slot: Slot}>
+     */
+    private static function doctorsWithRoomToday(Get $get): Collection
+    {
+        $treatmentId = $get('treatment_id');
+
+        if (blank($treatmentId)) {
+            return collect();
+        }
+
+        return Doctor::query()
+            ->active()
+            ->whereHas('treatments', fn ($query) => $query->whereKey($treatmentId))
+            ->orderBy('sort_order')
+            ->get()
+            ->map(fn (Doctor $doctor) => ['doctor' => $doctor, 'slot' => self::slotFor($doctor->getKey(), $treatmentId, $get('new_patient') ? null : $get('patient_id'))])
+            ->filter(fn (array $option) => $option['slot'] !== null)
+            ->sortBy(fn (array $option) => $option['slot']->startsAt->getTimestamp())
+            ->values();
+    }
+
+    /**
+     * "Nueva cita" encima, con el paciente (también el nuevo, con lo ya escrito), el tratamiento y el doctor, en el
+     * primer día con lugar. Al agendar se cierran las dos; con la X se vuelve a esta.
+     */
+    private static function bookAnotherDayAction(): Action
+    {
+        return CreateAppointmentAction::make('bookAnotherDay')
+            ->label('Agendarlo otro día')
+            ->icon(Heroicon::OutlinedCalendarDays)
+            ->color('gray')
+            // Sin hueco hoy, "Pasar a sala" no se ofrece: lo que queda hacer va como botón, no como enlace.
+            ->button()
+            ->size(Size::Small)
+            ->fillForm(fn (Get $get) => array_replace(
+                CreateAppointmentAction::defaults([
+                    'patient' => $get('new_patient') ? null : $get('patient_id'),
+                    'treatment' => $get('treatment_id'),
+                    'doctor' => $get('doctor_id'),
+                ]),
+                $get('new_patient') ? ['new_patient' => true, 'patient' => self::newPatientData($get)] : [],
+            ))
+            ->cancelParentActions()
+            ->visible(fn (Get $get) => self::slot($get) === null);
+    }
+
+    /** Si hoy se libera un hueco (alguien cancela o no viene), llega la alerta para ofrecérselo. */
+    private static function waitForTodayAction(): Action
+    {
+        return WaitlistEntryActions::addFrom('waitForToday', fn (Get $get) => [
+            'new_patient' => $get('new_patient'),
+            'patient' => $get('patient_id'),
+            'patient_data' => self::newPatientData($get),
+            'treatment' => $get('treatment_id'),
+            // Hoy le sirve cualquiera que haga el tratamiento.
+            'doctor' => null,
+            'from' => today()->toDateString(),
+            'until' => today()->toDateString(),
+        ])
+            ->label('Anotar en lista de espera para hoy')
+            ->color('gray')
+            ->button()
+            ->size(Size::Small)
+            ->visible(fn (Get $get) => self::slot($get) === null && WaitlistEntryActions::canAdd());
+    }
+
+    /**
+     * Lo que ya se escribió del paciente nuevo.
+     *
+     * @return array<string, mixed>
+     */
+    private static function newPatientData(Get $get): array
+    {
+        $data = $get('patient');
+
+        return is_array($data) ? $data : [];
     }
 
     private static function slot(Get $get): ?Slot
@@ -441,22 +547,22 @@ final class WalkInAction
         return request()->attributes->get($memo);
     }
 
-    /** De quienes hacen ese tratamiento, quien tiene el hueco más cercano hoy. Null si el doctor ya está elegido o nadie tiene. */
+    /** De quienes hacen ese tratamiento, quien tiene el hueco más cercano hoy (o el primero, si hoy nadie tiene). Null si el doctor ya está elegido. */
     private static function soonestDoctorId(Get $get): ?int
     {
-        $treatment = Treatment::find($get('treatment_id'));
-
-        if (! $treatment || filled($get('doctor_id'))) {
+        if (blank($get('treatment_id')) || filled($get('doctor_id'))) {
             return null;
         }
 
-        return Doctor::query()
-            ->active()
-            ->whereHas('treatments', fn ($query) => $query->whereKey($treatment->getKey()))
-            ->get()
-            ->map(fn (Doctor $doctor) => ['id' => $doctor->getKey(), 'slot' => app(AppointmentService::class)->firstRoomToday($doctor, $treatment)])
-            ->filter(fn (array $option) => $option['slot'] !== null)
-            ->sortBy(fn (array $option) => $option['slot']->startsAt->getTimestamp())
-            ->first()['id'] ?? null;
+        $soonest = self::doctorsWithRoomToday($get)->first();
+
+        if ($soonest !== null) {
+            return (int) $soonest['doctor']->getKey();
+        }
+
+        // Si hoy nadie tiene hueco, queda el primero que lo hace: así la ventana lo dice y ofrece qué hacer.
+        $first = Doctor::query()->active()->whereHas('treatments', fn ($query) => $query->whereKey($get('treatment_id')))->orderBy('sort_order')->value('id');
+
+        return $first !== null ? (int) $first : null;
     }
 }

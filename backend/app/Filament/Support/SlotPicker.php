@@ -5,6 +5,7 @@ namespace App\Filament\Support;
 use App\Enums\AppointmentStatus;
 use App\Enums\DayPeriod;
 use App\Filament\Forms\ChoiceChips;
+use App\Filament\Resources\WaitlistEntries\WaitlistEntryActions;
 use App\Models\Appointment;
 use App\Models\Doctor;
 use App\Models\LabOrder;
@@ -137,6 +138,8 @@ final class SlotPicker
                             $set('slot', self::suggestedSlot($get, $moving));
                         }
                     }))
+                // Si quiere ese día (o antes) y está lleno: anotarlo en la lista de espera, con lo ya elegido.
+                ->hintAction(self::addToWaitlistAction($moving))
                 ->options(fn (Get $get) => self::slotOptions($get, $moving))
                 ->groups(fn (Get $get) => self::slotGroups($get, $moving))
                 ->highlighted(fn (Get $get) => self::recommendedSlots($get, $moving))
@@ -665,7 +668,29 @@ final class SlotPicker
 
         return $next
             ? 'Ese día no hay horario libre. El siguiente con lugar es el '.$next->translatedFormat('l j \\d\\e F').'.'
-            : 'Ni ese día ni en las '.intdiv(GapFinder::SEARCH_DAYS, 7).' semanas siguientes hay horario libre. Usa "Otra hora" o apúntalo en la lista de espera.';
+            : 'Ni ese día ni en las '.intdiv(GapFinder::SEARCH_DAYS, 7).' semanas siguientes hay horario libre. Usa "Otra hora" o anótalo en la lista de espera.';
+    }
+
+    /**
+     * "Anotar en lista de espera" con el día lleno: se abre encima con el paciente (también el nuevo), el tratamiento,
+     * el doctor y "Hasta" ese día, para que le avisen si se libera algo antes. Solo en una cita nueva.
+     */
+    private static function addToWaitlistAction(?Appointment $moving): Action
+    {
+        return WaitlistEntryActions::addFrom('addToWaitlist', fn (Get $get) => [
+            'new_patient' => $get('new_patient'),
+            'patient' => $get('patient_id'),
+            'patient_data' => is_array($get('patient')) ? $get('patient') : [],
+            'treatment' => $get('treatment_id'),
+            'doctor' => $get('doctor_id'),
+            'from' => today()->toDateString(),
+            'until' => $get('date'),
+        ])
+            ->link()
+            ->visible(fn (Get $get) => $moving === null
+                && WaitlistEntryActions::canAdd()
+                && self::canSearch($get, $moving)
+                && self::slotOptions($get, $moving) === []);
     }
 
     /** ¿Ya se eligió tratamiento, doctor y día? (entonces, si no hay horarios, es que el día está lleno). */

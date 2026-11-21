@@ -5,6 +5,7 @@ namespace Tests\Feature\Filament;
 use App\Enums\DayPeriod;
 use App\Enums\MessageStatus;
 use App\Enums\MessageTemplateKey;
+use App\Enums\ScheduleBlockType;
 use App\Enums\WaitlistStatus;
 use App\Filament\Pages\Agenda;
 use App\Filament\Pages\Dashboard;
@@ -15,11 +16,14 @@ use App\Filament\Widgets\WeekGaps;
 use App\Models\Appointment;
 use App\Models\Doctor;
 use App\Models\Patient;
+use App\Models\ScheduleBlock;
 use App\Models\Treatment;
 use App\Models\User;
 use App\Models\WaitlistEntry;
 use App\Models\WhatsappMessage;
 use App\Services\Booking\WaitlistService;
+use Carbon\CarbonImmutable;
+use Filament\Actions\Testing\TestAction;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Livewire\Livewire;
 use Tests\Concerns\CreatesAgenda;
@@ -87,7 +91,7 @@ class WaitlistPanelTest extends TestCase
 
         Livewire::test(Dashboard::class)
             ->mountAction('waitlist')
-            ->assertMountedActionModalSee(['Anotar en lista de espera', 'Cuando se libere uno que le sirva, llega la alerta para ofrecérselo.'])
+            ->assertMountedActionModalSee(['Anotar en lista de espera', 'Qué va a pasar', 'Elige el tratamiento: aquí verás si ya hay un horario libre que le sirva, para no anotarlo en vano.'])
             // Lo normal ya viene puesto: desde hoy y a cualquier hora.
             ->assertActionDataSet(['earliest_date' => '2026-11-02', 'preferred_period' => DayPeriod::Any])
             ->setActionData(['patient_id' => $patient->id, 'treatment_id' => $this->treatment->id])
@@ -114,8 +118,16 @@ class WaitlistPanelTest extends TestCase
         WaitlistEntry::factory()->for($patient)->for($other)->removed()->create();
         $this->actingAs(User::factory()->reception()->create());
 
+        // Se dice antes de guardar, con el enlace a la anotación que ya tiene.
         Livewire::test(ManageWaitlistEntries::class)
-            ->callAction('create', ['patient_id' => $patient->id, 'treatment_id' => $this->treatment->id])
+            ->mountAction('create')
+            ->setActionData(['patient_id' => $patient->id, 'treatment_id' => $this->treatment->id])
+            ->assertMountedActionModalSee(['Ya está en la lista de espera para Limpieza dental', 'Lo anotaron el 2 de noviembre. Si cambió lo que puede, edita esa anotación en vez de anotarlo otra vez.'])
+            ->assertActionHasUrl(
+                TestAction::make('editExistingEntry')->schemaComponent('alreadyWaiting', 'mountedActionSchema0'),
+                WaitlistEntryResource::getUrl('index', ['tableAction' => 'edit', 'tableActionRecord' => $waiting->id]),
+            )
+            ->callMountedAction()
             ->assertHasActionErrors(['treatment_id' => 'Ya está en la lista de espera para ese tratamiento. Si cambió lo que puede, edita esa anotación.']);
 
         Livewire::test(ManageWaitlistEntries::class)
@@ -127,6 +139,165 @@ class WaitlistPanelTest extends TestCase
 
         $this->assertSame(2, WaitlistEntry::query()->active()->count());
         $this->assertSame('Solo puede sábados', $waiting->refresh()->notes);
+    }
+
+    public function test_the_window_says_if_a_free_time_already_suits_them_so_they_are_booked_instead(): void
+    {
+        $patient = Patient::factory()->create();
+        WaitlistEntry::factory()->for($this->treatment)->count(2)->create();
+        $this->actingAs(User::factory()->reception()->create());
+
+        $window = Livewire::test(ManageWaitlistEntries::class)
+            ->mountAction('create')
+            ->setActionData(['patient_id' => $patient->id, 'treatment_id' => $this->treatment->id])
+            ->assertMountedActionModalSee(['Ya hay un horario libre que le sirve', 'Lunes 2 de noviembre a las 09:00. Mejor agéndalo de una vez: no hace falta anotarlo.', 'Agendar ahí']);
+
+        // Si solo puede más adelante, anotarlo sí sirve; y se dice cuántos esperan lo mismo.
+        $window->setActionData(['earliest_date' => '2026-11-30'])
+            ->assertMountedActionModalDontSee('Ya hay un horario libre que le sirve')
+            ->assertMountedActionModalSee([
+                'No hay nada libre que le sirva en las próximas 2 semanas: anotarlo sí sirve.',
+                'Hay 2 personas más en espera para Limpieza dental. En la alerta sale primero quien espera hace más tiempo.',
+            ]);
+
+        // "Agendar ahí" abre "Nueva cita" encima con todo puesto; al agendar se cierran las dos y no queda anotado.
+        $booking = Livewire::test(ManageWaitlistEntries::class)
+            ->mountAction('create')
+            ->setActionData(['patient_id' => $patient->id, 'treatment_id' => $this->treatment->id])
+            ->mountAction(TestAction::make('bookFreeSlot')->schemaComponent('freeSlot', 'mountedActionSchema0'))
+            ->assertSchemaStateSet([
+                'patient_id' => $patient->id,
+                'treatment_id' => $this->treatment->id,
+                'doctor_id' => $this->doctor->id,
+                'date' => '2026-11-02',
+                'slot' => '09:00',
+            ], 'mountedActionSchema1')
+            ->callMountedAction()
+            ->assertHasNoActionErrors();
+
+        $this->assertSame([], $booking->get('mountedActions'));
+        $this->assertSame('2026-11-02 09:00', $patient->appointments()->sole()->starts_at->format('Y-m-d H:i'));
+        $this->assertFalse(WaitlistEntry::query()->where('patient_id', $patient->id)->exists());
+    }
+
+    public function test_a_short_deadline_with_nothing_free_is_said_to_be_hard(): void
+    {
+        $this->travelTo(CarbonImmutable::parse('2026-11-02 18:50', 'America/Lima'));
+        ScheduleBlock::create(['doctor_id' => $this->doctor->id, 'type' => ScheduleBlockType::Course, 'starts_at' => '2026-11-03 06:00', 'ends_at' => '2026-11-03 22:00']);
+        $this->actingAs(User::factory()->reception()->create());
+
+        Livewire::test(ManageWaitlistEntries::class)
+            ->mountAction('create')
+            ->setActionData(['patient_id' => Patient::factory()->create()->id, 'treatment_id' => $this->treatment->id, 'latest_date' => '2026-11-03'])
+            ->assertMountedActionModalSee([
+                'No hay nada libre en ese plazo, y es corto: es difícil que se libere algo. Si puede esperar más, amplía',
+                'Nadie más está en espera para Limpieza dental: cuando se libere un horario, sale primero en la alerta.',
+            ])
+            // Solo para hoy: queda que alguien cancele o no llegue.
+            ->setActionData(['latest_date' => '2026-11-02'])
+            ->assertMountedActionModalSee('Hoy no queda nada libre. Si alguien cancela o no llega, te llega la alerta para ofrecérselo.');
+    }
+
+    public function test_an_appointment_in_a_few_days_with_nothing_free_before_is_said_to_be_hard_to_bring_forward(): void
+    {
+        $this->travelTo(CarbonImmutable::parse('2026-11-02 18:50', 'America/Lima'));
+        $patient = Patient::factory()->create();
+        Appointment::factory()->for($patient)->for($this->doctor)->for($this->treatment)->at('2026-11-03 09:00')->create();
+        $this->actingAs(User::factory()->reception()->create());
+
+        Livewire::test(ManageWaitlistEntries::class)
+            ->mountAction('create')
+            ->setActionData(['patient_id' => $patient->id])
+            ->setActionData(['treatment_id' => $this->treatment->id])
+            ->assertActionDataSet(['latest_date' => '2026-11-02'])
+            ->assertMountedActionModalDontSee('Ya hay un horario libre que le sirve')
+            ->assertMountedActionModalSee('No hay nada libre antes de su cita, y ya es en pocos días: es difícil adelantarla.')
+            // Aunque se vacíe "Hasta", un horario después de su cita no sirve para adelantarla.
+            ->setActionData(['latest_date' => null])
+            ->assertMountedActionModalDontSee('Ya hay un horario libre que le sirve');
+    }
+
+    public function test_who_already_has_an_appointment_for_it_waits_to_bring_it_forward(): void
+    {
+        $patient = Patient::factory()->create();
+        $appointment = Appointment::factory()->for($patient)->for($this->doctor)->for($this->treatment)->at('2026-11-20 10:00')->create();
+        $this->actingAs(User::factory()->reception()->create());
+        $bringForward = TestAction::make('bringAppointmentForward')->schemaComponent('freeSlot', 'mountedActionSchema0');
+
+        Livewire::test(ManageWaitlistEntries::class)
+            ->mountAction('create')
+            ->setActionData(['patient_id' => $patient->id])
+            ->setActionData(['treatment_id' => $this->treatment->id])
+            // Un horario después de su cita no le sirve: "Hasta" queda el día antes.
+            ->assertActionDataSet(['latest_date' => '2026-11-19'])
+            ->assertMountedActionModalSee(['Ya tiene cita el viernes 20 de noviembre a las 10:00', 'Se anota para adelantarla', 'Puedes adelantar su cita ahí de una vez.', 'Adelantar su cita'])
+            // No se le ofrece otra cita: se mueve la que tiene.
+            ->assertMountedActionModalDontSee('Agendar ahí')
+            ->assertActionHasUrl($bringForward, AppointmentResource::getUrl('view', ['record' => $appointment, 'action' => 'move']));
+    }
+
+    public function test_a_patient_without_a_phone_is_flagged_because_the_time_cannot_be_offered(): void
+    {
+        $withoutPhone = Patient::factory()->create(['account_id' => null]);
+        $this->actingAs(User::factory()->reception()->create());
+
+        Livewire::test(ManageWaitlistEntries::class)
+            ->mountAction('create')
+            ->setActionData(['patient_id' => Patient::factory()->create()->id])
+            ->assertMountedActionModalDontSee('No tiene celular registrado')
+            ->setActionData(['patient_id' => $withoutPhone->id])
+            ->assertMountedActionModalSee(['No tiene celular registrado', 'Sin celular no se le puede ofrecer por WhatsApp el horario que se libere.']);
+    }
+
+    public function test_a_new_patient_is_registered_in_the_same_window_with_a_phone(): void
+    {
+        $this->actingAs(User::factory()->reception()->create());
+
+        Livewire::test(ManageWaitlistEntries::class)
+            ->mountAction('create')
+            ->setActionData(['new_patient' => true])
+            ->setActionData(['patient' => ['first_name' => 'Lucía', 'last_name' => 'Rojas', 'relationship' => 'self'], 'treatment_id' => $this->treatment->id])
+            ->callMountedAction()
+            // Sin celular no hay a dónde ofrecerle el horario.
+            ->assertHasActionErrors(['patient.phone' => 'required'])
+            ->setActionData(['patient' => ['first_name' => 'Lucía', 'last_name' => 'Rojas', 'relationship' => 'self', 'phone' => '987654321']])
+            ->callMountedAction()
+            ->assertHasNoActionErrors()
+            ->assertNotified('Lucía Rojas quedó en la lista de espera');
+
+        $entry = WaitlistEntry::sole();
+        $this->assertSame(['Lucía Rojas', $this->treatment->id], [$entry->patient->full_name, $entry->treatment_id]);
+        $this->assertNotNull($entry->patient->account);
+    }
+
+    public function test_a_full_day_in_new_appointment_adds_them_to_the_waitlist_with_what_was_chosen(): void
+    {
+        $this->travelTo(CarbonImmutable::parse('2026-11-02 18:50', 'America/Lima'));
+        $patient = Patient::factory()->create(['first_name' => 'Rosa', 'last_name' => 'Quispe']);
+        $this->actingAs(User::factory()->reception()->create());
+        $addToWaitlist = TestAction::make('addToWaitlist')->schemaComponent('slot', 'mountedActionSchema0');
+
+        $agenda = Livewire::test(Agenda::class)
+            ->mountAction('createAppointment', ['patient' => $patient->id, 'treatment' => $this->treatment->id, 'doctor' => $this->doctor->id])
+            // Se abre en el siguiente día con lugar: ahí no hace falta.
+            ->assertMountedActionModalDontSee('Anotar en lista de espera')
+            ->setActionData(['date' => '2026-11-02'])
+            ->assertActionVisible($addToWaitlist)
+            ->mountAction($addToWaitlist)
+            ->assertSchemaStateSet([
+                'new_patient' => false,
+                'patient_id' => $patient->id,
+                'treatment_id' => $this->treatment->id,
+                'earliest_date' => '2026-11-02',
+                'latest_date' => '2026-11-02',
+            ], 'mountedActionSchema1')
+            ->callMountedAction()
+            ->assertHasNoActionErrors()
+            ->assertNotified('Rosa Quispe quedó en la lista de espera');
+
+        // Al anotarlo se cierran las dos ventanas.
+        $this->assertSame([], $agenda->get('mountedActions'));
+        $this->assertSame([$patient->id, '2026-11-02'], [WaitlistEntry::sole()->patient_id, WaitlistEntry::sole()->latest_date->toDateString()]);
     }
 
     public function test_the_lists_split_who_is_waiting_from_who_was_booked_or_left(): void

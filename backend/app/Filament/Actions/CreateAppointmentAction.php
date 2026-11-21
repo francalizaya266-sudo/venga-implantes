@@ -179,7 +179,7 @@ final class CreateAppointmentAction
      * @param  array<string, mixed>  $arguments
      * @return array<string, mixed>
      */
-    private static function defaults(array $arguments): array
+    public static function defaults(array $arguments): array
     {
         /** @var User $user */
         $user = auth()->user();

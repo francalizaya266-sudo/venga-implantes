@@ -3,26 +3,17 @@
 namespace App\Filament\Resources\WaitlistEntries;
 
 use App\Enums\AppointmentStatus;
-use App\Enums\DayPeriod;
 use App\Filament\Concerns\HasSpanishLabels;
 use App\Filament\Pages\Agenda;
-use App\Filament\Resources\Appointments\Schemas\AppointmentForm;
 use App\Filament\Resources\WaitlistEntries\Pages\ManageWaitlistEntries;
+use App\Filament\Resources\WaitlistEntries\Schemas\WaitlistEntryForm;
 use App\Filament\Resources\WaitlistEntries\Tables\WaitlistEntriesTable;
 use App\Models\Appointment;
 use App\Models\Doctor;
-use App\Models\Treatment;
 use App\Models\WaitlistEntry;
 use BackedEnum;
 use Carbon\CarbonInterface;
-use Closure;
-use Filament\Forms\Components\DatePicker;
-use Filament\Forms\Components\Select;
-use Filament\Forms\Components\Textarea;
-use Filament\Forms\Components\ToggleButtons;
 use Filament\Resources\Resource;
-use Filament\Schemas\Components\Utilities\Get;
-use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
@@ -54,65 +45,7 @@ class WaitlistEntryResource extends Resource
 
     public static function form(Schema $schema): Schema
     {
-        return $schema
-            ->columns(2)
-            ->components([
-                AppointmentForm::patientSelect()
-                    ->disabledOn('edit')
-                    ->columnSpanFull(),
-                Select::make('treatment_id')
-                    ->label('Tratamiento')
-                    ->options(fn () => Treatment::query()->active()->whereHas('doctors')->orderBy('sort_order')->pluck('name', 'id'))
-                    ->searchable()
-                    ->required()
-                    // Anotarlo dos veces para lo mismo haría ofrecerle dos horarios: se corrige la anotación que ya tiene.
-                    ->rule(fn (Get $get, ?WaitlistEntry $record) => function (string $attribute, mixed $value, Closure $fail) use ($get, $record) {
-                        if (self::alreadyWaiting($get('patient_id'), $value, $record)) {
-                            $fail('Ya está en la lista de espera para ese tratamiento. Si cambió lo que puede, edita esa anotación.');
-                        }
-                    })
-                    ->live()
-                    ->afterStateUpdated(function (Get $get, Set $set) {
-                        // Si el doctor elegido no hace el tratamiento nuevo, queda "cualquier doctor".
-                        if ($get('doctor_id') && ! array_key_exists((int) $get('doctor_id'), self::doctorOptions($get('treatment_id')))) {
-                            $set('doctor_id', null);
-                        }
-                    }),
-                Select::make('doctor_id')
-                    ->label('Doctor')
-                    ->placeholder('Cualquier doctor')
-                    ->options(fn (Get $get) => self::doctorOptions($get('treatment_id'))),
-                DatePicker::make('earliest_date')
-                    ->label('Puede desde')
-                    ->native(false)
-                    ->displayFormat('D d/m/Y')
-                    ->firstDayOfWeek(1)
-                    ->closeOnDateSelection()
-                    ->default(today())
-                    ->minDate(fn (string $operation) => $operation === 'edit' ? null : today())
-                    ->required(),
-                DatePicker::make('latest_date')
-                    ->label('Hasta')
-                    ->native(false)
-                    ->displayFormat('D d/m/Y')
-                    ->firstDayOfWeek(1)
-                    ->closeOnDateSelection()
-                    ->afterOrEqual('earliest_date')
-                    ->helperText('Déjalo vacío si le sirve cualquier fecha.'),
-                ToggleButtons::make('preferred_period')
-                    ->label('Le acomoda')
-                    ->options(DayPeriod::class)
-                    ->default(DayPeriod::Any->value)
-                    ->inline()
-                    ->required()
-                    ->columnSpanFull(),
-                Textarea::make('notes')
-                    ->label('Nota')
-                    ->placeholder('Ej.: tiene cita el 20/11 y quiere adelantarla; solo puede sábados.')
-                    ->rows(2)
-                    ->maxLength(500)
-                    ->columnSpanFull(),
-            ]);
+        return WaitlistEntryForm::configure($schema);
     }
 
     public static function table(Table $table): Table
@@ -173,27 +106,5 @@ class WaitlistEntryResource extends Resource
             'action' => 'offer',
             'actionArguments' => ['entry' => $entry->getKey(), 'doctor' => $doctor->getKey(), 'date' => $startsAt->toDateString(), 'time' => $startsAt->format('H:i')],
         ], panel: 'admin');
-    }
-
-    /** ¿El paciente ya espera por ese tratamiento? Sin contar la anotación que se está editando. */
-    private static function alreadyWaiting(mixed $patientId, mixed $treatmentId, ?WaitlistEntry $editing): bool
-    {
-        return filled($patientId) && filled($treatmentId) && WaitlistEntry::query()
-            ->active()
-            ->where('patient_id', $patientId)
-            ->where('treatment_id', $treatmentId)
-            ->when($editing, fn (Builder $query) => $query->whereKeyNot($editing->getKey()))
-            ->exists();
-    }
-
-    /** @return array<int, string> Doctores activos que hacen el tratamiento (todos, si aún no se elige). */
-    private static function doctorOptions(mixed $treatmentId): array
-    {
-        return Doctor::query()
-            ->active()
-            ->when(filled($treatmentId), fn (Builder $query) => $query->whereHas('treatments', fn (Builder $treatments) => $treatments->whereKey($treatmentId)))
-            ->orderBy('sort_order')
-            ->pluck('name', 'id')
-            ->all();
     }
 }

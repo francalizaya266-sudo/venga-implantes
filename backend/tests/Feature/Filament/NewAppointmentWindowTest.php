@@ -15,6 +15,7 @@ use App\Models\Doctor;
 use App\Models\Patient;
 use App\Models\Treatment;
 use App\Models\User;
+use App\Models\WaitlistEntry;
 use Database\Seeders\CatalogSeeder;
 use Filament\Actions\Action;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
@@ -288,6 +289,21 @@ class NewAppointmentWindowTest extends TestCase
             ->call('mountDefaultActions');
 
         $this->assertSame('move', $page->instance()->getMountedAction()?->getName());
+    }
+
+    public function test_a_patient_on_the_waitlist_is_pointed_out_and_the_notice_says_whether_this_booking_takes_them_off(): void
+    {
+        $this->treatment->update(['name' => 'Limpieza dental']);
+        $other = Treatment::factory()->create(['name' => 'Curación con resina', 'duration_minutes' => 30]);
+        $this->doctor->treatments()->attach($other);
+        WaitlistEntry::factory()->for($this->patient)->for($this->treatment)->create();
+
+        Livewire::test(Agenda::class)
+            ->mountAction('createAppointment', ['date' => '2026-11-03'])
+            ->setActionData(['patient_id' => $this->patient->id, 'treatment_id' => $other->id])
+            ->assertMountedActionModalSee(['Está en la lista de espera desde el 2 de noviembre', 'Espera un horario para Limpieza dental. Si le agendas eso, sale solo de la lista.'])
+            ->setActionData(['treatment_id' => $this->treatment->id])
+            ->assertMountedActionModalSee('Espera un horario para Limpieza dental: al agendarle esta cita, sale solo de la lista.');
     }
 
     /** El botón para cerrar la ventana sin agendar. */
