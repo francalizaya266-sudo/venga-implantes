@@ -72,7 +72,7 @@ final class BillingService
 
             $charges
                 ->filter(fn (Charge $c) => $c->voided_at === null && ! in_array(self::key($c), $expected, true))
-                ->each(fn (Charge $c) => $this->void($c, $by, self::CORRECTED));
+                ->each(fn (Charge $c) => $this->markVoided($c, $by, self::CORRECTED));
         });
     }
 
@@ -566,11 +566,30 @@ final class BillingService
 
     public function void(Charge $charge, User $by, string $reason): void
     {
+        $this->markVoided($charge, $by, $reason);
+        $this->settleWhenNothingIsOwed($charge->patient_id);
+    }
+
+    private function markVoided(Charge $charge, User $by, string $reason): void
+    {
         $charge->update([
             'voided_at' => now(),
             'voided_by_user_id' => $by->getKey(),
             'void_reason' => $reason,
         ]);
+    }
+
+    /**
+     * Si al anular o rebajar un cargo ya no debe nada, "terminó su atención: cobrarle" sale de la campana: no hay
+     * nada que cobrarle. Antes solo salía con un pago, y una cortesía lo dejaba ahí todo el día.
+     */
+    private function settleWhenNothingIsOwed(int $patientId): void
+    {
+        $patient = Patient::query()->findOrFail($patientId);
+
+        if ($patient->balance() <= 0) {
+            app(StaffAlerts::class)->checkoutSettled($patient);
+        }
     }
 
     /** @return Collection<int, Charge> Lo cargado por la cita, sin anulados. */
@@ -608,8 +627,10 @@ final class BillingService
                 }
             }
 
-            $current->except($kept)->each(fn (Charge $c) => $this->void($c, $by, 'Quitado al cobrar'));
+            $current->except($kept)->each(fn (Charge $c) => $this->markVoided($c, $by, 'Quitado al cobrar'));
         });
+
+        $this->settleWhenNothingIsOwed($appointment->patient_id);
     }
 
     /**

@@ -101,6 +101,15 @@ class VisitCloseOutTest extends TestCase
         $unread = fn (User $user) => $user->unreadNotifications()->pluck('data')->pluck('title')->all();
         $this->assertSame([$luis->full_name.' terminó su atención: cobrarle'], $unread($reception));
         $this->assertSame([$luis->full_name.' terminó su atención: cobrarle'], $unread($admin));
+
+        // Anular un cargo de más no lo cierra: todavía debe lo de su atención.
+        app(BillingService::class)->void(Charge::factory()->for($luis)->create(['amount' => 50]), $admin, 'Cargado dos veces');
+        $this->assertSame([$luis->full_name.' terminó su atención: cobrarle'], $unread($reception));
+
+        // Si se anula lo que debía (una cortesía), tampoco queda nada que cobrarle: sale de la campana sin un pago.
+        app(BillingService::class)->void($luis->charges()->valid()->sole(), $admin, 'Cortesía');
+        $this->assertSame([], $unread($reception));
+        $this->assertSame([], $unread($admin));
     }
 
     public function test_a_doctor_who_has_nothing_to_collect_does_not_bother_reception(): void
