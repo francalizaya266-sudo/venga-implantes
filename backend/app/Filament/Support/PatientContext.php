@@ -16,6 +16,7 @@ use App\Services\Clinical\TreatmentPlanService;
 use App\Services\Patients\PatientInsights;
 use App\Support\Money;
 use Carbon\CarbonInterface;
+use Illuminate\Database\Eloquent\Builder;
 
 /**
  * Lo que conviene saber del paciente al agendarle ("Nueva cita") o cuando llega sin cita, con el botón que deja la
@@ -79,7 +80,7 @@ final class PatientContext
 
         $plans = app(TreatmentPlanService::class);
         $items = $plans->workableItems($patient)->where('treatment_id', $treatment->getKey());
-        $booked = $plans->bookedSessions($items->modelKeys());
+        $booked = $plans->bookedSessions($items->map(fn (TreatmentPlanItem $item) => $item->getKey())->all());
         $item = $items->first(fn (TreatmentPlanItem $item) => TreatmentPlanService::nextSessionToBook($item, $booked[$item->getKey()] ?? 0) !== null);
 
         if ($item === null) {
@@ -107,16 +108,16 @@ final class PatientContext
      */
     private static function evaluationAgain(Patient $patient, User $user, ?Treatment $treatment): ?array
     {
-        if ($treatment === null || ! $treatment->is_evaluation || ! $patient->treatmentPlans()->open()->exists()) {
+        if ($treatment === null || ! $treatment->is_evaluation || ! TreatmentPlan::query()->where('patient_id', $patient->getKey())->open()->exists()) {
             return null;
         }
 
-        $last = $patient->appointments()
-            ->with('treatment')
+        $last = Appointment::query()
+            ->where('patient_id', $patient->getKey())
             ->where('status', AppointmentStatus::Completed)
+            ->whereHas('treatment', fn (Builder $treatments) => $treatments->where('is_evaluation', true))
             ->latest('starts_at')
-            ->get()
-            ->first(fn (Appointment $visit) => (bool) $visit->treatment?->is_evaluation);
+            ->first();
 
         if ($last === null) {
             return null;

@@ -768,7 +768,7 @@ class AppointmentForm
         $user = auth()->user();
         $plans = app(TreatmentPlanService::class);
         $items = $plans->workableItems($patient);
-        $booked = $plans->bookedSessions($items->modelKeys());
+        $booked = $plans->bookedSessions($items->map(fn (TreatmentPlanItem $item) => $item->getKey())->all());
 
         return $items
             ->mapWithKeys(fn (TreatmentPlanItem $item) => [$item->getKey() => $item->label(withTooth: $user->canSeeClinical())
