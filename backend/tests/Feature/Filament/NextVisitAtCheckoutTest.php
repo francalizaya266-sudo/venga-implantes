@@ -5,6 +5,7 @@ namespace Tests\Feature\Filament;
 use App\Enums\AppointmentStatus;
 use App\Enums\PaymentMethod;
 use App\Enums\TreatmentPlanStatus;
+use App\Filament\Actions\RegisterPaymentAction;
 use App\Filament\Pages\Dashboard;
 use App\Filament\Resources\Appointments\AppointmentResource;
 use App\Models\Appointment;
@@ -57,8 +58,9 @@ class NextVisitAtCheckoutTest extends TestCase
             AppointmentResource::newUrl(['patient' => $rosa->id, 'doctor' => $this->doctor->id, 'plan_item' => $item->id, 'treatment' => $endo->id, 'date' => '2026-11-09']),
             $notice['actions'][0]['url'],
         );
-        // No se cierra sola: el paciente sigue en el mostrador.
-        $this->assertSame('persistent', $notice['duration']);
+        // Un rato en pantalla y se cierra al usar sus botones: antes no se iba y tapaba los botones de Hoy.
+        $this->assertSame(RegisterPaymentAction::NOTICE_SECONDS * 1000, $notice['duration']);
+        $this->assertSame([true, true], array_column($notice['actions'], 'shouldClose'));
     }
 
     public function test_who_already_has_a_visit_is_told_when_and_who_has_none_is_offered_the_checkup(): void
@@ -70,8 +72,7 @@ class NextVisitAtCheckoutTest extends TestCase
 
         $this->assertStringContainsString('Su próxima cita: jueves 5 de noviembre, 10:00 a. m. · Limpieza dental.', $notice['body']);
         $this->assertSame(['Ver constancia'], array_column($notice['actions'], 'label'));
-        // Sin nada que agendar, igual queda en pantalla: la constancia sigue a mano.
-        $this->assertSame('persistent', $notice['duration']);
+        $this->assertSame(RegisterPaymentAction::NOTICE_SECONDS * 1000, $notice['duration']);
 
         // Se atendió hoy, no tiene plan ni otra cita: se le ofrece su control.
         $done = $this->patientOwing('Ana', 'Flores');

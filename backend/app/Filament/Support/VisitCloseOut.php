@@ -89,6 +89,8 @@ final class VisitCloseOut
             ['label' => 'Cobrar', 'url' => $consultation->appointment
                 ? AppointmentResource::getUrl('view', ['record' => $consultation->appointment])
                 : PatientResource::getUrl('view', ['record' => $patient])],
+            // Al pagar, el aviso se da por leído.
+            ['checkout' => $patient->getKey()],
         );
 
         self::markReceptionNotified($consultation);

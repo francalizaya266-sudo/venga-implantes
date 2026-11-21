@@ -211,6 +211,32 @@ class WaitlistServiceTest extends TestCase
         $this->assertSame('Se liberó un horario', $reception->notifications()->sole()->data['title']);
     }
 
+    public function test_when_a_patient_does_not_come_and_there_is_time_left_reception_hears_about_the_waitlist(): void
+    {
+        $reception = User::factory()->reception()->create();
+        $cleaning = Treatment::factory()->create(['duration_minutes' => 30]);
+        $crown = Treatment::factory()->create(['duration_minutes' => 90]);
+        $doctor = $this->doctorOffering($cleaning, $crown);
+        $absent = Appointment::factory()->for($doctor)->for($crown)->for(Patient::factory()->state(['first_name' => 'Luis', 'last_name' => 'Paz']))->confirmed()->at('2026-11-02 10:00', 90)->create();
+        $short = Appointment::factory()->for($doctor)->for($cleaning)->confirmed()->at('2026-11-02 12:00')->create();
+        WaitlistEntry::factory()->for($cleaning)->for(Patient::factory()->state(['first_name' => 'Rosa', 'last_name' => 'Quispe']))->create();
+
+        // A las 10:10 se marca que no vino: quien espera puede llegar en media hora, y todavía queda tiempo de su cita.
+        $this->travelTo(CarbonImmutable::parse('2026-11-02 10:10', 'America/Lima'));
+        app(AppointmentService::class)->markNoShow($absent, $reception);
+
+        $alert = $reception->notifications()->sole()->data;
+        $this->assertSame('Se liberó un horario', $alert['title']);
+        $this->assertSame('Luis Paz no vino a su cita de las 10:00 con '.$doctor->name.'. Hay lugar desde las 10:45: Rosa Quispe, de la lista de espera, puede venir a esa hora.', $alert['body']);
+        $this->assertStringContainsString('actionArguments[time]=10:45', urldecode($alert['actions'][0]['url']));
+
+        // De una cita que ya casi termina no queda nada que ofrecer.
+        $this->travelTo(CarbonImmutable::parse('2026-11-02 12:05', 'America/Lima'));
+        app(AppointmentService::class)->markNoShow($short, $reception);
+
+        $this->assertSame(1, $reception->notifications()->count());
+    }
+
     public function test_an_offered_slot_is_held_for_that_patient_while_they_answer(): void
     {
         $reception = User::factory()->reception()->create();

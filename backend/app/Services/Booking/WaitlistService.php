@@ -35,6 +35,9 @@ final class WaitlistService
     /** Minutos que, como mínimo, tiene para responder cuando el horario ofrecido es muy pronto. */
     public const HOLD_MIN_MINUTES = 15;
 
+    /** Minutos que necesita alguien de la lista de espera para llegar si se le avisa ahora. */
+    public const ARRIVAL_MINUTES = 30;
+
     public function __construct(
         private readonly AvailabilityService $availability,
         private readonly WhatsAppOutbox $outbox,
@@ -224,6 +227,34 @@ final class WaitlistService
                 },
             'link' => ['label' => 'Ofrecérselo a '.$first->patient->first_name, 'url' => WaitlistEntryResource::urlForOffer($first, $doctor, $startsAt)],
         ];
+    }
+
+    /**
+     * El paciente no vino y todavía queda tiempo de su cita: desde cuándo puede llegar alguien de la lista de espera
+     * si se le avisa ahora (media hora, en cuartos de hora), y quién. Null si ya no queda tiempo o nadie le sirve.
+     *
+     * @return array{startsAt: CarbonImmutable, text: string, link: array{label: string, url: string}}|null
+     */
+    public function noShowNotice(Appointment $appointment): ?array
+    {
+        /** @var CarbonInterface $startsAt */
+        $startsAt = $appointment->starts_at;
+        /** @var CarbonInterface $endsAt */
+        $endsAt = $appointment->ends_at;
+        /** @var Doctor $doctor */
+        $doctor = $appointment->doctor;
+
+        $arrival = now()->toImmutable()->addMinutes(self::ARRIVAL_MINUTES)->setSecond(0)->setMicrosecond(0);
+        $arrival = $arrival->addMinutes((15 - $arrival->minute % 15) % 15);
+        $from = $arrival->max(CarbonImmutable::instance($startsAt));
+
+        if ($from->gte($endsAt)) {
+            return null;
+        }
+
+        $notice = $this->freedSlotNotice($doctor, $from, $appointment->patient_id);
+
+        return $notice ? ['startsAt' => $from] + $notice : null;
     }
 
     /**

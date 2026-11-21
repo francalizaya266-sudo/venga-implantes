@@ -42,6 +42,9 @@ use Illuminate\Support\Carbon;
  */
 final class RegisterPaymentAction
 {
+    /** Segundos que se ve "Pago registrado" (sin contar el rato con el mouse encima). */
+    public const NOTICE_SECONDS = 20;
+
     /**
      * @param  Closure|null  $patient  Devuelve el paciente (puede recibir $record). Sin él, se elige en el formulario.
      * @param  Closure|null  $amount  Lo que se propone cobrar (puede recibir $record). Por defecto, lo que debe.
@@ -153,16 +156,20 @@ final class RegisterPaymentAction
                     ->label('Agendar próxima cita')
                     ->icon(Heroicon::OutlinedCalendarDays)
                     ->url($next['url'])
-                    ->button() : null,
+                    ->button()
+                    ->close() : null,
                 Action::make('receipt')
                     ->label('Ver constancia')
                     ->icon(Heroicon::OutlinedDocumentText)
                     ->url(self::receiptUrl($payment), shouldOpenInNewTab: true)
                     ->button()
-                    ->color(($next['url'] ?? null) ? 'gray' : 'primary'),
+                    ->color(($next['url'] ?? null) ? 'gray' : 'primary')
+                    ->close(),
             ])))
-            // Se queda en pantalla con la constancia a mano mientras el paciente sigue en el mostrador.
-            ->persistent()
+            // Un rato en pantalla, con la constancia a mano mientras el paciente sigue en el mostrador (con el mouse
+            // encima no se va). Antes no se iba nunca y tapaba los botones de Hoy para el siguiente paciente; la
+            // constancia sigue en su ficha y en Pagos.
+            ->duration(self::NOTICE_SECONDS * 1000)
             ->send();
     }
 
