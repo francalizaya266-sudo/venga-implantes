@@ -80,16 +80,20 @@ final class SlotPicker
 
             // Primero qué se hace y después con quién: así lo cuenta el paciente al llamar.
             self::treatmentSelect($moving)->afterStateUpdated(function (Set $set, Get $get) use ($suggest): void {
-                $set('treatment_shortcut', filled($get('treatment_id')) ? (string) $get('treatment_id') : null);
+                self::syncTreatmentShortcut($get, $set);
                 $suggest($set, $get);
             }),
-            self::doctorSelect($moving)->afterStateUpdated($suggest),
+            // Con otro doctor cambian "Los más pedidos".
+            self::doctorSelect($moving)->afterStateUpdated(function (Set $set, Get $get) use ($suggest): void {
+                self::syncTreatmentShortcut($get, $set);
+                $suggest($set, $get);
+            }),
 
             // Los tratamientos que más se agendan, a un toque (antes siempre había que abrir la lista y buscar).
             ChoiceChips::make('treatment_shortcut')
                 ->label('Los más pedidos')
                 ->options(fn (Get $get) => self::quickTreatments($get('doctor_id')))
-                ->afterStateHydrated(fn (ChoiceChips $component, Get $get) => $component->state(filled($get('treatment_id')) ? (string) $get('treatment_id') : null))
+                ->afterStateHydrated(fn (ChoiceChips $component, Get $get) => $component->state(self::shortcutFor($get)))
                 ->extraAttributes(['class' => 'treatment-chips'])
                 ->live()
                 ->dehydrated(false)
@@ -931,11 +935,30 @@ final class SlotPicker
     }
 
     /**
+     * "Los más pedidos" marca el tratamiento elegido solo si está entre ellos. Si se eligió otro de la lista, queda
+     * sin marcar: marcado con un valor que no es un atajo, la ventana no dejaba agendar ("La opción elegida en los
+     * más pedidos no es válida").
+     */
+    public static function syncTreatmentShortcut(Get $get, Set $set): void
+    {
+        $set('treatment_shortcut', self::shortcutFor($get));
+    }
+
+    /** El atajo del tratamiento elegido, si es uno de "Los más pedidos" del doctor elegido. */
+    private static function shortcutFor(Get $get): ?string
+    {
+        $treatmentId = (int) $get('treatment_id');
+
+        return $treatmentId > 0 && array_key_exists($treatmentId, self::quickTreatments($get('doctor_id'))) ? (string) $treatmentId : null;
+    }
+
+    /**
      * En una cita nueva, después de cambiar el doctor desde fuera de su lista (por ejemplo, al elegir al paciente):
      * lo mismo que al elegirlo a mano.
      */
     public static function refreshAfterDoctorChange(Get $get, Set $set): void
     {
+        self::syncTreatmentShortcut($get, $set);
         self::moveToDayWithSlots($get, $set);
         $set('slot', self::suggestedSlot($get, null));
     }

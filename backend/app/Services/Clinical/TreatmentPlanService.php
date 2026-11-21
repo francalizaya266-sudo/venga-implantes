@@ -998,6 +998,44 @@ final class TreatmentPlanService
         ], $plan->patient_id);
     }
 
+    /**
+     * Cuántas sesiones de cada procedimiento ya tienen cita de hoy en adelante, sin atenderse todavía: la que sigue
+     * por agendar es la de después ("sesión 2 de 2" si la 1 ya está agendada).
+     *
+     * @param  iterable<int>  $itemIds
+     * @return array<int, int> Id del procedimiento => sesiones con cita
+     */
+    public function bookedSessions(iterable $itemIds): array
+    {
+        $ids = collect($itemIds)->filter()->unique()->values();
+
+        if ($ids->isEmpty()) {
+            return [];
+        }
+
+        return Appointment::query()
+            ->whereIn('treatment_plan_item_id', $ids->all())
+            ->where('starts_at', '>=', today())
+            ->whereIn('status', AppointmentStatus::open())
+            ->groupBy('treatment_plan_item_id')
+            ->selectRaw('treatment_plan_item_id, count(*) as booked')
+            ->toBase()
+            ->get()
+            ->mapWithKeys(fn (object $row) => [(int) $row->treatment_plan_item_id => (int) $row->booked])
+            ->all();
+    }
+
+    /**
+     * La sesión que toca agendar del procedimiento, contando las que ya tienen cita. Null si todas las que faltan ya
+     * están agendadas.
+     */
+    public static function nextSessionToBook(TreatmentPlanItem $item, int $booked): ?int
+    {
+        $next = $item->sessions_done + $booked + 1;
+
+        return $next <= max(1, (int) $item->sessions_planned) ? $next : null;
+    }
+
     /** Procedimientos que se pueden trabajar en una atención: los pendientes de los planes vigentes. */
     public function workableItems(Patient $patient, ?Consultation $consultation = null): Collection
     {

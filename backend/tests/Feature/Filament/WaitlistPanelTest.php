@@ -195,7 +195,7 @@ class WaitlistPanelTest extends TestCase
             ])
             // Solo para hoy: queda que alguien cancele o no llegue.
             ->setActionData(['latest_date' => '2026-11-02'])
-            ->assertMountedActionModalSee('Hoy no queda nada libre. Si alguien cancela o no llega, te llega la alerta para ofrecérselo.');
+            ->assertMountedActionModalSee('Hoy no queda nada libre. Si alguien cancela, te llega la alerta para ofrecérselo.');
     }
 
     public function test_an_appointment_in_a_few_days_with_nothing_free_before_is_said_to_be_hard_to_bring_forward(): void
@@ -234,6 +234,22 @@ class WaitlistPanelTest extends TestCase
             // No se le ofrece otra cita: se mueve la que tiene.
             ->assertMountedActionModalDontSee('Agendar ahí')
             ->assertActionHasUrl($bringForward, AppointmentResource::getUrl('view', ['record' => $appointment, 'action' => 'move']));
+    }
+
+    public function test_with_the_appointment_today_it_only_waits_for_an_earlier_time_today(): void
+    {
+        $patient = Patient::factory()->create();
+        Appointment::factory()->for($patient)->for($this->doctor)->for($this->treatment)->at('2026-11-02 15:00')->create();
+        $this->actingAs(User::factory()->reception()->create());
+
+        Livewire::test(ManageWaitlistEntries::class)
+            ->mountAction('create')
+            ->setActionData(['patient_id' => $patient->id])
+            ->setActionData(['treatment_id' => $this->treatment->id])
+            // No hay un día antes que poner en "Hasta", y no se dice que lo hay.
+            ->assertActionDataSet(['latest_date' => null])
+            ->assertMountedActionModalSee(['Ya tiene cita hoy a las 15:00', 'Se anota solo para pasarla más temprano'])
+            ->assertMountedActionModalDontSee('Por eso "Hasta" queda un día antes.');
     }
 
     public function test_a_patient_without_a_phone_is_flagged_because_the_time_cannot_be_offered(): void

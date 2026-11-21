@@ -5,6 +5,8 @@ namespace Tests\Feature\Filament;
 use App\Enums\AppointmentStatus;
 use App\Enums\MessageStatus;
 use App\Enums\PaymentMethod;
+use App\Enums\PlanPaymentMode;
+use App\Enums\TreatmentPlanStatus;
 use App\Filament\Pages\CashClosing;
 use App\Filament\Pages\Dashboard;
 use App\Filament\Resources\Payments\Pages\ManagePayments;
@@ -13,9 +15,11 @@ use App\Filament\Widgets\TodayStats;
 use App\Models\Account;
 use App\Models\Appointment;
 use App\Models\Charge;
+use App\Models\Doctor;
 use App\Models\Patient;
 use App\Models\Payment;
 use App\Models\Treatment;
+use App\Models\TreatmentPlan;
 use App\Models\User;
 use App\Models\WhatsappMessage;
 use App\Services\Billing\PaymentReceipt;
@@ -54,6 +58,23 @@ class CollectingAndReceiptsTest extends TestCase
         $payment = Payment::sole();
         $this->assertSame([$doctor->id, $treatment->id], [$payment->doctor_id, $payment->treatment_id]);
         $this->assertSame(90.0, $patient->balance());
+    }
+
+    public function test_collecting_charges_the_installment_that_fell_due_even_if_the_morning_task_did_not_run(): void
+    {
+        $this->freezeMonday();
+        $patient = Patient::factory()->create();
+        $plan = TreatmentPlan::create(['patient_id' => $patient->id, 'doctor_id' => Doctor::factory()->create()->id, 'title' => 'Blanqueamiento', 'status' => TreatmentPlanStatus::Accepted, 'payment_mode' => PlanPaymentMode::Installments, 'accepted_at' => now()->subWeek()]);
+        $plan->installments()->create(['number' => 1, 'due_on' => '2026-11-02', 'amount' => 225]);
+        $plan->installments()->create(['number' => 2, 'due_on' => '2026-12-02', 'amount' => 225]);
+        $this->actingAs(User::factory()->reception()->create());
+
+        // Sin cargarla, decía "Está al día" y no proponía nada.
+        Livewire::test(Dashboard::class)
+            ->mountAction('registerPayment')
+            ->setActionData(['patient_id' => $patient->id])
+            ->assertActionDataSet(['amount' => 225.0])
+            ->assertMountedActionModalSee('Debe S/ 225.00: Blanqueamiento · cuota 1 de 2 S/ 225.00 (2/11).');
     }
 
     public function test_collecting_offers_first_who_was_charged_today_and_still_owes(): void

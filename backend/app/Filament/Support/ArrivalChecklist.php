@@ -10,7 +10,9 @@ use App\Models\LabOrder;
 use App\Models\Patient;
 use App\Models\User;
 use App\Services\Clinical\ConsentService;
+use App\Services\Patients\PatientInsights;
 use App\Support\Money;
+use Carbon\CarbonInterface;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Support\Icons\Heroicon;
@@ -18,8 +20,9 @@ use Illuminate\Support\Arr;
 
 /**
  * Lo que conviene resolver con el paciente cuando llega, mientras espera: los datos que le faltan, sus
- * antecedentes sin llenar, lo que debe de antes y si su trabajo todavía no llegó del laboratorio. Sale en el
- * aviso de "Paciente en sala", con el botón para completar su ficha.
+ * antecedentes sin llenar, lo que debe de antes (y si una cuota se le pasó), el presupuesto que no respondió y si su
+ * trabajo todavía no llegó del laboratorio. Sale en "Antes de pasar" y en el aviso de "Paciente en sala", con el
+ * botón para completar su ficha.
  */
 final class ArrivalChecklist
 {
@@ -37,13 +40,19 @@ final class ArrivalChecklist
             'cómo nos encontró' => $patient->origin === null && ! $originAskedAlready,
         ]));
 
+        $insights = app(PatientInsights::class);
         $balance = $user->can('viewAny', Charge::class) ? $patient->balance() : 0.0;
+        $late = $balance > 0 ? $insights->lateInstallments($patient) : null;
         $inLab = LabOrder::query()->where('patient_id', $patient->getKey())->pending()->orderBy('due_on')->first();
+        /** @var CarbonInterface|null $presentedAt */
+        $presentedAt = $insights->planAwaitingAnswer($patient)?->proposed_at;
 
         return array_values(array_filter([
             $missing !== [] ? 'Le falta: '.Arr::join($missing, ', ', ' y ').'.' : null,
             $patient->medicalBackground === null ? 'No ha llenado sus antecedentes médicos: puede hacerlo en su celular, desde Mi cuenta.' : null,
-            $balance > 0 ? 'Debe '.Money::format($balance).' de antes.' : null,
+            $balance > 0 ? 'Debe '.Money::format($balance).' de antes'.($late ? ' (cuota vencida desde el '.$late['since']->translatedFormat('j \d\e F').')' : '').'.' : null,
+            // Ahora que está en el mostrador es cuando se le pregunta.
+            $presentedAt ? 'Tiene un presupuesto sin respuesta desde el '.$presentedAt->translatedFormat('j \d\e F').': pregúntale si lo acepta.' : null,
             $inLab ? '"'.$inLab->description.'" todavía no llega del laboratorio ('.($inLab->due_on->isPast() && ! $inLab->due_on->isToday() ? 'debía llegar' : 'llega').' el '.$inLab->due_on->translatedFormat('D j M').').' : null,
         ]));
     }

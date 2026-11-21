@@ -5,6 +5,7 @@ namespace Tests\Feature\Filament;
 use App\Enums\AppointmentOrigin;
 use App\Enums\AppointmentStatus;
 use App\Enums\ScheduleBlockType;
+use App\Enums\TreatmentPlanStatus;
 use App\Filament\Pages\Dashboard;
 use App\Models\Appointment;
 use App\Models\Doctor;
@@ -12,6 +13,7 @@ use App\Models\MedicalBackground;
 use App\Models\Patient;
 use App\Models\ScheduleBlock;
 use App\Models\Treatment;
+use App\Models\TreatmentPlan;
 use App\Models\User;
 use App\Models\WaitlistEntry;
 use App\Models\WhatsappMessage;
@@ -262,6 +264,30 @@ class WalkInTest extends TestCase
             ->assertMountedActionModalSee('Tratamiento');
 
         $this->assertSame('Abrir otra atención', $window->instance()->getMountedAction()->getModalSubmitAction()->getLabel());
+    }
+
+    public function test_with_two_appointments_today_it_offers_the_one_still_to_come_and_mentions_the_other(): void
+    {
+        $rosa = Patient::factory()->create(['first_name' => 'Rosa', 'last_name' => 'Quispe']);
+        Appointment::factory()->for($this->busy)->for($this->cleaning)->for($rosa)->at('2026-11-02 09:30')->create(['status' => AppointmentStatus::CheckedIn, 'checked_in_at' => now()->subMinutes(40)]);
+        $later = Appointment::factory()->for($this->free)->for($this->cleaning)->for($rosa)->at('2026-11-02 15:00')->confirmed()->create();
+        $plan = TreatmentPlan::create(['patient_id' => $rosa->id, 'doctor_id' => $this->free->id, 'title' => 'Plan', 'status' => TreatmentPlanStatus::Accepted, 'accepted_at' => now()->subWeek()]);
+        $plan->items()->create(['treatment_id' => $this->cleaning->id, 'description' => 'Limpieza dental', 'unit_price' => 120, 'accepted_at' => now()->subWeek()]);
+
+        Livewire::test(Dashboard::class)
+            ->mountAction('walkIn')
+            ->setActionData(['patient_id' => $rosa->id])
+            // Lo normal es que llegue a la que todavía no empieza; la otra se dice debajo.
+            ->assertMountedActionModalSee(['Tiene cita hoy a las 15:00', 'También tiene hoy Limpieza dental con '.$this->busy->name.' a las 09:30 · En sala.', 'Marcar que llegó a esa cita'])
+            // Esa cita ya dice qué es: no se pregunta por la sesión de su plan.
+            ->assertMountedActionModalDontSee(['¿Es una sesión de su plan de tratamiento?', 'Le toca de su plan'])
+            ->setActionData(['use_appointment' => false])
+            ->assertMountedActionModalSee('¿Es una sesión de su plan de tratamiento?')
+            ->setActionData(['use_appointment' => true])
+            ->callMountedAction()
+            ->assertHasNoActionErrors();
+
+        $this->assertSame(AppointmentStatus::CheckedIn, $later->refresh()->status);
     }
 
     public function test_an_appointment_on_another_day_is_mentioned_under_the_patient(): void

@@ -51,6 +51,7 @@ final class RegisterPaymentAction
             ->modalWidth('lg')
             ->fillForm(function (Action $action) use ($resolve, $amount) {
                 $found = $resolve($action);
+                self::chargeDueInstallments($found);
                 $proposed = $amount ? $action->evaluate($amount) : max(0, $found?->balance() ?? 0);
 
                 return [
@@ -81,6 +82,7 @@ final class RegisterPaymentAction
                             return;
                         }
 
+                        self::chargeDueInstallments($found);
                         $balance = $found->balance();
                         $set('amount', $balance > 0 ? $balance : null);
                         $set('method', $found->usualPaymentMethod()->value);
@@ -173,6 +175,17 @@ final class RegisterPaymentAction
                 : 'Sin próxima cita.',
             'url' => $canBook ? AppointmentResource::nextVisitUrl($patient, $doctorId, $checkup && ! $checkup['due'] ? $checkup['on'] : null) : null,
         ];
+    }
+
+    /**
+     * Si una cuota de su plan ya venció y todavía no se cargó (la tarea de las 6:00 no corrió), entra al saldo antes
+     * de decir cuánto debe: como en su ficha, su cita, su plan y el cobro al terminar la atención.
+     */
+    private static function chargeDueInstallments(?Patient $patient): void
+    {
+        if ($patient !== null) {
+            app(BillingService::class)->chargeDueInstallments($patient, self::user());
+        }
     }
 
     /** La hoja de la constancia, para imprimirla o enviarla por WhatsApp. */
