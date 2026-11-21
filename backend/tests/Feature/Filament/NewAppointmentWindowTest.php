@@ -2,10 +2,13 @@
 
 namespace Tests\Feature\Filament;
 
+use App\Enums\RequestedBy;
+use App\Enums\RescheduleRequestStatus;
 use App\Filament\Pages\Agenda;
 use App\Filament\Pages\Dashboard;
 use App\Filament\Resources\Appointments\AppointmentResource;
 use App\Filament\Resources\Appointments\Pages\ListAppointments;
+use App\Filament\Resources\Appointments\Pages\ViewAppointment;
 use App\Filament\Resources\Patients\PatientResource;
 use App\Models\Appointment;
 use App\Models\Doctor;
@@ -240,6 +243,51 @@ class NewAppointmentWindowTest extends TestCase
         Livewire::test(Agenda::class)
             ->mountAction('createAppointment', ['date' => '2026-11-03'])
             ->assertMountedActionModalSee('data.doctor_id', escape: false);
+    }
+
+    public function test_another_appointment_is_flagged_in_amber_only_when_it_may_be_the_same(): void
+    {
+        $control = Treatment::factory()->create(['name' => 'Control', 'duration_minutes' => 30]);
+        $this->doctor->treatments()->attach($control->id);
+        $next = Appointment::factory()->for($this->doctor)->for($control)->for($this->patient)->at('2026-11-30 10:00')->confirmed()->create();
+        Appointment::factory()->for($this->doctor)->for($control)->for($this->patient)->at('2026-12-28 10:00')->create();
+
+        Livewire::test(Agenda::class)
+            ->mountAction('createAppointment', ['doctor' => $this->doctor->id, 'date' => '2026-11-03'])
+            ->setActionData(['patient_id' => $this->patient->id, 'treatment_id' => $this->treatment->id])
+            // Un control lejano y otro tratamiento: lo normal en quien viene a controles. Se dice, sin alarma.
+            ->assertMountedActionModalSee(['Ya tiene cita el lunes 30 de noviembre a las 10:00', 'Control · Confirmada (y 1 cita más)', 'Ver o mover esa cita'])
+            ->assertMountedActionModalSee(AppointmentResource::getUrl('view', ['record' => $next, 'action' => 'move']))
+            ->assertMountedActionModalDontSee('Continúa solo si necesita una cita adicional.')
+            // El mismo tratamiento: puede ser la misma cita.
+            ->setActionData(['treatment_id' => $control->id])
+            ->assertMountedActionModalSee('Continúa solo si necesita una cita adicional.')
+            // Ese mismo día: se dice que ya tiene una ahí, aunque sea otro tratamiento.
+            ->setActionData(['treatment_id' => $this->treatment->id, 'date' => '2026-11-30'])
+            ->assertMountedActionModalSee(['Ese día ya tiene cita a las 10:00', 'Continúa solo si necesita una cita adicional.']);
+    }
+
+    public function test_a_change_the_patient_asked_for_is_pointed_out_instead_of_booking_another(): void
+    {
+        $asked = Appointment::factory()->for($this->doctor)->for($this->treatment)->for($this->patient)->at('2026-11-30 10:00')->confirmed()->create();
+        $asked->rescheduleRequests()->create(['requested_by' => RequestedBy::Patient, 'status' => RescheduleRequestStatus::Pending]);
+
+        Livewire::test(Agenda::class)
+            ->mountAction('createAppointment', ['date' => '2026-11-03'])
+            ->setActionData(['patient_id' => $this->patient->id])
+            ->assertMountedActionModalSee(['Pidió cambiar esta cita: resuélvelo en "Cambios pedidos" en vez de crear otra.', 'Ver el cambio que pidió'])
+            ->assertMountedActionModalDontSee('Ver o mover esa cita');
+    }
+
+    public function test_the_link_to_the_other_appointment_opens_it_ready_to_move(): void
+    {
+        $next = Appointment::factory()->for($this->doctor)->for($this->treatment)->for($this->patient)->at('2026-11-30 10:00')->confirmed()->create();
+
+        $page = Livewire::withQueryParams(['action' => 'move'])
+            ->test(ViewAppointment::class, ['record' => $next->getRouteKey()])
+            ->call('mountDefaultActions');
+
+        $this->assertSame('move', $page->instance()->getMountedAction()?->getName());
     }
 
     /** El botón para cerrar la ventana sin agendar. */

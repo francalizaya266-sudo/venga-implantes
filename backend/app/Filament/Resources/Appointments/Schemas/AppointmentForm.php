@@ -7,9 +7,12 @@ use App\Enums\AppointmentStatus;
 use App\Enums\DocumentType;
 use App\Enums\PatientRelationship;
 use App\Enums\PlanPaymentMode;
+use App\Enums\RescheduleRequestStatus;
 use App\Filament\Resources\Appointments\AppointmentResource;
 use App\Filament\Resources\Patients\Schemas\PatientForm;
+use App\Filament\Resources\RescheduleRequests\RescheduleRequestResource;
 use App\Filament\Support\SlotPicker;
+use App\Models\Appointment;
 use App\Models\Doctor;
 use App\Models\Patient;
 use App\Models\Treatment;
@@ -21,6 +24,8 @@ use App\Support\Dates;
 use App\Support\Money;
 use App\Support\Phone;
 use Carbon\CarbonImmutable;
+use Carbon\CarbonInterface;
+use Filament\Actions\Action;
 use Filament\Forms\Components\Checkbox;
 use Filament\Forms\Components\Field;
 use Filament\Forms\Components\Hidden;
@@ -29,6 +34,8 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Forms\Components\ToggleButtons;
+use Filament\Schemas\Components\Callout;
+use Filament\Schemas\Components\Component;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Group;
 use Filament\Schemas\Components\Section;
@@ -39,6 +46,8 @@ use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Components\View;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\HtmlString;
 
 /** Nueva cita desde el panel (recepción o doctor). */
 class AppointmentForm
@@ -255,8 +264,9 @@ class AppointmentForm
      * Si ya tiene una cita por delante, se dice bajo su nombre: así no se le agenda dos veces lo mismo.
      *
      * @param  bool  $forToday  La cita es para hoy ("Llegó sin cita"): no se propone el día en que suele venir, y su cita de hoy la muestra esa ventana.
+     * @param  list<Component>  $notices  Lo que esa ventana avisa del paciente elegido, justo bajo su nombre.
      */
-    public static function patientSection(bool $forToday = false): Section
+    public static function patientSection(bool $forToday = false, array $notices = []): Section
     {
         return Section::make('Paciente')
             // Arriba a la derecha, como en la ficha: uno ya registrado o uno nuevo que se registra aquí mismo.
@@ -286,7 +296,6 @@ class AppointmentForm
                     ->hiddenLabel()
                     ->hidden(fn (Get $get) => (bool) $get('new_patient'))
                     ->required(fn (Get $get) => ! $get('new_patient'))
-                    ->helperText(fn (Get $get) => self::upcomingAppointmentHint($get('patient_id'), afterToday: $forToday))
                     ->live()
                     ->afterStateUpdated(function (Set $set, Get $get) use ($forToday) {
                         $set('treatment_plan_item_id', null);
@@ -303,6 +312,8 @@ class AppointmentForm
                             }
                         }
                     }),
+                ...$notices,
+                self::upcomingAppointmentCallout($forToday),
                 Grid::make(2)
                     ->statePath('patient')
                     ->visible(fn (Get $get) => (bool) $get('new_patient'))
@@ -319,35 +330,164 @@ class AppointmentForm
     }
 
     /**
-     * "Ya tiene cita mañana a las 10:00 · Limpieza dental." La próxima que le falta, entre las que quien mira
-     * puede ver (el doctor, solo las de su agenda).
+     * La otra cita del paciente, para no agendarle dos veces lo mismo. El aviso se adapta a lo que se está haciendo:
+     * en ámbar cuando puede ser la misma (ese mismo día, el mismo tratamiento o sesión del plan, un cambio que pidió
+     * y nadie resolvió, o una cita suelta en los próximos 7 días), con el enlace para verla o moverla, porque muchos
+     * llaman para reprogramar y no para sacar otra. Si no, en gris: quien viene a controles o tiene un plan casi
+     * siempre tiene una por delante, y un aviso que sale siempre en ámbar se deja de leer.
      *
-     * @param  bool  $afterToday  Sin contar las de hoy.
+     * @param  bool  $forToday  "Llegó sin cita": solo las de otro día (la de hoy la muestra esa ventana) y sin enlace, porque el paciente está en el mostrador.
      */
-    private static function upcomingAppointmentHint(mixed $patientId, bool $afterToday): ?string
+    private static function upcomingAppointmentCallout(bool $forToday): Callout
     {
-        if (blank($patientId)) {
+        return Callout::make(fn (Get $get) => self::upcomingNotice($get, $forToday)['heading'] ?? null)
+            ->key('upcomingAppointment')
+            ->description(fn (Get $get) => ($notice = self::upcomingNotice($get, $forToday))
+                ? new HtmlString(collect($notice['lines'])->map(fn (string $line) => e($line))->implode('<br>'))
+                : null)
+            ->icon(Heroicon::OutlinedCalendarDays)
+            ->color(fn (Get $get) => (self::upcomingNotice($get, $forToday)['warn'] ?? false) ? 'warning' : 'gray')
+            ->actions([
+                Action::make('openUpcomingAppointment')
+                    ->label(fn (Get $get) => self::upcomingNotice($get, $forToday)['link']['label'] ?? null)
+                    ->url(fn (Get $get) => self::upcomingNotice($get, $forToday)['link']['url'] ?? null)
+                    ->visible(fn (Get $get) => filled(self::upcomingNotice($get, $forToday)['link'] ?? null)),
+            ])
+            ->visible(fn (Get $get) => self::upcomingNotice($get, $forToday) !== null);
+    }
+
+    /**
+     * Qué se dice de la otra cita del paciente, según la ventana, el día y el tratamiento elegidos.
+     *
+     * @return array{heading: string, lines: list<string>, warn: bool, link: array{label: string, url: string}|null}|null
+     */
+    public static function upcomingNotice(Get $get, bool $forToday = false): ?array
+    {
+        $patientId = $get('patient_id');
+
+        if ($get('new_patient') || blank($patientId)) {
             return null;
         }
 
-        $next = AppointmentResource::getEloquentQuery()
-            ->where('patient_id', $patientId)
-            ->where('starts_at', '>=', $afterToday ? today()->addDay() : today())
-            ->whereIn('status', AppointmentStatus::changeable())
-            ->orderBy('starts_at')
-            ->first();
+        $chosenDate = $forToday ? null : $get('date');
+        ['mentioned' => $appointment, 'count' => $count] = self::upcomingAppointments($patientId, $forToday, $chosenDate);
 
-        if (! $next) {
+        if (! $appointment) {
             return null;
         }
 
+        // El análisis estático no ve los tipos de la cita: se dicen aquí.
+        /** @var CarbonInterface $startsAt */
+        $startsAt = $appointment->starts_at;
+        /** @var AppointmentStatus $status */
+        $status = $appointment->status;
+        /** @var Treatment $treatment */
+        $treatment = $appointment->treatment;
+        /** @var Doctor $doctor */
+        $doctor = $appointment->doctor;
+
+        $sameDay = filled($chosenDate) && $startsAt->toDateString() === $chosenDate;
+        $changeRequested = (bool) $appointment->getAttribute('has_pending_change');
+        $sameVisit = filled($get('treatment_plan_item_id'))
+            ? (int) $get('treatment_plan_item_id') === $appointment->treatment_plan_item_id
+            : filled($get('treatment_id')) && (int) $get('treatment_id') === $appointment->treatment_id;
+        $withinAWeek = $startsAt->lt(today()->addDays(7));
+        // Una de su serie de controles o de su plan es lo normal: solo una suelta y cercana hace dudar.
+        $soonAndOnItsOwn = $withinAWeek && $appointment->series_id === null && $appointment->treatment_plan_item_id === null;
+        $warn = $sameDay || $changeRequested || $sameVisit || $soonAndOnItsOwn || ($forToday && $withinAWeek);
+
+        $lines = [
+            $treatment->name
+                .(SlotPicker::onlyActiveDoctorId() === null ? ' con '.$doctor->name : '')
+                .' · '.$status->getLabel()
+                .($count > 1 ? ' (y '.($count - 1).' '.($count === 2 ? 'cita' : 'citas').' más)' : ''),
+        ];
+
+        if ($warn) {
+            $lines[] = match (true) {
+                $changeRequested => 'Pidió cambiar esta cita: resuélvelo en "Cambios pedidos" en vez de crear otra.',
+                $forToday => '¿Se confundió de día? Esa cita sigue en pie: muévela o cancélala después.',
+                $sameVisit && filled($get('treatment_plan_item_id')) => 'Esta sesión de su plan ya está agendada. Continúa solo si necesita otra.',
+                default => 'Continúa solo si necesita una cita adicional.',
+            };
+        }
+
+        return [
+            'heading' => $sameDay ? 'Ese día ya tiene cita a las '.$startsAt->format('H:i') : self::upcomingHeading($startsAt),
+            'lines' => $lines,
+            'warn' => $warn,
+            'link' => $forToday ? null : self::upcomingLink($appointment, $changeRequested),
+        ];
+    }
+
+    /** "Ya tiene cita mañana a las 10:00" o "Ya tiene cita el miércoles 4 de noviembre a las 16:00". */
+    private static function upcomingHeading(CarbonInterface $startsAt): string
+    {
         $day = match (true) {
-            $next->starts_at->isToday() => 'hoy',
-            $next->starts_at->isTomorrow() => 'mañana',
-            default => 'el '.$next->starts_at->translatedFormat('D j M'),
+            $startsAt->isToday() => 'hoy',
+            $startsAt->isTomorrow() => 'mañana',
+            default => 'el '.$startsAt->translatedFormat('l j \d\e F'),
         };
 
-        return 'Ya tiene cita '.$day.' a las '.$next->starts_at->format('H:i').' · '.$next->treatment->name.'.';
+        return 'Ya tiene cita '.$day.' a las '.$startsAt->format('H:i');
+    }
+
+    /**
+     * Si pidió un cambio, a ese pedido; si no, a la página de la cita, con "Mover cita" ya abierto si quien mira la
+     * puede mover.
+     *
+     * @return array{label: string, url: string}
+     */
+    private static function upcomingLink(Appointment $appointment, bool $changeRequested): array
+    {
+        if ($changeRequested && RescheduleRequestResource::canViewAny()) {
+            /** @var Patient $patient */
+            $patient = $appointment->patient;
+
+            return ['label' => 'Ver el cambio que pidió', 'url' => RescheduleRequestResource::forPatientUrl($patient)];
+        }
+
+        $canMove = auth()->user()?->can('update', $appointment) ?? false;
+
+        return [
+            'label' => $canMove ? 'Ver o mover esa cita' : 'Ver esa cita',
+            'url' => AppointmentResource::getUrl('view', ['record' => $appointment, ...($canMove ? ['action' => 'move'] : [])]),
+        ];
+    }
+
+    /**
+     * Las citas del paciente que todavía se pueden mover, entre las que quien mira puede ver (el doctor, solo las de
+     * su agenda): la que conviene mencionar (la del día elegido o, si no, la próxima) y cuántas son. Se pide varias
+     * veces al pintar la ventana: se busca una sola vez por pedido.
+     *
+     * @param  bool  $forToday  Sin contar las de hoy.
+     * @return array{mentioned: Appointment|null, count: int}
+     */
+    private static function upcomingAppointments(mixed $patientId, bool $forToday, mixed $chosenDate): array
+    {
+        $memo = 'appointment-form.upcoming.'.$patientId.'.'.($forToday ? 'after-today' : 'from-today').'.'.$chosenDate;
+
+        if (! request()->attributes->has($memo)) {
+            $upcoming = fn () => AppointmentResource::getEloquentQuery()
+                ->where('patient_id', $patientId)
+                ->where('starts_at', '>=', $forToday ? today()->addDay() : today())
+                ->whereIn('status', AppointmentStatus::changeable());
+            $withDetails = fn () => $upcoming()
+                ->with(['treatment', 'doctor', 'patient'])
+                ->withExists(['rescheduleRequests as has_pending_change' => fn (Builder $requests) => $requests->where('status', RescheduleRequestStatus::Pending)])
+                ->orderBy('starts_at');
+
+            $onChosenDay = filled($chosenDate) && preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $chosenDate)
+                ? $withDetails()->whereDate('starts_at', (string) $chosenDate)->first()
+                : null;
+
+            request()->attributes->set($memo, [
+                'mentioned' => $onChosenDay ?? $withDetails()->first(),
+                'count' => $upcoming()->count(),
+            ]);
+        }
+
+        return request()->attributes->get($memo);
     }
 
     /** Paciente nuevo, o uno registrado que nunca vino y del que no se sabe cómo llegó. */

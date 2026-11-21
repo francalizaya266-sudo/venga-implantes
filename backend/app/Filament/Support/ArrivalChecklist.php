@@ -24,16 +24,17 @@ use Illuminate\Support\Arr;
 final class ArrivalChecklist
 {
     /**
+     * @param  bool  $originAskedAlready  La ventana ya pregunta "¿Cómo nos encontró?": no se repite en la lista.
      * @return list<string> Una frase por cosa pendiente; vacío si no falta nada.
      */
-    public static function for(Patient $patient, User $user): array
+    public static function for(Patient $patient, User $user, bool $originAskedAlready = false): array
     {
         $missing = array_keys(array_filter([
             'DNI' => blank($patient->document_number),
             'fecha de nacimiento' => $patient->birth_date === null,
             'celular' => $patient->account === null,
             'apoderado' => $patient->isMinor() && app(ConsentService::class)->defaultSigner($patient)['signer_relationship'] === PatientRelationship::Self,
-            'cómo nos encontró' => $patient->origin === null,
+            'cómo nos encontró' => $patient->origin === null && ! $originAskedAlready,
         ]));
 
         $balance = $user->can('viewAny', Charge::class) ? $patient->balance() : 0.0;

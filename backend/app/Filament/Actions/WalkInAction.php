@@ -6,27 +6,34 @@ use App\Enums\AppointmentStatus;
 use App\Enums\PatientRelationship;
 use App\Filament\Resources\Appointments\AppointmentResource;
 use App\Filament\Resources\Appointments\Schemas\AppointmentForm;
+use App\Filament\Resources\Patients\PatientResource;
 use App\Filament\Support\ArrivalChecklist;
 use App\Filament\Support\Notify;
 use App\Filament\Support\SlotPicker;
 use App\Models\Appointment;
 use App\Models\Doctor;
+use App\Models\Patient;
 use App\Models\Treatment;
+use App\Models\User;
 use App\Services\Agenda\Slot;
 use App\Services\Booking\AppointmentService;
+use Carbon\CarbonInterface;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
+use Filament\Schemas\Components\Callout;
+use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Components\Group;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Text;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Support\Enums\Alignment;
-use Filament\Support\Enums\FontWeight;
 use Filament\Support\Enums\Size;
 use Filament\Support\Enums\Width;
 use Filament\Support\Icons\Heroicon;
+use Illuminate\Support\HtmlString;
 
 /**
  * "Llegó sin cita": el paciente está en el mostrador y no tiene cita. En una sola ventana se elige (o se
@@ -43,49 +50,39 @@ final class WalkInAction
             ->color('gray')
             ->modalHeading('Llegó sin cita')
             ->modalDescription('Se le da el primer hueco de hoy y queda en sala de una vez.')
-            ->modalWidth(Width::ThreeExtraLarge)
-            // Como "Nueva cita": "Pasar a sala" grande, abajo a la derecha.
+            // Como "Nueva cita": a la izquierda quién y qué; a la derecha lo que conviene ver antes de pasarlo.
+            ->modalWidth(Width::FiveExtraLarge)
             ->extraModalWindowAttributes(['class' => 'appointment-window'])
+            ->stickyModalFooter()
             ->modalFooterActionsAlignment(Alignment::End)
             ->modalSubmitActionLabel('Pasar a sala')
-            ->modalSubmitAction(fn (Action $action) => $action->size(Size::Large))
+            // Si ya está en sala o lo atienden, el botón dice que abre otra atención; sin hueco hoy, no se ofrece.
+            ->modalSubmitAction(fn (Action $action, array $mountedActions) => $action
+                ->size(Size::Large)
+                ->label(fn () => self::opensAnotherVisit(self::windowState($mountedActions)) ? 'Abrir otra atención' : 'Pasar a sala')
+                ->disabled(fn () => self::hasNoRoom(self::windowState($mountedActions))))
             ->schema([
-                AppointmentForm::patientSection(forToday: true),
-                Section::make(fn (Get $get) => self::todaysAppointmentHeading($get))
-                    ->visible(fn (Get $get) => self::todaysAppointment($get) !== null)
+                Grid::make(['default' => 1, 'lg' => 5])
                     ->schema([
-                        Text::make(fn (Get $get) => self::describe(self::todaysAppointment($get)))
-                            ->weight(FontWeight::SemiBold),
-                        Toggle::make('use_appointment')
-                            ->label('Marcar que llegó a esa cita')
-                            ->helperText('Así esa cita no queda como falta ni se le abre otra. Desmárcalo solo si viene por otra atención aparte.')
-                            ->visible(fn (Get $get) => self::todaysAppointment($get)?->status->isChangeable() ?? false)
-                            ->live(),
-                        Text::make('Sigue solo si viene por otra atención aparte: se le abrirá una cita más.')
-                            ->visible(fn (Get $get) => ! (self::todaysAppointment($get)?->status->isChangeable() ?? true)),
-                    ]),
-                Section::make('Atención')
-                    ->columns(2)
-                    ->hidden(fn (Get $get) => self::arrivesToAppointment($get))
-                    ->schema([
-                        // Al elegir qué se hace, queda puesto quien se desocupa primero.
-                        SlotPicker::treatmentSelect()
-                            ->afterStateUpdated(fn (Get $get, Set $set) => $set('doctor_id', self::soonestDoctorId($get) ?? $get('doctor_id'))),
-                        SlotPicker::doctorSelect(),
-                        Text::make(fn (Get $get) => self::roomToday($get))
-                            ->weight(FontWeight::SemiBold)
-                            ->color(fn (Get $get) => self::slot($get) ? 'success' : 'danger')
-                            ->visible(fn (Get $get) => filled($get('treatment_id')) && filled($get('doctor_id')))
-                            ->columnSpanFull(),
-                    ]),
-                // Quien llega sin cita suele venir con algo urgente: el doctor lo ve en "Tu próximo paciente".
-                Section::make()
-                    ->schema([
-                        Textarea::make('internal_notes')
-                            ->label('Nota para el doctor')
-                            ->placeholder('Viene con dolor en una muela…')
-                            ->helperText('No la ve el paciente. Si llegó a una cita que ya tenía, se agrega a sus notas.')
-                            ->rows(2),
+                        Group::make([
+                            AppointmentForm::patientSection(forToday: true, notices: [self::todaysAppointmentCallout()]),
+                            Section::make('Atención')
+                                ->columns(2)
+                                ->hidden(fn (Get $get) => self::arrivesToAppointment($get))
+                                ->schema([
+                                    // Al elegir qué se hace, queda puesto quien se desocupa primero.
+                                    SlotPicker::treatmentSelect()
+                                        ->afterStateUpdated(fn (Get $get, Set $set) => $set('doctor_id', self::soonestDoctorId($get) ?? $get('doctor_id'))),
+                                    SlotPicker::doctorSelect(),
+                                    Callout::make(fn (Get $get) => self::roomToday($get))
+                                        ->key('roomToday')
+                                        ->description(fn (Get $get) => self::slot($get) ? null : self::otherwise())
+                                        ->status(fn (Get $get) => self::slot($get) ? 'success' : 'danger')
+                                        ->visible(fn (Get $get) => filled($get('treatment_id')) && filled($get('doctor_id')))
+                                        ->columnSpanFull(),
+                                ]),
+                        ])->columnSpan(['lg' => 3]),
+                        self::beforeGoingInSection()->columnSpan(['lg' => 2]),
                     ]),
             ])
             ->fillForm(fn () => [
@@ -97,7 +94,7 @@ final class WalkInAction
             ->action(function (array $data, Action $action) {
                 $appointment = ($data['use_appointment'] ?? false) ? self::todaysAppointmentOf($data['patient_id'] ?? null) : null;
 
-                if ($appointment?->status->isChangeable()) {
+                if ($appointment !== null && self::canMarkArrival($appointment)) {
                     Notify::run(
                         function () use ($appointment, $data): void {
                             self::addNote($appointment, $data['internal_notes'] ?? null);
@@ -139,37 +136,74 @@ final class WalkInAction
     /** "Rosa Quispe pasa con Dra. Elena Ríos a las 11:30." */
     private static function headline(Appointment $appointment): string
     {
-        return $appointment->patient->full_name.' pasa con '.$appointment->doctor->name.' a las '.$appointment->starts_at->format('H:i').'.';
+        return $appointment->patient->full_name.' pasa con '.$appointment->doctor->name.' a las '.self::startsAt($appointment)->format('H:i').'.';
     }
 
     /** "Rosa Quispe llegó a su cita de las 11:30 con Dra. Elena Ríos." */
     private static function arrivalHeadline(Appointment $appointment): string
     {
-        return $appointment->patient->full_name.' llegó a su cita de las '.$appointment->starts_at->format('H:i').' con '.$appointment->doctor->name.'.';
+        return $appointment->patient->full_name.' llegó a su cita de las '.self::startsAt($appointment)->format('H:i').' con '.$appointment->doctor->name.'.';
     }
 
-    /** "12:00 · Extracción simple con Dra. Elena Ríos" */
-    private static function describe(?Appointment $appointment): string
+    /** "Extracción simple con Dra. Elena Ríos" (el doctor, solo si hay más de uno). */
+    private static function describe(Appointment $appointment): string
     {
-        return $appointment
-            ? $appointment->starts_at->format('H:i').' · '.$appointment->treatment->name.' con '.$appointment->doctor->name
-            : '';
+        return $appointment->treatment->name.(SlotPicker::onlyActiveDoctorId() === null ? ' con '.$appointment->doctor->name : '');
     }
 
-    /** Según en qué va su cita de hoy: todavía no llega, ya espera en sala o ya lo están atendiendo. */
-    private static function todaysAppointmentHeading(Get $get): string
+    /**
+     * Según en qué va su cita de hoy: ya lo están atendiendo, ya espera en sala, ya pasó su hora o todavía no le toca.
+     */
+    private static function todaysAppointmentHeading(Get $get): ?string
     {
-        return match (self::todaysAppointment($get)?->status) {
-            AppointmentStatus::CheckedIn => 'Ya está en sala',
-            AppointmentStatus::InProgress => 'Ya lo están atendiendo',
-            default => 'Ya tiene cita hoy',
+        $appointment = self::todaysAppointment($get);
+
+        if (! $appointment) {
+            return null;
+        }
+
+        $startsAt = self::startsAt($appointment);
+        /** @var CarbonInterface|null $checkedInAt */
+        $checkedInAt = $appointment->checked_in_at;
+        /** @var CarbonInterface|null $startedAt */
+        $startedAt = $appointment->started_at;
+
+        return match (true) {
+            self::statusOf($appointment) === AppointmentStatus::InProgress => 'Lo están atendiendo desde las '.($startedAt ?? $startsAt)->format('H:i'),
+            self::statusOf($appointment) === AppointmentStatus::CheckedIn => 'Ya está en sala desde las '.($checkedInAt ?? $startsAt)->format('H:i'),
+            $startsAt->isPast() => 'Tenía cita hoy a las '.$startsAt->format('H:i'),
+            default => 'Tiene cita hoy a las '.$startsAt->format('H:i'),
         };
+    }
+
+    /** ¿Todavía se puede marcar que llegó a esa cita? No, si ya está en sala o lo están atendiendo. */
+    private static function canMarkArrival(?Appointment $appointment): bool
+    {
+        return $appointment !== null && self::statusOf($appointment)->isChangeable();
+    }
+
+    /** El estado de la cita, con su tipo (el análisis estático no lo ve). */
+    private static function statusOf(Appointment $appointment): AppointmentStatus
+    {
+        /** @var AppointmentStatus $status */
+        $status = $appointment->status;
+
+        return $status;
+    }
+
+    /** La hora de la cita, con su tipo (el análisis estático no lo ve). */
+    private static function startsAt(Appointment $appointment): CarbonInterface
+    {
+        /** @var CarbonInterface $startsAt */
+        $startsAt = $appointment->starts_at;
+
+        return $startsAt;
     }
 
     /** ¿Se va a marcar que llegó a la cita que ya tenía? Entonces no se elige tratamiento ni doctor. */
     private static function arrivesToAppointment(Get $get): bool
     {
-        return (bool) $get('use_appointment') && (self::todaysAppointment($get)?->status->isChangeable() ?? false);
+        return (bool) $get('use_appointment') && self::canMarkArrival(self::todaysAppointment($get));
     }
 
     /** La cita de hoy del paciente elegido que sigue sin cerrarse, si la hay. Un paciente nuevo no tiene. */
@@ -209,17 +243,202 @@ final class WalkInAction
 
         return $slot
             ? 'Lo puede atender hoy a las '.$slot->label().'.'
-            : 'Ya no tiene un hueco hoy para ese tratamiento. Elige otro doctor, o agéndalo con "Nueva cita" para otro día.';
+            : 'Ya no tiene un hueco hoy para ese tratamiento.';
+    }
+
+    /** Sin hueco: con un solo doctor no hay a quién más pedírselo, queda agendarlo otro día. */
+    private static function otherwise(): string
+    {
+        return SlotPicker::onlyActiveDoctorId() === null
+            ? 'Elige otro doctor, o agéndalo con "Nueva cita" para otro día.'
+            : 'Agéndalo con "Nueva cita" para otro día.';
     }
 
     private static function slot(Get $get): ?Slot
     {
-        $doctor = Doctor::find($get('doctor_id'));
-        $treatment = Treatment::find($get('treatment_id'));
+        return self::slotFor($get('doctor_id'), $get('treatment_id'), $get('patient_id'));
+    }
 
-        return $doctor && $treatment
-            ? app(AppointmentService::class)->firstRoomToday($doctor, $treatment, filled($get('patient_id')) ? (int) $get('patient_id') : null)
-            : null;
+    /**
+     * ¿Va a abrirle una atención y no hay hueco hoy?
+     *
+     * @param  array<string, mixed>  $state
+     */
+    private static function hasNoRoom(array $state): bool
+    {
+        $patientId = ($state['new_patient'] ?? false) ? null : ($state['patient_id'] ?? null);
+
+        if (($state['use_appointment'] ?? false) && self::canMarkArrival(self::todaysAppointmentOf($patientId))) {
+            return false;
+        }
+
+        return filled($state['doctor_id'] ?? null)
+            && filled($state['treatment_id'] ?? null)
+            && self::slotFor($state['doctor_id'], $state['treatment_id'], $patientId) === null;
+    }
+
+    /**
+     * Lo escrito en la ventana, para el botón de abajo, que no ve los campos (aunque haya otra ventana abierta encima).
+     *
+     * @param  array<Action>  $mountedActions
+     * @return array<string, mixed>
+     */
+    private static function windowState(array $mountedActions): array
+    {
+        return collect($mountedActions)->first(fn (Action $mounted) => $mounted->getName() === 'walkIn')?->getRawData() ?? [];
+    }
+
+    /**
+     * ¿El paciente ya está en sala o lo están atendiendo? Entonces lo que se crea es una atención más.
+     *
+     * @param  array<string, mixed>  $state
+     */
+    private static function opensAnotherVisit(array $state): bool
+    {
+        $appointment = ($state['new_patient'] ?? false) ? null : self::todaysAppointmentOf($state['patient_id'] ?? null);
+
+        return $appointment !== null && ! self::canMarkArrival($appointment);
+    }
+
+    /** El primer hueco de hoy. Se pide varias veces al pintar la ventana: se calcula una sola vez por pedido. */
+    private static function slotFor(mixed $doctorId, mixed $treatmentId, mixed $patientId): ?Slot
+    {
+        if (blank($doctorId) || blank($treatmentId)) {
+            return null;
+        }
+
+        $memo = 'walk-in.slot.'.$doctorId.'.'.$treatmentId.'.'.$patientId;
+
+        if (! request()->attributes->has($memo)) {
+            $doctor = Doctor::find($doctorId);
+            $treatment = Treatment::find($treatmentId);
+
+            request()->attributes->set($memo, $doctor && $treatment
+                ? app(AppointmentService::class)->firstRoomToday($doctor, $treatment, filled($patientId) ? (int) $patientId : null)
+                : null);
+        }
+
+        return request()->attributes->get($memo);
+    }
+
+    /**
+     * "Ya tiene cita hoy": en ámbar, para no abrirle otra sin querer. Si todavía no llega a esa cita, lo normal es
+     * marcar que llegó (viene marcado); si ya está en sala o lo están atendiendo, solo se avisa que sería otra más.
+     */
+    private static function todaysAppointmentCallout(): Callout
+    {
+        return Callout::make(fn (Get $get) => self::todaysAppointmentHeading($get))
+            ->key('todaysAppointment')
+            ->description(fn (Get $get) => self::todaysAppointmentDescription($get))
+            ->warning()
+            ->footer([
+                Toggle::make('use_appointment')
+                    ->label('Marcar que llegó a esa cita')
+                    ->helperText('Así esa cita no queda como falta ni se le abre otra. Desmárcalo solo si viene por otra atención aparte.')
+                    ->visible(fn (Get $get) => self::canMarkArrival(self::todaysAppointment($get)))
+                    ->live(),
+            ])
+            ->visible(fn (Get $get) => self::todaysAppointment($get) !== null);
+    }
+
+    private static function todaysAppointmentDescription(Get $get): ?HtmlString
+    {
+        $appointment = self::todaysAppointment($get);
+
+        if (! $appointment) {
+            return null;
+        }
+
+        $advice = match (true) {
+            ! self::canMarkArrival($appointment) => 'Sigue solo si viene por otra atención aparte: se le abrirá una cita más.',
+            self::startsAt($appointment)->isFuture() => 'Llegó antes de su hora.',
+            default => null,
+        };
+
+        return new HtmlString(e(self::describe($appointment).' · '.self::statusOf($appointment)->getLabel()).($advice ? '<br>'.e($advice) : ''));
+    }
+
+    /**
+     * "Antes de pasar": lo que le falta al paciente (datos, antecedentes, lo que debe, su trabajo de laboratorio),
+     * ahora que todavía está en el mostrador y no recién en el aviso de después. Y la nota para el doctor.
+     */
+    private static function beforeGoingInSection(): Section
+    {
+        return Section::make('Antes de pasar')
+            ->extraAttributes(['class' => 'appointment-summary'])
+            ->schema([
+                Text::make(fn (Get $get) => self::nothingPendingText($get))
+                    ->color('gray')
+                    ->visible(fn (Get $get) => self::pending($get) === []),
+                Callout::make()
+                    ->key('pendingBeforeGoingIn')
+                    ->description(fn (Get $get) => new HtmlString('<ul class="consult-risks">'.collect(self::pending($get))->map(fn (string $item) => '<li>'.e($item).'</li>')->implode('').'</ul>'))
+                    ->warning()
+                    ->actions([
+                        Action::make('openPatientFile')
+                            ->label(fn (Get $get) => self::canUpdatePatient($get) ? 'Completar su ficha' : 'Ver su ficha')
+                            ->url(fn (Get $get) => filled($get('patient_id')) ? PatientResource::getUrl(self::canUpdatePatient($get) ? 'edit' : 'view', ['record' => $get('patient_id')]) : null)
+                            ->openUrlInNewTab(),
+                    ])
+                    ->visible(fn (Get $get) => self::pending($get) !== []),
+                // Quien llega sin cita suele venir con algo urgente: el doctor lo ve en "Tu próximo paciente".
+                Textarea::make('internal_notes')
+                    ->label('Nota para el doctor')
+                    ->placeholder('Viene con dolor en una muela…')
+                    ->helperText('No la ve el paciente. Si llegó a una cita que ya tenía, se agrega a sus notas.')
+                    ->rows(3),
+            ]);
+    }
+
+    /** Cuando no hay nada que resolver, se dice por qué. */
+    private static function nothingPendingText(Get $get): string
+    {
+        return match (true) {
+            (bool) $get('new_patient') => 'Es paciente nuevo: al pasarlo a sala verás qué datos le faltan para completar su ficha.',
+            blank($get('patient_id')) => 'Elige al paciente: aquí verás si le falta algo (datos, antecedentes, lo que debe) antes de pasar.',
+            default => 'No le falta nada: puede pasar.',
+        };
+    }
+
+    /**
+     * Lo pendiente del paciente elegido; vacío si es nuevo o todavía no se eligió.
+     *
+     * @return list<string>
+     */
+    private static function pending(Get $get): array
+    {
+        $patient = self::chosenPatient($get);
+
+        /** @var User $user */
+        $user = auth()->user();
+
+        // A quien nunca vino, la ventana ya le pregunta cómo nos encontró.
+        return $patient ? ArrivalChecklist::for($patient, $user, originAskedAlready: $patient->first_visit_at === null) : [];
+    }
+
+    private static function canUpdatePatient(Get $get): bool
+    {
+        $patient = self::chosenPatient($get);
+
+        return $patient !== null && (auth()->user()?->can('update', $patient) ?? false);
+    }
+
+    /** El paciente ya registrado que se eligió, con lo que pide la lista de pendientes. Una sola vez por pedido. */
+    private static function chosenPatient(Get $get): ?Patient
+    {
+        $patientId = $get('patient_id');
+
+        if ($get('new_patient') || blank($patientId)) {
+            return null;
+        }
+
+        $memo = 'walk-in.patient.'.$patientId;
+
+        if (! request()->attributes->has($memo)) {
+            request()->attributes->set($memo, Patient::query()->with(['account', 'medicalBackground'])->find($patientId));
+        }
+
+        return request()->attributes->get($memo);
     }
 
     /** De quienes hacen ese tratamiento, quien tiene el hueco más cercano hoy. Null si el doctor ya está elegido o nadie tiene. */

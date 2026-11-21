@@ -626,7 +626,7 @@ final class SlotPicker
     }
 
     /** Si el consultorio tiene un solo doctor activo, ya viene elegido. */
-    private static function onlyActiveDoctorId(): ?int
+    public static function onlyActiveDoctorId(): ?int
     {
         $ids = Doctor::query()->active()->limit(2)->pluck('id');
 

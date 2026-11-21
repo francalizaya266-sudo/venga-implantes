@@ -423,7 +423,7 @@ class AgendaCalendarTest extends TestCase
             ->mountAction('newAppointment')
             ->assertMountedActionModalDontSee('Ya tiene cita')
             ->setActionData(['patient_id' => $patient->id])
-            ->assertMountedActionModalSee('Ya tiene cita mañana a las 10:00 · Limpieza dental.');
+            ->assertMountedActionModalSee(['Ya tiene cita mañana a las 10:00', 'Limpieza dental con '.$doctor->name.' · Confirmada', 'Continúa solo si necesita una cita adicional.', 'Ver o mover esa cita']);
 
         // El doctor solo se entera de las de su propia agenda.
         $this->actingAs($other->user);
