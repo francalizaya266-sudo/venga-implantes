@@ -3,6 +3,7 @@
 namespace Tests\Feature\Filament;
 
 use App\Enums\AppointmentStatus;
+use App\Enums\PaymentMethod;
 use App\Enums\TreatmentPlanStatus;
 use App\Filament\Resources\Appointments\AppointmentResource;
 use App\Filament\Resources\Consultations\ConsultationResource;
@@ -20,6 +21,7 @@ use App\Models\Supply;
 use App\Models\Treatment;
 use App\Models\TreatmentPlan;
 use App\Models\User;
+use App\Services\Billing\BillingService;
 use App\Services\Inventory\InventoryService;
 use Carbon\CarbonImmutable;
 use Filament\Notifications\Notification;
@@ -76,6 +78,29 @@ class VisitCloseOutTest extends TestCase
         // Al día siguiente la tarjeta ya no aparece.
         $this->travelTo(now()->addDay());
         $this->assertNull(VisitCloseOut::viewData($consultation->fresh(), $doctor->user));
+    }
+
+    public function test_once_the_patient_pays_the_collect_alert_leaves_the_bell(): void
+    {
+        $this->freezeMonday();
+        $reception = User::factory()->reception()->create();
+        $admin = User::factory()->admin()->create();
+        [$rosa, $luis] = [Patient::factory()->create(), Patient::factory()->create()];
+
+        foreach ([$rosa, $luis] as $patient) {
+            $consultation = Consultation::factory()->for($patient)->create(['closed_at' => now()]);
+            Charge::factory()->for($patient)->create(['consultation_id' => $consultation->id, 'amount' => 120]);
+            VisitCloseOut::handToReception($consultation, $consultation->doctor->user ?? $admin);
+        }
+
+        $this->assertSame(2, $reception->unreadNotifications()->count());
+
+        // Antes seguía en la campana después de que pagó, y parecía que faltaba cobrarle.
+        app(BillingService::class)->registerPayment($rosa, ['amount' => 120, 'method' => PaymentMethod::Cash], $reception);
+
+        $unread = fn (User $user) => $user->unreadNotifications()->pluck('data')->pluck('title')->all();
+        $this->assertSame([$luis->full_name.' terminó su atención: cobrarle'], $unread($reception));
+        $this->assertSame([$luis->full_name.' terminó su atención: cobrarle'], $unread($admin));
     }
 
     public function test_a_doctor_who_has_nothing_to_collect_does_not_bother_reception(): void

@@ -5,11 +5,13 @@ namespace App\Services;
 use App\Enums\UserRole;
 use App\Livewire\PanelPulse;
 use App\Models\Appointment;
+use App\Models\Patient;
 use App\Models\User;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Support\Enums\Size;
 use Filament\Support\Icons\Heroicon;
+use Illuminate\Notifications\DatabaseNotification;
 
 /**
  * Alertas en la campana del panel para recepción (y administración), y para el doctor. Se distinguen de un vistazo:
@@ -20,8 +22,9 @@ class StaffAlerts
 {
     /**
      * @param  array{label: string, url: string}|null  $link  Botón para ir directo a resolverlo.
+     * @param  array<string, int>  $about  De qué es el aviso (por ejemplo ['checkout' => id del paciente]), para darlo por leído cuando ya no haga falta.
      */
-    public function toReception(string $title, ?string $body = null, ?User $except = null, ?array $link = null): void
+    public function toReception(string $title, ?string $body = null, ?User $except = null, ?array $link = null, array $about = []): void
     {
         $recipients = User::query()
             ->where('is_active', true)
@@ -33,7 +36,21 @@ class StaffAlerts
             return;
         }
 
-        $this->deliver($recipients, $link ? $this->toAct($title, $body, $link) : $this->toKnow($title, $body));
+        $notification = $link ? $this->toAct($title, $body, $link) : $this->toKnow($title, $body);
+
+        $this->deliver($recipients, $about === [] ? $notification : $notification->viewData($about));
+    }
+
+    /**
+     * Ya se le cobró: "terminó su atención: cobrarle" queda como leído en la campana de todos en recepción. Antes
+     * seguía ahí después de que pagó, y parecía que faltaba cobrarle.
+     */
+    public function checkoutSettled(Patient $patient): void
+    {
+        DatabaseNotification::query()
+            ->whereNull('read_at')
+            ->where('data->viewData->checkout', $patient->getKey())
+            ->update(['read_at' => now()]);
     }
 
     /** A una persona, para que esté al tanto. */

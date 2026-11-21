@@ -16,6 +16,7 @@ use App\Models\TreatmentPlanInstallment;
 use App\Models\TreatmentPlanItem;
 use App\Models\User;
 use App\Services\Clinical\TreatmentPlanService;
+use App\Services\StaffAlerts;
 use App\Support\Money;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
@@ -621,7 +622,7 @@ final class BillingService
     {
         $covers = $appointment ? null : $this->unpaidCharges($patient)->first()['charge'] ?? null;
 
-        return Payment::create([
+        $payment = Payment::create([
             'patient_id' => $patient->getKey(),
             'appointment_id' => $appointment?->getKey() ?? $covers?->appointment_id,
             'doctor_id' => $appointment?->doctor_id ?? $covers?->doctor_id,
@@ -633,6 +634,11 @@ final class BillingService
             'paid_at' => $data['paid_at'] ?? now(),
             'received_by_user_id' => $by->getKey(),
         ]);
+
+        // Ya se le cobró: el aviso de que terminó su atención y hay que cobrarle sale de la campana.
+        app(StaffAlerts::class)->checkoutSettled($patient);
+
+        return $payment;
     }
 
     /**

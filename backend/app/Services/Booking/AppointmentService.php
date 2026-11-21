@@ -688,11 +688,35 @@ class AppointmentService
         }
     }
 
+    /**
+     * No vino. Si todavía queda tiempo de su cita y alguien de la lista de espera puede llegar, recepción se entera
+     * con el botón para ofrecérselo, como cuando se cancela (antes ese rato se perdía sin avisar a nadie).
+     */
     public function markNoShow(Appointment $appointment, User $by): void
     {
         $this->transition($appointment, $by, AppointmentStatus::NoShow, AppointmentStatus::changeable(), [
             'no_show_at' => now(),
         ]);
+
+        $waitlist = $this->waitlist->noShowNotice($appointment);
+
+        if ($waitlist === null) {
+            return;
+        }
+
+        /** @var Patient $patient */
+        $patient = $appointment->patient;
+        /** @var Doctor $doctor */
+        $doctor = $appointment->doctor;
+        /** @var CarbonInterface $startsAt */
+        $startsAt = $appointment->starts_at;
+
+        $this->alerts->toReception(
+            'Se liberó un horario',
+            "{$patient->full_name} no vino a su cita de las {$startsAt->format('H:i')} con {$doctor->name}."
+                ." Hay lugar desde las {$waitlist['startsAt']->format('H:i')}: {$waitlist['text']}",
+            link: $waitlist['link'],
+        );
     }
 
     /**
