@@ -6,6 +6,7 @@ use App\Enums\DayPeriod;
 use App\Enums\PatientRelationship;
 use App\Enums\WaitlistStatus;
 use App\Filament\Actions\SendWhatsAppAction;
+use App\Filament\Forms\ChoiceChips;
 use App\Filament\Resources\Appointments\AppointmentResource;
 use App\Filament\Support\SlotPicker;
 use App\Models\Doctor;
@@ -23,9 +24,13 @@ use Closure;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Field;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
+use Filament\Schemas\Components\Group;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Text;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
@@ -34,6 +39,7 @@ use Filament\Support\Enums\Size;
 use Filament\Support\Enums\Width;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 
@@ -42,6 +48,9 @@ final class WaitlistEntryActions
 {
     /** Segundos que se ve el aviso de un horario que quedó libre: no se queda tapando los botones de arriba. */
     public const FREED_NOTICE_SECONDS = 20;
+
+    /** Cuántos días de su plazo se ven como botones en "Ofrecer horario". */
+    private const DAYS_SHOWN = 7;
 
     /**
      * Anotar a alguien en la lista: la misma ventana en la lista de espera y en "Hoy", sin salir de donde se está. En
@@ -141,8 +150,10 @@ final class WaitlistEntryActions
     }
 
     /**
-     * Llega con el primer horario libre que le sirve (o con el que se tocó en la agenda). Al cambiar el doctor, el día o la hora, el
-     * mensaje se vuelve a escribir; al abrir WhatsApp queda como avisado con ese horario.
+     * Llega con el primer horario libre que le sirve (o con el que se tocó en la agenda). En dos columnas, como "Nueva
+     * cita": a la izquierda los días de su plazo como botones, cada uno con cuántos horarios le sirven, y los horarios
+     * a un toque; a la derecha el mensaje, que se vuelve a escribir al cambiar algo, y hasta cuándo queda apartado. Un
+     * día sin lugar no deja sin salida: "Ir al" siguiente que lo tiene. Al abrir WhatsApp queda como avisado.
      */
     public static function offer(): Action
     {
@@ -150,100 +161,193 @@ final class WaitlistEntryActions
             ->label('Ofrecer horario')
             ->icon(Heroicon::OutlinedChatBubbleLeftEllipsis)
             ->color('success')
-            ->visible(fn (WaitlistEntry $record) => $record->isActive() && $record->patient->account !== null)
+            ->visible(fn (WaitlistEntry $record) => $record->isActive() && self::hasWhatsApp($record))
+            // El paso que toca mientras no tenga un horario apartado (también si no tomó el que se le ofreció).
+            ->extraAttributes(fn (?WaitlistEntry $record) => $record !== null && ! $record->isHolding() ? ['class' => 'appt-main-step'] : [], merge: true)
             ->authorize('update')
             ->modalHeading(fn (WaitlistEntry $record) => 'Ofrecer un horario a '.$record->patient->full_name)
-            ->modalDescription('Elige el horario. Se abrirá WhatsApp con el mensaje listo: solo presiona Enviar. El horario queda apartado mientras responde: no se le ofrece a nadie más ni se puede reservar en la web.')
+            ->modalDescription('Elige el día y el horario. Se abrirá WhatsApp con el mensaje listo: solo presiona Enviar.')
+            ->modalWidth(Width::SixExtraLarge)
+            ->extraModalWindowAttributes(['class' => 'appointment-window'])
+            ->stickyModalFooter()
+            ->modalFooterActionsAlignment(Alignment::End)
             ->modalSubmitActionLabel('Abrir WhatsApp')
             // Como "Enviar por WhatsApp": la pestaña se abre en el mismo toque, para que el navegador no la bloquee.
-            ->modalSubmitAction(fn (Action $action) => $action->extraAttributes(SendWhatsAppAction::OPENS_TAB_ON_CLICK))
-            ->modalWidth(Width::TwoExtraLarge)
-            ->fillForm(function (WaitlistEntry $record, array $arguments) {
-                $service = app(WaitlistService::class);
-                $first = $service->firstSlot($record);
-                $state = [
-                    'treatment_id' => $record->treatment_id,
-                    'doctor_id' => $first['doctor']->id ?? $record->doctor_id ?? $service->doctorsFor($record)->first()?->id,
-                    'date' => ($first['slot']->startsAt ?? $record->firstDate())->toDateString(),
-                    'slot' => $first ? $first['slot']->label() : null,
-                ];
+            ->modalSubmitAction(fn (Action $action) => $action->size(Size::Large)->extraAttributes(SendWhatsAppAction::OPENS_TAB_ON_CLICK))
+            // Cerrarla no cancela nada: se vuelve a la lista.
+            ->modalCancelActionLabel('Volver')
+            ->fillForm(fn (WaitlistEntry $record, array $arguments) => self::offerDefaults($record, $arguments))
+            ->schema(fn (Schema $schema, WaitlistEntry $record) => $schema
+                ->columns(['default' => 1, 'lg' => 5])
+                ->components([
+                    Group::make(self::offerFields($record))->columnSpan(['lg' => 3]),
+                    Section::make('Mensaje')
+                        ->extraAttributes(['class' => 'appointment-summary'])
+                        ->schema([
+                            Textarea::make('body')
+                                ->hiddenLabel()
+                                ->placeholder('Elige un horario y aquí queda el mensaje listo.')
+                                ->rows(9)
+                                ->required(),
+                            Text::make(fn (Get $get) => self::holdText($record, $get))
+                                ->color('gray'),
+                        ])
+                        ->columnSpan(['lg' => 2]),
+                ]))
+            ->action(fn (array $data, WaitlistEntry $record, Action $action, Component $livewire) => self::sendOffer($data, $record, $action, $livewire));
+    }
 
-                // Desde la agenda llega la hora que se vio libre ese día.
-                if (isset($arguments['doctor'], $arguments['date'], $arguments['time'])) {
-                    $state = ['doctor_id' => (int) $arguments['doctor'], 'date' => (string) $arguments['date'], 'slot' => (string) $arguments['time']] + $state;
-                }
+    /**
+     * Con qué se abre "Ofrecer horario": el primer horario libre que le sirve, o el que se tocó en la agenda.
+     *
+     * @param  array<string, mixed>  $arguments
+     * @return array<string, mixed>
+     */
+    private static function offerDefaults(WaitlistEntry $record, array $arguments): array
+    {
+        $service = app(WaitlistService::class);
+        $first = $service->firstSlot($record);
+        $state = [
+            'treatment_id' => $record->treatment_id,
+            'doctor_id' => $first['doctor']->id ?? $record->doctor_id ?? $service->doctorsFor($record)->first()?->id,
+            'date' => ($first['slot']->startsAt ?? $record->firstDate())->toDateString(),
+            'slot' => $first ? $first['slot']->label() : null,
+        ];
 
-                return $state + ['body' => self::body($record, $state)];
-            })
-            ->schema(fn (WaitlistEntry $record) => [
-                Select::make('treatment_id')
-                    ->label('Tratamiento')
-                    ->options(fn () => Treatment::query()->active()->whereHas('doctors')->orderBy('sort_order')->pluck('name', 'id'))
-                    ->searchable()
-                    ->required()
-                    ->hidden($record->treatment_id !== null)
-                    ->live()
-                    ->afterStateUpdated(fn (Get $get, Set $set) => self::refresh($record, $get, $set, keepSlot: false)),
-                Select::make('doctor_id')
-                    ->label('Doctor')
-                    ->options(fn (Get $get) => app(WaitlistService::class)->doctorsFor($record, Treatment::find($get('treatment_id')))->pluck('name', 'id'))
-                    ->required()
-                    ->live()
-                    ->afterStateUpdated(fn (Get $get, Set $set) => self::refresh($record, $get, $set, keepSlot: false)),
-                DatePicker::make('date')
+        // Desde la agenda llega la hora que se vio libre ese día.
+        if (isset($arguments['doctor'], $arguments['date'], $arguments['time'])) {
+            $state = ['doctor_id' => (int) $arguments['doctor'], 'date' => (string) $arguments['date'], 'slot' => (string) $arguments['time']] + $state;
+        }
+
+        return $state + ['body' => self::body($record, $state)];
+    }
+
+    /**
+     * Abre WhatsApp con el mensaje y deja el horario apartado. Si mientras tanto se ocupó (o no tiene celular), no se
+     * envía nada y se dice por qué.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    private static function sendOffer(array $data, WaitlistEntry $record, Action $action, Component $livewire): void
+    {
+        $service = app(WaitlistService::class);
+        $doctor = Doctor::findOrFail($data['doctor_id']);
+        $treatment = Treatment::findOrFail($data['treatment_id'] ?? $record->treatment_id);
+        $startsAt = CarbonImmutable::parse($data['date'])->setTimeFromTimeString($data['slot']);
+
+        // Mientras se escribía, el horario pudo ocuparse.
+        $stillFree = $service->slotsFor($record, $doctor, $treatment, $startsAt)
+            ->contains(fn (Slot $slot) => $slot->startsAt->eq($startsAt));
+
+        if (! $stillFree) {
+            SendWhatsAppAction::closeTab($livewire);
+            Notification::make()->danger()->title('Ese horario ya no está libre. Elige otro.')->send();
+            $action->halt();
+        }
+
+        $message = $service->offerDraft($record, $doctor, $treatment, $startsAt);
+
+        if (! $message) {
+            SendWhatsAppAction::closeTab($livewire);
+            Notification::make()->danger()->title('El paciente no tiene celular registrado.')->send();
+            $action->halt();
+        }
+
+        $message->save();
+        $url = app(WhatsAppOutbox::class)->clickToChatUrl($message, auth()->user(), $data['body']);
+        $service->markOffered($record, $doctor, $treatment, $startsAt);
+
+        SendWhatsAppAction::goToTab($url, $livewire);
+        self::offerOpenedNotification($record, $url)->send();
+    }
+
+    /**
+     * Lo que se elige en "Ofrecer horario": el tratamiento (si se anotó para cualquiera), el doctor, el día y el horario.
+     *
+     * @return list<Field>
+     */
+    private static function offerFields(WaitlistEntry $entry): array
+    {
+        return [
+            Select::make('treatment_id')
+                ->label('Tratamiento')
+                ->options(fn () => Treatment::query()->active()->whereHas('doctors')->orderBy('sort_order')->pluck('name', 'id'))
+                ->searchable()
+                ->required()
+                ->hidden($entry->treatment_id !== null)
+                ->live()
+                ->afterStateUpdated(fn (Get $get, Set $set) => self::refresh($entry, $get, $set, keepSlot: false, toDayWithSlots: true)),
+            Select::make('doctor_id')
+                ->label('Doctor')
+                ->options(fn (Get $get) => self::doctorOptions($entry, $get))
+                ->required()
+                ->live()
+                // Con otro doctor, si ese día no tiene lugar con él, pasa solo al siguiente que sí.
+                ->afterStateUpdated(fn (Get $get, Set $set) => self::refresh($entry, $get, $set, keepSlot: false, toDayWithSlots: true)),
+            // Los días de su plazo (hasta siete), cada uno con cuántos horarios le sirven. Uno más lejos, con "Otro día".
+            ChoiceChips::make('date')
+                ->label('Día')
+                ->options(fn (Get $get) => self::dayOptions($entry, $get('date')))
+                ->descriptions(fn (Get $get) => self::freeSlotsPerDay($entry, $get))
+                ->extraAttributes(['class' => 'day-chips'])
+                ->hintAction(self::otherDayAction($entry))
+                ->required()
+                ->live()
+                ->afterStateUpdated(fn (Get $get, Set $set) => self::refresh($entry, $get, $set, keepSlot: false)),
+            ChoiceChips::make('slot')
+                ->label('Horario libre')
+                ->options(fn (Get $get) => self::offerSlots($entry, $get)->mapWithKeys(fn (Slot $slot) => [$slot->label() => $slot->label()])->all())
+                ->groups(fn (Get $get) => self::offerSlots($entry, $get)->mapWithKeys(fn (Slot $slot) => [$slot->label() => DayPeriod::Morning->includes($slot->startsAt) ? 'Mañana' : 'Tarde'])->all())
+                ->highlighted(fn (Get $get) => self::recommendedSlots($entry, $get))
+                ->descriptions(fn (Get $get) => array_fill_keys(self::recommendedSlots($entry, $get), 'Recomendada'))
+                ->extraAttributes(['class' => 'slot-chips'])
+                ->helperText(fn (Get $get) => self::slotsHint($entry, $get))
+                // Día sin lugar: un toque lleva al siguiente que lo tiene (antes quedaba "No hay horarios libres" sin salida).
+                ->hintAction(Action::make('nextDayWithSlots')
+                    ->label(fn (Get $get) => 'Ir al '.self::nextDayWithSlots($entry, $get)?->translatedFormat('l j'))
+                    ->link()
+                    ->visible(fn (Get $get) => self::offerSlots($entry, $get)->isEmpty() && self::nextDayWithSlots($entry, $get) !== null)
+                    ->action(function (Get $get, Set $set) use ($entry): void {
+                        if ($next = self::nextDayWithSlots($entry, $get)) {
+                            $set('date', $next->toDateString());
+                            self::refresh($entry, $get, $set, keepSlot: false);
+                        }
+                    }))
+                ->required()
+                // La hora elegida ya no está entre las libres: alguien la tomó mientras se llenaba la ventana.
+                ->validationMessages(['in' => 'Ese horario ya no está libre: lo tomaron mientras tanto. Elige otro.'])
+                ->live()
+                ->afterStateUpdated(fn (Get $get, Set $set) => self::refresh($entry, $get, $set, keepSlot: true)),
+        ];
+    }
+
+    /** "Otro día": uno de su plazo más allá de los que se ven, en un calendario. */
+    private static function otherDayAction(WaitlistEntry $entry): Action
+    {
+        return Action::make('otherDay')
+            ->label('Otro día')
+            ->icon(Heroicon::OutlinedCalendarDays)
+            ->link()
+            ->modalHeading('Otro día')
+            ->modalWidth(Width::Small)
+            // Encima de "Ofrecer horario", sin cerrarla mientras se elige.
+            ->overlayParentActions()
+            ->modalSubmitActionLabel('Elegir')
+            ->fillForm(fn (Get $get) => ['day' => $get('date')])
+            ->schema([
+                DatePicker::make('day')
                     ->label('Día')
                     ->native(false)
                     ->displayFormat('D d/m/Y')
                     ->firstDayOfWeek(1)
                     ->closeOnDateSelection()
-                    ->minDate($record->firstDate())
-                    ->maxDate($record->latest_date)
-                    ->required()
-                    ->live()
-                    ->afterStateUpdated(fn (Get $get, Set $set) => self::refresh($record, $get, $set, keepSlot: false)),
-                Select::make('slot')
-                    ->label('Horario libre')
-                    ->options(fn (Get $get) => self::slotOptions($record, $get))
-                    ->placeholder(fn (Get $get) => self::slotOptions($record, $get) === [] ? 'No hay horarios libres que le sirvan ese día' : 'Elige un horario')
-                    ->helperText('Solo los que caen en la parte del día que pidió. ★ = pegado a otra cita.')
-                    ->required()
-                    ->live()
-                    ->afterStateUpdated(fn (Get $get, Set $set) => self::refresh($record, $get, $set, keepSlot: true)),
-                Textarea::make('body')
-                    ->label('Mensaje')
-                    ->rows(6)
+                    ->minDate($entry->firstDate())
+                    ->maxDate($entry->latest_date)
                     ->required(),
             ])
-            ->action(function (array $data, WaitlistEntry $record, Action $action, Component $livewire) {
-                $service = app(WaitlistService::class);
-                $doctor = Doctor::findOrFail($data['doctor_id']);
-                $treatment = Treatment::findOrFail($data['treatment_id'] ?? $record->treatment_id);
-                $startsAt = CarbonImmutable::parse($data['date'])->setTimeFromTimeString($data['slot']);
-
-                // Mientras se escribía, el horario pudo ocuparse.
-                $stillFree = $service->slotsFor($record, $doctor, $treatment, $startsAt)
-                    ->contains(fn (Slot $slot) => $slot->startsAt->eq($startsAt));
-
-                if (! $stillFree) {
-                    SendWhatsAppAction::closeTab($livewire);
-                    Notification::make()->danger()->title('Ese horario ya no está libre. Elige otro.')->send();
-                    $action->halt();
-                }
-
-                $message = $service->offerDraft($record, $doctor, $treatment, $startsAt);
-
-                if (! $message) {
-                    SendWhatsAppAction::closeTab($livewire);
-                    Notification::make()->danger()->title('El paciente no tiene celular registrado.')->send();
-                    $action->halt();
-                }
-
-                $message->save();
-                $url = app(WhatsAppOutbox::class)->clickToChatUrl($message, auth()->user(), $data['body']);
-                $service->markOffered($record, $doctor, $treatment, $startsAt);
-
-                SendWhatsAppAction::goToTab($url, $livewire);
-                self::offerOpenedNotification($record, $url)->send();
+            ->action(function (array $data, Get $get, Set $set) use ($entry): void {
+                $set('date', CarbonImmutable::parse($data['day'])->toDateString());
+                self::refresh($entry, $get, $set, keepSlot: false);
             });
     }
 
@@ -258,6 +362,8 @@ final class WaitlistEntryActions
             ->icon(Heroicon::OutlinedCalendarDays)
             ->color('gray')
             ->visible(fn (WaitlistEntry $record) => $record->isActive())
+            // El paso que toca cuando ya tiene el horario apartado (dijo que sí), o cuando no hay WhatsApp para ofrecérselo.
+            ->extraAttributes(fn (?WaitlistEntry $record) => $record !== null && ($record->isHolding() || ! self::hasWhatsApp($record)) ? ['class' => 'appt-main-step'] : [], merge: true)
             ->url(fn (WaitlistEntry $record) => $record->upcoming_appointment_id !== null
                 ? AppointmentResource::getUrl('view', array_filter([
                     'record' => $record->upcoming_appointment_id,
@@ -392,13 +498,20 @@ final class WaitlistEntryActions
             ->persistent();
     }
 
-    /** Al cambiar algo, la hora pasa a la primera libre (si la elegida ya no sirve) y el mensaje se reescribe. */
-    private static function refresh(WaitlistEntry $entry, Get $get, Set $set, bool $keepSlot): void
+    /**
+     * Al cambiar algo, la hora pasa a la primera libre (si la elegida ya no sirve) y el mensaje se reescribe. Con otro
+     * doctor o tratamiento, un día que quedó sin lugar pasa solo al siguiente que lo tiene (el día elegido a mano, no).
+     */
+    private static function refresh(WaitlistEntry $entry, Get $get, Set $set, bool $keepSlot, bool $toDayWithSlots = false): void
     {
-        $options = self::slotOptions($entry, $get);
+        if ($toDayWithSlots && self::offerSlots($entry, $get)->isEmpty() && ($next = self::nextDayWithSlots($entry, $get))) {
+            $set('date', $next->toDateString());
+        }
 
-        if (! $keepSlot || ! array_key_exists((string) $get('slot'), $options)) {
-            $set('slot', array_key_first($options));
+        $options = self::offerSlots($entry, $get)->map(fn (Slot $slot) => $slot->label());
+
+        if (! $keepSlot || ! $options->contains((string) $get('slot'))) {
+            $set('slot', $options->first());
         }
 
         $set('body', self::body($entry, [
@@ -409,21 +522,180 @@ final class WaitlistEntryActions
         ]));
     }
 
-    /** @return array<string, string> */
-    private static function slotOptions(WaitlistEntry $entry, Get $get): array
+    /**
+     * Los botones de los días: desde el primero en que puede venir, hasta siete y sin pasar de su plazo, más el
+     * elegido si cae más lejos.
+     *
+     * @return array<string, string> "2026-11-19" => "Mañana"
+     */
+    private static function dayOptions(WaitlistEntry $entry, mixed $chosen): array
     {
-        $doctor = Doctor::find($get('doctor_id'));
-        $treatment = Treatment::find($get('treatment_id') ?? $entry->treatment_id);
-        $date = $get('date');
+        $first = CarbonImmutable::instance($entry->firstDate())->startOfDay();
+        $days = collect(range(0, self::DAYS_SHOWN - 1))
+            ->map(fn (int $offset) => $first->addDays($offset))
+            ->filter(fn (CarbonImmutable $day) => $entry->latest_date === null || $day->lte($entry->latest_date))
+            ->map(fn (CarbonImmutable $day) => $day->toDateString());
 
-        if (! $doctor || ! $treatment || blank($date)) {
+        if (self::isDate($chosen)) {
+            $days->push($chosen);
+        }
+
+        return $days->unique()->sort()->mapWithKeys(fn (string $date) => [$date => SlotPicker::dayLabel(CarbonImmutable::parse($date))])->all();
+    }
+
+    /**
+     * Bajo cada día, cuántos horarios le sirven con el doctor elegido.
+     *
+     * @return array<string, string> "2026-11-19" => "3 libres"
+     */
+    private static function freeSlotsPerDay(WaitlistEntry $entry, Get $get): array
+    {
+        if (! self::canSearch($entry, $get)) {
             return [];
         }
 
-        return app(WaitlistService::class)
-            ->slotsFor($entry, $doctor, $treatment, CarbonImmutable::parse($date))
-            ->mapWithKeys(fn (Slot $slot) => [$slot->label() => $slot->label().($slot->recommended ? ' ★' : '')])
+        return collect(self::dayOptions($entry, $get('date')))
+            ->map(fn (string $label, string $date) => match ($count = self::slotsOn($entry, $get, $date)->count()) {
+                0 => 'Sin lugar',
+                1 => '1 libre',
+                default => "{$count} libres",
+            })
             ->all();
+    }
+
+    /** @return Collection<int, Slot> Los horarios que le sirven el día elegido. */
+    private static function offerSlots(WaitlistEntry $entry, Get $get): Collection
+    {
+        return self::slotsOn($entry, $get, $get('date'));
+    }
+
+    /** @return list<string> Los horarios pegados a otra cita: no dejan huecos en la agenda. */
+    private static function recommendedSlots(WaitlistEntry $entry, Get $get): array
+    {
+        return self::offerSlots($entry, $get)->filter(fn (Slot $slot) => $slot->recommended)->map(fn (Slot $slot) => $slot->label())->values()->all();
+    }
+
+    /**
+     * Los horarios libres de un día que le sirven (su plazo, la parte del día que pidió y antes de la cita que ya
+     * tiene). Lo piden los botones, sus grupos, los días y los textos al pintar la ventana: se busca una sola vez.
+     *
+     * @return Collection<int, Slot>
+     */
+    private static function slotsOn(WaitlistEntry $entry, Get $get, mixed $date): Collection
+    {
+        $doctorId = $get('doctor_id');
+        $treatmentId = $get('treatment_id') ?? $entry->treatment_id;
+
+        if (blank($doctorId) || blank($treatmentId) || ! self::isDate($date)) {
+            return collect();
+        }
+
+        $memo = 'waitlist-offer.slots.'.implode('|', [$entry->getKey(), $doctorId, $treatmentId, $date]);
+
+        if (! request()->attributes->has($memo)) {
+            $doctor = SlotPicker::chosenDoctor($doctorId);
+            $treatment = SlotPicker::chosenTreatment($treatmentId);
+
+            request()->attributes->set($memo, $doctor && $treatment
+                ? app(WaitlistService::class)->slotsFor($entry, $doctor, $treatment, CarbonImmutable::parse($date))
+                : collect());
+        }
+
+        return request()->attributes->get($memo);
+    }
+
+    /** El siguiente día con un horario que le sirva con el doctor elegido, dentro de su plazo. Null si no hay. */
+    private static function nextDayWithSlots(WaitlistEntry $entry, Get $get): ?CarbonImmutable
+    {
+        if (! self::canSearch($entry, $get)) {
+            return null;
+        }
+
+        $from = CarbonImmutable::parse($get('date'))->startOfDay();
+        $last = $from->addDays(WaitlistService::SEARCH_DAYS);
+        /** @var CarbonInterface|null $until */
+        $until = $entry->latest_date;
+
+        if ($until !== null && $until->lt($last)) {
+            $last = CarbonImmutable::instance($until)->startOfDay();
+        }
+
+        for ($day = $from->addDay(); $day->lte($last); $day = $day->addDay()) {
+            if (self::slotsOn($entry, $get, $day->toDateString())->isNotEmpty()) {
+                return $day;
+            }
+        }
+
+        return null;
+    }
+
+    /** ¿Ya hay tratamiento, doctor y día? (entonces, si no hay horarios, es que ese día no tiene lugar para él). */
+    private static function canSearch(WaitlistEntry $entry, Get $get): bool
+    {
+        return filled($get('doctor_id')) && filled($get('treatment_id') ?? $entry->treatment_id) && self::isDate($get('date'));
+    }
+
+    /** @phpstan-assert-if-true string $value */
+    private static function isDate(mixed $value): bool
+    {
+        return is_string($value) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $value) === 1;
+    }
+
+    /** Bajo los horarios: qué se muestra y, si no hay ninguno, por qué y qué hacer. */
+    private static function slotsHint(WaitlistEntry $entry, Get $get): string
+    {
+        if (! self::canSearch($entry, $get)) {
+            return 'Elige el tratamiento y el doctor para ver los horarios libres.';
+        }
+
+        if (self::offerSlots($entry, $get)->isNotEmpty()) {
+            /** @var DayPeriod $period */
+            $period = $entry->preferred_period;
+
+            return collect([
+                $period !== DayPeriod::Any ? 'Solo los de la parte del día que pidió ('.mb_strtolower($period->getLabel()).').' : null,
+                self::recommendedSlots($entry, $get) !== [] ? 'Las recomendadas van pegadas a otra cita: así no quedan huecos en la agenda.' : null,
+            ])->filter()->implode(' ');
+        }
+
+        $next = self::nextDayWithSlots($entry, $get);
+
+        return match (true) {
+            $next !== null => 'Ese día no hay un horario que le sirva. El siguiente con lugar es el '.$next->translatedFormat('l j \d\e F').'.',
+            count(self::doctorOptions($entry, $get)) > 1 => 'Con este doctor no hay un horario que le sirva en su plazo. Prueba con otro doctor.',
+            default => 'No hay un horario que le sirva en su plazo. Sigue en la lista: cuando se libere uno, llegará la alerta.',
+        };
+    }
+
+    /** @return array<int, string> Los doctores que pueden atenderlo en lo que espera. */
+    private static function doctorOptions(WaitlistEntry $entry, Get $get): array
+    {
+        return app(WaitlistService::class)->doctorsFor($entry, SlotPicker::chosenTreatment($get('treatment_id') ?? $entry->treatment_id))->pluck('name', 'id')->all();
+    }
+
+    /** ¿Tiene celular para ofrecerle el horario por WhatsApp? */
+    private static function hasWhatsApp(WaitlistEntry $entry): bool
+    {
+        /** @var Patient $patient */
+        $patient = $entry->patient;
+
+        return $patient->account !== null;
+    }
+
+    /** Bajo el mensaje: hasta cuándo queda apartado el horario elegido si se le envía ahora. */
+    private static function holdText(WaitlistEntry $entry, Get $get): string
+    {
+        if (! self::isDate($get('date')) || blank($get('slot'))) {
+            return 'Al abrir WhatsApp, el horario queda apartado mientras responde.';
+        }
+
+        $heldUntil = app(WaitlistService::class)->holdEndsAt(CarbonImmutable::parse($get('date'))->setTimeFromTimeString((string) $get('slot')));
+        /** @var Patient $patient */
+        $patient = $entry->patient;
+
+        return 'Al abrir WhatsApp queda apartado para '.$patient->first_name.' hasta '
+            .($heldUntil->isToday() ? 'las '.$heldUntil->format('H:i') : 'el '.Dates::dayAndTime($heldUntil))
+            .' mientras responde: no se le ofrece a nadie más ni se puede reservar en la web.';
     }
 
     /**

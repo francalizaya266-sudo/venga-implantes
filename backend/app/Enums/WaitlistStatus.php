@@ -23,10 +23,11 @@ enum WaitlistStatus: string implements HasColor, HasLabel
         };
     }
 
+    /** "En espera" es lo normal de la lista: va en gris, para que el ámbar quede para lo que pide hacer algo ya. */
     public function getColor(): string
     {
         return match ($this) {
-            self::Waiting => 'warning',
+            self::Waiting => 'gray',
             self::Offered => 'info',
             self::Booked => 'success',
             self::Removed => 'gray',

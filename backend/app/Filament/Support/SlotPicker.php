@@ -287,7 +287,7 @@ final class SlotPicker
     }
 
     /** "Hoy", "Mañana", "Vie 20" (y, si es de otro mes, "Lun 4 ene"). */
-    private static function dayLabel(CarbonImmutable $day): string
+    public static function dayLabel(CarbonImmutable $day): string
     {
         return match (true) {
             $day->isToday() => 'Hoy',

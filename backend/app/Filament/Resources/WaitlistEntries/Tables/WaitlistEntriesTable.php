@@ -9,6 +9,7 @@ use App\Models\WaitlistEntry;
 use App\Support\Phone;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
+use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\DatePicker;
@@ -21,9 +22,13 @@ use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\Indicator;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
 
-/** Quién espera, qué quiere, cuándo puede y en qué va: avisado, agendado o retirado. */
+/**
+ * Quién espera, qué quiere, cuándo puede y en qué va: avisado, agendado o retirado. En ámbar solo lo que pide hacer
+ * algo ya: el plazo que vence hoy o mañana y el horario ofrecido que no tomó (hay que ofrecerle otro).
+ */
 class WaitlistEntriesTable
 {
     public static function configure(Table $table): Table
@@ -31,6 +36,8 @@ class WaitlistEntriesTable
         return $table
             ->stackedOnMobile()
             ->defaultSort('created_at')
+            // En el celular "Ordenar por" lo dice, en vez de un guion.
+            ->defaultSortOptionLabel('Quien se anotó primero')
             ->columns([
                 TextColumn::make('patient')
                     ->label('Paciente')
@@ -48,14 +55,18 @@ class WaitlistEntriesTable
                 TextColumn::make('earliest_date')
                     ->label('Puede venir')
                     ->formatStateUsing(fn (WaitlistEntry $record) => self::window($record))
-                    ->description(fn (WaitlistEntry $record) => $record->preferred_period->getLabel())
+                    ->description(fn (WaitlistEntry $record) => self::deadline($record))
                     ->sortable(),
                 TextColumn::make('status')
                     ->label('Estado')
                     ->badge()
-                    ->state(fn (WaitlistEntry $record) => $record->isActive() || $record->status === WaitlistStatus::Removed || $record->status === WaitlistStatus::Booked ? $record->status : 'expired')
-                    ->formatStateUsing(fn (WaitlistStatus|string $state) => $state instanceof WaitlistStatus ? $state->getLabel() : 'Venció el plazo')
-                    ->color(fn (WaitlistStatus|string $state) => $state instanceof WaitlistStatus ? $state->getColor() : 'gray')
+                    ->state(fn (WaitlistEntry $record) => match (true) {
+                        self::didNotTakeIt($record) => 'not_taken',
+                        $record->isActive() || $record->status === WaitlistStatus::Removed || $record->status === WaitlistStatus::Booked => $record->status,
+                        default => 'expired',
+                    })
+                    ->formatStateUsing(fn (WaitlistStatus|string $state) => $state instanceof WaitlistStatus ? $state->getLabel() : ($state === 'not_taken' ? 'No lo tomó' : 'Venció el plazo'))
+                    ->color(fn (WaitlistStatus|string $state) => $state instanceof WaitlistStatus ? $state->getColor() : ($state === 'not_taken' ? 'warning' : 'gray'))
                     ->description(fn (WaitlistEntry $record) => self::progress($record))
                     ->wrap(),
                 TextColumn::make('created_at')
@@ -96,6 +107,10 @@ class WaitlistEntriesTable
                     }),
             ])
             ->filtersFormColumns(2)
+            // Como en Citas: qué se busca, el botón de filtros con su nombre y la columna de botones con título.
+            ->searchPlaceholder('Buscar paciente, DNI o celular')
+            ->filtersTriggerAction(fn (Action $action) => $action->button()->label('Filtros'))
+            ->recordActionsColumnLabel('Acciones')
             ->recordActions([
                 WaitlistEntryActions::offer(),
                 WaitlistEntryActions::book(),
@@ -136,6 +151,35 @@ class WaitlistEntriesTable
             $until !== null => 'Hasta el '.$until->translatedFormat('j M'),
             default => 'Lo antes posible',
         };
+    }
+
+    /**
+     * Bajo "Puede venir": la parte del día que le acomoda y, si su plazo termina hoy o mañana, que vence (en ámbar: si
+     * no se le ofrece algo antes, sale de la lista).
+     */
+    private static function deadline(WaitlistEntry $entry): HtmlString|string
+    {
+        $period = $entry->preferred_period->getLabel();
+        /** @var CarbonInterface|null $until */
+        $until = $entry->latest_date;
+
+        if (! $entry->isActive() || $until === null || $until->isAfter(today()->addDay())) {
+            return $period;
+        }
+
+        return new HtmlString(e($period).' · <span class="waitlist-alert">'.($until->isToday() ? 'Vence hoy' : 'Vence mañana').'</span>');
+    }
+
+    /**
+     * Se le ofreció un horario y ya no lo tiene apartado: no respondió a tiempo o dijo que no. Sigue en la lista y
+     * toca ofrecerle otro.
+     */
+    private static function didNotTakeIt(WaitlistEntry $entry): bool
+    {
+        /** @var WaitlistStatus $status */
+        $status = $entry->status;
+
+        return $entry->isActive() && $status === WaitlistStatus::Offered && ! $entry->isHolding();
     }
 
     /** En qué va: el horario que se le ofreció, la cita que se le dio o la que ya tiene. */
