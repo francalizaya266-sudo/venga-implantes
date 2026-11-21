@@ -36,6 +36,12 @@ Schedule::command('lista-espera:liberar-apartados')
     ->everyFiveMinutes()
     ->withoutOverlapping();
 
+// La campana muestra lo de hoy: lo de días anteriores queda leído (sigue en "Hoy" y en sus listas). Cada pasada pone
+// al día lo que falte, así que con la laptop apagada a medianoche se hace apenas se prende.
+Schedule::command('campana:limpiar')
+    ->everyFifteenMinutes()
+    ->withoutOverlapping();
+
 Schedule::command('whatsapp:enviar')
     ->everyFiveMinutes()
     ->withoutOverlapping();

@@ -265,6 +265,28 @@ class LivePanelTest extends TestCase
         $this->assertNotSame($mark, TodayPulse::stamp());
     }
 
+    public function test_the_bell_keeps_todays_alerts_and_reads_the_ones_from_earlier_days(): void
+    {
+        $reception = User::factory()->reception()->create();
+        $alerts = app(StaffAlerts::class);
+
+        // Lo de días anteriores: una cita web del sábado y un horario que se liberó anoche, a las 23:59.
+        $this->travelTo(now()->subDays(2));
+        $alerts->toReception('Nueva cita web');
+        $this->travelTo(now()->addDays(2)->setTime(0, 0)->subMinute());
+        $alerts->toReception('Se liberó un horario');
+        $this->travelTo(now()->addMinutes(2));
+        $alerts->toReception('Pidió su enlace de Mi cuenta');
+
+        $this->artisan('campana:limpiar')
+            ->expectsOutput('2 avisos de días anteriores quedaron leídos.')
+            ->assertSuccessful();
+
+        // La campana muestra lo de hoy; lo anterior sigue ahí, ya leído.
+        $this->assertSame(['Pidió su enlace de Mi cuenta'], $reception->unreadNotifications()->pluck('data')->pluck('title')->all());
+        $this->assertSame(3, $reception->notifications()->count());
+    }
+
     public function test_what_por_hacer_hoy_shows_also_moves_the_mark(): void
     {
         $rosa = $this->rosa->patient;

@@ -53,6 +53,22 @@ class StaffAlerts
             ->update(['read_at' => now()]);
     }
 
+    /**
+     * Los avisos de días anteriores quedan leídos: la campana muestra lo de hoy. No se pierde nada, porque lo que
+     * pedían sigue en otro lado (los avisos por enviar, los cambios pedidos, los materiales, la lista de espera, lo
+     * que se fueron debiendo) y el aviso queda en la campana, ya leído. Antes se juntaban "Llegó…" de hace dos días
+     * y citas web de la semana pasada, y lo nuevo se perdía entre ellos.
+     *
+     * @return int Cuántos quedaron leídos.
+     */
+    public function readEarlierDays(): int
+    {
+        return DatabaseNotification::query()
+            ->whereNull('read_at')
+            ->where('created_at', '<', today())
+            ->update(['read_at' => now()]);
+    }
+
     /** A una persona, para que esté al tanto. */
     public function toUser(?User $user, string $title, ?string $body = null): void
     {
