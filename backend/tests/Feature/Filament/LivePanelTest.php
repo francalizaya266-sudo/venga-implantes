@@ -3,6 +3,7 @@
 namespace Tests\Feature\Filament;
 
 use App\Enums\AppointmentStatus;
+use App\Enums\TreatmentPlanStatus;
 use App\Filament\Pages\Agenda;
 use App\Filament\Pages\Dashboard;
 use App\Filament\Resources\Appointments\Pages\ListAppointments;
@@ -12,8 +13,11 @@ use App\Livewire\PanelPulse;
 use App\Models\Appointment;
 use App\Models\Consultation;
 use App\Models\Doctor;
+use App\Models\LabOrder;
 use App\Models\Patient;
+use App\Models\Supply;
 use App\Models\Treatment;
+use App\Models\TreatmentPlan;
 use App\Models\User;
 use App\Services\Booking\AppointmentService;
 use App\Services\Dashboard\TodayPulse;
@@ -259,6 +263,23 @@ class LivePanelTest extends TestCase
         // Borrar también cuenta.
         $this->rosa->delete();
         $this->assertNotSame($mark, TodayPulse::stamp());
+    }
+
+    public function test_what_por_hacer_hoy_shows_also_moves_the_mark(): void
+    {
+        $rosa = $this->rosa->patient;
+        $saves = [
+            'un presupuesto' => fn () => TreatmentPlan::create(['patient_id' => $rosa->id, 'doctor_id' => $this->rosa->doctor_id, 'status' => TreatmentPlanStatus::Proposed]),
+            'un trabajo de laboratorio' => fn () => LabOrder::factory()->create(),
+            'un material' => fn () => Supply::factory()->create(),
+        ];
+
+        // Un presupuesto aceptado, el laboratorio o un material desde otra computadora: "Por hacer hoy" se entera.
+        foreach ($saves as $what => $save) {
+            $mark = TodayPulse::stamp();
+            $save();
+            $this->assertNotSame($mark, TodayPulse::stamp(), "Guardar {$what} no movió la marca.");
+        }
     }
 
     public function test_the_pulse_is_on_every_screen_of_whoever_is_signed_in_and_the_agenda_and_the_list_listen(): void

@@ -4,12 +4,19 @@ namespace App\Services\Dashboard;
 
 use App\Models\Appointment;
 use App\Models\Charge;
+use App\Models\Consent;
 use App\Models\Consultation;
 use App\Models\DailyClosing;
 use App\Models\DeskNote;
+use App\Models\LabOrder;
 use App\Models\Payment;
 use App\Models\RescheduleRequest;
 use App\Models\ScheduleBlock;
+use App\Models\Supply;
+use App\Models\SupplyBatch;
+use App\Models\TreatmentPlan;
+use App\Models\TreatmentPlanInstallment;
+use App\Models\TreatmentPlanItem;
 use App\Models\WaitlistEntry;
 use App\Models\WhatsappMessage;
 use Illuminate\Database\Eloquent\Model;
@@ -26,7 +33,13 @@ use Illuminate\Support\Str;
  */
 class TodayPulse
 {
-    /** @var list<class-string<Model>> Lo que, al guardarse o borrarse, cambia lo que otros tienen en pantalla. */
+    /**
+     * Lo que, al guardarse o borrarse, cambia lo que otros tienen en pantalla. Los planes, las cuotas, el
+     * laboratorio, los materiales y los consentimientos salen en "Por hacer hoy": un presupuesto aceptado en otra
+     * computadora deja de pedirse al momento.
+     *
+     * @var list<class-string<Model>>
+     */
     public const WATCHED = [
         Appointment::class,
         Consultation::class,
@@ -37,6 +50,13 @@ class TodayPulse
         RescheduleRequest::class,
         ScheduleBlock::class,
         DeskNote::class,
+        TreatmentPlan::class,
+        TreatmentPlanItem::class,
+        TreatmentPlanInstallment::class,
+        LabOrder::class,
+        Supply::class,
+        SupplyBatch::class,
+        Consent::class,
         WhatsappMessage::class,
         DatabaseNotification::class,
     ];

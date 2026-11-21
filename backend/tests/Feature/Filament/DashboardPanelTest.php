@@ -1086,10 +1086,13 @@ class DashboardPanelTest extends TestCase
         $plan->items()->create(['description' => 'Ortodoncia', 'unit_price' => 450]);
         $plan->update(['proposed_at' => now()->subDays(8)]);
 
-        // Con tres grupos de seguimiento y algo por resolver, el seguimiento va plegado para no tapar lo de hoy.
+        // Con tres grupos de seguimiento y algo por resolver, el seguimiento va plegado para no tapar lo de hoy, y
+        // dice qué guarda.
         Livewire::test(FollowUpsToday::class)
             ->assertSeeHtml('<details class="dash-block"')
-            ->assertSeeInOrder(['Resolver hoy', 'Citas sin cerrar', 'Seguimiento', '3 grupos', 'Presupuestos sin respuesta', 'Para su control', 'Cumpleaños de hoy']);
+            ->assertSeeInOrder(['Resolver hoy', 'Citas sin cerrar', 'Seguimiento', 'presupuestos sin respuesta, para su control y cumpleaños de hoy', 'Presupuestos sin respuesta', 'Para su control', 'Cumpleaños de hoy'])
+            // La demora y las citas sin cerrar dependen de la hora: la tarjeta se revisa sola cada minuto.
+            ->assertSeeHtml('wire:poll.60s');
     }
 
     public function test_the_dentist_sees_todays_visits_whose_consent_is_still_unsigned(): void

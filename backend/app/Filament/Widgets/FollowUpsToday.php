@@ -208,7 +208,7 @@ class FollowUpsToday extends Widget implements HasActions, HasSchemas
     }
 
     /**
-     * @return array{notes: list<array{id: int, body: string, status: string, done: bool, late: bool, patient: string|null, patient_url: string|null}>, urgent: int, resolve: list<array<string, mixed>>, followUp: list<array<string, mixed>>, foldFollowUp: bool, openKey: string|null}
+     * @return array{notes: list<array{id: int, body: string, status: string, done: bool, late: bool, patient: string|null, patient_url: string|null}>, urgent: int, resolve: list<array<string, mixed>>, followUp: list<array<string, mixed>>, foldFollowUp: bool, followUpTopics: string, openKey: string|null}
      */
     protected function getViewData(): array
     {
@@ -247,6 +247,8 @@ class FollowUpsToday extends Widget implements HasActions, HasSchemas
             'resolve' => $resolve->all(),
             'followUp' => $followUp->values()->all(),
             'foldFollowUp' => $resolve->isNotEmpty() && $followUp->count() >= self::FOLD_FOLLOW_UP_FROM,
+            // Plegado, dice qué grupos guarda: "presupuestos sin respuesta, para su control y cumpleaños de hoy".
+            'followUpTopics' => $followUp->map(fn (array $section) => mb_strtolower(mb_substr($section['title'], 0, 1)).mb_substr($section['title'], 1))->join(', ', ' y '),
             // El primer grupo con nombres va abierto: es lo primero que hay que hacer con personas.
             'openKey' => $resolve->concat($followUp)->first(fn (array $section) => $section['rows'] !== [])['key'] ?? null,
         ];
