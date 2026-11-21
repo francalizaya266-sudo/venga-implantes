@@ -11,6 +11,7 @@ use App\Filament\Pages\Agenda;
 use App\Filament\Pages\Dashboard;
 use App\Filament\Resources\Appointments\AppointmentResource;
 use App\Filament\Resources\WaitlistEntries\Pages\ManageWaitlistEntries;
+use App\Filament\Resources\WaitlistEntries\WaitlistEntryActions;
 use App\Filament\Resources\WaitlistEntries\WaitlistEntryResource;
 use App\Filament\Widgets\WeekGaps;
 use App\Models\Appointment;
@@ -27,11 +28,12 @@ use Filament\Actions\Testing\TestAction;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Livewire\Livewire;
 use Tests\Concerns\CreatesAgenda;
+use Tests\Concerns\ReadsNotifications;
 use Tests\TestCase;
 
 class WaitlistPanelTest extends TestCase
 {
-    use CreatesAgenda, LazilyRefreshDatabase;
+    use CreatesAgenda, LazilyRefreshDatabase, ReadsNotifications;
 
     private Treatment $treatment;
 
@@ -488,6 +490,34 @@ class WaitlistPanelTest extends TestCase
 
         $this->assertNull($entry->fresh()->held_until);
         $this->assertSame(WaitlistStatus::Offered, $entry->fresh()->status, 'Sigue en la lista, ya avisado.');
+    }
+
+    public function test_freeing_a_held_time_by_hand_says_who_on_the_list_can_take_it_now(): void
+    {
+        $rosa = WaitlistEntry::factory()->for(Patient::factory()->state(['first_name' => 'Rosa', 'last_name' => 'Quispe']))->for($this->treatment)->create(['created_at' => now()->subDays(2)]);
+        $luis = WaitlistEntry::factory()->for(Patient::factory()->state(['first_name' => 'Luis', 'last_name' => 'Soto']))->for($this->treatment)->create(['created_at' => now()->subDay()]);
+        $service = app(WaitlistService::class);
+        $service->markOffered($rosa, $this->doctor, $this->treatment, now()->parse('2026-11-04 10:00'));
+        $this->actingAs(User::factory()->reception()->create());
+
+        // Rosa no puede: al liberarlo se dice que Luis sí, con el botón para ofrecérselo, como cuando el apartado vence solo.
+        Livewire::test(ManageWaitlistEntries::class)->callTableAction('release', $rosa);
+
+        $notice = $this->lastNotification();
+        $this->assertSame('Horario liberado', $notice['title']);
+        $this->assertSame('Mié. 4 nov., 10:00 a. m. con Dra. Ana Torres quedó libre. Luis Soto, de la lista de espera, puede venir a esa hora.', $notice['body']);
+        $this->assertSame('Ofrecérselo a Luis', $notice['actions'][0]['label']);
+        $this->assertSame(WaitlistEntryResource::urlForOffer($luis, $this->doctor, now()->parse('2026-11-04 10:00')), $notice['actions'][0]['url']);
+        // Se va solo: no se queda tapando los botones de arriba.
+        $this->assertSame(WaitlistEntryActions::FREED_NOTICE_SECONDS * 1000, $notice['duration']);
+
+        // Se le aparta a Luis y lo retiran de la lista: el horario también queda libre, y ya no hay a quién (a Rosa ya se le ofreció).
+        $service->markOffered($luis, $this->doctor, $this->treatment, now()->parse('2026-11-04 10:00'));
+
+        Livewire::test(ManageWaitlistEntries::class)->callTableAction('remove', $luis->fresh(), ['reason' => 'Ya no puede']);
+
+        $removed = $this->lastNotification();
+        $this->assertSame(['Retirado de la lista de espera', 'Mié. 4 nov., 10:00 a. m. con Dra. Ana Torres quedó libre para la agenda y la web.'], [$removed['title'], $removed['body']]);
     }
 
     public function test_the_freed_slot_alert_opens_the_agenda_with_the_offer_ready(): void

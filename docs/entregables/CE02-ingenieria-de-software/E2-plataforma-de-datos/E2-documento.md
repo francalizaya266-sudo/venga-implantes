@@ -358,7 +358,7 @@ El trigger se puso en `payments` porque es la tabla donde un cambio silencioso h
 
 ## Respaldo y recuperación
 
-El sistema ya tenía copia de seguridad; esta fase la midió y la hizo compatible con los objetos nuevos. `respaldo:crear` corre cada día a las 03:00 (`routes/console.php`) y guarda la base en un `.sql.gz` sin depender de `mysqldump`. Se guardan las últimas 14 copias, y el administrador puede cambiarlo entre 3 y 90 desde el panel. El panel avisa si la última copia tiene más de 36 horas, porque eso significa que el cron no está corriendo, y si pasó una semana sin descargar una copia fuera del servidor. Las radiografías, fotos y firmas se respaldan aparte (`FilesBackup`).
+El sistema ya tenía copia de seguridad; esta fase la midió y la hizo compatible con los objetos nuevos. `respaldo:crear` corre cada día a las 03:00 (`routes/console.php`; si a esa hora el equipo estaba apagado, en cuanto se prende) y guarda la base en un `.sql.gz` sin depender de `mysqldump`. Se guardan las últimas 14 copias, y el administrador puede cambiarlo entre 3 y 90 desde el panel. El panel avisa si la última copia tiene más de 36 horas, porque eso significa que el cron no está corriendo, y si pasó una semana sin descargar una copia fuera del servidor. Las radiografías, fotos y firmas se respaldan aparte (`FilesBackup`).
 
 Restaurar una copia borra y recrea las tablas, y con ellas los triggers. Además, la bitácora de pagos volvería a la fecha de la copia y se perdería justo el registro del daño. Por eso `respaldo:restaurar` ahora guarda la bitácora antes de restaurar, recrea los objetos con `bd:objetos` y devuelve las anotaciones posteriores a la copia.
 

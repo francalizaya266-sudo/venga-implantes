@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Setting;
+use App\Services\Backup\DatabaseBackup;
 use Illuminate\Support\Facades\Schedule;
 
 /*
@@ -51,7 +52,9 @@ Schedule::command('agenda:aprender-duraciones')
     ->dailyAt('02:30')
     ->withoutOverlapping();
 
-// Copia de la base de datos de madrugada, cuando nadie está usando el sistema.
+// Copia de la base de datos una vez al día, desde las 3:00, cuando nadie está usando el sistema. Si a esa hora el
+// equipo estaba apagado (una laptop), se hace en cuanto se prende: así ningún día queda sin copia.
 Schedule::command('respaldo:crear')
-    ->dailyAt('03:00')
+    ->everyFifteenMinutes()
+    ->when(fn () => app(DatabaseBackup::class)->isDueToday())
     ->withoutOverlapping();

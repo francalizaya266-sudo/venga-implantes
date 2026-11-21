@@ -14,6 +14,7 @@ use App\Models\Treatment;
 use App\Models\User;
 use App\Models\WaitlistEntry;
 use App\Services\Agenda\AvailabilityService;
+use App\Services\Agenda\Slot;
 use App\Services\Booking\AppointmentService;
 use App\Services\Booking\WaitlistService;
 use App\Services\WhatsApp\WhatsAppOutbox;
@@ -235,6 +236,29 @@ class WaitlistServiceTest extends TestCase
         app(AppointmentService::class)->markNoShow($short, $reception);
 
         $this->assertSame(1, $reception->notifications()->count());
+    }
+
+    public function test_who_waits_to_bring_their_appointment_forward_is_only_suggested_times_before_it(): void
+    {
+        $treatment = Treatment::factory()->create(['duration_minutes' => 30]);
+        $doctor = $this->doctorOffering($treatment);
+        $rosa = Patient::factory()->create(['first_name' => 'Rosa', 'last_name' => 'Quispe']);
+        // Tiene cita hoy a las 15:00 y espera pasar más temprano: en la lista sin "Hasta", porque no hay un día antes.
+        Appointment::factory()->for($rosa)->for($doctor)->for($treatment)->confirmed()->at('2026-11-02 15:00')->create();
+        $entry = WaitlistEntry::factory()->for($rosa)->for($treatment)->create(['created_at' => now()->subDays(2)]);
+        WaitlistEntry::factory()->for($treatment)->for(Patient::factory()->state(['first_name' => 'Luis', 'last_name' => 'Soto']))->create(['created_at' => now()->subDay()]);
+        $service = $this->service();
+
+        // Hoy a las 11:00 le sirve a ella, que espera hace más.
+        $this->assertSame('Rosa Quispe, de la lista de espera, puede venir a esa hora (y 1 persona más).', $service->freedSlotNotice($doctor, CarbonImmutable::parse('2026-11-02 11:00'))['text']);
+        // Mañana es después de su cita: no le sirve, y se sugiere al siguiente.
+        $this->assertSame('Luis Soto, de la lista de espera, puede venir a esa hora.', $service->freedSlotNotice($doctor, CarbonImmutable::parse('2026-11-03 10:00'))['text']);
+
+        // Al ofrecerle un horario, solo salen los de antes de su cita.
+        $today = $service->slotsFor($entry, $doctor, $treatment, CarbonImmutable::parse('2026-11-02'))->map(fn (Slot $slot) => $slot->label());
+        $this->assertContains('11:00', $today);
+        $this->assertNotContains('16:00', $today);
+        $this->assertTrue($service->slotsFor($entry, $doctor, $treatment, CarbonImmutable::parse('2026-11-03'))->isEmpty());
     }
 
     public function test_an_offered_slot_is_held_for_that_patient_while_they_answer(): void

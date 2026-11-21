@@ -242,7 +242,7 @@ Las migraciones nuevas se corren con `consultorio_despliegue`, como en el paso 3
 
 ## Copias de seguridad {-}
 
-- **Copia diaria.** `respaldo:crear` corre a las 03:00 desde el cron `schedule:run` de `vm-app` y deja un `.sql.gz` en `storage/app/private/respaldos`. Se guardan las últimas 14; el administrador lo cambia entre 3 y 90 en el panel, página "Copias de seguridad".
+- **Copia diaria.** `respaldo:crear` corre a las 03:00 desde el cron `schedule:run` de `vm-app` (en un equipo que a esa hora estaba apagado, como una laptop, corre en cuanto se prende) y deja un `.sql.gz` en `storage/app/private/respaldos`. Se guardan las últimas 14; el administrador lo cambia entre 3 y 90 en el panel, página "Copias de seguridad".
 - **Copia a mano.** `php artisan respaldo:crear`, o el botón de la misma página.
 - **Fuera del servidor.** Desde "Copias de seguridad" se descarga la copia de la base y, por tandas, las radiografías, fotos, documentos y firmas. El panel lo recuerda si pasan 7 días sin descargar. Esas descargas se guardan fuera del servidor y fuera de Azure, para que una falla de la nube no se lleve también las copias.
 - **Con `mysqldump`.** Desde fuera de la aplicación, con el usuario de solo lectura:

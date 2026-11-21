@@ -30,6 +30,9 @@ final class DatabaseBackup
     /** Si la última copia es más vieja que esto, el cron del hosting no está corriendo. */
     public const STALE_AFTER_HOURS = 36;
 
+    /** Desde esta hora toca la copia del día: de madrugada, cuando nadie usa el sistema. */
+    public const DAILY_FROM = '03:00';
+
     /** Sesiones y caché se guardan vacías: se rehacen solas. */
     private const STRUCTURE_ONLY = ['sessions', 'cache', 'cache_locks'];
 
@@ -163,6 +166,18 @@ final class DatabaseBackup
     public function oldestAt(): ?CarbonImmutable
     {
         return collect($this->list())->last()['created_at'] ?? null;
+    }
+
+    /**
+     * ¿Falta la copia de hoy? Desde las 3:00, mientras no haya una de hoy. Un equipo que a esa hora estaba apagado
+     * (una laptop) la hace en cuanto se prende, en vez de quedarse ese día sin copia.
+     */
+    public function isDueToday(): bool
+    {
+        $from = today()->setTimeFromTimeString(self::DAILY_FROM);
+        $latest = $this->latestAt();
+
+        return now()->gte($from) && ($latest === null || $latest->lt($from));
     }
 
     /** No hay copias, o la última tiene más de un día y medio: la tarea programada del hosting no está corriendo. */

@@ -37,6 +37,9 @@ use Livewire\Component;
 /** Anotarlo en la lista, ofrecerle un horario por WhatsApp (queda apartado mientras responde), agendarlo cuando dice que sí, liberarlo o retirarlo. */
 final class WaitlistEntryActions
 {
+    /** Segundos que se ve el aviso de un horario que quedó libre: no se queda tapando los botones de arriba. */
+    public const FREED_NOTICE_SECONDS = 20;
+
     /**
      * Anotar a alguien en la lista: la misma ventana en la lista de espera y en "Hoy", sin salir de donde se está. En
      * dos columnas, como "Nueva cita": la derecha dice qué va a pasar, porque quien anota no vuelve a mirar la lista
@@ -274,7 +277,7 @@ final class WaitlistEntryActions
             ->action(function (WaitlistEntry $record) {
                 app(WaitlistService::class)->release($record);
 
-                Notification::make()->success()->title('Horario liberado')->send();
+                self::freedHoldNotification('Horario liberado', $record)->send();
             });
     }
 
@@ -296,10 +299,44 @@ final class WaitlistEntryActions
                     ->maxLength(200),
             ])
             ->action(function (array $data, WaitlistEntry $record) {
+                $wasHolding = $record->isHolding();
                 app(WaitlistService::class)->remove($record, $data['reason'] ?? null);
 
-                Notification::make()->success()->title('Retirado de la lista de espera')->send();
+                ($wasHolding
+                    ? self::freedHoldNotification('Retirado de la lista de espera', $record)
+                    : Notification::make()->success()->title('Retirado de la lista de espera'))->send();
             });
+    }
+
+    /**
+     * Se dejó libre a mano el horario que tenía apartado: cuál, y a quién de la lista ofrecérselo ahora con su botón,
+     * como cuando el apartado vence solo.
+     */
+    private static function freedHoldNotification(string $title, WaitlistEntry $entry): Notification
+    {
+        $notification = Notification::make()->success()->title($title);
+        $notice = app(WaitlistService::class)->releasedHoldNotice($entry);
+
+        if ($notice === null) {
+            return $notification;
+        }
+
+        $next = $notice['next'];
+
+        if ($next === null) {
+            return $notification->body($notice['when'].' quedó libre para la agenda y la web.');
+        }
+
+        return $notification
+            ->body($notice['when'].' quedó libre. '.$next['text'])
+            ->actions([
+                Action::make('offerNext')
+                    ->label($next['link']['label'])
+                    ->url($next['link']['url'])
+                    ->button()
+                    ->close(),
+            ])
+            ->duration(self::FREED_NOTICE_SECONDS * 1000);
     }
 
     /** Al cambiar algo, la hora pasa a la primera libre (si la elegida ya no sirve) y el mensaje se reescribe. */
