@@ -14,6 +14,7 @@ use App\Models\Doctor;
 use App\Models\User;
 use App\Support\Dates;
 use App\Support\Phone;
+use Carbon\CarbonInterface;
 use Filament\Actions\Action;
 use Filament\Support\Enums\FontWeight;
 use Filament\Support\Enums\TextSize;
@@ -98,7 +99,7 @@ class TodayAppointments extends TableWidget
                     Stack::make([
                         TextColumn::make('status')->badge(),
                         TextColumn::make('waiting')
-                            ->state(fn (Appointment $record) => ($minutes = $record->waitingMinutes()) !== null ? 'Esperando '.Dates::duration($minutes) : null)
+                            ->state(fn (Appointment $record) => self::waitingLabel($record))
                             ->icon('heroicon-m-clock')
                             ->color(fn (Appointment $record) => $record->waitsTooLong() ? 'danger' : 'warning')
                             ->size(TextSize::Small),
@@ -162,6 +163,19 @@ class TodayAppointments extends TableWidget
             ['id' => null, 'name' => 'Todos', 'active' => $chosen === null],
             ...$doctors->map(fn (string $name, int $id) => ['id' => $id, 'name' => $name, 'active' => $id === $chosen])->values()->all(),
         ];
+    }
+
+    /**
+     * "Esperando 25 min" para quien está en sala. Como en la sala de espera (Appointment::waitingNow), quien sigue
+     * "en sala" horas después de su cita ya no espera: es una cita que nadie cerró, y no se le pone "Esperando 9 h".
+     */
+    private static function waitingLabel(Appointment $record): ?string
+    {
+        /** @var CarbonInterface $endsAt */
+        $endsAt = $record->ends_at;
+        $minutes = $record->waitingMinutes();
+
+        return $minutes !== null && $endsAt->gt(now()->subHours(Appointment::WAIT_EXPIRES_HOURS)) ? 'Esperando '.Dates::duration($minutes) : null;
     }
 
     private function nextId(): ?int

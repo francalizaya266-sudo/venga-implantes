@@ -234,6 +234,10 @@ class DashboardPanelTest extends TestCase
         $this->actingAs(User::factory()->reception()->create());
 
         Livewire::test(WaitingRoom::class)->assertSee('Pedro Prueba')->assertDontSee('Rosa Prueba');
+        // En la agenda tampoco sale "Esperando 9 h" en rojo: Rosa queda "En sala", sin contar, hasta que alguien la cierre.
+        Livewire::test(TodayAppointments::class)
+            ->assertSee(['Rosa Prueba', 'Pedro Prueba', 'Esperando 20'.self::NBSP.'min'])
+            ->assertDontSee('Esperando 9');
 
         // Para su doctor tampoco es "tu próximo paciente": es una cita que quedó sin cerrar.
         $this->assertSame('Pedro', (new DoctorDay($doctor->id))->next()->patient->first_name);
