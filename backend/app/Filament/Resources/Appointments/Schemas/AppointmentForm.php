@@ -276,8 +276,9 @@ class AppointmentForm
      * @param  bool  $forToday  La cita es para hoy ("Llegó sin cita"): no se propone el día en que suele venir, y su cita de hoy la muestra esa ventana.
      * @param  list<Component>  $notices  Lo que esa ventana avisa del paciente elegido, justo bajo su nombre.
      * @param  Closure|null  $hidePlanWhen  Cuándo no se pregunta por la sesión de su plan (llegó a una cita que ya la dice).
+     * @param  (Closure(Set): void)|null  $onPatientChange  Lo que esa ventana borra al cambiar de paciente porque era del anterior.
      */
-    public static function patientSection(bool $forToday = false, array $notices = [], ?Closure $hidePlanWhen = null): Section
+    public static function patientSection(bool $forToday = false, array $notices = [], ?Closure $hidePlanWhen = null, ?Closure $onPatientChange = null): Section
     {
         return Section::make('Paciente')
             ->afterHeader([self::patientKindToggle()])
@@ -289,8 +290,12 @@ class AppointmentForm
                     ->hidden(fn (Get $get) => (bool) $get('new_patient'))
                     ->required(fn (Get $get) => ! $get('new_patient'))
                     ->live()
-                    ->afterStateUpdated(function (Set $set, Get $get) use ($forToday) {
+                    ->afterStateUpdated(function (Set $set, Get $get) use ($forToday, $onPatientChange) {
                         $set('treatment_plan_item_id', null);
+
+                        if ($onPatientChange) {
+                            $onPatientChange($set);
+                        }
 
                         // Con varios doctores, queda el que lo atendió la última vez.
                         $doctorChanged = SlotPicker::followLastDoctor($get, $set);

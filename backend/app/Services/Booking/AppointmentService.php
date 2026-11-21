@@ -420,6 +420,47 @@ class AppointmentService
         return $this->availability->forPatient($patientId)->slotsFor($doctor, $treatment, today(), earliest: now())->first();
     }
 
+    /**
+     * Llegó antes de su hora: el primer hueco que su doctor tiene desde ahora y antes de su cita, con lo que dura
+     * esa cita, para pasarlo antes. Null si no es de hoy, si ya es su hora, si ya está en sala o si su doctor no está
+     * libre antes.
+     */
+    public function earlierRoomToday(Appointment $appointment): ?Slot
+    {
+        /** @var CarbonInterface $startsAt */
+        $startsAt = $appointment->starts_at;
+        /** @var AppointmentStatus $status */
+        $status = $appointment->status;
+
+        if (! $startsAt->isToday() || ! $startsAt->isFuture() || ! $status->isChangeable()) {
+            return null;
+        }
+
+        /** @var Doctor $doctor */
+        $doctor = $appointment->doctor;
+        /** @var Treatment $treatment */
+        $treatment = $appointment->treatment;
+
+        return $this->availability
+            ->forPatient($appointment->patient_id)
+            ->slotsFor($doctor, $treatment, today(), earliest: now(), ignoreAppointmentId: $appointment->getKey(), durationMinutes: $appointment->custom_duration ? $appointment->durationMinutes() : null)
+            ->first(fn (Slot $slot) => $slot->startsAt->lt($startsAt));
+    }
+
+    /**
+     * Llegó antes y su doctor está libre: la cita pasa a esa hora (ya lo sabe, no se le avisa) y queda en sala. Su
+     * hora de antes queda libre, y si a alguien de la lista de espera le sirve, recepción se entera.
+     */
+    public function arriveEarlier(Appointment $appointment, CarbonInterface $startsAt, User $by): Appointment
+    {
+        return DB::transaction(function () use ($appointment, $startsAt, $by) {
+            $moved = $this->rescheduleByStaff($appointment, $startsAt, $by, agreed: true);
+            $this->markArrived($moved, $by);
+
+            return $moved;
+        });
+    }
+
     /** El paciente confirma su asistencia con el botón de su enlace personal. */
     public function confirmByPatient(Appointment $appointment): void
     {

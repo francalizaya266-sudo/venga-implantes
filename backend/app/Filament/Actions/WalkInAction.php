@@ -20,6 +20,7 @@ use App\Services\Agenda\Slot;
 use App\Services\Booking\AppointmentService;
 use Carbon\CarbonInterface;
 use Filament\Actions\Action;
+use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
@@ -68,7 +69,16 @@ final class WalkInAction
                     ->schema([
                         Group::make([
                             // Si llegó a su cita, esa ya dice qué sesión de su plan es: no se pregunta.
-                            AppointmentForm::patientSection(forToday: true, notices: [self::todaysAppointmentCallout()], hidePlanWhen: fn (Get $get) => self::arrivesToAppointment($get)),
+                            AppointmentForm::patientSection(
+                                forToday: true,
+                                notices: [self::todaysAppointmentCallout()],
+                                hidePlanWhen: fn (Get $get) => self::arrivesToAppointment($get),
+                                // Adelantar era para la cita del que estaba elegido.
+                                onPatientChange: function (Set $set): void {
+                                    $set('advance', false);
+                                    $set('advance_to', null);
+                                },
+                            ),
                             Section::make('Atención')
                                 ->columns(2)
                                 ->hidden(fn (Get $get) => self::arrivesToAppointment($get))
@@ -101,15 +111,22 @@ final class WalkInAction
                 $appointment = ($data['use_appointment'] ?? false) ? self::todaysAppointmentOf($data['patient_id'] ?? null)?->fresh() : null;
 
                 if ($appointment !== null && self::canMarkArrival($appointment)) {
+                    $bookedAt = self::startsAt($appointment);
+                    $earlier = ($data['advance'] ?? false) && filled($data['advance_to'] ?? null) ? today()->setTimeFromTimeString($data['advance_to']) : null;
+
                     Notify::run(
-                        function () use ($appointment, $data): void {
+                        function () use (&$appointment, $data, $earlier): void {
                             self::addNote($appointment, $data['internal_notes'] ?? null);
                             self::saveOrigin($appointment, $data['origin'] ?? null);
-                            app(AppointmentService::class)->markArrived($appointment, auth()->user());
+                            $appointment = $earlier
+                                ? app(AppointmentService::class)->arriveEarlier($appointment, $earlier, auth()->user())
+                                : tap($appointment, fn (Appointment $arriving) => app(AppointmentService::class)->markArrived($arriving, auth()->user()));
                         },
                         'Paciente en sala',
                         $action,
-                        fn (Notification $notification) => ArrivalChecklist::addTo($notification, $appointment, auth()->user(), self::arrivalHeadline($appointment)),
+                        function (Notification $notification) use (&$appointment, $bookedAt) {
+                            return ArrivalChecklist::addTo($notification, $appointment, auth()->user(), self::arrivalHeadline($appointment, $bookedAt));
+                        },
                     );
 
                     return;
@@ -164,9 +181,18 @@ final class WalkInAction
         return $appointment->patient->full_name.' pasa con '.$appointment->doctor->name.' a las '.self::startsAt($appointment)->format('H:i').'.';
     }
 
-    /** "Rosa Quispe llegó a su cita de las 11:30 con Dra. Elena Ríos." */
-    private static function arrivalHeadline(Appointment $appointment): string
+    /**
+     * "Rosa Quispe llegó a su cita de las 11:30 con Dra. Elena Ríos.", o si pasó antes: "Rosa Quispe llegó antes: su
+     * cita pasó de las 11:30 a las 10:45 con Dra. Elena Ríos."
+     *
+     * @param  CarbonInterface  $bookedAt  La hora que tenía antes de llegar.
+     */
+    private static function arrivalHeadline(Appointment $appointment, CarbonInterface $bookedAt): string
     {
+        if (! self::startsAt($appointment)->eq($bookedAt)) {
+            return ArrivalChecklist::advancedHeadline($appointment, $bookedAt);
+        }
+
         return $appointment->patient->full_name.' llegó a su cita de las '.self::startsAt($appointment)->format('H:i').' con '.$appointment->doctor->name.'.';
     }
 
@@ -478,8 +504,55 @@ final class WalkInAction
                     ->helperText('Así esa cita no queda como falta ni se le abre otra. Desmárcalo solo si viene por otra atención aparte.')
                     ->visible(fn (Get $get) => self::canMarkArrival(self::todaysAppointment($get)))
                     ->live(),
+                // Llegó antes y su doctor está libre: pasa antes, y su hora queda para otro.
+                Toggle::make('advance')
+                    // Marcado, dice la hora que se va a usar: la que se vio al marcarlo.
+                    ->label(fn (Get $get) => 'Adelantar su cita a las '.(($get('advance') ? $get('advance_to') : null) ?? self::earlierRoom($get)?->label()))
+                    ->helperText(fn (Get $get) => self::advanceHint($get))
+                    ->visible(fn (Get $get) => self::arrivesToAppointment($get) && self::earlierRoom($get) !== null)
+                    ->live()
+                    ->afterStateUpdated(fn (?bool $state, Get $get, Set $set) => $set('advance_to', $state ? self::earlierRoom($get)?->label() : null)),
+                // La hora que se vio al marcarlo: si al pasarlo ya no está libre, se dice en vez de darle otra.
+                Hidden::make('advance_to')
+                    ->visible(fn (Get $get) => (bool) $get('advance') && self::arrivesToAppointment($get) && self::earlierRoom($get) !== null),
             ])
             ->visible(fn (Get $get) => self::todaysAppointment($get) !== null);
+    }
+
+    /**
+     * Llegó antes de su hora a la cita que se va a marcar: el primer hueco que su doctor tiene desde ahora y antes de
+     * esa hora. Se pide varias veces al pintar la ventana: se busca una sola vez por pedido.
+     */
+    private static function earlierRoom(Get $get): ?Slot
+    {
+        $appointment = self::arrivesToAppointment($get) ? self::todaysAppointment($get) : null;
+
+        if ($appointment === null) {
+            return null;
+        }
+
+        $memo = 'walk-in.earlier-room.'.$appointment->getKey();
+
+        if (! request()->attributes->has($memo)) {
+            request()->attributes->set($memo, app(AppointmentService::class)->earlierRoomToday($appointment));
+        }
+
+        return request()->attributes->get($memo);
+    }
+
+    /** "La agenda de Dra. Ana Torres está libre desde esa hora. Su hora de las 11:00 queda para otro paciente." */
+    private static function advanceHint(Get $get): ?string
+    {
+        $appointment = self::todaysAppointment($get);
+
+        if ($appointment === null) {
+            return null;
+        }
+
+        /** @var Doctor $doctor */
+        $doctor = $appointment->doctor;
+
+        return 'La agenda de '.$doctor->name.' está libre desde esa hora. Su hora de las '.self::startsAt($appointment)->format('H:i').' queda para otro paciente.';
     }
 
     private static function todaysAppointmentDescription(Get $get): ?HtmlString

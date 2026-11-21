@@ -14,6 +14,7 @@ use App\Models\MedicalBackground;
 use App\Models\Patient;
 use App\Models\Treatment;
 use App\Models\User;
+use Carbon\CarbonImmutable;
 use Filament\Actions\Testing\TestAction;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Livewire\Livewire;
@@ -101,6 +102,34 @@ class ArrivalChecklistTest extends TestCase
     }
 
     /** Paciente con todos sus datos y sus antecedentes llenos. */
+    public function test_who_arrives_early_is_asked_whether_to_go_in_earlier_when_their_doctor_is_free(): void
+    {
+        $this->cleaning->update(['duration_minutes' => 30, 'buffer_minutes' => 10]);
+        $late = $this->todayAt('10:00', $this->complete());
+        $rosa = $this->todayAt('11:00', $this->complete(['first_name' => 'Rosa', 'last_name' => 'Quispe']));
+        $this->travelTo(CarbonImmutable::parse('2026-11-02 10:05', 'America/Lima'));
+        $this->actingAs(User::factory()->reception()->create());
+
+        // Quien llega a su hora o tarde no ve ninguna pregunta: se marca al tocar.
+        Livewire::test(TodayAppointments::class)->mountAction(TestAction::make('arrived')->table($late));
+
+        $this->assertSame(AppointmentStatus::CheckedIn, $late->refresh()->status);
+
+        // Rosa llega casi una hora antes, y su doctor queda libre a las 10:40 (10:30 y la esterilización).
+        Livewire::test(TodayAppointments::class)
+            ->mountAction(TestAction::make('arrived')->table($rosa))
+            ->assertMountedActionModalSee([
+                'Rosa Quispe llegó antes de su hora',
+                'Su cita es a las 11:00 con '.$this->doctor->name.', y su agenda está libre desde las 10:40. Si pasa antes, su hora de las 11:00 queda para otro paciente.',
+                'Adelantar a las 10:40',
+                'Dejarla a las 11:00',
+            ])
+            ->callMountedAction(['advance_to' => '10:40']);
+
+        $this->assertSame(['10:40', AppointmentStatus::CheckedIn], [$rosa->refresh()->starts_at->format('H:i'), $rosa->status]);
+        $this->assertSame('Rosa Quispe llegó antes: su cita pasó de las 11:00 a las 10:40 con '.$this->doctor->name.'.', $this->lastNotification()['body']);
+    }
+
     private function complete(array $attributes = []): Patient
     {
         $patient = Patient::factory()->create(['origin' => AppointmentOrigin::Recommendation, ...$attributes]);
