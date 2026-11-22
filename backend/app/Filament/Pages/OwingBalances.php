@@ -49,6 +49,8 @@ class OwingBalances extends Page implements HasTable
         return $table
             ->query(fn () => PatientResource::getEloquentQuery()->owing()->withBalance()->with('account'))
             ->stackedOnMobile()
+            // La búsqueda del paciente separa las palabras ella misma: así "987 654 321" encuentra el celular.
+            ->splitSearchTerms(false)
             ->description(fn () => self::owedTotal())
             ->columns([
                 TextColumn::make('last_name')

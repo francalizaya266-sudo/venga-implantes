@@ -24,6 +24,8 @@ class ConsultationsTable
 
         return $table
             ->stackedOnMobile()
+            // La búsqueda del paciente separa las palabras ella misma: así "987 654 321" encuentra el celular.
+            ->splitSearchTerms(false)
             ->columns(self::columns($showPatient))
             ->defaultSort('attended_at', 'desc')
             ->recordUrl(fn (Consultation $record) => ConsultationResource::urlFor($record))

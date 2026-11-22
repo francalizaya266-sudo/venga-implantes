@@ -7,6 +7,8 @@ use App\Enums\PatientRelationship;
 use App\Models\Account;
 use App\Models\Patient;
 use App\Support\Phone;
+use Closure;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -88,7 +90,9 @@ class PatientRegistrar
             }
 
             // Sin importar tildes: "Maria Quispe" es "María Quispe".
-            $add($patients()->where('search_name', Patient::searchable($firstName.' '.$lastName))->get(), 'mismo nombre');
+            $name = Patient::searchable($firstName.' '.$lastName);
+            $add($patients()->where('search_name', $name)->get(), 'mismo nombre');
+            $this->addWithoutSecondSurname($add, $patients, $name, $lastName);
         }
 
         if (filled($data['phone'] ?? null) && Phone::isValid($data['phone'])) {
@@ -100,6 +104,29 @@ class PatientRegistrar
         }
 
         return $found->values();
+    }
+
+    /**
+     * El mismo nombre con un apellido de más o de menos: "Maria Fernanda Osorio" es "María Fernanda Osorio Garay",
+     * y al revés. Solo con tres palabras o más: "Rosa Huamán" a secas es demasiado común para avisar sin la
+     * fecha de nacimiento.
+     *
+     * @param  Closure(iterable<Patient>, string): void  $add
+     * @param  Closure(): Builder<Patient>  $patients
+     */
+    private function addWithoutSecondSurname(Closure $add, Closure $patients, string $name, string $lastName): void
+    {
+        if (substr_count($name, ' ') < 2 || preg_match('/[%_\\\\]/', $name)) {
+            return;
+        }
+
+        $add($patients()->where('search_name', 'like', $name.' %')->get(), 'nombre parecido');
+
+        $withoutSecond = Patient::searchable(Str::beforeLast($name, ' '));
+
+        if (str_contains($lastName, ' ') && substr_count($withoutSecond, ' ') >= 2) {
+            $add($patients()->where('search_name', $withoutSecond)->get(), 'nombre parecido');
+        }
     }
 
     /** Pasa a un familiar a su propio celular (por ejemplo, al cumplir 18) sin perder su historia. */

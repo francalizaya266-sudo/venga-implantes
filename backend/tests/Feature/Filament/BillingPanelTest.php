@@ -245,9 +245,10 @@ class BillingPanelTest extends TestCase
         $payment = Payment::latest('id')->first();
         $this->assertSame([$visit->id, $visit->doctor_id, $visit->treatment_id, PaymentMethod::Yape], [$payment->appointment_id, $payment->doctor_id, $payment->treatment_id, $payment->method]);
 
-        // En la ficha del paciente también se propone su medio de siempre.
+        // En la ficha del paciente también se propone su medio de siempre (ya al día, el pago va como adelanto, en el ⋮).
         Livewire::test(ViewPatient::class, ['record' => $patient->getKey()])
-            ->mountAction('registerPayment')
+            ->assertActionHidden('registerPayment')
+            ->mountAction('registerAdvance')
             ->assertSchemaStateSet(['method' => PaymentMethod::Yape]);
     }
 

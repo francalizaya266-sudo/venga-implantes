@@ -1,6 +1,6 @@
 {{--
-    Línea de tiempo del paciente, agrupada por día, con un filtro por tipo. Cada pago lleva su constancia y, en la
-    ficha, "Anular". Se ven los últimos días; el resto, con "Ver toda la historia" o al filtrar por un tipo.
+    Actividad del paciente, agrupada por día, con un filtro por tipo. Cada pago lleva su constancia y, en la
+    ficha, "Anular" en su menú de tres puntos. Se ven los últimos días; el resto, con "Ver toda la historia" o al filtrar por un tipo.
 --}}
 @php($kinds = $events->countBy('kind'))
 @php($days = $events->groupBy(fn (array $event) => $event['at']->toDateString()))
@@ -34,13 +34,25 @@
                         @if ($event['receipt'])
                             <span class="pt-event-actions">
                                 <a href="{{ $event['receipt'] }}" target="_blank">Constancia</a>
-                                @if ($canVoid && $event['payment'])
-                                    <button type="button" wire:click="mountAction('voidPayment', {{ \Illuminate\Support\Js::from(['payment' => $event['payment']]) }})">Anular</button>
-                                @endif
                             </span>
                         @endif
                     </span>
-                    <span class="pt-meta">{{ $event['kind'] }} · {{ $event['at']->format('H:i') }}</span>
+                    <span class="pt-side">
+                        <span class="pt-meta">{{ $event['kind'] }} · {{ $event['at']->format('H:i') }}</span>
+                        {{-- "Anular" en el menú de tres puntos, lejos de "Constancia": pide motivo y deja el día cerrado. --}}
+                        @if ($canVoid && $event['payment'] && ! $event['url'])
+                            <x-filament::dropdown placement="bottom-end" width="xs" class="pt-event-menu">
+                                <x-slot name="trigger">
+                                    <x-filament::icon-button icon="heroicon-m-ellipsis-vertical" color="gray" size="sm" label="Más" />
+                                </x-slot>
+                                <x-filament::dropdown.list>
+                                    <x-filament::dropdown.list.item icon="heroicon-m-x-circle" color="danger" wire:click="mountAction('voidPayment', {{ \Illuminate\Support\Js::from(['payment' => $event['payment']]) }})">
+                                        Anular pago
+                                    </x-filament::dropdown.list.item>
+                                </x-filament::dropdown.list>
+                            </x-filament::dropdown>
+                        @endif
+                    </span>
                 </{{ $tag }}>
             @endforeach
         </section>

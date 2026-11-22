@@ -22,7 +22,9 @@
         'center' => ['30,30 70,30 70,70 30,70', 50, 50],
     ];
     $pending = collect($groups)->where('state', 'bad');
-    $done = collect($groups)->where('state', 'good');
+    // Las ausentes van aparte, como en los filtros: así "Tratado 3" arriba es "Tratado o en buen estado 3" abajo.
+    $absent = collect($groups)->where('state', 'good')->filter(fn (array $group) => in_array($group['code'], $missingCodes, true));
+    $done = collect($groups)->where('state', 'good')->reject(fn (array $group) => in_array($group['code'], $missingCodes, true));
 @endphp
 
 <div class="odv"
@@ -276,10 +278,11 @@
                 <p class="odv-muted">Sin hallazgos marcados.</p>
             @endif
 
-            @foreach (['bad' => ['Por tratar', $pending], 'good' => ['Tratado o en buen estado', $done]] as $part => [$title, $rowsOfState])
+            {{-- El número cuenta piezas, igual que los filtros de arriba (una pieza puede tener dos hallazgos). --}}
+            @foreach (['bad' => ['Por tratar', $pending], 'good' => ['Tratado o en buen estado', $done], 'missing' => ['Ausentes', $absent]] as $part => [$title, $rowsOfState])
                 @if ($rowsOfState->isNotEmpty())
                     <section class="odv-list-part" data-part="{{ $part }}">
-                        <h3><i class="odv-swatch is-{{ $part }}" aria-hidden="true"></i>{{ $title }} <span>{{ $rowsOfState->count() }}</span></h3>
+                        <h3><i class="odv-swatch is-{{ $part }}" aria-hidden="true"></i>{{ $title }} <span>{{ $rowsOfState->pluck('tooth')->unique()->count() }}</span></h3>
                         <ul>
                             @foreach ($rowsOfState as $group)
                                 @php $missing = in_array($group['code'], $missingCodes, true); @endphp

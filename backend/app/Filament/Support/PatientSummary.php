@@ -19,6 +19,7 @@ use App\Models\Patient;
 use App\Models\Payment;
 use App\Models\User;
 use App\Services\Clinical\ConsentService;
+use App\Services\Dashboard\FollowUps;
 use App\Services\Patients\PatientInsights;
 use App\Support\Money;
 use App\Support\Phone;
@@ -30,7 +31,8 @@ use App\Support\Phone;
  * años y cómo nos encontró. Cada cosa lleva a donde se resuelve. El color dice si hay algo que hacer.
  *
  * @phpstan-type Chip array{label: string, color: string, icon: string, url: string|null, action: array{name: string, arguments: array<string, mixed>}|null}
- * @phpstan-type Step array{key: string, label: string, detail: string|null, button: string|null, icon: string, url: string|null, action: array{name: string, arguments: array<string, mixed>}|null}
+ * @phpstan-type StepAction array{name: string, arguments: array<string, mixed>}
+ * @phpstan-type Step array{key: string, label: string, detail: string|null, button: string|null, icon: string, url: string|null, action: StepAction|null, remind: StepAction|null}
  */
 final class PatientSummary
 {
@@ -39,17 +41,19 @@ final class PatientSummary
      * tienen (la ficha y la cita); en las demás, el resumen lleva a donde se hace.
      *
      * @param  bool  $withWhatsapp  El enlace para escribirle. La página de la cita no lo lleva: su WhatsApp es el botón de la cita.
+     * @param  bool  $withProfile  En la ficha, el celular y las preferencias van en su perfil, al costado: aquí queda solo el estado.
      * @return array{step: Step|null, chips: list<Chip>, contact: array{whatsapp: string|null, call: string}|null}
      */
-    public static function viewData(Patient $patient, User $user, mixed $livewire = null, bool $withWhatsapp = true): array
+    public static function viewData(Patient $patient, User $user, mixed $livewire = null, bool $withWhatsapp = true, bool $withProfile = false): array
     {
         $withActions = $livewire !== null && in_array(HasPatientSummaryActions::class, class_uses_recursive($livewire), true);
         $step = self::nextStep($patient, $user, $withActions);
+        $contact = $withProfile ? null : self::contact($patient);
 
         return [
             'step' => $step,
-            'chips' => self::chips($patient, $user, $withActions, $step['key'] ?? null),
-            'contact' => ($contact = self::contact($patient)) && ! $withWhatsapp ? [...$contact, 'whatsapp' => null] : $contact,
+            'chips' => self::chips($patient, $user, $withActions, $step['key'] ?? null, withPreferences: ! $withProfile),
+            'contact' => $contact && ! $withWhatsapp ? [...$contact, 'whatsapp' => null] : $contact,
         ];
     }
 
@@ -100,24 +104,41 @@ final class PatientSummary
                 action: $withActions && $patient->account ? ['name' => 'followUp', 'arguments' => ['template' => MessageTemplateKey::PlanFollowUp->value]] : null);
         }
 
+        return self::recallStep($patient, $insights, $canBook, $withActions);
+    }
+
+    /**
+     * Faltó o canceló y sigue sin otra cita, o le toca su control: agendar, o recordárselo por WhatsApp si todavía
+     * no se le escribió.
+     *
+     * @return Step|null
+     */
+    private static function recallStep(Patient $patient, PatientInsights $insights, bool $canBook, bool $withActions): ?array
+    {
         $missed = $insights->missedVisit($patient);
 
         if ($missed) {
-            return self::step('missed', ($missed->status === AppointmentStatus::NoShow ? 'Faltó a su cita del ' : 'Se canceló su cita del ').$missed->starts_at->translatedFormat('j \d\e F'), $missed->treatment->name.' · sigue sin otra cita', $canBook ? 'Agendar' : null, 'heroicon-m-arrow-path',
-                url: $canBook ? AppointmentResource::newUrl(['patient' => $patient->getKey(), 'treatment' => $missed->treatment_id, 'doctor' => $missed->doctor_id]) : null);
+            $contacted = self::contactedLabel($patient, MessageTemplateKey::MissedVisit);
+
+            return self::step('missed', ($missed->status === AppointmentStatus::NoShow ? 'Faltó a su cita del ' : 'Se canceló su cita del ').$missed->starts_at->translatedFormat('j \d\e F'), collect([$missed->treatment->name, 'sigue sin otra cita', $contacted])->filter()->implode(' · '), $canBook ? 'Agendar' : null, 'heroicon-m-arrow-path',
+                url: $canBook ? AppointmentResource::newUrl(['patient' => $patient->getKey(), 'treatment' => $missed->treatment_id, 'doctor' => $missed->doctor_id]) : null,
+                remind: self::remind($patient, MessageTemplateKey::MissedVisit, $withActions && $contacted === null));
         }
 
         $checkup = $insights->checkup($patient);
 
         if ($checkup && $checkup['due'] && ! $insights->hasUpcomingVisit($patient)) {
-            return self::step('checkup', 'Le toca su '.$checkup['kind']->checkupLabel(), 'Última visita '.$patient->last_visit_at->diffForHumans(), $canBook ? 'Agendar' : null, 'heroicon-m-clock',
-                url: $canBook ? AppointmentResource::newUrl(['patient' => $patient->getKey()]) : null);
+            $contacted = self::contactedLabel($patient, MessageTemplateKey::CheckupRecall);
+
+            return self::step('checkup', 'Le toca su '.$checkup['kind']->checkupLabel(), collect(['Última visita '.$patient->last_visit_at->diffForHumans(), $contacted])->filter()->implode(' · '), $canBook ? 'Agendar' : null, 'heroicon-m-clock',
+                url: $canBook ? AppointmentResource::newUrl(['patient' => $patient->getKey()]) : null,
+                remind: self::remind($patient, MessageTemplateKey::CheckupRecall, $withActions && $contacted === null));
         }
 
         return null;
     }
 
-    /** El encabezado: "38 años · DNI 60075025 · San Isidro · paciente desde oct. 2026". */
+    /** El encabezado: "38 años · DNI 60075025 · paciente desde oct. 2026". El distrito va en su dirección, en el perfil. */
     public static function subheading(Patient $patient): ?string
     {
         $since = $patient->first_visit_at;
@@ -125,17 +146,17 @@ final class PatientSummary
         return collect([
             $patient->age !== null ? $patient->age.($patient->age === 1 ? ' año' : ' años') : null,
             $patient->document_number ? $patient->document_type?->getLabel().' '.$patient->document_number : null,
-            $patient->district,
             $since ? 'paciente desde '.$since->translatedFormat('M Y') : null,
         ])->filter()->implode(' · ') ?: null;
     }
 
     /**
-     * Las etiquetas, sin repetir lo que ya dice el siguiente paso.
+     * Las etiquetas, sin repetir lo que ya dice el siguiente paso. Sin las preferencias (cuándo suele venir, cómo
+     * paga, cómo nos encontró), quedan solo las del estado: la ficha las muestra en su perfil.
      *
      * @return list<Chip>
      */
-    public static function chips(Patient $patient, User $user, bool $withActions = false, ?string $step = null): array
+    public static function chips(Patient $patient, User $user, bool $withActions = false, ?string $step = null, bool $withPreferences = true): array
     {
         $insights = app(PatientInsights::class);
         $seesMoney = $user->can('viewAny', Charge::class);
@@ -154,11 +175,60 @@ final class PatientSummary
             self::labWork($patient, $user),
             self::noShows($patient, $insights),
             self::birthday($patient, $withActions),
-            self::usualVisit($patient, $insights),
-            $seesMoney ? self::usualPayment($patient) : null,
             self::guardian($patient, $user),
+            ...($withPreferences ? self::preferences($patient, $user) : []),
+        ])));
+    }
+
+    /**
+     * Lo que conviene saber al agendarle y al cobrarle: cuándo suele venir, con qué suele pagar y cómo nos encontró
+     * (si falta, se pide).
+     *
+     * @return list<Chip>
+     */
+    public static function preferences(Patient $patient, User $user): array
+    {
+        return array_map(fn (array $chip) => $chip + ['action' => null], array_values(array_filter([
+            self::usualVisit($patient, app(PatientInsights::class)),
+            $user->can('viewAny', Charge::class) ? self::usualPayment($patient) : null,
             self::origin($patient, $user),
         ])));
+    }
+
+    /**
+     * "3 visitas · S/ 350.00 pagados · sin faltas": cuánto viene, cuánto lleva pagado (solo quien ve la caja) y si falta.
+     */
+    public static function profileLine(Patient $patient, User $user): string
+    {
+        $visits = $patient->appointments()->where('status', AppointmentStatus::Completed)->count();
+        $missed = $patient->appointments()->where('status', AppointmentStatus::NoShow)->count();
+        $paid = $user->can('viewAny', Charge::class) ? round((float) $patient->payments()->whereNull('voided_at')->sum('amount'), 2) : null;
+
+        return collect([
+            match ($visits) {
+                0 => 'Sin visitas aún',
+                1 => '1 visita',
+                default => $visits.' visitas',
+            },
+            match (true) {
+                $paid === null => null,
+                $paid > 0 => Money::format($paid).' pagados',
+                default => 'sin pagos',
+            },
+            match ($missed) {
+                0 => 'sin faltas',
+                1 => '1 falta',
+                default => $missed.' faltas',
+            },
+        ])->filter()->implode(' · ');
+    }
+
+    /** "Le escribiste hace 3 días": si se le mandó este aviso hace poco (los mismos días que cuenta Hoy). */
+    public static function contactedLabel(Patient $patient, MessageTemplateKey $template): ?string
+    {
+        $sentAt = app(FollowUps::class)->recentlyContacted([$patient->getKey()], $template)[$patient->getKey()] ?? null;
+
+        return $sentAt ? 'le escribiste '.($sentAt->isToday() ? 'hoy' : $sentAt->diffForHumans()) : null;
     }
 
     /**
@@ -418,11 +488,23 @@ final class PatientSummary
     }
 
     /**
-     * @param  array{name: string, arguments: array<string, mixed>}|null  $action
+     * "Recordar por WhatsApp" con el mismo aviso de Hoy, al lado de "Agendar": solo si tiene celular y no se le
+     * escribió hace poco.
+     *
+     * @return StepAction|null
+     */
+    private static function remind(Patient $patient, MessageTemplateKey $template, bool $canRemind): ?array
+    {
+        return $canRemind && $patient->account !== null ? ['name' => 'followUp', 'arguments' => ['template' => $template->value]] : null;
+    }
+
+    /**
+     * @param  StepAction|null  $action
+     * @param  StepAction|null  $remind
      * @return Step
      */
-    private static function step(string $key, string $label, ?string $detail, ?string $button, string $icon, ?string $url = null, ?array $action = null): array
+    private static function step(string $key, string $label, ?string $detail, ?string $button, string $icon, ?string $url = null, ?array $action = null, ?array $remind = null): array
     {
-        return ['key' => $key, 'label' => $label, 'detail' => $detail ?: null, 'button' => $url || $action ? $button : null, 'icon' => $icon, 'url' => $url, 'action' => $action];
+        return ['key' => $key, 'label' => $label, 'detail' => $detail ?: null, 'button' => $url || $action ? $button : null, 'icon' => $icon, 'url' => $url, 'action' => $action, 'remind' => $remind];
     }
 }

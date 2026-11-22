@@ -36,7 +36,7 @@ class PatientPolicy
             return false;
         }
 
-        return $model->hasHistory() ? Response::deny('Este paciente ya tiene citas, pagos o historia clínica, y eso se conserva. Solo se elimina un paciente registrado por error, sin nada a su nombre.') : true;
+        return $model->hasHistory() ? Response::deny('Este paciente ya tiene citas, pagos o historia clínica, y eso se conserva. Solo se borra un paciente registrado por error, sin nada a su nombre.') : true;
     }
 
     public function restore(User $user, Patient $model): bool

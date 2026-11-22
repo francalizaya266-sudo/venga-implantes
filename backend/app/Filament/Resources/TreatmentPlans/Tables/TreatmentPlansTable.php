@@ -45,6 +45,8 @@ class TreatmentPlansTable
 
         return $table
             ->stackedOnMobile()
+            // La búsqueda del paciente separa las palabras ella misma: así "987 654 321" encuentra el celular.
+            ->splitSearchTerms(false)
             ->defaultSort('created_at', 'desc')
             ->columns([
                 TextColumn::make('patient')

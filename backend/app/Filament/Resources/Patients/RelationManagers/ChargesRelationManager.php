@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Services\Billing\BillingService;
 use App\Support\Money;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -113,26 +114,29 @@ class ChargesRelationManager extends RelationManager
                         Notification::make()->success()->title('Cargo agregado')->send();
                     }),
             ])
+            // "Anular" en el menú de tres puntos: pide motivo, pero no queda a un toque al lado de cada cargo.
             ->recordActions([
-                Action::make('void')
-                    ->label('Anular')
-                    ->icon(Heroicon::OutlinedXCircle)
-                    ->color('danger')
-                    ->visible(fn (Charge $record) => $record->voided_at === null)
-                    ->authorize('update')
-                    ->modalHeading('Anular cargo')
-                    ->modalDescription('El cargo queda registrado como anulado (no se borra) y deja de sumar al saldo.')
-                    ->modalSubmitActionLabel('Anular')
-                    ->schema([
-                        Textarea::make('reason')->label('Motivo')->required()->rows(2)->maxLength(250),
-                    ])
-                    ->action(function (array $data, Charge $record) {
-                        /** @var User $user */
-                        $user = auth()->user();
-                        app(BillingService::class)->void($record, $user, $data['reason']);
+                ActionGroup::make([
+                    Action::make('void')
+                        ->label('Anular')
+                        ->icon(Heroicon::OutlinedXCircle)
+                        ->color('danger')
+                        ->visible(fn (Charge $record) => $record->voided_at === null)
+                        ->authorize('update')
+                        ->modalHeading('Anular cargo')
+                        ->modalDescription('El cargo queda registrado como anulado (no se borra) y deja de sumar al saldo.')
+                        ->modalSubmitActionLabel('Anular')
+                        ->schema([
+                            Textarea::make('reason')->label('Motivo')->required()->rows(2)->maxLength(250),
+                        ])
+                        ->action(function (array $data, Charge $record) {
+                            /** @var User $user */
+                            $user = auth()->user();
+                            app(BillingService::class)->void($record, $user, $data['reason']);
 
-                        Notification::make()->success()->title('Cargo anulado')->send();
-                    }),
+                            Notification::make()->success()->title('Cargo anulado')->send();
+                        }),
+                ])->tooltip('Más'),
             ])
             ->emptyStateHeading('Sin cargos')
             ->emptyStateDescription('Se cargan solos al terminar cada atención.');

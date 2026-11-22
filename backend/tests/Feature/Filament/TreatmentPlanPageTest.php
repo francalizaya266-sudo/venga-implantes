@@ -236,8 +236,9 @@ class TreatmentPlanPageTest extends TestCase
 
         $this->actingAs(User::factory()->reception()->create());
 
+        // Su pestaña lo dice en una línea, sin la lista vacía.
         Livewire::test(ViewPatient::class, ['record' => $luis->getKey()])
-            ->assertSee('Celular y familia')
+            ->assertSee(['Contacto y familia', 'Todavía no tiene presupuestos ni trabajos de laboratorio.'])
             ->assertDontSee('Presupuestos y planes');
     }
 

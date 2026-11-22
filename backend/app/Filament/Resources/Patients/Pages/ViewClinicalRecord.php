@@ -2,6 +2,8 @@
 
 namespace App\Filament\Resources\Patients\Pages;
 
+use App\Enums\Sex;
+use App\Filament\Resources\Consultations\Pages\ListConsultations;
 use App\Filament\Resources\Patients\PatientResource;
 use App\Filament\Resources\Patients\RelationManagers\ClinicalFilesRelationManager;
 use App\Filament\Resources\Patients\RelationManagers\ConsentsRelationManager;
@@ -13,6 +15,7 @@ use Filament\Actions\Action;
 use Filament\Facades\Filament;
 use Filament\Resources\Pages\ViewRecord;
 use Filament\Schemas\Schema;
+use Filament\Support\Enums\Width;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Contracts\Support\Htmlable;
 
@@ -20,6 +23,9 @@ use Illuminate\Contracts\Support\Htmlable;
 class ViewClinicalRecord extends ViewRecord
 {
     protected static string $resource = PatientResource::class;
+
+    /** Todo el ancho, como Hoy: los antecedentes al costado y el odontograma con todo el espacio que queda. */
+    protected Width|string|null $maxContentWidth = Width::Full;
 
     /**
      * Baja hasta las pestañas y se queda ahí mientras termina de cargar lo de arriba (el odontograma llega
@@ -56,20 +62,28 @@ class ViewClinicalRecord extends ViewRecord
         }
     }
 
+    /** El nombre del paciente como título: se sabe de quién es la historia sin leer la línea de abajo. */
     public function getTitle(): string|Htmlable
-    {
-        return 'Historia clínica';
-    }
-
-    public function getSubheading(): string|Htmlable|null
     {
         /** @var Patient $patient */
         $patient = $this->getRecord();
 
+        return $patient->full_name;
+    }
+
+    /** "Historia clínica · 50 años · DNI 93032844 · Femenino". */
+    public function getSubheading(): string|Htmlable|null
+    {
+        /** @var Patient $patient */
+        $patient = $this->getRecord();
+        /** @var Sex|null $sex */
+        $sex = $patient->sex;
+
         return collect([
-            $patient->full_name,
-            $patient->age !== null ? $patient->age.' años' : null,
+            'Historia clínica',
+            $patient->age !== null ? $patient->age.($patient->age === 1 ? ' año' : ' años') : null,
             $patient->document_number ? $patient->document_type?->getLabel().' '.$patient->document_number : null,
+            $sex?->getLabel(),
         ])->filter()->implode(' · ');
     }
 
@@ -93,11 +107,16 @@ class ViewClinicalRecord extends ViewRecord
         return [ConsultationsRelationManager::class, TreatmentPlansRelationManager::class, ClinicalFilesRelationManager::class, ConsentsRelationManager::class];
     }
 
+    /** "Nueva atención" arriba, en azul: antes había que bajar hasta la pestaña Atenciones para encontrarla. */
     protected function getHeaderActions(): array
     {
+        /** @var Patient $patient */
+        $patient = $this->getRecord();
+
         return [
+            ListConsultations::withoutAppointmentAction($patient),
             Action::make('print')
-                ->label('Imprimir historia (PDF)')
+                ->label('Imprimir (PDF)')
                 ->icon(Heroicon::OutlinedPrinter)
                 ->color('gray')
                 ->url(fn () => Filament::getPanel('admin')->route('print.history', ['patient' => $this->getRecord()]))
