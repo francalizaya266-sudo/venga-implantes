@@ -6,6 +6,7 @@ use App\Enums\TreatmentPlanStatus;
 use App\Filament\Resources\Appointments\AppointmentResource;
 use App\Filament\Resources\Patients\PatientResource;
 use App\Filament\Resources\TreatmentPlans\Tables\TreatmentPlansTable;
+use App\Filament\Support\PageLayout;
 use App\Models\Appointment;
 use App\Models\TreatmentPlan;
 use App\Services\Billing\BillingService;
@@ -29,7 +30,7 @@ class TreatmentPlanInfolist
     public static function configure(Schema $schema): Schema
     {
         return $schema
-            ->columns(3)
+            ->columns(PageLayout::COLUMNS)
             ->components([
                 Group::make([
                     Section::make('Lo que incluye')
@@ -61,7 +62,7 @@ class TreatmentPlanInfolist
                         ])
                         ->visible(fn (TreatmentPlan $record) => $record->accepted_at !== null && $record->included_in_plan_id === null),
                 ])
-                    ->columnSpan(['default' => 'full', 'lg' => 2]),
+                    ->columnSpan(PageLayout::MAIN),
 
                 Group::make([
                     Section::make('Seguimiento')
@@ -110,7 +111,9 @@ class TreatmentPlanInfolist
                                 ->visible(fn (TreatmentPlan $record) => filled(self::twoForOne($record))),
                         ]),
                 ])
-                    ->columnSpan(['default' => 'full', 'lg' => 1]),
+                    // Con el menú cerrado o en un monitor grande, el seguimiento y el paciente quedan lado a lado.
+                    ->columns(PageLayout::SIDE_COLUMNS)
+                    ->columnSpan(PageLayout::SIDE),
             ]);
     }
 
