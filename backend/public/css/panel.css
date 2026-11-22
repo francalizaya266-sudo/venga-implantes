@@ -1212,6 +1212,24 @@ button.pt-chip { transition: transform 160ms ease-out; }
 }
 .pt-event-menu { margin-top: -.3rem; }
 
+/* ---------- Nuevo paciente: la revisión a la derecha (PatientForm::reviewRows) ---------- */
+
+.reg-check { display: grid; gap: .6rem; margin: 0; padding: 0; list-style: none; }
+.reg-check-row { display: flex; align-items: flex-start; gap: .55rem; font-size: .875rem; line-height: 1.35rem; color: var(--gray-700); }
+.dark .reg-check-row { color: var(--gray-300); }
+.reg-check-icon { flex: none; width: 1.15rem; height: 1.15rem; margin-top: .1rem; color: var(--gray-400); }
+.reg-check-row.is-success { color: var(--success-700); font-weight: 600; }
+.dark .reg-check-row.is-success { color: var(--success-400); }
+.reg-check-row.is-success .reg-check-icon { color: var(--success-600); }
+.dark .reg-check-row.is-success .reg-check-icon { color: var(--success-400); }
+.reg-check-row.is-warning .reg-check-icon { color: var(--warning-600); }
+.dark .reg-check-row.is-warning .reg-check-icon { color: var(--warning-400); }
+.reg-check-row.is-info .reg-check-icon { color: var(--primary-600); }
+.dark .reg-check-row.is-info .reg-check-icon { color: var(--primary-400); }
+.reg-check-row.is-gray { color: var(--gray-500); }
+/* "Buscar en RENIEC" al lado del número: en una línea, sin apretarse. */
+.reniec-button { flex: none; white-space: nowrap; }
+
 /* ---------- Ganancias: tablas ---------- */
 
 .earnings-grid { display: grid; gap: 1.5rem; grid-template-columns: minmax(0, 1fr); align-items: start; }

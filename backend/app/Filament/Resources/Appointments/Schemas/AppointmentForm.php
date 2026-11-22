@@ -5,7 +5,6 @@ namespace App\Filament\Resources\Appointments\Schemas;
 use App\Enums\AppointmentOrigin;
 use App\Enums\AppointmentStatus;
 use App\Enums\DocumentType;
-use App\Enums\PatientRelationship;
 use App\Enums\PlanPaymentMode;
 use App\Enums\RescheduleRequestStatus;
 use App\Filament\Resources\Appointments\AppointmentResource;
@@ -844,14 +843,14 @@ class AppointmentForm
                 ->tel()
                 ->helperText('Si es un familiar a cargo, usa el celular del titular.')
                 ->live(onBlur: true)
+                // Con un celular que ya tiene titular, se quita "Titular" para que se elija el parentesco.
+                ->afterStateUpdated(fn (Get $get, Set $set) => PatientForm::syncRelationshipWithPhone($get, $set))
                 ->rule(fn () => function (string $attribute, $value, $fail) {
                     if (filled($value) && ($problem = Phone::problem((string) $value)) !== null) {
                         $fail($problem);
                     }
                 }),
-            PatientForm::relationshipSelect()
-                ->helperText(null)
-                ->default(PatientRelationship::Self->value),
+            PatientForm::relationshipSelect(withHint: false),
             PatientForm::birthDateInput(),
             // A lo ancho: en media columna, "Carné de extranjería" no entraba y el tipo de documento se veía cortado.
             Grid::make(['default' => 3])

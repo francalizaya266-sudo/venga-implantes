@@ -113,16 +113,18 @@ class DniLookupTest extends TestCase
         Http::assertNothingSent();
     }
 
-    public function test_the_magnifying_glass_only_shows_for_a_dni_and_with_the_key_set(): void
+    public function test_the_reniec_button_only_shows_for_a_dni_and_with_the_key_set(): void
     {
+        // Al lado del número, con su nombre: una lupa sola se pasaba por alto.
         Livewire::test(CreatePatient::class)
             ->assertActionVisible(TestAction::make('lookupDni')->schemaComponent('document_number'))
+            ->assertSee('Buscar en RENIEC')
             ->fillForm(['document_type' => DocumentType::Passport->value])
-            ->assertActionHidden(TestAction::make('lookupDni')->schemaComponent('document_number'));
+            ->assertDontSee('Buscar en RENIEC');
 
         config(['consultorio.dni_lookup.token' => null]);
 
         Livewire::test(CreatePatient::class)
-            ->assertActionHidden(TestAction::make('lookupDni')->schemaComponent('document_number'));
+            ->assertDontSee('Buscar en RENIEC');
     }
 }
