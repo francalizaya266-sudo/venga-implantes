@@ -2,6 +2,7 @@
 
 namespace App\Filament\Support;
 
+use App\Filament\Actions\EditMedicalBackgroundAction;
 use App\Filament\Resources\Patients\PatientResource;
 use App\Models\MedicalBackground;
 use App\Models\Patient;
@@ -60,7 +61,11 @@ final class ClinicalAlerts
         return in_array(true, array_column(self::withSeverity($patient), 'severe'), true);
     }
 
-    public static function callout(?Patient $patient, bool $withLink = true): ?Callout
+    /**
+     * El aviso de arriba. Si faltan los antecedentes y se pasa $canComplete (la ficha), su único botón es
+     * "Completar antecedentes", que abre ahí mismo la ventana para registrarlos.
+     */
+    public static function callout(?Patient $patient, bool $withLink = true, bool $canComplete = false): ?Callout
     {
         if (! $patient) {
             return null;
@@ -75,10 +80,17 @@ final class ClinicalAlerts
             : [];
 
         if (! $patient->medicalBackground) {
+            $complete = $canComplete && auth()->user()?->can('updateClinical', $patient);
+
             return Callout::make('Faltan los antecedentes médicos')
-                ->description('Pregunta por alergias, enfermedades y medicamentos y regístralos en la historia.')
+                ->key('alert')
+                ->description($complete
+                    ? 'Pregunta por alergias, enfermedades y medicamentos antes de atenderlo.'
+                    : 'Pregunta por alergias, enfermedades y medicamentos y regístralos en la historia.')
                 ->warning()
-                ->actions($link);
+                ->actions($complete
+                    ? [EditMedicalBackgroundAction::make(fn () => $patient, 'completeBackground')->label('Completar antecedentes')->button()->color('warning')->size('sm')]
+                    : $link);
         }
 
         $filledByPatient = self::filledByPatient($patient);

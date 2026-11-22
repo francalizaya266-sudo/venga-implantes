@@ -36,6 +36,13 @@ return [
         'move_record_down' => ['label' => 'Bajar :label'],
     ],
 
+    // "Resetear" no es como se habla en el consultorio.
+    'filters' => [
+        'actions' => [
+            'reset' => ['label' => 'Quitar filtros'],
+        ],
+    ],
+
     'reordering' => [
         'position' => ':label, posición :position de :count.',
         'moved' => ':label se movió a la posición :position de :count.',

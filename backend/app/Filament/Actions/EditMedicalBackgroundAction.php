@@ -93,6 +93,40 @@ final class EditMedicalBackgroundAction
             });
     }
 
+    /**
+     * "Sin antecedentes relevantes", de un toque: se le preguntó y no tiene alergias, enfermedades ni toma
+     * medicamentos. Queda con la fecha y quién lo registró, igual que si se hubiera llenado la ventana.
+     *
+     * @param  Closure  $patient  Devuelve el paciente (recibe el registro de la pantalla como $record).
+     */
+    public static function nothingRelevant(Closure $patient, string $name = 'nothingRelevant'): Action
+    {
+        $resolve = fn (Action $action): Patient => $action->evaluate($patient);
+
+        return Action::make($name)
+            ->label('Sin antecedentes relevantes')
+            ->icon(Heroicon::OutlinedCheck)
+            ->color('gray')
+            ->tooltip('No tiene alergias ni enfermedades y no toma medicamentos')
+            ->authorize(fn (Action $action) => auth()->user()->can('updateClinical', $resolve($action)))
+            ->visible(fn (Action $action) => $resolve($action)->medicalBackground === null)
+            ->action(function (Action $action) use ($resolve) {
+                $patient = $resolve($action);
+
+                // Si otro ya los registró mientras tanto, no se pisan.
+                $patient->medicalBackground()->firstOrCreate([], [
+                    'conditions' => [],
+                    'allergies' => 'Ninguna',
+                    'medications' => 'Ninguna',
+                    'notes' => 'Sin antecedentes relevantes',
+                    'updated_by_user_id' => auth()->id(),
+                ]);
+                $patient->unsetRelation('medicalBackground');
+
+                Notification::make()->success()->title('Antecedentes guardados: sin nada relevante')->send();
+            });
+    }
+
     /** "No tiene", de un toque: deja escrito "Ninguna" para que se sepa que se preguntó. */
     private static function noneAction(string $name, string $field): Action
     {

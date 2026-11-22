@@ -17,6 +17,7 @@ use App\Models\Treatment;
 use App\Models\TreatmentPlan;
 use App\Models\User;
 use App\Models\WaitlistEntry;
+use Filament\Actions\Testing\TestAction;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Livewire\Livewire;
 use Tests\Concerns\CreatesAgenda;
@@ -102,6 +103,41 @@ class MissedVisitFollowUpTest extends TestCase
             ->test(ListPatients::class)
             ->assertCanSeeTableRecords([$noShow, $cancelled, $leftTheList])
             ->assertCanNotSeeTableRecords([$cameBack, $rebooked, $longAgo, $withPlan, $waiting]);
+    }
+
+    public function test_the_list_and_the_file_remind_by_whatsapp_and_once_written_offer_to_book(): void
+    {
+        $rosa = $this->patient('Rosa', 'Quispe');
+        $this->visit($rosa, '2026-10-27 10:00', AppointmentStatus::NoShow);
+        $this->actingAs(User::factory()->reception()->create());
+        $book = AppointmentResource::newUrl(['patient' => $rosa->id, 'treatment' => $this->cleaning->id, 'doctor' => $this->doctor->id]);
+
+        // En la ficha, al lado de "Agendar", recordarle con el mismo aviso de Hoy.
+        $this->get(PatientResource::getUrl('view', ['record' => $rosa]))
+            ->assertOk()
+            ->assertSeeInOrder(['Faltó a su cita del 27 de octubre', 'Recordar por WhatsApp', 'Agendar']);
+
+        // En la pestaña, el paso va en la misma fila: qué pasó y "Recordar", que abre el aviso ya escrito.
+        Livewire::withQueryParams(['tab' => 'missed'])
+            ->test(ListPatients::class)
+            ->assertSee(['Qué pasó', 'Limpieza dental'])
+            ->assertActionHidden(TestAction::make('schedule')->table($rosa))
+            ->mountAction(TestAction::make('remind')->table($rosa))
+            ->assertSchemaStateSet(fn (array $state) => $this->assertStringContainsString('No pudimos verte en tu cita de limpieza dental', $state['body']) ?? [])
+            ->callMountedAction()
+            ->assertHasNoErrors();
+
+        // Ya se le escribió: se dice cuándo y el paso que sigue es agendarle lo mismo que perdió.
+        Livewire::withQueryParams(['tab' => 'missed'])
+            ->test(ListPatients::class)
+            ->assertSee('Le escribiste hoy')
+            ->assertActionHidden(TestAction::make('remind')->table($rosa))
+            ->assertActionHasUrl(TestAction::make('schedule')->table($rosa), $book);
+
+        $this->get(PatientResource::getUrl('view', ['record' => $rosa]))
+            ->assertOk()
+            ->assertSee('le escribiste hoy')
+            ->assertDontSee('Recordar por WhatsApp');
     }
 
     public function test_the_saved_notice_text_starts_saying_what_happened_unless_the_clinic_changed_it(): void

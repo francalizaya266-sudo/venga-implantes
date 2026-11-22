@@ -45,6 +45,8 @@ class InstallmentResource extends Resource
     {
         return $table
             ->stackedOnMobile()
+            // La búsqueda del paciente separa las palabras ella misma: así "987 654 321" encuentra el celular.
+            ->splitSearchTerms(false)
             ->modifyQueryUsing(fn (Builder $query) => $query->with('plan.patient.account', 'plan.installments'))
             ->defaultSort('due_on')
             ->columns([

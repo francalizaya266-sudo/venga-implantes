@@ -46,6 +46,8 @@ class AppointmentsTable
             ->defaultSortOptionLabel(fn (HasTable $livewire) => self::latestFirst($livewire) ? 'Lo más reciente primero' : 'Lo más cercano primero')
             // El buscador dice qué busca: el paciente, no el tratamiento ni el doctor (para eso están los filtros).
             ->searchPlaceholder('Buscar paciente, DNI o celular')
+            // La búsqueda del paciente separa las palabras ella misma: así "987 654 321" encuentra el celular.
+            ->splitSearchTerms(false)
             ->filtersTriggerAction(fn (Action $action) => $action->button()->label('Filtros'))
             ->recordActionsColumnLabel('Acciones')
             ->filters([

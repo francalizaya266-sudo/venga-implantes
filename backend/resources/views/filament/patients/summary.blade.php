@@ -10,40 +10,23 @@
                     <span class="pt-step-detail">{{ $step['detail'] }}</span>
                 @endif
             </div>
-            @if ($step['button'])
-                @if ($step['action'])
-                    <x-filament::button size="sm" class="pt-step-button" wire:click="mountAction('{{ $step['action']['name'] }}', {{ \Illuminate\Support\Js::from($step['action']['arguments']) }})">{{ $step['button'] }}</x-filament::button>
-                @else
-                    <x-filament::button size="sm" class="pt-step-button" tag="a" :href="$step['url']">{{ $step['button'] }}</x-filament::button>
-                @endif
+            @if ($step['button'] || $step['remind'])
+                <div class="pt-step-buttons">
+                    {{-- Al que faltó o le toca control: recordarle por WhatsApp (el mismo aviso de Hoy) o agendarle de una vez. --}}
+                    @if ($step['remind'])
+                        <x-filament::button size="sm" color="gray" icon="heroicon-m-chat-bubble-left-right" class="pt-step-button" wire:click="mountAction('{{ $step['remind']['name'] }}', {{ \Illuminate\Support\Js::from($step['remind']['arguments']) }})">Recordar por WhatsApp</x-filament::button>
+                    @endif
+                    @if ($step['button'] && $step['action'])
+                        <x-filament::button size="sm" class="pt-step-button" wire:click="mountAction('{{ $step['action']['name'] }}', {{ \Illuminate\Support\Js::from($step['action']['arguments']) }})">{{ $step['button'] }}</x-filament::button>
+                    @elseif ($step['button'])
+                        <x-filament::button size="sm" class="pt-step-button" tag="a" :href="$step['url']">{{ $step['button'] }}</x-filament::button>
+                    @endif
+                </div>
             @endif
         </div>
     @endif
 
-    @if ($chips !== [])
-        <ul class="pt-chips" aria-label="Resumen del paciente">
-            @foreach ($chips as $chip)
-                <li>
-                    @if ($chip['action'])
-                        <button type="button" class="pt-chip is-{{ $chip['color'] }}" wire:click="mountAction('{{ $chip['action']['name'] }}', {{ \Illuminate\Support\Js::from($chip['action']['arguments']) }})">
-                            <x-filament::icon :icon="$chip['icon']" class="pt-chip-icon" />
-                            {{ $chip['label'] }}
-                        </button>
-                    @elseif ($chip['url'])
-                        <a href="{{ $chip['url'] }}" class="pt-chip is-{{ $chip['color'] }}">
-                            <x-filament::icon :icon="$chip['icon']" class="pt-chip-icon" />
-                            {{ $chip['label'] }}
-                        </a>
-                    @else
-                        <span class="pt-chip is-{{ $chip['color'] }}">
-                            <x-filament::icon :icon="$chip['icon']" class="pt-chip-icon" />
-                            {{ $chip['label'] }}
-                        </span>
-                    @endif
-                </li>
-            @endforeach
-        </ul>
-    @endif
+    @include('filament.patients.chips', ['chips' => $chips, 'label' => 'Resumen del paciente'])
 
     @if ($contact)
         <div class="pt-contact">

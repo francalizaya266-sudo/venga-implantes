@@ -1781,16 +1781,6 @@ $ignoreErrors[] = [
     'path' => __DIR__.'/app/Filament/Resources/Patients/Schemas/ClinicalRecordInfolist.php',
 ];
 $ignoreErrors[] = [
-    'rawMessage' => 'Access to an undefined property Illuminate\\Database\\Eloquent\\Model::$updatedBy.',
-    'count' => 1,
-    'path' => __DIR__.'/app/Filament/Resources/Patients/Schemas/ClinicalRecordInfolist.php',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Access to an undefined property Illuminate\\Database\\Eloquent\\Model::$updated_at.',
-    'count' => 1,
-    'path' => __DIR__.'/app/Filament/Resources/Patients/Schemas/ClinicalRecordInfolist.php',
-];
-$ignoreErrors[] = [
     'rawMessage' => 'Call to an undefined method Illuminate\\Database\\Eloquent\\Model::label().',
     'count' => 1,
     'path' => __DIR__.'/app/Filament/Resources/Patients/Schemas/ClinicalRecordInfolist.php',

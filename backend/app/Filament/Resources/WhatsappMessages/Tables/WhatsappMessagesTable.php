@@ -24,6 +24,8 @@ class WhatsappMessagesTable
     {
         return $table
             ->stackedOnMobile()
+            // La búsqueda del paciente separa las palabras ella misma: así "987 654 321" encuentra el celular.
+            ->splitSearchTerms(false)
             ->columns([
                 // Cuándo se preparó va debajo del nombre del aviso: así el botón de enviar entra sin correr la tabla.
                 TextColumn::make('template_key')
@@ -49,9 +51,10 @@ class WhatsappMessagesTable
                     // Con dos doctores y nombres largos, el botón de enviar quedaba cortado en una laptop: el nombre
                     // del paciente y el del doctor bajan de línea; el teléfono y la fecha no se parten.
                     ->extraCellAttributes(['class' => 'wraps-name'])
+                    // Por el celular solo con 4 números o más: sin números, "%%" traía todos los avisos.
                     ->searchable(query: fn (Builder $query, string $search) => $query->where(fn (Builder $w) => $w
                         ->whereHas('patient', fn (Builder $p) => $p->search($search))
-                        ->orWhere('phone', 'like', '%'.preg_replace('/\D/', '', $search).'%'))),
+                        ->when(strlen($digits = (string) preg_replace('/\D/', '', $search)) >= 4, fn (Builder $phone) => $phone->orWhere('phone', 'like', '%'.$digits.'%')))),
                 TextColumn::make('appointment.starts_at')
                     ->label('Cita')
                     ->dateTime('D d/m H:i')

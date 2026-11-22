@@ -4,6 +4,7 @@ namespace Tests\Feature\Filament;
 
 use App\Enums\AppointmentStatus;
 use App\Enums\DiagnosisType;
+use App\Enums\Sex;
 use App\Enums\SnippetField;
 use App\Enums\ToothState;
 use App\Exceptions\ClinicalException;
@@ -12,6 +13,7 @@ use App\Filament\Resources\Consultations\Pages\EditConsultation;
 use App\Filament\Resources\Consultations\Pages\ListConsultations;
 use App\Filament\Resources\Consultations\Pages\ViewConsultation;
 use App\Filament\Resources\Patients\Pages\ViewClinicalRecord;
+use App\Filament\Resources\Patients\Pages\ViewPatient;
 use App\Filament\Resources\Patients\PatientResource;
 use App\Filament\Support\ClinicalAlerts;
 use App\Filament\Widgets\TodayAppointments;
@@ -251,8 +253,9 @@ class ClinicalPanelTest extends TestCase
 
         $this->actingAs($doctor->user);
 
+        // La primera vez, con el botón grande del recuadro ("Editar", arriba, aparece cuando ya hay algo).
         Livewire::test(ViewClinicalRecord::class, ['record' => $patient->getRouteKey()])
-            ->callAction(TestAction::make('editBackground')->schemaComponent('background', schema: 'infolist'), data: [
+            ->callAction(TestAction::make('registerBackground')->schemaComponent('background.backgroundActions', schema: 'infolist'), data: [
                 'conditions' => ['diabetes'],
                 'allergies' => 'Penicilina',
                 'medications' => 'Ninguna',
@@ -282,6 +285,63 @@ class ClinicalPanelTest extends TestCase
         // Recepción no puede tocar los antecedentes.
         $this->actingAs(User::factory()->reception()->create());
         $this->assertFalse(auth()->user()->can('updateClinical', $patient));
+    }
+
+    public function test_the_record_says_only_what_was_asked_and_nothing_relevant_takes_one_touch(): void
+    {
+        [$doctor, $appointment] = $this->appointmentToday();
+        $patient = $appointment->patient;
+        $patient->update(['sex' => Sex::Female]);
+        $this->actingAs($doctor->user);
+
+        // Nunca se preguntó: un solo aviso, el de su recuadro, y ninguna respuesta que nadie dio ("No", "Ninguna").
+        $this->get(PatientResource::getUrl('clinical', ['record' => $patient]))
+            ->assertOk()
+            ->assertSeeInOrder([$patient->full_name, 'Historia clínica · 35 años', 'Nueva atención', 'Antecedentes médicos', 'Sin registrar', 'Registrar antecedentes', 'Sin antecedentes relevantes', 'Odontograma'])
+            ->assertDontSee(['Faltan los antecedentes médicos', 'Ninguna registrada', 'Embarazo / lactancia']);
+
+        // Con un toque queda dicho que no tiene nada relevante, con quién y cuándo.
+        Livewire::test(ViewClinicalRecord::class, ['record' => $patient->getRouteKey()])
+            ->assertActionVisible('withoutAppointment')
+            ->callAction(TestAction::make('nothingRelevant')->schemaComponent('background.backgroundActions', schema: 'infolist'))
+            ->assertNotified('Antecedentes guardados: sin nada relevante')
+            ->assertSee(['Actualizado hoy por '.$doctor->user->name, 'Embarazo / lactancia'])
+            ->assertDontSee('Atención:');
+
+        $background = $patient->medicalBackground()->sole();
+        $this->assertSame(['Ninguna', 'Ninguna', [], $doctor->user->id], [$background->allergies, $background->medications, $background->conditions, $background->updated_by_user_id]);
+        $this->assertSame([], ClinicalAlerts::for($patient->fresh()));
+
+        // De más de un año: se pide de nuevo, por si algo cambió.
+        $background->forceFill(['updated_at' => now()->subMonths(13)])->saveQuietly();
+        $this->get(PatientResource::getUrl('clinical', ['record' => $patient]))->assertSee('Pregúntale si algo cambió.');
+
+        // En la ficha, si faltan, el aviso trae un solo botón que abre ahí mismo la ventana.
+        $other = Patient::factory()->create();
+        Appointment::factory()->for($doctor)->for($appointment->treatment)->for($other)->at('2026-11-03 10:00')->confirmed()->create();
+        Livewire::test(ViewPatient::class, ['record' => $other->getRouteKey()])
+            ->assertSee('Faltan los antecedentes médicos')
+            ->assertDontSee('Ver antecedentes')
+            ->callAction(TestAction::make('completeBackground')->schemaComponent('clinicalAlert.alert', schema: 'infolist'), data: ['allergies' => 'Látex'])
+            ->assertNotified('Antecedentes guardados');
+        $this->assertSame('Látex', $other->medicalBackground()->sole()->allergies);
+    }
+
+    public function test_the_odontogram_list_counts_teeth_like_its_filters_with_the_absent_apart(): void
+    {
+        [$doctor, $appointment] = $this->appointmentToday();
+        $consultation = app(ConsultationService::class)->startFromAppointment($appointment, $doctor->user);
+        $this->actingAs($doctor->user);
+
+        // Arriba dice "Tratado 1" y "Ausentes 1": abajo, lo mismo, sin sumar la ausente a lo tratado.
+        Livewire::test(OdontogramChart::class, ['record' => $consultation, 'editable' => true])
+            ->call('mark', 36, 'O', 'caries', 'bad', 'CD')
+            ->call('mark', 36, 'M', 'caries', 'bad', 'CD')
+            ->call('mark', 46, 'O', 'restauracion', 'good', 'AM')
+            ->call('mark', 18, null, 'ausente')
+            ->assertSeeHtml('Por tratar <span>1</span>')
+            ->assertSeeHtml('Tratado o en buen estado <span>1</span>')
+            ->assertSeeHtml('Ausentes <span>1</span>');
     }
 
     public function test_a_doctor_can_attend_one_of_their_patients_without_an_appointment(): void

@@ -587,6 +587,70 @@ class PatientsAndSetupPanelTest extends TestCase
             ->assertDontSee(['Plan sin agendar', 'Presupuesto sin respuesta']);
     }
 
+    public function test_the_patients_list_finds_a_phone_written_with_spaces_and_offers_to_register_who_is_missing(): void
+    {
+        $rosa = Patient::factory()->for(Account::factory()->state(['phone' => '+51987654321']))->create(['first_name' => 'Rosa', 'last_name' => 'Quispe']);
+        $other = Patient::factory()->for(Account::factory()->state(['phone' => '+51911222333']))->create();
+        Charge::factory()->for($rosa)->create(['amount' => 120]);
+        $this->actingAs(User::factory()->reception()->create());
+
+        // Como en Citas y Lista de espera: el buscador dice qué busca, los filtros tienen su botón y los botones su columna.
+        Livewire::test(ListPatients::class)
+            ->assertSee(['Buscar paciente, DNI o celular', 'Filtros', 'Acciones'])
+            // El celular tal como se ve en la lista, con espacios.
+            ->searchTable('987 654 321')
+            ->assertCanSeeTableRecords([$rosa])
+            ->assertCanNotSeeTableRecords([$other])
+            // Sin nadie con ese nombre: se dice así, no "Aún no hay pacientes", y se ofrece registrarlo.
+            ->searchTable('Nadie Asi')
+            ->assertSee(['No encontramos a nadie con eso', 'Nuevo paciente'])
+            ->assertDontSee('Aún no hay pacientes');
+
+        // Tocar lo que debe abre Cobrar con eso propuesto.
+        Livewire::test(ListPatients::class)
+            ->mountAction(TestAction::make('collectBalance')->table($rosa))
+            ->assertSchemaStateSet(['amount' => 120.0]);
+    }
+
+    public function test_the_patient_file_puts_the_profile_beside_its_tabs_and_charges_only_who_owes(): void
+    {
+        $this->freezeMonday();
+        $treatment = Treatment::factory()->create(['name' => 'Limpieza dental']);
+        $doctor = $this->doctorOffering($treatment);
+        $patient = Patient::factory()
+            ->for(Account::factory()->state(['phone' => '+51987654321']))
+            ->create(['first_name' => 'Rosa', 'last_name' => 'Quispe', 'address' => null, 'district' => 'San Isidro', 'origin' => AppointmentOrigin::Instagram]);
+        Charge::factory()->for($patient)->create(['amount' => 120]);
+        Payment::factory()->for($patient)->create(['amount' => 80, 'method' => PaymentMethod::Yape]);
+        Appointment::factory()->for($doctor)->for($treatment)->for($patient)->at('2026-10-01 10:00')->create(['status' => AppointmentStatus::Completed]);
+        Appointment::factory()->for($doctor)->for($treatment)->for($patient)->at('2026-10-15 10:00')->create(['status' => AppointmentStatus::NoShow]);
+
+        $this->actingAs(User::factory()->reception()->create());
+
+        // Arriba solo el estado; a la izquierda el perfil (con sus preferencias) y a la derecha las pestañas.
+        $page = Livewire::test(ViewPatient::class, ['record' => $patient->getRouteKey()])
+            ->assertSeeInOrder(['Debe S/ 40.00', 'Perfil del paciente', '1 visita · S/ 80.00 pagados · 1 falta', 'Contacto y familia', 'WhatsApp', 'Llamar', 'San Isidro', 'Preferencias', 'Paga con Yape', 'Origen: Instagram', 'Actividad', 'Cuenta y cargos', 'Presupuestos y laboratorio'])
+            ->assertSee('Cargado S/ 120.00 · Pagado S/ 80.00 · Debe S/ 40.00')
+            // "Cobrar" en verde a la vista, porque debe.
+            ->assertActionVisible('registerPayment')
+            ->assertActionHidden('registerAdvance');
+        $this->assertSame([PatientResource::getUrl('index') => 'Pacientes', 'Rosa Quispe'], $page->instance()->getBreadcrumbs());
+        $this->assertStringNotContainsString('San Isidro', (string) $page->instance()->getSubheading());
+
+        // Al día, un pago es un adelanto y va en el menú de tres puntos.
+        Payment::factory()->for($patient)->create(['amount' => 40]);
+        Livewire::test(ViewPatient::class, ['record' => $patient->getRouteKey()])
+            ->assertActionHidden('registerPayment')
+            ->assertActionVisible('registerAdvance');
+
+        // El doctor ve cuánto viene y si falta, pero no la plata.
+        $this->actingAs($doctor->user);
+        $this->get(PatientResource::getUrl('view', ['record' => $patient]))
+            ->assertOk()
+            ->assertSee('1 visita · 1 falta')
+            ->assertDontSee(['Cuenta y cargos', 'pagados', 'Paga con Yape']);
+    }
+
     public function test_the_patient_file_shows_one_timeline_and_the_medical_alert_only_to_who_attends(): void
     {
         $this->freezeMonday();
@@ -600,11 +664,11 @@ class PatientsAndSetupPanelTest extends TestCase
         $reception = User::factory()->reception()->create();
         $this->actingAs($reception);
 
-        // Una sola línea de tiempo, con su filtro: ya no hay pestañas de Citas y Pagos que la repitan,
-        // y el saldo va una sola vez (la etiqueta bajo el nombre), sin tarjeta "Cuenta".
+        // Una sola actividad, con su filtro: ya no hay pestañas de Citas y Pagos que la repitan, y el saldo va
+        // en la etiqueta bajo el nombre. A su lado, la pestaña con su cuenta y los cargos.
         $this->get(PatientResource::getUrl('view', ['record' => $patient]))
             ->assertOk()
-            ->assertSee(['María Quispe', 'Línea de tiempo', 'Limpieza dental · Pendiente', 'Pagó S/ 80.00 · Yape', 'Constancia'])
+            ->assertSee(['María Quispe', 'Actividad', 'Cuenta y cargos', 'Limpieza dental · Pendiente', 'Pagó S/ 80.00 · Yape', 'Constancia'])
             ->assertSeeInOrder(['Todo', 'Citas', 'Pagos'])
             ->assertSee('A favor S/ 80.00')
             ->assertDontSee(['Ver María Quispe', 'Penicilina', 'Correo', 'Notas internas', 'Último pago', 'Sin citas todavía', 'Sin pagos todavía']);
@@ -626,8 +690,8 @@ class PatientsAndSetupPanelTest extends TestCase
 
         $this->get(PatientResource::getUrl('view', ['record' => $patient]))
             ->assertOk()
-            ->assertSeeInOrder(['Atención: Alergia: Penicilina', 'Datos del paciente', 'Línea de tiempo'])
-            ->assertDontSee('Pagó S/ 80.00');
+            ->assertSeeInOrder(['Atención: Alergia: Penicilina', 'Perfil del paciente', 'Actividad'])
+            ->assertDontSee(['Pagó S/ 80.00', 'Cuenta y cargos']);
     }
 
     public function test_the_patient_file_sums_up_what_matters_in_chips_under_the_name(): void

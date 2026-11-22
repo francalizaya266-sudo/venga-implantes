@@ -9,6 +9,7 @@ use App\Models\User;
 use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Schemas\Components\Tabs\Tab;
+use Filament\Support\Enums\Width;
 use Illuminate\Database\Eloquent\Builder;
 
 class ListPatients extends ListRecords
@@ -16,6 +17,9 @@ class ListPatients extends ListRecords
     use HasNoBreadcrumbs;
 
     protected static string $resource = PatientResource::class;
+
+    /** Todo el ancho, como Hoy: en un monitor grande los nombres y "Acciones" entran sin apretarse. */
+    protected Width|string|null $maxContentWidth = Width::Full;
 
     /** Para qué es esta lista y dónde está lo demás: lo que se le propuso a cada uno se sigue en Presupuestos y planes. */
     public function getSubheading(): ?string

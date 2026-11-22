@@ -47,6 +47,22 @@ class PatientRegistrationTest extends TestCase
         $this->assertSame([], $registrar->possibleDuplicates(['document_number' => '07654321'], ignore: $rosa)->all());
     }
 
+    public function test_a_name_with_one_surname_more_or_less_is_flagged_as_a_possible_duplicate(): void
+    {
+        $maria = Patient::factory()->create(['first_name' => 'María Fernanda', 'last_name' => 'Osorio Garay']);
+        $ana = Patient::factory()->create(['first_name' => 'Ana Lucía', 'last_name' => 'Flores']);
+        $registrar = app(PatientRegistrar::class);
+        $reasons = fn (array $data) => $registrar->possibleDuplicates($data)->mapWithKeys(fn (array $row) => [$row['patient']->id => $row['reason']])->all();
+
+        // Sin el segundo apellido (y sin tildes) es ella.
+        $this->assertSame([$maria->id => 'nombre parecido'], $reasons(['first_name' => 'Maria Fernanda', 'last_name' => 'Osorio']));
+        // Al revés: se registró con un apellido y ahora llega con los dos.
+        $this->assertSame([$ana->id => 'nombre parecido'], $reasons(['first_name' => 'Ana Lucia', 'last_name' => 'Flores Ramos']));
+        // Con un nombre y un apellido es demasiado común para avisar sin la fecha de nacimiento.
+        $this->assertSame([], $reasons(['first_name' => 'Maria', 'last_name' => 'Osorio']));
+        $this->assertSame([], $reasons(['first_name' => 'Ana', 'last_name' => 'Flores Ramos']));
+    }
+
     public function test_patients_are_found_without_typing_accents(): void
     {
         $maria = Patient::factory()->create(['first_name' => 'María José', 'last_name' => 'Ñañez Quispe']);
@@ -263,7 +279,7 @@ class PatientRegistrationTest extends TestCase
             ->assertSee('Enviar enlace de Mi cuenta');
 
         Livewire::test(ViewPatient::class, ['record' => $mother->getRouteKey()])
-            ->mountAction(TestAction::make('sendAccessLink')->schemaComponent('family', 'infolist'))
+            ->mountAction(TestAction::make('sendAccessLink')->schemaComponent('profile.family', 'infolist'))
             ->assertSchemaStateSet(fn (array $state) => $this->assertStringContainsString('este es tu enlace para entrar a Mi cuenta', $state['body']) ?? []);
     }
 }

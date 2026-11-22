@@ -1061,6 +1061,8 @@ html.odv-locked :has(.odv.is-expanded) { z-index: 45 !important; }
 }
 @media print { .odv-head, .odv-tools, .odv-card, .odv-parse { display: none !important; } }
 
+/* Historia clínica: "Registrar antecedentes" y "Sin antecedentes relevantes", uno debajo del otro en la columna angosta. */
+.pt-background-actions .fi-ac.fi-width-full { grid-template-columns: minmax(0, 1fr); }
 /* Historia clínica: al llegar a una pestaña desde otro lado, la barra de arriba no la tapa. */
 .fi-sc-tabs { scroll-margin-top: 5rem; }
 
@@ -1175,6 +1177,29 @@ button.pt-chip { transition: transform 160ms ease-out; }
 .pt-family a:hover { text-decoration: underline; text-underline-offset: 2px; }
 .dark .pt-family a { color: var(--primary-400); }
 @media (pointer: coarse) { .pt-chip { padding: .45rem .8rem; } .pt-contact .fi-link { min-height: 2.75rem; } }
+
+/* ---------- Ficha: el perfil a la izquierda, con sus partes en títulos chicos, y las pestañas a la derecha ---------- */
+.pt-profile > .fi-section > .fi-section-content-ctn > .fi-section-content { row-gap: 1rem; }
+.pt-profile > .fi-section > .fi-section-content-ctn > .fi-section-content > .fi-grid-col + .fi-grid-col { padding-top: 1rem; border-top: 1px solid var(--gray-100); }
+.dark .pt-profile > .fi-section > .fi-section-content-ctn > .fi-section-content > .fi-grid-col + .fi-grid-col { border-color: rgb(255 255 255 / .06); }
+.pt-profile .fi-section-not-contained .fi-section-content { row-gap: .75rem; }
+.pt-profile .fi-section-not-contained .fi-section-header-heading { font-size: .75rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--gray-500); }
+.dark .pt-profile .fi-section-not-contained .fi-section-header-heading { color: var(--gray-400); }
+.pt-profile > .fi-section-header .fi-section-header-description { font-weight: 500; color: var(--gray-600); }
+.dark .pt-profile > .fi-section-header .fi-section-header-description { color: var(--gray-300); }
+.pt-step-buttons { flex: none; display: flex; flex-wrap: wrap; gap: .5rem; justify-content: flex-end; }
+@media (max-width: 40rem) { .pt-step-buttons { flex-basis: 100%; justify-content: flex-start; margin-left: 2rem; } .pt-step-buttons .pt-step-button { margin-left: 0; } }
+.pt-list-heading { margin: 0 0 .5rem; font-size: .75rem; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; color: var(--gray-500); }
+.pt-plans + .pt-list-heading, .fi-sc-component + .fi-sc-component .pt-list-heading { margin-top: .75rem; }
+.pt-side { display: flex; align-items: center; gap: .15rem; }
+/* La alerta médica de la ficha en una franja: el texto a la izquierda y su botón a la derecha. */
+@media (min-width: 48rem) {
+    .pt-alert .fi-callout { align-items: center; padding-block: .7rem; }
+    .pt-alert .fi-callout-main { display: flex; align-items: center; justify-content: space-between; gap: .5rem 1.25rem; }
+    .pt-alert .fi-callout-text { display: flex; flex-wrap: wrap; align-items: baseline; gap: .1rem .6rem; }
+    .pt-alert .fi-callout-footer { flex: none; margin-top: 0; }
+}
+.pt-event-menu { margin-top: -.3rem; }
 
 /* ---------- Ganancias: tablas ---------- */
 
