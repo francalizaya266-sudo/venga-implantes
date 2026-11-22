@@ -77,22 +77,28 @@ use Illuminate\Support\Str;
 
 /**
  * Pantalla de la atención: todo lo que el doctor escribe mientras atiende, en el orden en que pasa la cita.
- * Arriba, una barra fija con el paciente, sus alertas, las secciones y Terminar. Después, tres pasos: antes de
+ * Arriba, una barra fija con el paciente, sus alertas, los tres pasos y Terminar. Después, tres pasos: antes de
  * empezar (motivo, examen, radiografías), lo que hiciste (con el odontograma fijo a la izquierda en la tablet
  * y la computadora) y lo que se lleva el paciente (indicaciones y receta, que salen juntas).
  */
 class ConsultationForm
 {
-    /** @var array<string, string> Secciones de la barra fija: ancla → nombre. */
-    public const SECTIONS = [
-        'motivo' => 'Motivo',
-        'archivos' => 'Rx y fotos',
-        'odontograma' => 'Odontograma',
-        'diagnostico' => 'Diagnóstico',
-        'plan' => 'Tratamientos',
-        'evolucion' => 'Evolución',
-        'indicaciones' => 'Para el paciente',
+    /** @var array<string, string> Los tres pasos de la atención, que son los saltos de la barra fija: ancla → nombre. */
+    public const STEPS = [
+        'paso-1' => 'Antes de empezar',
+        'paso-2' => 'Lo que hiciste',
+        'paso-3' => 'Para el paciente',
     ];
+
+    /** @var array<string, list<string>> Las secciones de cada paso: el paso se marca si alguna ya tiene algo escrito. */
+    private const STEP_SECTIONS = [
+        'paso-1' => ['motivo', 'archivos'],
+        'paso-2' => ['diagnostico', 'plan', 'evolucion'],
+        'paso-3' => ['indicaciones'],
+    ];
+
+    /** Pasadas estas horas, la barra ya no cuenta el tiempo: la atención quedó abierta y dice desde cuándo. */
+    private const CLOCK_HOURS = 8;
 
     /** Aviso al imprimir o enviar la receta de un paciente sin antecedentes. */
     private const WITHOUT_BACKGROUND = 'No sabemos si tiene alergias: no hay antecedentes registrados. Pregúntale antes de entregarle la receta.';
@@ -108,19 +114,12 @@ class ConsultationForm
                 View::make('filament.clinical.consultation-bar')
                     ->viewData(fn (?Consultation $record, $livewire) => self::barData($record, $livewire)),
 
-                self::step(1, 'Antes de empezar', fn (?Consultation $record) => match ($record?->visitType()) {
+                self::step(1, fn (?Consultation $record) => match ($record?->visitType()) {
                     VisitType::PlanSession => 'Es una sesión de su plan: revisa sus antecedentes y anota solo lo que haya de nuevo.',
                     VisitType::Control => 'Es un control: pregúntale cómo le ha ido y anota solo si hay algo nuevo.',
                     VisitType::Urgent => 'Sin cita o de urgencia: qué le pasa, desde cuándo, cuánto le duele y sus signos vitales.',
                     default => 'Lo que cuenta el paciente y lo que encuentras al examinarlo.',
                 }),
-
-                Callout::make('Faltan los antecedentes médicos')
-                    ->key('backgroundMissing')
-                    ->description('Pregunta por alergias, enfermedades y medicamentos antes de empezar. Se registra aquí mismo, sin salir de la atención.')
-                    ->warning()
-                    ->actions([self::askBackgroundAction()])
-                    ->visible(fn (?Consultation $record) => $record && ! $record->patient->medicalBackground),
 
                 Callout::make('Revisa antes de empezar')
                     ->key('risks')
@@ -214,7 +213,7 @@ class ConsultationForm
                             ->viewData(fn (?Consultation $record) => ['files' => $record?->files()->latest('id')->get() ?? collect()]),
                     ]),
 
-                self::step(2, 'Lo que hiciste', fn (?Consultation $record) => self::hidesOdontogram($record)
+                self::step(2, fn (?Consultation $record) => self::hidesOdontogram($record)
                     ? 'Diagnóstico, lo que se cobra y cómo fue.'
                     : 'Odontograma, diagnóstico, lo que se cobra y cómo fue.'),
 
@@ -362,7 +361,7 @@ class ConsultationForm
                         ])->columnSpan(fn (?Consultation $record) => self::hidesOdontogram($record) ? 'full' : ['lg' => 2]),
                     ]),
 
-                self::step(3, 'Para el paciente', 'Lo que se lleva a casa. Las indicaciones y la receta se imprimen o se envían juntas.'),
+                self::step(3, 'Lo que se lleva a casa. Las indicaciones y la receta se imprimen o se envían juntas.'),
 
                 Section::make('Indicaciones y receta')
                     ->id('indicaciones')
@@ -469,11 +468,16 @@ class ConsultationForm
      *
      * @param  string|Closure(?Consultation): string  $description
      */
-    private static function step(int $number, string $title, string|Closure $description): View
+    private static function step(int $number, string|Closure $description): View
     {
         return View::make('filament.clinical.consultation-step')
             ->key('step'.$number)
-            ->viewData(fn (?Consultation $record) => ['number' => $number, 'title' => $title, 'description' => $description instanceof Closure ? $description($record) : $description]);
+            ->viewData(fn (?Consultation $record) => [
+                'id' => 'paso-'.$number,
+                'number' => $number,
+                'title' => self::STEPS['paso-'.$number],
+                'description' => $description instanceof Closure ? $description($record) : $description,
+            ]);
     }
 
     /**
@@ -742,7 +746,7 @@ class ConsultationForm
             ->all();
     }
 
-    /** Abre la ventana de antecedentes de la página (la misma desde cualquier aviso). */
+    /** Abre la ventana de antecedentes de la página (la misma de la barra fija). */
     private static function askBackgroundAction(): Action
     {
         return Action::make('askBackground')
@@ -754,8 +758,8 @@ class ConsultationForm
     }
 
     /**
-     * Lo que muestra la barra fija: quién es, qué se le hace hoy, sus alertas, el consentimiento y qué secciones
-     * ya tienen algo escrito.
+     * Lo que muestra la barra fija: quién es, qué se le hace hoy, sus alertas, el consentimiento, cuánto va de la
+     * atención, si se guardó y qué pasos ya tienen algo escrito.
      *
      * @return array<string, mixed>
      */
@@ -769,16 +773,55 @@ class ConsultationForm
             'meta' => $record ? collect([
                 $patient->age !== null ? $patient->age.' años' : null,
                 $record->appointment?->treatment?->name,
-                $record->attended_at->translatedFormat('D d/m · H:i'),
             ])->filter()->implode(' · ') : null,
             'alerts' => $patient ? ClinicalAlerts::withSeverity($patient) : [],
             'hasBackground' => $patient?->medicalBackground !== null,
             'consent' => $record ? self::consentStatus($record) : null,
+            'clock' => $record ? self::clock($record) : null,
             'autosavedAt' => $livewire->autosavedAt ?? null,
-            'sections' => self::hidesOdontogram($record) ? Arr::except(self::SECTIONS, 'odontograma') : self::SECTIONS,
-            'filled' => $record ? self::filledSections($record, $data) : [],
+            'unsaved' => $livewire->unsavedReason ?? null,
+            'steps' => self::STEPS,
+            'filled' => $record ? self::filledSteps($record, $data) : [],
             'historyUrl' => $patient ? PatientResource::getUrl('clinical', ['record' => $patient]) : null,
         ];
+    }
+
+    /**
+     * El cronómetro de la barra: los segundos que van desde que empezó, para que el navegador siga contando sin
+     * depender de su reloj. Una atención que quedó abierta de otro día dice desde cuándo, no un tiempo enorme.
+     *
+     * @return array{seconds: int|null, label: string, since: string}
+     */
+    public static function clock(Consultation $consultation): array
+    {
+        /** @var CarbonInterface $startedAt */
+        $startedAt = $consultation->attended_at;
+        $seconds = (int) max(0, $startedAt->diffInSeconds(now()));
+        $minutes = intdiv($seconds, 60);
+        $since = $startedAt->isToday() ? 'Empezó a las '.$startedAt->format('H:i') : 'Abierta desde el '.$startedAt->translatedFormat('D d/m · H:i');
+
+        if ($seconds >= self::CLOCK_HOURS * 3600) {
+            return ['seconds' => null, 'label' => $since, 'since' => $since];
+        }
+
+        return [
+            'seconds' => $seconds,
+            'label' => 'En atención · '.($minutes < 60 ? $minutes.' min' : intdiv($minutes, 60).' h '.str_pad((string) ($minutes % 60), 2, '0', STR_PAD_LEFT).' min'),
+            'since' => $since,
+        ];
+    }
+
+    /**
+     * Los pasos que ya tienen algo escrito, para marcarlos en la barra.
+     *
+     * @param  array<string, mixed>  $data
+     * @return list<string>
+     */
+    public static function filledSteps(Consultation $consultation, array $data): array
+    {
+        $filled = self::filledSections($consultation, $data);
+
+        return array_keys(array_filter(self::STEP_SECTIONS, fn (array $sections) => array_intersect($sections, $filled) !== []));
     }
 
     /**

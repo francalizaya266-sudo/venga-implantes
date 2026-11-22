@@ -67,6 +67,20 @@ class EditConsultation extends EditRecord
 
     private bool $autosaveFailed = false;
 
+    /** Por qué no se pudo guardar lo último (un diagnóstico sin código, por ejemplo): la barra lo avisa. */
+    #[Locked]
+    public ?string $unsavedReason = null;
+
+    /** Qué falta, dicho como en el consultorio, según el primer campo que no pasó. */
+    private const UNSAVED_REASONS = [
+        'data.diagnoses' => 'falta el código CIE-10 de un diagnóstico',
+        'data.vital_signs.weight' => 'revisa el peso',
+        'data.vital_signs' => 'revisa los signos vitales',
+        'data.prices' => 'revisa un precio',
+        'data.prescription_items' => 'revisa la receta',
+        'data.procedure_details' => 'revisa los datos del tratamiento',
+    ];
+
     /** Medicamentos del formulario: se guardan aparte, en la receta de la atención. */
     private array $prescriptionItems = [];
 
@@ -87,6 +101,12 @@ class EditConsultation extends EditRecord
     public function getBreadcrumb(): string
     {
         return 'Atender';
+    }
+
+    /** Sin "Atenciones › Atender" arriba: mientras se atiende, ese espacio es para la atención. */
+    public function getBreadcrumbs(): array
+    {
+        return [];
     }
 
     /** Las acciones viven en la barra fija (siempre a la vista), no arriba ni al final de la página. */
@@ -117,6 +137,12 @@ class EditConsultation extends EditRecord
         return EditMedicalBackgroundAction::make(fn () => $this->getConsultation()->patient);
     }
 
+    /** Desde la barra, de un toque: se le preguntó y no tiene alergias ni enfermedades, ni toma medicamentos. */
+    public function nothingRelevantAction(): Action
+    {
+        return EditMedicalBackgroundAction::nothingRelevant(fn () => $this->getConsultation()->patient);
+    }
+
     protected function mutateFormDataBeforeFill(array $data): array
     {
         return [...$data, 'prescription_items' => app(PrescriptionService::class)->itemsOf($this->getConsultation())];
@@ -141,11 +167,13 @@ class EditConsultation extends EditRecord
         app(PrescriptionService::class)->syncForConsultation($this->getConsultation(), $this->prescriptionItems);
         $this->savedFingerprint = $this->fingerprint();
         $this->autosavedAt = now()->format('H:i');
+        $this->unsavedReason = null;
     }
 
     /**
      * Guardado automático del borrador (lo llama la barra fija cada pocos segundos), como el odontograma.
-     * Si falta completar algo (por ejemplo, un diagnóstico sin código), espera al guardado a mano.
+     * Si falta completar algo (por ejemplo, un diagnóstico sin código), no lo marca en rojo mientras se escribe:
+     * la barra dice "Sin guardar" y qué falta, y se guarda solo apenas se complete.
      */
     public function autosave(): void
     {
@@ -155,13 +183,18 @@ class EditConsultation extends EditRecord
             return;
         }
 
+        $unsavedBefore = $this->unsavedReason;
         $this->isAutosaving = true;
         $this->save(shouldRedirect: false, shouldSendSavedNotification: false);
         $this->isAutosaving = false;
 
         if ($this->autosaveFailed) {
             $this->resetErrorBag();
-            $this->skipRender();
+
+            // Mientras falte lo mismo, la barra ya lo dice: no hay nada que repintar.
+            if ($this->unsavedReason === $unsavedBefore) {
+                $this->skipRender();
+            }
 
             return;
         }
@@ -171,6 +204,9 @@ class EditConsultation extends EditRecord
 
     protected function onValidationError(ValidationException $exception): void
     {
+        $field = (string) array_key_first($exception->errors());
+        $this->unsavedReason = Arr::first(self::UNSAVED_REASONS, fn (string $reason, string $path) => str_starts_with($field, $path)) ?? 'falta completar algo';
+
         if ($this->isAutosaving) {
             $this->autosaveFailed = true;
 

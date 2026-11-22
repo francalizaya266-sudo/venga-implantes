@@ -36,8 +36,14 @@ use Livewire\Component;
  */
 class OdontogramChart extends Component
 {
-    /** Hallazgos que se muestran como botones; el resto está en "Otros". */
-    public const FREQUENT = ['caries', 'restauracion', 'sellante', 'extraccion_indicada', 'ausente', 'corona', 'tratamiento_pulpar', 'implante', 'fractura', 'remanente_radicular', 'protesis_fija', 'ortodoncia_fija'];
+    /**
+     * Hallazgos que se muestran como botones, en una fila: lo que no cabe queda detrás de "Más", empezando por los
+     * últimos (todo lo demás, en el buscador). En un niño, el sellante pasa adelante y el implante atrás.
+     */
+    public const FREQUENT = ['caries', 'restauracion', 'extraccion_indicada', 'ausente', 'implante', 'corona', 'tratamiento_pulpar', 'sellante', 'fractura', 'remanente_radicular', 'protesis_fija', 'ortodoncia_fija'];
+
+    /** Los primeros botones de hallazgos se ven siempre, aunque la fila sea angosta. */
+    public const ALWAYS_SHOWN_CHIPS = 3;
 
     /** Lo que la ficha de la pieza ofrece marcar primero, según el tipo de diente; el resto se busca. */
     public const QUICK = [
@@ -277,6 +283,25 @@ class OdontogramChart extends Component
     }
 
     /**
+     * Los hallazgos frecuentes en el orden de sus botones: en un niño (dentición de leche o mixta) el sellante va
+     * antes, en el lugar del implante.
+     *
+     * @return list<string>
+     */
+    private function frequentCodes(?Dentition $dentition): array
+    {
+        if (in_array($dentition, [null, Dentition::Permanent], true)) {
+            return self::FREQUENT;
+        }
+
+        $codes = self::FREQUENT;
+        [$implant, $sealant] = [array_search('implante', $codes, true), array_search('sellante', $codes, true)];
+        [$codes[$implant], $codes[$sealant]] = [$codes[$sealant], $codes[$implant]];
+
+        return $codes;
+    }
+
+    /**
      * Otros hallazgos que el doctor marca seguido (en dos pacientes o más): se sugieren junto a los botones.
      *
      * @return Collection<int, OdontogramCondition>
@@ -357,6 +382,9 @@ class OdontogramChart extends Component
         $newIds = count($this->newEntryIds) < $entries->count() ? $this->newEntryIds : [];
         $teeth = self::teethData($entries, $newIds, $rows);
 
+        $codes = $this->frequentCodes($odontogram?->dentition);
+        $frequent = $this->conditions->whereIn('code', $codes)->sortBy(fn ($c) => array_search($c->code, $codes))->values();
+
         return view('livewire.odontogram-chart', [
             'odontogram' => $odontogram,
             'rows' => $rows,
@@ -367,12 +395,12 @@ class OdontogramChart extends Component
             'summary' => collect(['bad', 'good', 'missing', 'today'])->mapWithKeys(fn (string $flag) => [$flag => collect($teeth)->filter(fn (array $tooth) => $tooth['flags'][$flag])->count()])->all(),
             'state' => $odontogram ? ['rows' => $rows, 'teeth' => $this->inspectorData($entries, $newIds, $rows)] : [],
             'preview' => collect($this->dictated)->pluck('marks')->flatten(1)->flatMap(fn (array $mark) => self::spanTeeth($mark['tooth'], $mark['toTooth'], $rows))->unique()->values()->all(),
-            'frequent' => $this->conditions->whereIn('code', self::FREQUENT)->sortBy(fn ($c) => array_search($c->code, self::FREQUENT))->values(),
+            'frequent' => $frequent,
             'canEdit' => $canEdit,
             'config' => [
                 'editable' => $canEdit,
                 'catalog' => $canEdit ? $this->catalog() : [],
-                'frequent' => self::FREQUENT,
+                'frequent' => $frequent->pluck('code')->all(),
                 'favorites' => $canEdit ? $this->favorites->pluck('code')->all() : [],
                 'quick' => self::QUICK,
                 'surfaceNames' => collect(['V', 'P', 'L', 'M', 'D', 'O', 'I'])->mapWithKeys(fn (string $s) => [$s => Teeth::surfaceName($s)])->all(),

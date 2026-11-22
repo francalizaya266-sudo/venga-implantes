@@ -24,7 +24,7 @@
     const typing = (el) => el && (el.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName));
     const ZONES = ['top', 'right', 'bottom', 'left', 'center'];
 
-    const register = () => Alpine.data('odontogram', (config) => ({
+    const odontogram = (config) => ({
         editable: config.editable,
         catalog: config.catalog ?? {},
         frequent: config.frequent ?? [],
@@ -646,7 +646,60 @@
 
             this.recount();
         },
-    }));
+    });
+
+    // Los botones de hallazgos en una sola fila: los que no caben quedan detrás de "Más" (primero los últimos
+    // frecuentes, después los que el doctor marca seguido). El buscador encuentra todo.
+    const chips = () => ({
+        more: false,
+        folded: [],
+
+        init() {
+            this.observer = new ResizeObserver(() => this.fit());
+            this.observer.observe(this.$el);
+            this.$nextTick(() => this.fit());
+        },
+
+        destroy() {
+            this.observer?.disconnect();
+        },
+
+        toggleMore() {
+            this.more = ! this.more;
+            this.$nextTick(() => this.fit());
+        },
+
+        fit() {
+            const toggle = this.$refs.more;
+            const optional = [
+                ...this.$el.querySelectorAll('[data-optional][data-favorite]'),
+                ...this.$el.querySelectorAll('[data-optional]:not([data-favorite])'),
+            ];
+            optional.forEach((chip) => chip.classList.remove('is-folded'));
+            toggle.classList.remove('is-folded');
+            const folded = [];
+
+            if (! this.more) {
+                const firstRow = this.$el.firstElementChild?.offsetTop ?? 0;
+
+                for (let i = optional.length - 1; i >= 0 && toggle.offsetTop > firstRow; i--) {
+                    optional[i].classList.add('is-folded');
+                    folded.push(optional[i].dataset.code);
+                }
+
+                toggle.classList.toggle('is-folded', folded.length === 0);
+            }
+
+            if (folded.join() !== this.folded.join()) {
+                this.folded = folded;
+            }
+        },
+    });
+
+    const register = () => {
+        Alpine.data('odontogram', odontogram);
+        Alpine.data('odontogramChips', chips);
+    };
 
     window.Alpine ? register() : document.addEventListener('alpine:init', register);
 })();
