@@ -11,6 +11,7 @@ use App\Models\Odontogram;
 use App\Models\OdontogramCondition;
 use App\Models\OdontogramEntry;
 use App\Support\Teeth;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Facades\DB;
 
 /** Odontograma por consulta: se parte del último y cada toque marca o desmarca un hallazgo. */
@@ -29,7 +30,7 @@ final class OdontogramService
         $latest = $consultation->patient->odontograms()->with('entries')->latest('id')->first();
 
         $odontogram = $latest
-            ? $latest->copyForConsultation($consultation)
+            ? tap($latest->copyForConsultation($consultation), fn (Odontogram $copy) => $this->growWithAge($copy))
             : Odontogram::create([
                 'patient_id' => $consultation->patient_id,
                 'consultation_id' => $consultation->getKey(),
@@ -137,18 +138,88 @@ final class OdontogramService
         });
     }
 
-    public function changeDentition(Odontogram $odontogram, Dentition $dentition): void
+    /**
+     * Cambia la dentición. Si hay marcas en piezas que la nueva no tiene (la 63 de leche al pasar a adulto), no
+     * cambia nada, salvo que se pida qué hacer con ellas: pasarlas a la pieza de adulto del mismo lugar (solo al
+     * pasar a adulto) o quitarlas. Todo junto: o se hace entero o no se hace.
+     */
+    public function changeDentition(Odontogram $odontogram, Dentition $dentition, bool $removeOutside = false, bool $moveToAdult = false): void
+    {
+        DB::transaction(function () use ($odontogram, $dentition, $removeOutside, $moveToAdult): void {
+            if ($moveToAdult && $dentition === Dentition::Permanent) {
+                $this->entriesOutside($odontogram, $dentition)->each(fn (OdontogramEntry $entry) => $this->moveToAdultTooth($entry));
+            }
+
+            $outside = $this->entriesOutside($odontogram, $dentition);
+
+            if ($outside->isNotEmpty() && ! $removeOutside) {
+                throw ClinicalException::teethOutsideDentition();
+            }
+
+            $outside->each->delete();
+            $odontogram->update(['dentition' => $dentition]);
+        });
+    }
+
+    /**
+     * Las marcas en piezas que esa dentición no tiene (o un tramo que termina en una).
+     *
+     * @return EloquentCollection<int, OdontogramEntry>
+     */
+    public function entriesOutside(Odontogram $odontogram, Dentition $dentition): EloquentCollection
     {
         $teeth = Teeth::all($dentition);
-        $outside = $odontogram->entries()
-            ->where(fn ($query) => $query->whereNotIn('tooth', $teeth)->orWhere(fn ($span) => $span->whereNotNull('to_tooth')->whereNotIn('to_tooth', $teeth)))
-            ->exists();
 
-        if ($outside) {
-            throw ClinicalException::teethOutsideDentition();
+        return OdontogramEntry::query()
+            ->where('odontogram_id', $odontogram->getKey())
+            ->where(fn ($query) => $query->whereNotIn('tooth', $teeth)->orWhere(fn ($span) => $span->whereNotNull('to_tooth')->whereNotIn('to_tooth', $teeth)))
+            ->get();
+    }
+
+    /**
+     * Al empezar una atención: si el paciente creció (cumplió 6 o 13), su odontograma pasa a la dentición que le
+     * toca, siempre que no se pierda ninguna marca. De niño a mixta siempre se puede (mixta tiene todas las piezas);
+     * a adulto, solo si no hay marcas en piezas de leche. Sin fecha de nacimiento no se toca.
+     */
+    public function growWithAge(Odontogram $odontogram): void
+    {
+        $patient = $odontogram->patient;
+
+        if ($patient?->age === null) {
+            return;
         }
 
-        $odontogram->update(['dentition' => $dentition]);
+        $order = [Dentition::Primary->value => 0, Dentition::Mixed->value => 1, Dentition::Permanent->value => 2];
+        $current = $order[$odontogram->dentition->value];
+
+        foreach ([$patient->suggestedDentition(), Dentition::Mixed] as $target) {
+            if ($order[$target->value] > $current && $this->entriesOutside($odontogram, $target)->isEmpty()) {
+                $odontogram->update(['dentition' => $target]);
+
+                return;
+            }
+        }
+    }
+
+    /** La marca de una pieza de leche pasa a la de adulto del mismo lugar; si ahí ya estaba igual, se queda esa. */
+    private function moveToAdultTooth(OdontogramEntry $entry): void
+    {
+        $tooth = Teeth::adultOf($entry->tooth);
+
+        if ($tooth === null) {
+            return;
+        }
+
+        $alreadyThere = OdontogramEntry::query()
+            ->where('odontogram_id', $entry->odontogram_id)
+            ->where('tooth', $tooth)
+            ->where('surface', $entry->surface)
+            ->where('odontogram_condition_id', $entry->odontogram_condition_id)
+            ->exists();
+
+        $alreadyThere
+            ? $entry->delete()
+            : $entry->update(['tooth' => $tooth, 'to_tooth' => $entry->to_tooth ? (Teeth::adultOf($entry->to_tooth) ?? $entry->to_tooth) : null]);
     }
 
     /**

@@ -12,7 +12,11 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\DB;
 
-/** Versión del odontograma de un paciente (una por consulta). */
+/**
+ * Versión del odontograma de un paciente (una por consulta).
+ *
+ * @property Dentition $dentition
+ */
 #[Fillable(['patient_id', 'consultation_id', 'doctor_id', 'type', 'dentition', 'specifications', 'observations'])]
 class Odontogram extends Model
 {
@@ -26,6 +30,7 @@ class Odontogram extends Model
         ];
     }
 
+    /** @return BelongsTo<Patient, $this> */
     public function patient(): BelongsTo
     {
         return $this->belongsTo(Patient::class);

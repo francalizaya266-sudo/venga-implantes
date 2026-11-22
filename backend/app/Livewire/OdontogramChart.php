@@ -22,6 +22,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Locked;
 use Livewire\Component;
@@ -88,13 +89,26 @@ class OdontogramChart extends Component
     public array $applied = [];
 
     /**
-     * "Deshacer": por cada cambio de esta pantalla (un toque, "Tratado", quitar, lo dictado), qué marcas se
-     * agregaron y cómo estaban las que se quitaron o cambiaron. Los últimos pasos, del más viejo al más nuevo.
+     * "Deshacer": por cada cambio de esta pantalla (un toque, "Tratado", quitar, lo dictado, la dentición), qué marcas
+     * se agregaron, cómo estaban las que se quitaron o cambiaron y la dentición de antes. Los últimos pasos, del más
+     * viejo al más nuevo.
      *
-     * @var list<array{label: string, added: list<int>, removed: array<int, array<string, mixed>>, changed: array<int, array<string, mixed>>}>
+     * @var list<array{label: string, added: list<int>, removed: array<int, array<string, mixed>>, changed: array<int, array<string, mixed>>, dentition?: string|null}>
      */
     #[Locked]
     public array $undo = [];
+
+    /**
+     * Cambiar de dentición con marcas en piezas que la nueva no tiene: se pregunta antes de quitarlas.
+     *
+     * @var array{dentition: string, teeth: list<int>, marks: int, movable: bool}|null
+     */
+    #[Locked]
+    public ?array $pendingDentition = null;
+
+    /** Sube con cada cambio de dentición pedido: el selector se vuelve a dibujar y muestra la que quedó de verdad. */
+    #[Locked]
+    public int $dentitionRevision = 0;
 
     /** Cuántos cambios se pueden deshacer. */
     private const UNDO_STEPS = 10;
@@ -133,6 +147,7 @@ class OdontogramChart extends Component
         $this->specifications = (string) $odontogram?->specifications;
         $this->observations = (string) $odontogram?->observations;
         $this->undo = [];
+        $this->pendingDentition = null;
         unset($this->odontogram, $this->newEntryIds);
     }
 
@@ -273,6 +288,10 @@ class OdontogramChart extends Component
         $renamed = [];
 
         DB::transaction(function () use ($step, $odontogramId, &$renamed): void {
+            if ($step['dentition'] ?? null) {
+                Odontogram::query()->whereKey($odontogramId)->update(['dentition' => $step['dentition']]);
+            }
+
             OdontogramEntry::query()->where('odontogram_id', $odontogramId)->whereKey($step['added'])->get()->each->delete();
 
             foreach ($step['changed'] as $id => $attributes) {
@@ -290,19 +309,122 @@ class OdontogramChart extends Component
             'added' => array_map(fn (int $id): int => $renamed[$id] ?? $id, $older['added']),
             'changed' => collect($older['changed'])->mapWithKeys(fn (array $attributes, int $id): array => [$renamed[$id] ?? $id => $attributes])->all(),
         ], $this->undo);
+        $this->dentitionRevision++;
+        $this->pendingDentition = null;
         unset($this->odontogram, $this->newEntryIds);
         Notification::make()->success()->title('Se deshizo: '.$step['label'])->send();
     }
 
-    /** Cambiar la dentición rehace las piezas: lo de antes ya no se puede deshacer. */
+    /**
+     * Cambiar la dentición (se puede deshacer). Si hay marcas en piezas que la nueva no tiene, primero se pregunta
+     * qué hacer con ellas (confirmDentition).
+     */
     public function setDentition(string $dentition): void
     {
-        if (! $this->canEdit() || ! ($value = Dentition::tryFrom($dentition))) {
+        $this->dentitionRevision++;
+        $this->pendingDentition = null;
+        $odontogram = $this->odontogram;
+
+        if (! $this->canEdit() || ! $odontogram || ! ($value = Dentition::tryFrom($dentition)) || $value === $odontogram->dentition) {
             return;
         }
 
-        $this->attempt(fn () => app(OdontogramService::class)->changeDentition($this->odontogram, $value));
-        $this->undo = [];
+        $outside = app(OdontogramService::class)->entriesOutside($odontogram, $value);
+
+        if ($outside->isEmpty()) {
+            $this->changeDentition($odontogram, $value);
+
+            return;
+        }
+
+        $teeth = $outside->flatMap(fn (OdontogramEntry $entry) => [$entry->tooth, $entry->to_tooth])->filter()->unique()->sort()->values();
+
+        $this->pendingDentition = [
+            'dentition' => $value->value,
+            'teeth' => $teeth->all(),
+            'marks' => $outside->count(),
+            // A adulto, si todas son de leche: cada una tiene su pieza de adulto en el mismo lugar (la 63 es la 23).
+            'movable' => $value === Dentition::Permanent && $teeth->every(fn (int $tooth) => Teeth::adultOf($tooth) !== null),
+        ];
+    }
+
+    /** La respuesta a la pregunta: "move" pasa las marcas a la pieza de adulto, "remove" las quita. */
+    public function confirmDentition(string $how): void
+    {
+        $pending = $this->pendingDentition;
+        $this->pendingDentition = null;
+        $this->dentitionRevision++;
+
+        $odontogram = Odontogram::query()->find($this->odontogramId);
+
+        if (! $this->canEdit() || ! $odontogram || $pending === null || ! in_array($how, ['move', 'remove'], true)) {
+            return;
+        }
+
+        $this->changeDentition($odontogram, Dentition::from($pending['dentition']), moveToAdult: $how === 'move' && $pending['movable']);
+    }
+
+    public function cancelDentition(): void
+    {
+        $this->pendingDentition = null;
+        $this->dentitionRevision++;
+    }
+
+    /**
+     * La pregunta al cambiar de dentición con marcas que no caben: "5 marcas en la pieza 63, que no existe en adulto".
+     *
+     * @return array{text: string, name: string, move: string|null, remove: string}|null
+     */
+    #[Computed]
+    public function dentitionQuestion(): ?array
+    {
+        if ($this->pendingDentition === null) {
+            return null;
+        }
+
+        ['dentition' => $dentition, 'teeth' => $teeth, 'marks' => $marks, 'movable' => $movable] = $this->pendingDentition;
+        $name = self::dentitionName(Dentition::from($dentition));
+        $where = count($teeth) === 1
+            ? "en la pieza {$teeth[0]}, que no existe"
+            : 'en las piezas '.Arr::join($teeth, ', ', ' y ').', que no existen';
+        $them = $marks === 1 ? 'la' : 'las';
+
+        return [
+            'text' => ($marks === 1 ? '1 marca' : "{$marks} marcas")." {$where} en {$name}. ¿Qué hago con el{$them}?",
+            'name' => $name,
+            'move' => $movable ? "Pasar{$them} a la ".Arr::join(array_map(fn (int $tooth) => Teeth::adultOf($tooth), $teeth), ', ', ' y ') : null,
+            'remove' => "Quitar{$them}",
+        ];
+    }
+
+    /**
+     * Un adulto (13 años o más) con el odontograma de niño o mixto: casi siempre es un error, pero puede tener un
+     * diente de leche que no se cayó.
+     */
+    private static function dentitionWarning(?Odontogram $odontogram, bool $canEdit): ?string
+    {
+        $patient = $odontogram?->patient;
+        $age = $patient?->age;
+
+        if (! $canEdit || ! $odontogram || $age === null || $age < 13 || $odontogram->dentition === Dentition::Permanent) {
+            return null;
+        }
+
+        return "{$patient->first_name} tiene {$age} años y el odontograma está en ".self::dentitionName($odontogram->dentition).'. Si no tiene dientes de leche, pásalo a adulto.';
+    }
+
+    /** "adulto", "niño", "mixta": el nombre corto de la dentición, para las frases. */
+    private static function dentitionName(Dentition $dentition): string
+    {
+        return mb_strtolower(Str::before($dentition->getLabel(), ' ('));
+    }
+
+    private function changeDentition(Odontogram $odontogram, Dentition $dentition, bool $moveToAdult = false): void
+    {
+        $this->tracked('pasar a '.self::dentitionName($dentition), fn () => $this->attempt(
+            fn () => app(OdontogramService::class)->changeDentition($odontogram, $dentition, removeOutside: true, moveToAdult: $moveToAdult),
+        ));
+        unset($this->odontogram, $this->newEntryIds);
     }
 
     public function updatedSpecifications(): void
@@ -458,6 +580,7 @@ class OdontogramChart extends Component
             'preview' => collect($this->dictated)->pluck('marks')->flatten(1)->flatMap(fn (array $mark) => self::spanTeeth($mark['tooth'], $mark['toTooth'], $rows))->unique()->values()->all(),
             'frequent' => $frequent,
             'canEdit' => $canEdit,
+            'dentitionWarning' => self::dentitionWarning($odontogram, $canEdit),
             'config' => [
                 'editable' => $canEdit,
                 'catalog' => $canEdit ? $this->catalog() : [],
@@ -691,6 +814,7 @@ class OdontogramChart extends Component
     private function tracked(string $label, callable $change): void
     {
         $before = $this->undoSnapshot();
+        $dentitionBefore = $this->savedDentition();
         $change();
         $after = $this->undoSnapshot();
 
@@ -699,11 +823,18 @@ class OdontogramChart extends Component
             'added' => array_keys(array_diff_key($after, $before)),
             'removed' => array_diff_key($before, $after),
             'changed' => array_filter(array_intersect_key($before, $after), fn (array $attributes, int $id) => $attributes !== $after[$id], ARRAY_FILTER_USE_BOTH),
+            'dentition' => $dentitionBefore !== $this->savedDentition() ? $dentitionBefore : null,
         ];
 
-        if ($step['added'] !== [] || $step['removed'] !== [] || $step['changed'] !== []) {
+        if ($step['added'] !== [] || $step['removed'] !== [] || $step['changed'] !== [] || $step['dentition'] !== null) {
             $this->undo = array_slice([...$this->undo, $step], -self::UNDO_STEPS);
         }
+    }
+
+    /** La dentición tal como está guardada (para "Deshacer" un cambio de dentición). */
+    private function savedDentition(): ?string
+    {
+        return Odontogram::query()->whereKey($this->odontogramId)->toBase()->value('dentition');
     }
 
     /** @return array<int, array<string, mixed>> Las marcas del odontograma tal como están guardadas, por id. */

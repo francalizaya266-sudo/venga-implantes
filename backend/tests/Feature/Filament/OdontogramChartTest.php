@@ -108,20 +108,49 @@ class OdontogramChartTest extends TestCase
         $this->assertSame([], $marks());
     }
 
-    public function test_undo_is_only_for_who_edits_and_forgets_a_dentition_change(): void
+    public function test_a_dentition_change_is_undone_too_and_only_by_who_edits(): void
     {
         [$doctor, $consultation] = $this->consultation();
         $this->actingAs($doctor->user);
+        $consultation->odontogram->update(['dentition' => Dentition::Permanent]);
 
-        Livewire::test(OdontogramChart::class, ['record' => $consultation, 'editable' => true])
+        Livewire::test(OdontogramChart::class, ['record' => $consultation->fresh(), 'editable' => true])
             ->call('mark', 36, 'O', 'caries', 'bad', 'CD')
             ->call('setDentition', Dentition::Mixed->value)
-            ->assertSet('undo', [])
-            ->assertDontSeeHtml('wire:click="undoLast"');
+            ->call('undoLast')
+            ->assertNotified('Se deshizo: pasar a mixta')
+            ->assertSet('dentitionRevision', 2);
+        $this->assertSame(Dentition::Permanent, $consultation->odontogram->fresh()->dentition);
+        $this->assertSame([36], $consultation->odontogram->entries()->pluck('tooth')->all());
 
         Livewire::test(OdontogramChart::class, ['record' => $consultation])
             ->assertDontSeeHtml('wire:click="undoLast"')
-            ->assertDontSee('Deshacer');
+            ->assertDontSee('Deshacer')
+            ->call('setDentition', Dentition::Primary->value);
+        $this->assertSame(Dentition::Permanent, $consultation->odontogram->fresh()->dentition);
+    }
+
+    public function test_marks_on_a_milk_tooth_go_to_the_adult_tooth_when_changing_to_adult(): void
+    {
+        [$doctor, $consultation] = $this->consultation();
+        $this->actingAs($doctor->user);
+        $consultation->odontogram->update(['dentition' => Dentition::Mixed]);
+        $marks = fn (): array => $consultation->odontogram->entries()->orderBy('tooth')->orderBy('surface')->get()->map(fn ($entry) => $entry->tooth.$entry->surface)->all();
+
+        $chart = Livewire::test(OdontogramChart::class, ['record' => $consultation->fresh(), 'editable' => true])
+            ->call('mark', 63, 'M', 'caries', 'bad', 'CD')
+            ->call('mark', 63, 'D', 'caries', 'bad', 'CD')
+            ->call('setDentition', Dentition::Permanent->value)
+            ->assertSee(['2 marcas en la pieza 63, que no existe en adulto. ¿Qué hago con ellas?', 'Pasarlas a la 23', 'Quitarlas y pasar a adulto'])
+            ->call('confirmDentition', 'move')
+            ->assertDontSee('Pasarlas a la 23');
+        $this->assertSame(Dentition::Permanent, $consultation->odontogram->fresh()->dentition);
+        $this->assertSame(['23D', '23M'], $marks());
+
+        // Deshacer lo devuelve todo: mixta y la caries en la 63.
+        $chart->call('undoLast');
+        $this->assertSame(Dentition::Mixed, $consultation->odontogram->fresh()->dentition);
+        $this->assertSame(['63D', '63M'], $marks());
     }
 
     public function test_the_filters_count_teeth_and_today_shows_only_what_changed_since_the_last_visit(): void

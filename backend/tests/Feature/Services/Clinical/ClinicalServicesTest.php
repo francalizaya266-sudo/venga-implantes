@@ -106,6 +106,28 @@ class ClinicalServicesTest extends TestCase
         $this->assertSame([16], $second->odontogram->entries()->pluck('tooth')->all());
     }
 
+    public function test_the_next_consultation_grows_the_odontogram_with_the_age_without_losing_marks(): void
+    {
+        $doctor = $this->doctorOffering(Treatment::factory()->create());
+        $visit = function (Patient $patient, int $tooth) use ($doctor): Dentition {
+            $consultation = $this->consultations()->startWithoutAppointment($patient, $doctor->user);
+            $this->odontograms()->toggle($consultation->odontogram, $this->condition('caries'), ToothState::Bad, $tooth, 'O');
+            $this->consultations()->close($consultation, $doctor->user);
+
+            return $consultation->odontogram->dentition;
+        };
+        $teenager = Patient::factory()->create(['birth_date' => now()->subYears(12)->subMonths(11)]);
+        $retained = Patient::factory()->create(['birth_date' => now()->subYears(12)->subMonths(11)]);
+        $child = Patient::factory()->create(['birth_date' => now()->subYears(5)->subMonths(11)]);
+
+        $this->assertSame([Dentition::Mixed, Dentition::Mixed, Dentition::Primary], [$visit($teenager, 16), $visit($retained, 55), $visit($child, 55)]);
+        $this->travel(2)->months();
+
+        // Cumplió 13: pasa a adulto, salvo que tenga marcas en piezas de leche. El niño que cumplió 6 pasa a mixta con su 55.
+        $this->assertSame([Dentition::Permanent, Dentition::Mixed, Dentition::Mixed], [$visit($teenager, 26), $visit($retained, 54), $visit($child, 54)]);
+        $this->assertSame([54, 55], Patient::find($child->id)->odontograms()->latest('id')->first()->entries()->orderBy('tooth')->pluck('tooth')->all());
+    }
+
     public function test_only_the_doctor_of_the_appointment_can_attend_it(): void
     {
         $treatment = Treatment::factory()->create();

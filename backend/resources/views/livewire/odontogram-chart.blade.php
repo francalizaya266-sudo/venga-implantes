@@ -66,7 +66,8 @@
 
                     @if ($canEdit)
                         <x-filament::input.wrapper class="odv-select">
-                            <x-filament::input.select wire:change="setDentition($event.target.value)" aria-label="Dentición">
+                            {{-- Se vuelve a dibujar en cada cambio pedido: si no se hizo, muestra la que sigue de verdad. --}}
+                            <x-filament::input.select wire:key="dentition-{{ $dentitionRevision }}" wire:change="setDentition($event.target.value)" aria-label="Dentición">
                                 @foreach (\App\Enums\Dentition::cases() as $dentition)
                                     <option value="{{ $dentition->value }}" @selected($dentition === $odontogram->dentition)>{{ $dentition->getLabel() }}</option>
                                 @endforeach
@@ -108,6 +109,36 @@
                     </button>
                 </div>
             </div>
+
+            {{-- Cambiar de dentición con marcas en piezas que la nueva no tiene: se pregunta qué hacer con ellas. --}}
+            @if ($question = $this->dentitionQuestion)
+                <div class="odv-parse" role="alert">
+                    <p class="odv-dentition-text">{{ $question['text'] }}</p>
+                    <div class="odv-parse-foot">
+                        <span class="odv-muted">
+                            @if ($question['move'])
+                                Si las marcaste en el diente de leche por error, pásalas al de adulto. Si de verdad tiene ese diente de leche, cancela y déjalo como está.
+                            @else
+                                Si cancelas, el odontograma se queda como está.
+                            @endif
+                        </span>
+                        <span class="odv-dentition-actions">
+                            <x-filament::button size="sm" color="gray" wire:click="cancelDentition">Cancelar</x-filament::button>
+                            <x-filament::button size="sm" :color="$question['move'] ? 'gray' : 'warning'" wire:click="confirmDentition('remove')" wire:loading.attr="disabled" wire:target="confirmDentition">{{ $question['remove'] }} y pasar a {{ $question['name'] }}</x-filament::button>
+                            @if ($question['move'])
+                                <x-filament::button size="sm" wire:click="confirmDentition('move')" wire:loading.attr="disabled" wire:target="confirmDentition">{{ $question['move'] }}</x-filament::button>
+                            @endif
+                        </span>
+                    </div>
+                </div>
+            @elseif ($dentitionWarning)
+                <div class="odv-parse">
+                    <div class="odv-parse-foot">
+                        <span class="odv-dentition-text">{{ $dentitionWarning }}</span>
+                        <x-filament::button size="sm" color="gray" wire:click="setDentition('permanent')">Pasar a adulto</x-filament::button>
+                    </div>
+                </div>
+            @endif
 
             @if ($canEdit)
                 {{-- Elegir hallazgo, color y sigla no espera al servidor. --}}
