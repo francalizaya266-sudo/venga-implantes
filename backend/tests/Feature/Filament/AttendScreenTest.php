@@ -215,12 +215,21 @@ class AttendScreenTest extends TestCase
     {
         [$doctor, $consultation] = $this->consultation();
         $this->actingAs($doctor->user);
+        $treatment = $consultation->appointment->treatment;
+        $treatment->update(['name' => 'Limpieza dental']);
 
         Livewire::test(EditConsultation::class, ['record' => $consultation->getRouteKey()])
             ->assertSee('Para cirugías, urgencias o pacientes con presión alta')
             ->assertDontSee('Notas del diagnóstico')
             ->callAction(TestAction::make('addDiagnosisNotes')->schemaComponent('diagnosis'))
             ->assertSee('Notas del diagnóstico');
+
+        // Una extracción o un implante los abre: la presión, antes de anestesiar.
+        $treatment->update(['name' => 'Extracción simple']);
+
+        Livewire::test(EditConsultation::class, ['record' => $consultation->getRouteKey()])
+            ->assertSee('Es una cirugía: toma la presión antes de anestesiar.')
+            ->assertDontSee('Para cirugías, urgencias o pacientes con presión alta');
 
         $consultation->patient->medicalBackground()->create(['conditions' => ['hypertension'], 'allergies' => 'Ninguna']);
 

@@ -266,25 +266,48 @@
                                     @endforeach
                                 </svg>
 
-                                <ul class="odv-card-list">
-                                    <template x-for="entry in tooth.entries" x-bind:key="entry.ids.join('-')">
-                                        <li>
-                                            <i class="odv-dot" x-bind:class="`is-${entry.state}`" aria-hidden="true"></i>
-                                            <span class="odv-card-text">
-                                                <span x-text="entry.name"></span>
-                                                <small x-text="`${entry.where} · ${entry.state === 'good' ? 'tratado' : 'por tratar'}`"></small>
-                                            </span>
-                                            <span class="odv-new" x-show="entry.new">{{ $todayWord }}</span>
-                                            @if ($canEdit)
-                                                <span class="odv-card-actions">
-                                                    <button type="button" class="odv-treat" x-show="entry.treatable" x-on:click="treat(entry.ids, entry.code)">✓ Tratado</button>
-                                                    <button type="button" class="odv-icon-btn is-small" x-on:click="$wire.remove(entry.ids)" aria-label="Quitar">×</button>
+                                <div class="odv-card-main">
+                                    <ul class="odv-card-list">
+                                        <template x-for="entry in tooth.entries" x-bind:key="entry.ids.join('-')">
+                                            <li>
+                                                <i class="odv-dot" x-bind:class="`is-${entry.state}`" aria-hidden="true"></i>
+                                                <span class="odv-card-text">
+                                                    <span x-text="entry.name"></span>
+                                                    <small x-text="`${entry.where} · ${entry.state === 'good' ? 'tratado' : 'por tratar'}`"></small>
                                                 </span>
-                                            @endif
-                                        </li>
-                                    </template>
-                                    <li class="odv-muted" x-show="! tooth.entries.length">Sin marcas.</li>
-                                </ul>
+                                                <span class="odv-new" x-show="entry.new">{{ $todayWord }}</span>
+                                                @if ($canEdit)
+                                                    <span class="odv-card-actions">
+                                                        <button type="button" class="odv-treat" x-show="entry.treatable" x-on:click="treat(entry.ids, entry.code)">✓ Tratado</button>
+                                                        <button type="button" class="odv-icon-btn is-small" x-on:click="$wire.remove(entry.ids)" aria-label="Quitar">×</button>
+                                                    </span>
+                                                @endif
+                                            </li>
+                                        </template>
+                                        <li class="odv-muted" x-show="! tooth.entries.length">Sin marcas.</li>
+                                    </ul>
+
+                                    @if ($canEdit)
+                                        {{-- Lo mismo que "Para el diagnóstico y el plan" de abajo, solo de esta pieza: se agrega sin bajar a buscarlo. --}}
+                                        <div class="odv-card-plan" x-show="tooth.plan?.length">
+                                            <span class="odv-quick-label">Para el diagnóstico y el plan</span>
+                                            <ul class="odv-card-list">
+                                                <template x-for="row in tooth.plan ?? []" x-bind:key="row.key">
+                                                    <li>
+                                                        <span class="odv-card-text">
+                                                            <span x-text="row.text"></span>
+                                                            <small x-text="row.detail"></small>
+                                                        </span>
+                                                        <span class="odv-card-actions">
+                                                            <span class="odv-tag" x-show="! row.button">Ya agregado</span>
+                                                            <button type="button" class="odv-treat" x-show="row.button" x-on:click="$wire.applySuggestions([row.key])" x-text="row.button"></button>
+                                                        </span>
+                                                    </li>
+                                                </template>
+                                            </ul>
+                                        </div>
+                                    @endif
+                                </div>
 
                                 @if ($canEdit)
                                     <div class="odv-card-tool">

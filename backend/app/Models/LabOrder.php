@@ -15,6 +15,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Query\Builder as QueryBuilder;
+use Illuminate\Support\Str;
 
 /**
  * Trabajo que se mandó al laboratorio dental (corona, prótesis, férula) para un paciente: cuándo salió, cuándo
@@ -29,6 +30,31 @@ class LabOrder extends Model
 
     /** Días que un trabajo ya recibido sigue pidiendo cita para colocarlo. */
     public const PLACE_WITHIN_DAYS = 60;
+
+    /** Comienzos de palabra (sin tildes) de los tratamientos que se hacen en el laboratorio. */
+    private const WORK_WORDS = ['corona', 'protesis', 'puente', 'incrustac', 'carilla', 'ferula'];
+
+    /** Si el tratamiento, por su nombre, suele salir al laboratorio: "Corona de porcelana", "Prótesis total". */
+    public static function isLabWork(?Treatment $treatment): bool
+    {
+        $words = ' '.Str::of((string) $treatment?->name)->lower()->ascii()->replaceMatches('/[^a-z0-9]+/', ' ')->trim();
+
+        return collect(self::WORK_WORDS)->contains(fn (string $word) => str_contains($words, ' '.$word));
+    }
+
+    /**
+     * Si el paciente tiene un trabajo de laboratorio en curso: todavía no llega, o llegó hace poco y falta
+     * colocarlo.
+     */
+    public static function inProgressFor(int $patientId): bool
+    {
+        return self::query()
+            ->where('patient_id', $patientId)
+            ->where(fn (Builder $query) => $query
+                ->whereNull('received_on')
+                ->orWhere('received_on', '>=', today()->subDays(self::PLACE_WITHIN_DAYS)))
+            ->exists();
+    }
 
     protected function casts(): array
     {

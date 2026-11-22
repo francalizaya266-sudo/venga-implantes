@@ -16,6 +16,7 @@ use App\Models\Charge;
 use App\Models\ConsentTemplate;
 use App\Models\Consultation;
 use App\Models\Doctor;
+use App\Models\LabOrder;
 use App\Models\Patient;
 use App\Models\Supply;
 use App\Models\Treatment;
@@ -78,6 +79,67 @@ class VisitCloseOutTest extends TestCase
         // Al día siguiente la tarjeta ya no aparece.
         $this->travelTo(now()->addDay());
         $this->assertNull(VisitCloseOut::viewData($consultation->fresh(), $doctor->user));
+    }
+
+    public function test_the_next_visit_is_booked_in_the_usual_terms_with_one_tap(): void
+    {
+        $this->freezeMonday();
+        $endo = Treatment::factory()->create(['name' => 'Endodoncia']);
+        $doctor = $this->doctorOffering($endo);
+        $patient = Patient::factory()->create();
+        $plan = TreatmentPlan::create(['patient_id' => $patient->id, 'doctor_id' => $doctor->id, 'title' => 'Plan', 'status' => TreatmentPlanStatus::InProgress, 'accepted_at' => now()->subWeek()]);
+        $item = $plan->items()->create(['treatment_id' => $endo->id, 'description' => 'Endodoncia', 'tooth' => '46', 'unit_price' => 400, 'sessions_planned' => 2, 'accepted_at' => now()->subWeek()]);
+        $consultation = Consultation::factory()->for($patient)->for($doctor)->create(['closed_at' => now()]);
+        $today = CarbonImmutable::today();
+
+        // La sesión pendiente del plan, en otro plazo: la cita nueva llega con ese día y esa sesión.
+        $within = VisitCloseOut::viewData($consultation, $doctor->user)['next']['within'];
+        $this->assertSame(['En 1 semana', 'En 15 días', 'En 1 mes'], array_column($within, 'label'));
+        $this->assertSame(AppointmentResource::nextVisitUrl($patient, $doctor->id, $today->addDays(15), $item), $within[1]['url']);
+
+        $this->actingAs($doctor->user);
+        Livewire::test(ViewConsultation::class, ['record' => $consultation->getRouteKey()])
+            ->assertSeeInOrder(['Próxima cita', 'En 1 semana', 'En 15 días', 'En 1 mes', 'Agendar'])
+            ->assertSeeHtml(e(AppointmentResource::nextVisitUrl($patient, $doctor->id, $today->addDays(30), $item)));
+
+        // Sin nada pendiente, además su control.
+        $other = Consultation::factory()->for($doctor)->create(['closed_at' => now()]);
+        $within = VisitCloseOut::viewData($other, $doctor->user)['next']['within'];
+        $this->assertSame(['En 1 semana', 'En 15 días', 'En 1 mes', 'Control en 6 meses'], array_column($within, 'label'));
+        $this->assertSame(AppointmentResource::nextVisitUrl($other->patient, $doctor->id, $today->addMonths(6)), $within[3]['url']);
+
+        // Con la cita ya agendada, no hay plazos que elegir.
+        Appointment::factory()->for($doctor)->for($endo)->for($patient)->at('2026-11-09 10:00')->confirmed()->create(['treatment_plan_item_id' => $item->id]);
+        $this->assertSame([], VisitCloseOut::viewData($consultation->fresh(), $doctor->user)['next']['within']);
+    }
+
+    public function test_finishing_a_crown_reminds_the_lab_order_unless_one_is_in_progress(): void
+    {
+        $this->freezeMonday();
+        $crown = Treatment::factory()->create(['name' => 'Corona de porcelana']);
+        $doctor = $this->doctorOffering($crown);
+        $consultation = Consultation::factory()->for($doctor)->create(['closed_at' => null]);
+        $consultation->treatments()->attach($crown);
+        $this->actingAs($doctor->user);
+        $reminder = 'Hoy se hizo corona de porcelana y no hay orden de laboratorio. Si sale al laboratorio, anótala en ⋮ › Mandar al laboratorio.';
+
+        Livewire::test(EditConsultation::class, ['record' => $consultation->getRouteKey()])
+            ->mountAction('close')
+            ->assertMountedActionModalSee($reminder);
+
+        // Uno de hace un año ya se colocó: no cuenta.
+        LabOrder::factory()->for($consultation->patient)->create(['doctor_id' => $doctor->id, 'sent_on' => now()->subYear(), 'due_on' => now()->subYear()->addWeek(), 'received_on' => now()->subYear()->addWeek()]);
+
+        Livewire::test(EditConsultation::class, ['record' => $consultation->getRouteKey()])
+            ->mountAction('close')
+            ->assertMountedActionModalSee($reminder);
+
+        // Con un trabajo en curso (se mandó y todavía no llega), ya está anotado.
+        LabOrder::factory()->for($consultation->patient)->create(['doctor_id' => $doctor->id]);
+
+        Livewire::test(EditConsultation::class, ['record' => $consultation->getRouteKey()])
+            ->mountAction('close')
+            ->assertMountedActionModalDontSee('no hay orden de laboratorio');
     }
 
     public function test_once_the_patient_pays_the_collect_alert_leaves_the_bell(): void

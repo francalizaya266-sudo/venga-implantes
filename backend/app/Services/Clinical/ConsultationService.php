@@ -10,6 +10,7 @@ use App\Models\Charge;
 use App\Models\ClinicalTemplate;
 use App\Models\Consultation;
 use App\Models\Doctor;
+use App\Models\LabOrder;
 use App\Models\Patient;
 use App\Models\Treatment;
 use App\Models\TreatmentPlan;
@@ -18,7 +19,9 @@ use App\Models\User;
 use App\Services\Billing\BillingService;
 use App\Services\Booking\AppointmentService;
 use App\Services\Inventory\InventoryService;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 /**
  * Atenciones clínicas: se abren desde la cita (o sin cita), llegan con la plantilla del
@@ -175,10 +178,10 @@ final class ConsultationService
 
     /**
      * Lo que suele olvidarse al terminar: el diagnóstico, el consentimiento firmado, la firma del paquete que se
-     * empezó y los avisos de la receta.
+     * empezó, la orden de laboratorio de la corona y los avisos de la receta.
      * No impide terminar: el doctor decide.
      *
-     * @param  array<string, mixed>  $data  Lo que hay en pantalla (diagnoses, prescription_items).
+     * @param  array<string, mixed>  $data  Lo que hay en pantalla (diagnoses, treatments, planItems, prescription_items).
      * @return list<string>
      */
     public function closingChecks(Consultation $consultation, array $data): array
@@ -194,10 +197,14 @@ final class ConsultationService
             $checks[] = 'Falta firmar el consentimiento de '.mb_strtolower($appointment->treatment->name).'.';
         }
 
-        $worked = TreatmentPlanItem::query()->with('plan')->whereKey(array_values((array) ($data['planItems'] ?? [])))->get();
+        $worked = TreatmentPlanItem::query()->with(['plan', 'treatment'])->whereKey(array_values((array) ($data['planItems'] ?? [])))->get();
 
         if ($worked->contains(fn (TreatmentPlanItem $item) => TreatmentPlanService::paidWithPackage($item))) {
             $checks[] = 'Falta que firme el paquete: lo hecho del paquete no se cobra hasta que firme cómo lo pagará.';
+        }
+
+        if ($labWork = $this->labWorkWithoutOrder($consultation, $worked, (array) ($data['treatments'] ?? []))) {
+            $checks[] = 'Hoy se hizo '.Str::lcfirst($labWork->name).' y no hay orden de laboratorio. Si sale al laboratorio, anótala en ⋮ › Mandar al laboratorio.';
         }
 
         foreach ($data['prescription_items'] ?? [] as $item) {
@@ -207,6 +214,22 @@ final class ConsultationService
         }
 
         return $checks;
+    }
+
+    /**
+     * Lo hecho hoy que sale al laboratorio (la corona, la prótesis) cuando el paciente no tiene ningún trabajo de
+     * laboratorio en curso: es fácil tomar la impresión y olvidar anotar el pedido.
+     *
+     * @param  EloquentCollection<int, TreatmentPlanItem>  $worked  Lo del plan marcado como hecho.
+     * @param  array<int|string, mixed>  $treatmentIds  Lo marcado como hecho fuera del plan.
+     */
+    private function labWorkWithoutOrder(Consultation $consultation, EloquentCollection $worked, array $treatmentIds): ?Treatment
+    {
+        $labWork = $worked->pluck('treatment')
+            ->merge(Treatment::query()->whereKey(array_values($treatmentIds))->get())
+            ->first(fn (?Treatment $treatment) => LabOrder::isLabWork($treatment));
+
+        return $labWork && ! LabOrder::inProgressFor($consultation->patient_id) ? $labWork : null;
     }
 
     /** Permite corregir una atención recién cerrada; todo cambio queda en la auditoría. */

@@ -6,10 +6,12 @@ use App\Enums\Dentition;
 use App\Enums\ToothState;
 use App\Exceptions\ClinicalException;
 use App\Models\Consultation;
+use App\Models\Icd10Code;
 use App\Models\Odontogram;
 use App\Models\OdontogramCondition;
 use App\Models\OdontogramEntry;
 use App\Models\Patient;
+use App\Models\Treatment;
 use App\Services\Clinical\FindingsDictation;
 use App\Services\Clinical\OdontogramService;
 use App\Services\Clinical\OdontogramSuggestions;
@@ -567,6 +569,7 @@ class OdontogramChart extends Component
 
         $codes = $this->frequentCodes($odontogram?->dentition);
         $frequent = $this->conditions->whereIn('code', $codes)->sortBy(fn ($c) => array_search($c->code, $codes))->values();
+        $suggestions = $canEdit ? $this->suggestions() : [];
 
         return view('livewire.odontogram-chart', [
             'odontogram' => $odontogram,
@@ -576,7 +579,7 @@ class OdontogramChart extends Component
             'today' => $newIds,
             'groups' => self::groups($entries, $newIds),
             'summary' => collect(['bad', 'good', 'missing', 'today'])->mapWithKeys(fn (string $flag) => [$flag => collect($teeth)->filter(fn (array $tooth) => $tooth['flags'][$flag])->count()])->all(),
-            'state' => $odontogram ? ['rows' => $rows, 'teeth' => $this->inspectorData($entries, $newIds, $rows)] : [],
+            'state' => $odontogram ? ['rows' => $rows, 'teeth' => $this->inspectorData($entries, $newIds, $rows, $suggestions)] : [],
             'preview' => collect($this->dictated)->pluck('marks')->flatten(1)->flatMap(fn (array $mark) => self::spanTeeth($mark['tooth'], $mark['toTooth'], $rows))->unique()->values()->all(),
             'frequent' => $frequent,
             'canEdit' => $canEdit,
@@ -589,20 +592,22 @@ class OdontogramChart extends Component
                 'quick' => self::QUICK,
                 'surfaceNames' => collect(['V', 'P', 'L', 'M', 'D', 'O', 'I'])->mapWithKeys(fn (string $s) => [$s => Teeth::surfaceName($s)])->all(),
             ],
-            'suggestions' => $canEdit ? $this->suggestions() : [],
+            'suggestions' => $suggestions,
         ]);
     }
 
     /**
      * Lo que la ficha de cada pieza muestra sin preguntar al servidor: su nombre y lo que tiene, con las caras de
-     * una misma caries juntas (como en la lista). Un puente aparece en cada pieza que cubre.
+     * una misma caries juntas (como en la lista). Un puente aparece en cada pieza que cubre. Y lo que se sugiere
+     * para el diagnóstico y el plan de esa pieza, para agregarlo desde ahí sin bajar a buscarlo.
      *
      * @param  Collection<int, OdontogramEntry>  $entries
      * @param  list<int>  $newIds
      * @param  list<list<int>>  $rows
-     * @return array<int, array{name: string, posterior: bool, entries: list<array{ids: list<int>, code: string, name: string, state: string, where: string, treatable: bool, new: bool}>}>
+     * @param  list<array{key: string, tooth: string, surfaces: string|null, findings: list<string>, diagnoses: Collection<int, Icd10Code>, treatment: Treatment|null, planned: bool, diagnosed: bool, optional: bool, done: bool, suggested: bool}>  $suggestions
+     * @return array<int, array{name: string, posterior: bool, entries: list<array{ids: list<int>, code: string, name: string, state: string, where: string, treatable: bool, new: bool}>, plan: list<array{key: string, text: string, detail: string, button: string|null}>}>
      */
-    private function inspectorData(Collection $entries, array $newIds, array $rows): array
+    private function inspectorData(Collection $entries, array $newIds, array $rows, array $suggestions = []): array
     {
         $byTooth = [];
 
@@ -626,11 +631,47 @@ class OdontogramChart extends Component
             }
         }
 
+        $plan = collect($suggestions)->groupBy('tooth')->map(fn (Collection $ofTooth) => $ofTooth->map(fn (array $row) => self::cardSuggestion($row))->values()->all());
+
         return collect(array_merge(...$rows))->mapWithKeys(fn (int $tooth) => [$tooth => [
             'name' => Teeth::name($tooth),
             'posterior' => ! Teeth::isAnterior($tooth),
             'entries' => $byTooth[$tooth] ?? [],
+            'plan' => $plan->get((string) $tooth, []),
         ]])->all();
+    }
+
+    /**
+     * Una sugerencia en la ficha de la pieza: "MO · Restauración con resina", sus códigos y precio, y el botón
+     * con lo que falta agregar (las dos cosas, solo el diagnóstico o solo el plan). Sin botón si ya está todo.
+     *
+     * @param  array{key: string, tooth: string, surfaces: string|null, findings: list<string>, diagnoses: Collection<int, Icd10Code>, treatment: Treatment|null, planned: bool, diagnosed: bool, optional: bool, done: bool, suggested: bool}  $row
+     * @return array{key: string, text: string, detail: string, button: string|null}
+     */
+    private static function cardSuggestion(array $row): array
+    {
+        $treatment = $row['treatment'];
+        $diagnoses = $row['diagnoses'];
+        $toPlan = $treatment !== null && ! $row['planned'];
+
+        return [
+            'key' => $row['key'],
+            'text' => ($row['surfaces'] ? $row['surfaces'].' · ' : '').($treatment->name ?? $diagnoses->first()?->description),
+            'detail' => $diagnoses->map(fn (Icd10Code $code) => $code->code.' '.$code->description)
+                ->push(match (true) {
+                    $toPlan => (float) $treatment->price_from > 0 ? Money::format((float) $treatment->price_from) : 'Sin precio',
+                    $row['planned'] => 'Ya está en el plan',
+                    default => null,
+                })
+                ->filter()
+                ->implode(' · '),
+            'button' => match (true) {
+                $row['done'] => null,
+                $toPlan && ! $row['diagnosed'] => '+ Diagnóstico y plan',
+                $toPlan => '+ Al plan',
+                default => '+ Diagnóstico',
+            },
+        ];
     }
 
     /**
@@ -655,7 +696,7 @@ class OdontogramChart extends Component
     /**
      * Sugerencias para el diagnóstico y el plan; lo agregado en esta pantalla se ve como hecho.
      *
-     * @return list<array<string, mixed>>
+     * @return list<array{key: string, tooth: string, surfaces: string|null, findings: list<string>, diagnoses: Collection<int, Icd10Code>, treatment: Treatment|null, planned: bool, diagnosed: bool, optional: bool, done: bool, suggested: bool}>
      */
     private function suggestions(): array
     {
