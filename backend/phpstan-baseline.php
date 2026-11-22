@@ -636,11 +636,6 @@ $ignoreErrors[] = [
     'path' => __DIR__.'/app/Filament/Resources/Accounts/AccountActions.php',
 ];
 $ignoreErrors[] = [
-    'rawMessage' => 'Access to an undefined property App\\Models\\Patient::$age.',
-    'count' => 1,
-    'path' => __DIR__.'/app/Filament/Resources/Accounts/RelationManagers/PatientsRelationManager.php',
-];
-$ignoreErrors[] = [
     'rawMessage' => 'Access to an undefined property Illuminate\\Database\\Eloquent\\Model::$phone.',
     'count' => 1,
     'path' => __DIR__.'/app/Filament/Resources/Accounts/RelationManagers/PatientsRelationManager.php',
@@ -1571,11 +1566,6 @@ $ignoreErrors[] = [
     'path' => __DIR__.'/app/Filament/Resources/Patients/Pages/ListPatients.php',
 ];
 $ignoreErrors[] = [
-    'rawMessage' => 'Access to an undefined property App\\Models\\Patient::$age.',
-    'count' => 1,
-    'path' => __DIR__.'/app/Filament/Resources/Patients/Pages/ViewClinicalRecord.php',
-];
-$ignoreErrors[] = [
     'rawMessage' => 'Cannot call method getLabel() on string.',
     'count' => 1,
     'path' => __DIR__.'/app/Filament/Resources/Patients/Pages/ViewClinicalRecord.php',
@@ -1806,11 +1796,6 @@ $ignoreErrors[] = [
     'path' => __DIR__.'/app/Filament/Resources/Patients/Schemas/ClinicalRecordInfolist.php',
 ];
 $ignoreErrors[] = [
-    'rawMessage' => 'Access to an undefined property App\\Models\\Patient::$age.',
-    'count' => 1,
-    'path' => __DIR__.'/app/Filament/Resources/Patients/Schemas/PatientForm.php',
-];
-$ignoreErrors[] = [
     'rawMessage' => 'Access to an undefined property Illuminate\\Database\\Eloquent\\Model::$phone.',
     'count' => 1,
     'path' => __DIR__.'/app/Filament/Resources/Patients/Schemas/PatientForm.php',
@@ -1859,11 +1844,6 @@ $ignoreErrors[] = [
     'rawMessage' => 'Call to an undefined method Illuminate\\Database\\Eloquent\\Model::patients().',
     'count' => 1,
     'path' => __DIR__.'/app/Filament/Resources/Patients/Schemas/TreatmentPlanForm.php',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Access to an undefined property App\\Models\\Patient::$age.',
-    'count' => 1,
-    'path' => __DIR__.'/app/Filament/Resources/Patients/Tables/PatientsTable.php',
 ];
 $ignoreErrors[] = [
     'rawMessage' => 'Call to an undefined method Illuminate\\Database\\Eloquent\\Builder::search().',
@@ -2941,11 +2921,6 @@ $ignoreErrors[] = [
     'path' => __DIR__.'/app/Filament/Support/MenuPending.php',
 ];
 $ignoreErrors[] = [
-    'rawMessage' => 'Access to an undefined property App\\Models\\Patient::$age.',
-    'count' => 2,
-    'path' => __DIR__.'/app/Filament/Support/PatientSummary.php',
-];
-$ignoreErrors[] = [
     'rawMessage' => 'Access to an undefined property Illuminate\\Database\\Eloquent\\Model::$doctor.',
     'count' => 1,
     'path' => __DIR__.'/app/Filament/Support/PatientSummary.php',
@@ -3351,11 +3326,6 @@ $ignoreErrors[] = [
     'path' => __DIR__.'/app/Filament/Widgets/DayMomentCard.php',
 ];
 $ignoreErrors[] = [
-    'rawMessage' => 'Access to an undefined property App\\Models\\Patient::$age.',
-    'count' => 2,
-    'path' => __DIR__.'/app/Filament/Widgets/FollowUpsToday.php',
-];
-$ignoreErrors[] = [
     'rawMessage' => 'Access to an undefined property App\\Models\\Patient::$visits_count.',
     'count' => 1,
     'path' => __DIR__.'/app/Filament/Widgets/FollowUpsToday.php',
@@ -3716,11 +3686,6 @@ $ignoreErrors[] = [
     'path' => __DIR__.'/app/Http/Controllers/Api/V1/Account/Concerns/ChangesAppointments.php',
 ];
 $ignoreErrors[] = [
-    'rawMessage' => 'Access to an undefined property App\\Models\\Patient::$age.',
-    'count' => 1,
-    'path' => __DIR__.'/app/Http/Controllers/Api/V1/Account/HealthController.php',
-];
-$ignoreErrors[] = [
     'rawMessage' => 'Strict comparison using !== between string|null and App\\Enums\\Sex::Male will always evaluate to true.',
     'count' => 1,
     'path' => __DIR__.'/app/Http/Controllers/Api/V1/Account/HealthController.php',
@@ -3967,11 +3932,6 @@ $ignoreErrors[] = [
 ];
 $ignoreErrors[] = [
     'rawMessage' => 'Parameter #1 $callback of method Illuminate\\Support\\Collection<int,Illuminate\\Database\\Eloquent\\Model>::reject() expects bool|(callable(Illuminate\\Database\\Eloquent\\Model, int): bool)|Illuminate\\Database\\Eloquent\\Model, Closure(App\\Models\\TreatmentPlanItem): false given.',
-    'count' => 1,
-    'path' => __DIR__.'/app/Http/Controllers/Clinical/PrintController.php',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Parameter #1 $dentition of static method App\\Support\\Teeth::rows() expects App\\Enums\\Dentition, string given.',
     'count' => 1,
     'path' => __DIR__.'/app/Http/Controllers/Clinical/PrintController.php',
 ];
@@ -4459,11 +4419,6 @@ $ignoreErrors[] = [
     'rawMessage' => 'Cannot call method isFuture() on string.',
     'count' => 1,
     'path' => __DIR__.'/app/Models/MagicLink.php',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Access to an undefined property App\\Models\\Patient::$age.',
-    'count' => 3,
-    'path' => __DIR__.'/app/Models/Patient.php',
 ];
 $ignoreErrors[] = [
     'rawMessage' => 'Access to an undefined property Illuminate\\Database\\Eloquent\\Model::$phone.',
@@ -5906,11 +5861,6 @@ $ignoreErrors[] = [
     'path' => __DIR__.'/app/Services/Clinical/FindingsDictation.php',
 ];
 $ignoreErrors[] = [
-    'rawMessage' => 'Access to an undefined property App\\Models\\Patient::$age.',
-    'count' => 1,
-    'path' => __DIR__.'/app/Services/Clinical/MedicationCheck.php',
-];
-$ignoreErrors[] = [
     'rawMessage' => 'Access to an undefined property Illuminate\\Database\\Eloquent\\Model::$conditions.',
     'count' => 4,
     'path' => __DIR__.'/app/Services/Clinical/MedicationCheck.php',
@@ -5972,16 +5922,6 @@ $ignoreErrors[] = [
 ];
 $ignoreErrors[] = [
     'rawMessage' => 'Method App\\Services\\Clinical\\OdontogramService::save() should return App\\Models\\OdontogramEntry but returns Illuminate\\Database\\Eloquent\\Model.',
-    'count' => 1,
-    'path' => __DIR__.'/app/Services/Clinical/OdontogramService.php',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Parameter #1 $dentition of static method App\\Support\\Teeth::rows() expects App\\Enums\\Dentition, string given.',
-    'count' => 1,
-    'path' => __DIR__.'/app/Services/Clinical/OdontogramService.php',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Parameter #2 $dentition of static method App\\Support\\Teeth::exists() expects App\\Enums\\Dentition, string given.',
     'count' => 1,
     'path' => __DIR__.'/app/Services/Clinical/OdontogramService.php',
 ];
@@ -6389,11 +6329,6 @@ $ignoreErrors[] = [
     'rawMessage' => 'Unreachable statement - code above always terminates.',
     'count' => 1,
     'path' => __DIR__.'/app/Services/Clinical/TreatmentPlanService.php',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Access to an undefined property App\\Models\\Patient::$age.',
-    'count' => 1,
-    'path' => __DIR__.'/app/Services/Clinical/TreatmentRisks.php',
 ];
 $ignoreErrors[] = [
     'rawMessage' => 'Access to an undefined property Illuminate\\Database\\Eloquent\\Model::$allergies.',

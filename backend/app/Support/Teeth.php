@@ -31,6 +31,12 @@ final class Teeth
         return array_merge(...self::rows($dentition));
     }
 
+    /** La pieza de adulto que ocupa el lugar de una de leche: la 63 es la 23, la 85 la 45. Null si no es de leche. */
+    public static function adultOf(int $tooth): ?int
+    {
+        return $tooth >= 51 && $tooth <= 85 ? $tooth - 40 : null;
+    }
+
     public static function exists(int $tooth, Dentition $dentition): bool
     {
         return in_array($tooth, self::all($dentition), true);

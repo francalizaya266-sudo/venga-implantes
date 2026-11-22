@@ -32,6 +32,7 @@ use Illuminate\Support\Str;
  * Paciente. Cada familiar tiene su propia historia; comparten el celular de la cuenta.
  *
  * @property-read string $full_name
+ * @property-read int|null $age
  */
 #[Fillable(['account_id', 'relationship', 'first_name', 'last_name', 'document_type', 'document_number', 'birth_date', 'sex', 'email', 'address', 'district', 'occupation', 'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship', 'guardian_name', 'guardian_document', 'guardian_relationship', 'origin', 'referral_code', 'referred_by_patient_id', 'admin_notes', 'first_visit_at', 'last_visit_at'])]
 class Patient extends Model

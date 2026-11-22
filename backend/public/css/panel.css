@@ -955,6 +955,9 @@ button.agenda-slot:focus-visible { outline: 2px solid var(--primary-600); outlin
 .dark .odv-parse .is-error { color: #fbbf24; }
 .odv-parse-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem 1rem; }
 .odv-parse-foot .odv-muted { flex: 1 1 16rem; }
+.odv-dentition-text { margin: 0; font-size: .875rem; font-weight: 500; color: var(--odv-ink); }
+.odv-parse-foot .odv-dentition-text { flex: 1 1 16rem; }
+.odv-dentition-actions { display: flex; flex-wrap: wrap; gap: .5rem; }
 
 /* La hoja con el dibujo. En el celular es más ancha que la pantalla: se desliza y abre centrada. */
 .odv-stage { display: flex; flex-direction: column; gap: .75rem; min-width: 0; }
