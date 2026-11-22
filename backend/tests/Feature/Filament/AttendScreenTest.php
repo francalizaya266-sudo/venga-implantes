@@ -3,6 +3,7 @@
 namespace Tests\Feature\Filament;
 
 use App\Enums\TreatmentPlanStatus;
+use App\Filament\Resources\Consultations\ConsultationResource;
 use App\Filament\Resources\Consultations\Pages\EditConsultation;
 use App\Filament\Resources\Consultations\Schemas\ConsultationForm;
 use App\Models\Appointment;
@@ -61,8 +62,8 @@ class AttendScreenTest extends TestCase
         $this->actingAs($doctor->user);
 
         $page = Livewire::test(EditConsultation::class, ['record' => $consultation->getRouteKey()])
-            ->assertSee(['Faltan los antecedentes médicos', 'Sin antecedentes · registrar'])
-            ->assertDontSee('No sabemos si tiene alergias')
+            ->assertSee('Antecedentes sin registrar')
+            ->assertDontSee(['Faltan los antecedentes médicos', 'No sabemos si tiene alergias'])
             ->fillForm(['prescription_items' => [['medication' => 'Ibuprofeno 400 mg', 'instructions' => '1 cada 8 horas']]])
             ->assertSee('No sabemos si tiene alergias')
             ->mountAction(TestAction::make('printPrescription')->schemaComponent('prescription'))
@@ -73,9 +74,54 @@ class AttendScreenTest extends TestCase
             ->assertHasNoActionErrors()
             ->assertNotified('Antecedentes guardados')
             ->assertSee('Sin alergias ni enfermedades')
-            ->assertDontSee(['Faltan los antecedentes médicos', 'No sabemos si tiene alergias']);
+            ->assertDontSee(['Antecedentes sin registrar', 'No sabemos si tiene alergias']);
 
         $this->assertSame('Ninguna', $consultation->patient->fresh()->medicalBackground->allergies);
+    }
+
+    public function test_nothing_relevant_takes_one_touch_from_the_bar(): void
+    {
+        [$doctor, $consultation] = $this->consultation();
+        $this->actingAs($doctor->user);
+
+        Livewire::test(EditConsultation::class, ['record' => $consultation->getRouteKey()])
+            ->assertSee(['Antecedentes sin registrar', 'Registrar', 'Nada relevante'])
+            ->callAction('nothingRelevant')
+            ->assertNotified('Antecedentes guardados: sin nada relevante')
+            ->assertSee('Sin alergias ni enfermedades')
+            ->assertDontSee('Antecedentes sin registrar');
+
+        $background = $consultation->patient->medicalBackground()->sole();
+        $this->assertSame(['Ninguna', 'Ninguna', $doctor->user->id], [$background->allergies, $background->medications, $background->updated_by_user_id]);
+    }
+
+    public function test_the_bar_jumps_to_the_three_steps_and_counts_the_time(): void
+    {
+        [$doctor, $consultation] = $this->consultation();
+        $consultation->update(['attended_at' => now()]);
+        $this->actingAs($doctor->user);
+        $this->travel(25)->minutes();
+
+        Livewire::test(EditConsultation::class, ['record' => $consultation->getRouteKey()])
+            ->assertSeeHtml(['href="#paso-1"', 'href="#paso-2"', 'href="#paso-3"', 'id="paso-1"', 'id="paso-2"', 'id="paso-3"'])
+            ->assertSeeInOrder(['Antes de empezar', 'Lo que hiciste', 'Para el paciente', 'En atención · 25 min'])
+            ->assertDontSeeHtml('href="#odontograma"');
+
+        // Una atención que quedó abierta de otro día dice desde cuándo, no cuántas horas lleva.
+        $this->travel(1)->days();
+        $clock = ConsultationForm::clock($consultation->fresh());
+        $this->assertNull($clock['seconds']);
+        $this->assertStringStartsWith('Abierta desde el ', $clock['label']);
+        $this->assertStringEndsWith('02/11 · 08:00', $clock['label']);
+    }
+
+    public function test_the_attend_screen_folds_the_menu_and_the_rest_opens_it_again(): void
+    {
+        [$doctor, $consultation] = $this->consultation();
+        $this->actingAs($doctor->user);
+
+        $this->get(ConsultationResource::getUrl('edit', ['record' => $consultation]))->assertOk()->assertSee('})(true);', false);
+        $this->get(ConsultationResource::getUrl('index'))->assertOk()->assertSee('})(false);', false);
     }
 
     public function test_what_the_patient_wrote_when_booking_can_become_the_reason(): void
@@ -133,6 +179,9 @@ class AttendScreenTest extends TestCase
             'planItems' => ['3'],
             'prescription_items' => [['medication' => 'Paracetamol 500 mg']],
         ]));
+
+        // En la barra se marca el paso: el primero con el motivo, el segundo con lo que se hizo.
+        $this->assertSame(['paso-1', 'paso-2'], ConsultationForm::filledSteps($consultation, ['chief_complaint' => 'Dolor', 'procedures' => 'Profilaxis.']));
     }
 
     public function test_vitals_and_diagnosis_notes_stay_folded_until_needed(): void

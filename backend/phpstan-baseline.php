@@ -1187,7 +1187,7 @@ $ignoreErrors[] = [
 ];
 $ignoreErrors[] = [
     'rawMessage' => 'Access to an undefined property Illuminate\\Database\\Eloquent\\Model::$medicalBackground.',
-    'count' => 5,
+    'count' => 4,
     'path' => __DIR__.'/app/Filament/Resources/Consultations/Schemas/ConsultationForm.php',
 ];
 $ignoreErrors[] = [
@@ -1232,11 +1232,6 @@ $ignoreErrors[] = [
 ];
 $ignoreErrors[] = [
     'rawMessage' => 'Cannot call method format() on string.',
-    'count' => 1,
-    'path' => __DIR__.'/app/Filament/Resources/Consultations/Schemas/ConsultationForm.php',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Cannot call method translatedFormat() on string.',
     'count' => 1,
     'path' => __DIR__.'/app/Filament/Resources/Consultations/Schemas/ConsultationForm.php',
 ];

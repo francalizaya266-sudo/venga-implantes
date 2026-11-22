@@ -89,7 +89,7 @@ class ClinicalPanelTest extends TestCase
 
         Livewire::test(EditConsultation::class, ['record' => $consultation->getRouteKey()])
             ->assertSchemaStateSet(['chief_complaint' => 'Acude para control y limpieza dental.'])
-            ->assertSee('Faltan los antecedentes médicos')
+            ->assertSee('Antecedentes sin registrar')
             ->fillForm([
                 'clinical_exam' => 'Cálculo supragingival en sector anteroinferior.',
                 'vital_signs.blood_pressure' => '120/80',
@@ -518,13 +518,25 @@ class ClinicalPanelTest extends TestCase
 
         $this->assertSame('Profilaxis y aplicación de flúor.', $consultation->fresh()->procedures);
 
-        // Un diagnóstico a medio llenar no se marca en pantalla: se guarda a mano cuando esté completo.
+        // Un diagnóstico a medio llenar no se marca en rojo mientras se escribe: la barra dice qué falta.
         $page->fillForm(['diagnoses' => [['icd10_code_id' => null, 'tooth' => '36', 'type' => 'definitive']], 'indications' => 'Cepillado tres veces al día.'])
             ->call('autosave')
             ->assertHasNoFormErrors()
-            ->assertNotDispatched('form-validation-error');
+            ->assertNotDispatched('form-validation-error')
+            ->assertSee('Sin guardar: falta el código CIE-10 de un diagnóstico')
+            ->assertDontSee('Guardado a las 08:00');
 
         $this->assertNull($consultation->fresh()->indications);
+
+        // Apenas se completa, se guarda solo y el aviso se va.
+        $this->travel(5)->minutes();
+        $page->fillForm(['diagnoses' => [['icd10_code_id' => Icd10Code::query()->value('id'), 'tooth' => '36', 'type' => 'definitive']]])
+            ->call('autosave')
+            ->assertSet('unsavedReason', null)
+            ->assertSee('Guardado a las 08:05')
+            ->assertDontSee('Sin guardar');
+
+        $this->assertSame('Cepillado tres veces al día.', $consultation->fresh()->indications);
     }
 
     public function test_the_allergy_stays_next_to_the_name_and_a_related_medication_is_flagged(): void
@@ -535,7 +547,7 @@ class ClinicalPanelTest extends TestCase
         $this->actingAs($doctor->user);
 
         Livewire::test(EditConsultation::class, ['record' => $consultation->getRouteKey()])
-            ->assertSeeInOrder([$appointment->patient->full_name, 'Terminar atención', '⚠ Alergia: Penicilina (ronchas)', 'Motivo', 'Odontograma', 'Para el paciente'])
+            ->assertSeeInOrder([$appointment->patient->full_name, '⚠ Alergia: Penicilina (ronchas)', 'Terminar atención', 'Antes de empezar', 'Lo que hiciste', 'Para el paciente'])
             ->fillForm(['prescription_items' => [['medication' => 'Amoxicilina 500 mg', 'instructions' => '1 cada 8 horas']]])
             ->assertSee('Cuidado con Amoxicilina: el paciente tiene alergia a la penicilina.')
             ->fillForm(['prescription_items' => [['medication' => 'Ibuprofeno 400 mg', 'instructions' => null]]])

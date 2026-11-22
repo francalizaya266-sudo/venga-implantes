@@ -1,11 +1,12 @@
 {{--
-    Barra fija de la atención, que hace de encabezado: quién es y qué se le hace hoy, sus alertas, el consentimiento,
-    las herramientas, Terminar y las secciones (marca dónde estás y cuáles ya tienen algo escrito).
+    Barra fija de la atención, que hace de encabezado, en dos filas. Arriba: quién es, qué se le hace hoy, sus alertas
+    y el consentimiento; a la derecha, las herramientas y Terminar. Abajo: los tres pasos (marca dónde estás y cuáles
+    ya tienen algo escrito), cuánto va de la atención y si se guardó.
 --}}
 <div
     class="consultation-bar"
     x-data="{
-        ids: @js(array_keys($sections)),
+        ids: @js(array_keys($steps)),
         current: null,
         timer: null,
         ticking: false,
@@ -49,7 +50,8 @@
         spy() {
             const line = (document.querySelector('.fi-topbar')?.offsetHeight ?? 64) + this.$el.offsetHeight + 32;
             const atBottom = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4;
-            let current = null;
+            // Arriba de todo, todavía en el primer paso.
+            let current = this.ids[0] ?? null;
             for (const id of this.ids) {
                 const el = document.getElementById(id);
                 if (el && el.getBoundingClientRect().top <= line) current = id;
@@ -79,30 +81,44 @@
             @if ($meta)
                 <p class="cb-meta">{{ $meta }}</p>
             @endif
+            @if ($patient)
+                <div class="cb-flags">
+                    @foreach ($alerts as $alert)
+                        <span @class(['cb-flag', 'is-danger' => $alert['severe'], 'is-caution' => ! $alert['severe']])>{{ $alert['severe'] ? '⚠ ' : '' }}{{ $alert['text'] }}</span>
+                    @endforeach
+                    @if (! $hasBackground)
+                        <span class="cb-flag is-warning cb-flag-ask">
+                            Antecedentes sin registrar
+                            @can('updateClinical', $patient)
+                                <button type="button" wire:click="mountAction('editBackground')">Registrar</button>
+                                <span aria-hidden="true">·</span>
+                                <button type="button" wire:click="mountAction('nothingRelevant')" title="No tiene alergias ni enfermedades y no toma medicamentos">Nada relevante</button>
+                            @endcan
+                        </span>
+                    @elseif ($alerts === [])
+                        <span class="cb-flag is-ok">Sin alergias ni enfermedades</span>
+                    @endif
+                    @if ($consent === true)
+                        <span class="cb-flag is-ok">Consentimiento firmado</span>
+                    @elseif ($consent === false)
+                        <button type="button" class="cb-flag is-warning" wire:click="mountAction('signConsent')">Falta firmar el consentimiento</button>
+                    @endif
+                </div>
+            @endif
         </div>
 
         <div class="cb-actions">
-            <span class="cb-saved" wire:loading.remove wire:target="autosave, save">
-                {{ $autosavedAt ? 'Guardado a las '.$autosavedAt : 'Se guarda solo' }}
-            </span>
-            <span class="cb-saved" wire:loading wire:target="autosave, save">Guardando…</span>
-
             <div class="cb-tools">
-                <x-filament::button size="xs" color="gray" outlined wire:click="save" wire:target="save">Guardar</x-filament::button>
                 <x-filament::button size="xs" color="gray" icon="heroicon-o-document-duplicate" tooltip="Usar plantilla" aria-label="Usar plantilla" wire:click="mountAction('template')"><span class="cb-tool-label">Plantilla</span></x-filament::button>
-                <x-filament::button size="xs" color="gray" icon="heroicon-o-pencil" tooltip="Firmar consentimiento" aria-label="Firmar consentimiento" wire:click="mountAction('signConsent')"><span class="cb-tool-label">Consentimiento</span></x-filament::button>
                 @if ($historyUrl)
                     <x-filament::button size="xs" color="gray" icon="heroicon-o-folder-open" tooltip="Historia clínica (se abre en otra pestaña)" tag="a" :href="$historyUrl" aria-label="Historia clínica" target="_blank"><span class="cb-tool-label">Historia</span></x-filament::button>
                 @endif
-                @can('create', \App\Models\LabOrder::class)
-                    <x-filament::icon-button size="sm" color="gray" icon="heroicon-o-beaker" tooltip="Mandar al laboratorio" label="Mandar al laboratorio" wire:click="mountAction('sendToLab')" />
-                @endcan
-                <x-filament::icon-button size="sm" color="gray" icon="heroicon-o-trash" tooltip="Descartar: se abrió por error" label="Descartar atención" wire:click="mountAction('discard')" />
             </div>
 
+            {{-- Lo que se usa de vez en cuando va en el menú, para que la barra no se llene de botones. --}}
             <x-filament::dropdown placement="bottom-end" class="cb-menu">
                 <x-slot name="trigger">
-                    <x-filament::icon-button icon="heroicon-m-ellipsis-vertical" color="gray" label="Más opciones" />
+                    <x-filament::icon-button icon="heroicon-m-ellipsis-vertical" color="gray" label="Más opciones" tooltip="Más opciones" />
                 </x-slot>
                 <x-filament::dropdown.list>
                     <x-filament::dropdown.list.item icon="heroicon-o-arrow-down-tray" wire:click="save">Guardar ahora</x-filament::dropdown.list.item>
@@ -122,36 +138,59 @@
                 <span class="cb-long">Terminar atención</span><span class="cb-short">Terminar</span>
             </x-filament::button>
         </div>
-
-        @if ($patient)
-            <div class="cb-flags">
-                @foreach ($alerts as $alert)
-                    <span @class(['cb-flag', 'is-danger' => $alert['severe'], 'is-caution' => ! $alert['severe']])>{{ $alert['severe'] ? '⚠ ' : '' }}{{ $alert['text'] }}</span>
-                @endforeach
-                @if ($patient && ! $hasBackground)
-                    <button type="button" class="cb-flag is-warning" wire:click="mountAction('editBackground')">Sin antecedentes · registrar</button>
-                @elseif ($patient && $alerts === [])
-                    <span class="cb-flag is-ok">Sin alergias ni enfermedades</span>
-                @endif
-                @if ($consent === true)
-                    <span class="cb-flag is-ok">Consentimiento firmado</span>
-                @elseif ($consent === false)
-                    <button type="button" class="cb-flag is-warning" wire:click="mountAction('signConsent')">Falta firmar el consentimiento</button>
-                @endif
-            </div>
-        @endif
     </div>
 
-    <nav class="cb-sections" aria-label="Secciones de la atención" x-ref="nav">
-        @foreach ($sections as $id => $label)
-            <a
-                href="#{{ $id }}"
-                data-section="{{ $id }}"
-                @if (in_array($id, $filled, true)) data-filled @endif
-                :class="{ 'is-current': current === @js($id) }"
-                :aria-current="current === @js($id) ? 'location' : null"
-                x-on:click.prevent="go(@js($id))"
-            >{{ $label }}@if (in_array($id, $filled, true))<span class="cb-sr"> (tiene datos)</span>@endif</a>
-        @endforeach
-    </nav>
+    <div class="cb-bottom">
+        <nav class="cb-sections" aria-label="Pasos de la atención" x-ref="nav">
+            @foreach ($steps as $id => $label)
+                <a
+                    href="#{{ $id }}"
+                    data-section="{{ $id }}"
+                    @if (in_array($id, $filled, true)) data-filled @endif
+                    :class="{ 'is-current': current === @js($id) }"
+                    :aria-current="current === @js($id) ? 'location' : null"
+                    x-on:click.prevent="go(@js($id))"
+                ><span class="cb-step-num" aria-hidden="true">{{ $loop->iteration }}</span>{{ $label }}@if (in_array($id, $filled, true))<span class="cb-sr"> (tiene datos)</span>@endif</a>
+            @endforeach
+        </nav>
+
+        <div class="cb-status">
+            @if ($clock)
+                {{-- Cuenta en el navegador desde los segundos que dio el servidor: no depende del reloj de la computadora. --}}
+                <span
+                    class="cb-clock"
+                    title="{{ $clock['since'] }}"
+                    @if ($clock['seconds'] !== null)
+                        x-data="{
+                            start: Date.now() - {{ $clock['seconds'] }} * 1000,
+                            label: @js($clock['label']),
+                            timer: null,
+                            init() {
+                                this.timer = setInterval(() => {
+                                    const minutes = Math.floor((Date.now() - this.start) / 60000);
+                                    this.label = 'En atención · ' + (minutes < 60 ? minutes + ' min' : Math.floor(minutes / 60) + ' h ' + String(minutes % 60).padStart(2, '0') + ' min');
+                                }, 15000);
+                            },
+                            destroy() { clearInterval(this.timer); },
+                        }"
+                    @endif
+                >
+                    <x-filament::icon icon="heroicon-o-clock" class="cb-clock-icon" />
+                    <span @if ($clock['seconds'] !== null) x-text="label" @endif>{{ $clock['label'] }}</span>
+                </span>
+            @endif
+
+            <span class="cb-saved" wire:loading.remove.delay wire:target="autosave, save">
+                @if ($unsaved)
+                    {{-- No se pudo guardar solo: al tocarlo se guarda a mano y se marca qué falta. --}}
+                    <button type="button" class="cb-unsaved" wire:click="save" title="{{ $unsaved }} Toca para ver qué falta.">Sin guardar: {{ $unsaved }}</button>
+                @elseif ($autosavedAt)
+                    <span class="cb-saved-ok"><x-filament::icon icon="heroicon-m-check" class="cb-saved-icon" />Guardado a las {{ $autosavedAt }}</span>
+                @else
+                    Se guarda solo
+                @endif
+            </span>
+            <span class="cb-saved" wire:loading.delay wire:target="autosave, save">Guardando…</span>
+        </div>
+    </div>
 </div>

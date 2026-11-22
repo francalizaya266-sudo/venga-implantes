@@ -2,10 +2,12 @@
 
 namespace Tests\Feature\Filament;
 
+use App\Enums\Dentition;
 use App\Enums\ToothState;
 use App\Livewire\OdontogramChart;
 use App\Models\Consultation;
 use App\Models\Doctor;
+use App\Models\Odontogram;
 use App\Models\OdontogramCondition;
 use App\Services\Clinical\OdontogramService;
 use Database\Seeders\CatalogSeeder;
@@ -112,6 +114,22 @@ class OdontogramChartTest extends TestCase
             ->viewData('preview');
 
         $this->assertEqualsCanonicalizing([14, 15, 16, 36], $preview);
+    }
+
+    public function test_the_findings_fit_one_row_and_a_child_gets_the_sealant_before_the_implant(): void
+    {
+        [$doctor, $consultation] = $this->consultation();
+        $this->actingAs($doctor->user);
+        $odontogram = Odontogram::where('consultation_id', $consultation->id)->sole();
+        $inView = fn () => Livewire::test(OdontogramChart::class, ['record' => $consultation, 'editable' => true])
+            ->assertSeeHtml(['x-data="odontogramChips"', 'x-text="more ? \'Menos\' : \'Más\'"'])
+            ->viewData('frequent')->take(7)->pluck('code')->all();
+
+        app(OdontogramService::class)->changeDentition($odontogram, Dentition::Permanent);
+        $this->assertSame(['caries', 'restauracion', 'extraccion_indicada', 'ausente', 'implante', 'corona', 'tratamiento_pulpar'], $inView());
+
+        app(OdontogramService::class)->changeDentition($odontogram->fresh(), Dentition::Mixed);
+        $this->assertSame(['caries', 'restauracion', 'extraccion_indicada', 'ausente', 'sellante', 'corona', 'tratamiento_pulpar'], $inView());
     }
 
     /** @return array{0: Doctor, 1: Consultation} */

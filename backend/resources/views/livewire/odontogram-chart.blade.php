@@ -127,16 +127,18 @@
                         </div>
                     </div>
 
-                    <div class="odv-chips" aria-label="Hallazgos frecuentes">
+                    {{-- Una sola fila: lo que no cabe queda detrás de "Más" (odontogram.js). Los primeros siempre se ven. --}}
+                    <div class="odv-chips" aria-label="Hallazgos frecuentes" x-data="odontogramChips">
                         @foreach ($frequent as $condition)
-                            <button type="button" class="odv-chip" title="{{ $condition->name }}" x-bind:aria-pressed="tool === @js($condition->code)" x-on:click="select(@js($condition->code))">{{ \App\Livewire\OdontogramChart::CHIP_NAMES[$condition->code] ?? $condition->name }}</button>
+                            <button type="button" class="odv-chip" data-code="{{ $condition->code }}" @if ($loop->index >= \App\Livewire\OdontogramChart::ALWAYS_SHOWN_CHIPS) data-optional @endif title="{{ $condition->name }}" x-bind:aria-pressed="tool === @js($condition->code)" x-on:click="select(@js($condition->code))">{{ \App\Livewire\OdontogramChart::CHIP_NAMES[$condition->code] ?? $condition->name }}</button>
                         @endforeach
                         @foreach ($this->favorites as $condition)
-                            <button type="button" class="odv-chip is-favorite" title="Lo marcas seguido" x-bind:aria-pressed="tool === @js($condition->code)" x-on:click="select(@js($condition->code))">{{ $condition->name }}</button>
+                            <button type="button" class="odv-chip is-favorite" data-code="{{ $condition->code }}" data-optional data-favorite title="Lo marcas seguido" x-bind:aria-pressed="tool === @js($condition->code)" x-on:click="select(@js($condition->code))">{{ $condition->name }}</button>
                         @endforeach
-                        <template x-if="tool && ! frequent.includes(tool) && ! favorites.includes(tool)">
+                        <template x-if="tool && (folded.includes(tool) || (! frequent.includes(tool) && ! favorites.includes(tool)))">
                             <button type="button" class="odv-chip" aria-pressed="true" x-on:click="select(null)" x-text="current.name"></button>
                         </template>
+                        <button type="button" class="odv-chip is-ghost" x-ref="more" x-on:click="toggleMore()" x-bind:aria-expanded="more" x-text="more ? 'Menos' : 'Más'">Más</button>
                     </div>
 
                     <div class="odv-brush" aria-live="polite">
