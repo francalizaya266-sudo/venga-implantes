@@ -113,6 +113,9 @@
                 @if ($historyUrl)
                     <x-filament::button size="xs" color="gray" icon="heroicon-o-folder-open" tooltip="Historia clínica (se abre en otra pestaña)" tag="a" :href="$historyUrl" aria-label="Historia clínica" target="_blank"><span class="cb-tool-label">Historia</span></x-filament::button>
                 @endif
+                @if ($presentUrl)
+                    <x-filament::button size="xs" color="gray" icon="heroicon-o-tv" tooltip="Mostrar al paciente: su odontograma, fotos y plan, sin notas internas (se abre en otra pestaña)" tag="a" :href="$presentUrl" aria-label="Mostrar al paciente" target="_blank"><span class="cb-tool-label">Mostrar</span></x-filament::button>
+                @endif
             </div>
 
             {{-- Lo que se usa de vez en cuando va en el menú, para que la barra no se llene de botones. --}}
@@ -126,6 +129,9 @@
                     <x-filament::dropdown.list.item icon="heroicon-o-pencil" wire:click="mountAction('signConsent')">Firmar consentimiento</x-filament::dropdown.list.item>
                     @if ($historyUrl)
                         <x-filament::dropdown.list.item icon="heroicon-o-folder-open" tag="a" :href="$historyUrl" target="_blank">Historia clínica</x-filament::dropdown.list.item>
+                    @endif
+                    @if ($presentUrl)
+                        <x-filament::dropdown.list.item icon="heroicon-o-tv" tag="a" :href="$presentUrl" target="_blank">Mostrar al paciente</x-filament::dropdown.list.item>
                     @endif
                     @can('create', \App\Models\LabOrder::class)
                         <x-filament::dropdown.list.item icon="heroicon-o-beaker" wire:click="mountAction('sendToLab')">Mandar al laboratorio</x-filament::dropdown.list.item>

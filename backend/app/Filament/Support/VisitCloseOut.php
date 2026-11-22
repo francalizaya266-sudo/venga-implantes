@@ -6,6 +6,7 @@ use App\Enums\TreatmentKind;
 use App\Enums\TreatmentPlanStatus;
 use App\Enums\UserRole;
 use App\Filament\Resources\Appointments\AppointmentResource;
+use App\Filament\Resources\Consultations\ConsultationResource;
 use App\Filament\Resources\Patients\PatientResource;
 use App\Filament\Resources\Patients\RelationManagers\TreatmentPlansRelationManager;
 use App\Models\Appointment;
@@ -159,6 +160,8 @@ final class VisitCloseOut
             'action' => $canSign ? 'acceptPlan' : null,
             'done' => false,
             'links' => array_values(array_filter([
+                // En la pantalla, para girarla hacia el paciente y explicarle el plan con su odontograma y sus fotos.
+                $user->can('viewClinical', $consultation->patient) ? ['label' => 'Mostrar al paciente', 'url' => ConsultationResource::presentUrl($consultation)] : null,
                 ['label' => 'Imprimir', 'url' => TreatmentPlansRelationManager::printUrl($plan)],
                 $canSign && $plan->patient->account !== null ? ['label' => 'WhatsApp', 'action' => 'sendPlan'] : null,
             ])),

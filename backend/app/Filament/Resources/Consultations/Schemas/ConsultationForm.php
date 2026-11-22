@@ -780,6 +780,7 @@ class ConsultationForm
             'steps' => self::STEPS,
             'filled' => $record ? self::filledSteps($record, $data) : [],
             'historyUrl' => $patient ? PatientResource::getUrl('clinical', ['record' => $patient]) : null,
+            'presentUrl' => $record ? ConsultationResource::presentUrl($record) : null,
         ];
     }
 
