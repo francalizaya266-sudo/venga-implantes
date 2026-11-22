@@ -19,7 +19,9 @@ use App\Support\Teeth;
 use Filament\Notifications\Notification;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Locked;
 use Livewire\Component;
@@ -85,6 +87,21 @@ class OdontogramChart extends Component
     /** Sugerencias ya agregadas en esta pantalla, mientras la atención guarda sus diagnósticos. */
     public array $applied = [];
 
+    /**
+     * "Deshacer": por cada cambio de esta pantalla (un toque, "Tratado", quitar, lo dictado), qué marcas se
+     * agregaron y cómo estaban las que se quitaron o cambiaron. Los últimos pasos, del más viejo al más nuevo.
+     *
+     * @var list<array{label: string, added: list<int>, removed: array<int, array<string, mixed>>, changed: array<int, array<string, mixed>>}>
+     */
+    #[Locked]
+    public array $undo = [];
+
+    /** Cuántos cambios se pueden deshacer. */
+    private const UNDO_STEPS = 10;
+
+    /** Lo que se guarda de cada marca para poder volverla a como estaba. */
+    private const UNDO_FIELDS = ['tooth', 'surface', 'odontogram_condition_id', 'state', 'abbreviation', 'to_tooth', 'notes'];
+
     /** Recibe la atención (odontograma de esa consulta) o el paciente (su último odontograma). */
     public function mount(?Model $record = null, ?int $odontogramId = null, bool $editable = false): void
     {
@@ -115,6 +132,7 @@ class OdontogramChart extends Component
         $this->odontogramId = $odontogram?->getKey();
         $this->specifications = (string) $odontogram?->specifications;
         $this->observations = (string) $odontogram?->observations;
+        $this->undo = [];
         unset($this->odontogram, $this->newEntryIds);
     }
 
@@ -127,7 +145,7 @@ class OdontogramChart extends Component
             return;
         }
 
-        $this->attempt(fn () => app(OdontogramService::class)->toggle(
+        $this->tracked("{$condition->name} en la {$tooth}", fn () => $this->attempt(fn () => app(OdontogramService::class)->toggle(
             $this->odontogram,
             $condition,
             ToothState::tryFrom($state) ?? ToothState::Bad,
@@ -135,7 +153,7 @@ class OdontogramChart extends Component
             $surface,
             $toTooth,
             $abbreviation,
-        ));
+        )));
     }
 
     /**
@@ -150,12 +168,14 @@ class OdontogramChart extends Component
         $entries = $this->canEdit() ? $this->odontogram->entries->whereIn('id', (array) $entryIds) : collect();
         $finished = collect();
 
-        foreach ($entries as $entry) {
-            [$tooth, $code, $was] = [$entry->tooth, $entry->condition->code, $entry->abbreviation];
-            $this->attempt(fn () => app(OdontogramService::class)->markTreated($entry, $abbreviation));
+        $this->tracked('"Tratado" en la '.$entries->pluck('tooth')->unique()->implode(', '), function () use ($entries, $abbreviation, &$finished): void {
+            foreach ($entries as $entry) {
+                [$tooth, $code, $was] = [$entry->tooth, $entry->condition->code, $entry->abbreviation];
+                $this->attempt(fn () => app(OdontogramService::class)->markTreated($entry, $abbreviation));
 
-            $finished = $finished->merge(app(OdontogramSuggestions::class)->finishedItems($this->odontogram->consultation, $tooth, $code, $was));
-        }
+                $finished = $finished->merge(app(OdontogramSuggestions::class)->finishedItems($this->odontogram->consultation, $tooth, $code, $was));
+            }
+        });
 
         if ($finished->isNotEmpty()) {
             $this->dispatch('odontogram-plan-items-worked', items: $finished->pluck('id')->unique()->values()->all());
@@ -196,25 +216,27 @@ class OdontogramChart extends Component
         $pending = [];
         $marked = 0;
 
-        foreach ($this->dictated as $finding) {
-            if ($finding['error']) {
-                $pending[] = $finding['text'];
-
-                continue;
-            }
-
-            foreach ($finding['marks'] as $mark) {
-                $condition = $this->conditions->firstWhere('code', $mark['code']);
-
-                try {
-                    app(OdontogramService::class)->place($odontogram, $condition, ToothState::from($mark['state']), $mark['tooth'], $mark['surface'], $mark['toTooth'], $mark['abbreviation']);
-                    $marked++;
-                } catch (ClinicalException $e) {
+        $this->tracked('lo dictado', function () use ($odontogram, &$pending, &$marked): void {
+            foreach ($this->dictated as $finding) {
+                if ($finding['error']) {
                     $pending[] = $finding['text'];
-                    Notification::make()->warning()->title("{$finding['text']}: {$e->getMessage()}")->send();
+
+                    continue;
+                }
+
+                foreach ($finding['marks'] as $mark) {
+                    $condition = $this->conditions->firstWhere('code', $mark['code']);
+
+                    try {
+                        app(OdontogramService::class)->place($odontogram, $condition, ToothState::from($mark['state']), $mark['tooth'], $mark['surface'], $mark['toTooth'], $mark['abbreviation']);
+                        $marked++;
+                    } catch (ClinicalException $e) {
+                        $pending[] = $finding['text'];
+                        Notification::make()->warning()->title("{$finding['text']}: {$e->getMessage()}")->send();
+                    }
                 }
             }
-        }
+        });
 
         $this->dictation = implode(', ', array_unique($pending));
         unset($this->odontogram, $this->dictated, $this->newEntryIds);
@@ -231,10 +253,48 @@ class OdontogramChart extends Component
             return;
         }
 
-        $this->odontogram->entries()->whereKey((array) $entryIds)->get()->each->delete();
+        $entries = $this->odontogram->entries()->whereKey((array) $entryIds)->get();
+        $this->tracked('quitar la marca de la '.$entries->pluck('tooth')->unique()->implode(', '), fn () => $entries->each->delete());
         unset($this->odontogram, $this->newEntryIds);
     }
 
+    /**
+     * "Deshacer" (o Ctrl + Z): las marcas vuelven a como estaban antes del último cambio. Lo que ese cambio mandó
+     * al plan o al diagnóstico no se toca.
+     */
+    public function undoLast(): void
+    {
+        if (! $this->canEdit() || $this->undo === []) {
+            return;
+        }
+
+        $step = array_pop($this->undo);
+        $odontogramId = $this->odontogramId;
+        $renamed = [];
+
+        DB::transaction(function () use ($step, $odontogramId, &$renamed): void {
+            OdontogramEntry::query()->where('odontogram_id', $odontogramId)->whereKey($step['added'])->get()->each->delete();
+
+            foreach ($step['changed'] as $id => $attributes) {
+                OdontogramEntry::query()->where('odontogram_id', $odontogramId)->find($id)?->forceFill($attributes)->save();
+            }
+
+            foreach ($step['removed'] as $id => $attributes) {
+                $renamed[$id] = OdontogramEntry::query()->forceCreate([...$attributes, 'odontogram_id' => $odontogramId])->getKey();
+            }
+        });
+
+        // Las marcas que volvieron tienen otro id: los pasos anteriores las buscan por el nuevo.
+        $this->undo = array_map(fn (array $older): array => [
+            ...$older,
+            'added' => array_map(fn (int $id): int => $renamed[$id] ?? $id, $older['added']),
+            'changed' => collect($older['changed'])->mapWithKeys(fn (array $attributes, int $id): array => [$renamed[$id] ?? $id => $attributes])->all(),
+        ], $this->undo);
+        unset($this->odontogram, $this->newEntryIds);
+        Notification::make()->success()->title('Se deshizo: '.$step['label'])->send();
+    }
+
+    /** Cambiar la dentición rehace las piezas: lo de antes ya no se puede deshacer. */
     public function setDentition(string $dentition): void
     {
         if (! $this->canEdit() || ! ($value = Dentition::tryFrom($dentition))) {
@@ -242,6 +302,7 @@ class OdontogramChart extends Component
         }
 
         $this->attempt(fn () => app(OdontogramService::class)->changeDentition($this->odontogram, $value));
+        $this->undo = [];
     }
 
     public function updatedSpecifications(): void
@@ -624,6 +685,35 @@ class OdontogramChart extends Component
                 'observations' => trim($this->observations) ?: null,
             ]);
         }
+    }
+
+    /** Hace el cambio y anota cómo estaban las marcas, para "Deshacer". Si no cambió nada, no anota nada. */
+    private function tracked(string $label, callable $change): void
+    {
+        $before = $this->undoSnapshot();
+        $change();
+        $after = $this->undoSnapshot();
+
+        $step = [
+            'label' => $label,
+            'added' => array_keys(array_diff_key($after, $before)),
+            'removed' => array_diff_key($before, $after),
+            'changed' => array_filter(array_intersect_key($before, $after), fn (array $attributes, int $id) => $attributes !== $after[$id], ARRAY_FILTER_USE_BOTH),
+        ];
+
+        if ($step['added'] !== [] || $step['removed'] !== [] || $step['changed'] !== []) {
+            $this->undo = array_slice([...$this->undo, $step], -self::UNDO_STEPS);
+        }
+    }
+
+    /** @return array<int, array<string, mixed>> Las marcas del odontograma tal como están guardadas, por id. */
+    private function undoSnapshot(): array
+    {
+        return OdontogramEntry::query()
+            ->where('odontogram_id', $this->odontogramId)
+            ->get()
+            ->mapWithKeys(fn (OdontogramEntry $entry) => [$entry->getKey() => Arr::only($entry->getAttributes(), self::UNDO_FIELDS)])
+            ->all();
     }
 
     private function attempt(callable $callback): void

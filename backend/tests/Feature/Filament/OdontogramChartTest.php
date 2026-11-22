@@ -78,6 +78,52 @@ class OdontogramChartTest extends TestCase
         $this->assertSame(0, $consultation->odontogram->entries()->count());
     }
 
+    public function test_each_change_is_undone_one_step_at_a_time(): void
+    {
+        [$doctor, $consultation] = $this->consultation();
+        $this->actingAs($doctor->user);
+        $marks = fn (): array => $consultation->odontogram->entries()->with('condition')->orderBy('surface')->get()
+            ->map(fn ($entry) => [$entry->condition->code, $entry->surface, $entry->abbreviation])->all();
+
+        $chart = Livewire::test(OdontogramChart::class, ['record' => $consultation, 'editable' => true])
+            ->assertDontSeeHtml('wire:click="undoLast"')
+            ->call('mark', 36, 'O', 'caries', 'bad', 'CD')
+            ->call('mark', 36, 'M', 'caries', 'bad', 'CD')
+            ->assertSeeHtml('wire:click="undoLast"');
+        $chart->call('markTreated', $consultation->odontogram->entries()->pluck('id')->all(), 'R')
+            ->call('remove', $consultation->odontogram->entries()->pluck('id')->all());
+        $this->assertSame([], $marks());
+
+        $chart->call('undoLast')->assertNotified('Se deshizo: quitar la marca de la 36');
+        $this->assertSame([['restauracion', 'M', 'R'], ['restauracion', 'O', 'R']], $marks());
+
+        $chart->call('undoLast')->assertNotified('Se deshizo: "Tratado" en la 36');
+        $this->assertSame([['caries', 'M', 'CD'], ['caries', 'O', 'CD']], $marks());
+
+        $chart->call('undoLast')->call('undoLast');
+        $this->assertSame([], $marks());
+
+        // Ya no queda nada por deshacer: el botón se va y tocar de nuevo no hace nada.
+        $chart->assertDontSeeHtml('wire:click="undoLast"')->call('undoLast');
+        $this->assertSame([], $marks());
+    }
+
+    public function test_undo_is_only_for_who_edits_and_forgets_a_dentition_change(): void
+    {
+        [$doctor, $consultation] = $this->consultation();
+        $this->actingAs($doctor->user);
+
+        Livewire::test(OdontogramChart::class, ['record' => $consultation, 'editable' => true])
+            ->call('mark', 36, 'O', 'caries', 'bad', 'CD')
+            ->call('setDentition', Dentition::Mixed->value)
+            ->assertSet('undo', [])
+            ->assertDontSeeHtml('wire:click="undoLast"');
+
+        Livewire::test(OdontogramChart::class, ['record' => $consultation])
+            ->assertDontSeeHtml('wire:click="undoLast"')
+            ->assertDontSee('Deshacer');
+    }
+
     public function test_the_filters_count_teeth_and_today_shows_only_what_changed_since_the_last_visit(): void
     {
         [$doctor, $first] = $this->consultation();
