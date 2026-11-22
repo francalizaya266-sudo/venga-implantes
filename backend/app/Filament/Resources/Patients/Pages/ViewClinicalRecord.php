@@ -15,7 +15,6 @@ use Filament\Actions\Action;
 use Filament\Facades\Filament;
 use Filament\Resources\Pages\ViewRecord;
 use Filament\Schemas\Schema;
-use Filament\Support\Enums\Width;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Contracts\Support\Htmlable;
 
@@ -23,9 +22,6 @@ use Illuminate\Contracts\Support\Htmlable;
 class ViewClinicalRecord extends ViewRecord
 {
     protected static string $resource = PatientResource::class;
-
-    /** Todo el ancho, como Hoy: los antecedentes al costado y el odontograma con todo el espacio que queda. */
-    protected Width|string|null $maxContentWidth = Width::Full;
 
     /**
      * Baja hasta las pestañas y se queda ahí mientras termina de cargar lo de arriba (el odontograma llega
