@@ -6,6 +6,7 @@ use App\Enums\AppointmentStatus;
 use App\Enums\MessageStatus;
 use App\Filament\Resources\Appointments\AppointmentResource;
 use App\Filament\Resources\Patients\PatientResource;
+use App\Filament\Support\PageLayout;
 use App\Filament\Support\PatientSummary;
 use App\Models\Appointment;
 use App\Models\AppointmentEvent;
@@ -40,22 +41,25 @@ class AppointmentInfolist
     public static function configure(Schema $schema): Schema
     {
         return $schema
-            ->columns(3)
+            ->columns(PageLayout::COLUMNS)
             ->components([
                 // Lo mismo que bajo el nombre en su ficha: el siguiente paso, saldo, próxima cita, control y cómo escribirle.
                 View::make('filament.patients.summary')
                     ->viewData(fn (Appointment $record, $livewire) => PatientSummary::viewData($record->patient, auth()->user(), $livewire, withWhatsapp: false))
                     ->columnSpanFull(),
                 // Dos columnas que crecen cada una por su lado: una tarjeta alta al costado no abre un hueco en la otra.
+                // Con el menú cerrado o en un monitor grande, sus citas y el historial quedan lado a lado: tres columnas.
                 Group::make([
                     self::details(),
                     self::toCharge(),
                     self::billing(),
-                ])->columnSpan(2),
+                ])->columnSpan(PageLayout::MAIN),
                 Group::make([
                     self::patientVisits(),
                     self::history(),
-                ])->columnSpan(1),
+                ])
+                    ->columns(PageLayout::SIDE_COLUMNS)
+                    ->columnSpan(PageLayout::SIDE),
             ]);
     }
 

@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Consultations\Schemas;
 
 use App\Filament\Resources\Patients\PatientResource;
 use App\Filament\Support\ClinicalAlerts;
+use App\Filament\Support\PageLayout;
 use App\Filament\Support\VisitCloseOut;
 use App\Livewire\OdontogramChart;
 use App\Models\Consultation;
@@ -30,7 +31,7 @@ class ConsultationInfolist
     public static function configure(Schema $schema): Schema
     {
         return $schema
-            ->columns(3)
+            ->columns(PageLayout::COLUMNS)
             ->components([
                 Group::make(fn (Consultation $record) => array_filter([ClinicalAlerts::callout($record->patient)]))
                     ->columnSpanFull(),
@@ -41,7 +42,7 @@ class ConsultationInfolist
                     ->columnSpanFull(),
 
                 Section::make('Atención')
-                    ->columnSpan(2)
+                    ->columnSpan(PageLayout::MAIN)
                     ->columns(2)
                     ->schema([
                         TextEntry::make('chief_complaint')->label('Motivo de consulta')->hidden(fn ($state) => blank($state)),
@@ -136,7 +137,9 @@ class ConsultationInfolist
                         ])
                         ->visible(fn (Consultation $record) => self::plans($record)->isNotEmpty()),
                 ])
-                    ->columnSpan(1),
+                    // Con el menú cerrado o en un monitor grande, los datos y el plan quedan lado a lado: tres columnas.
+                    ->columns(PageLayout::SIDE_COLUMNS)
+                    ->columnSpan(PageLayout::SIDE),
 
                 Section::make('Odontograma de esta atención')
                     ->columnSpanFull()

@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Patients\Schemas;
 use App\Enums\Sex;
 use App\Filament\Actions\EditMedicalBackgroundAction;
 use App\Filament\Support\ClinicalAlerts;
+use App\Filament\Support\PageLayout;
 use App\Livewire\OdontogramChart;
 use App\Models\MedicalBackground;
 use App\Models\Patient;
@@ -32,14 +33,14 @@ class ClinicalRecordInfolist
     public static function configure(Schema $schema): Schema
     {
         return $schema
-            ->columns(['default' => 1, 'lg' => 3, '2xl' => 4])
+            ->columns(PageLayout::PROFILE_COLUMNS)
             ->components([
                 // Un solo aviso: arriba va solo lo que hay que cuidar; que falten, lo dice su recuadro.
                 Group::make(fn (Patient $record) => array_filter([ClinicalAlerts::callout($record, withLink: false)]))
                     ->visible(fn (Patient $record) => ClinicalAlerts::for($record) !== [])
                     ->columnSpanFull(),
                 Group::make([self::background(), self::implants()])
-                    ->columnSpan(['default' => 'full', 'lg' => 1]),
+                    ->columnSpan(PageLayout::NARROW),
                 Section::make('Odontograma')
                     ->icon(Heroicon::OutlinedSquares2x2)
                     ->description('El más reciente. Elige una fecha para ver cómo estaba antes.')
@@ -47,7 +48,7 @@ class ClinicalRecordInfolist
                     ->schema([
                         Livewire::make(OdontogramChart::class)->key('odontogram'),
                     ])
-                    ->columnSpan(['default' => 'full', 'lg' => 2, '2xl' => 3]),
+                    ->columnSpan(PageLayout::WIDE),
             ]);
     }
 

@@ -94,26 +94,27 @@ class Dashboard extends BaseDashboard
     }
 
     /**
-     * Tres bloques en el orden en que se leen en el celular: hoy, el costado y el mes. En pantalla
-     * ancha el costado ocupa las dos filas (panel.css, .dash-side) y el mes queda bajo la agenda; en un
-     * monitor grande el costado se abre en dos columnas.
+     * Tres bloques en el orden en que se leen en el celular: hoy, el costado y el mes. Con espacio, el costado
+     * ocupa las dos filas (panel.css, .dash-side) y el mes queda bajo la agenda; con más espacio (el menú
+     * cerrado o un monitor grande) el costado se abre en dos columnas. Sigue el espacio de la página, no el
+     * del monitor (PageLayout).
      */
     public function content(Schema $schema): Schema
     {
         $side = $this->getWidgetsSchemaComponents(self::SIDE);
         $month = $this->getWidgetsSchemaComponents(self::MONTH);
-        $wide = ['default' => 1, 'lg' => $side === [] ? 3 : 2];
+        $wide = ['default' => 1, '@3xl' => $side === [] ? 3 : 2, '!@lg' => $side === [] ? 3 : 2];
 
         return $schema->components([
             Group::make($this->getWidgetsSchemaComponents(self::TOP)),
-            Grid::make(['default' => 1, 'lg' => 3])
+            Grid::make(['default' => 1, '@3xl' => 3, '!@lg' => 3])
                 ->extraAttributes(['class' => 'dash-layout'])
                 ->schema(array_values(array_filter([
                     Group::make($this->getWidgetsSchemaComponents(self::MAIN))
                         ->columnSpan($wide)
                         ->extraAttributes(['class' => 'dash-main']),
                     $side === [] ? null : Group::make($side)
-                        ->columnSpan(['default' => 1, 'lg' => 1])
+                        ->columnSpan(['default' => 1, '@3xl' => 1, '!@lg' => 1])
                         ->extraAttributes(['class' => 'dash-side']),
                     $month === [] ? null : Group::make($month)
                         ->columnSpan($wide)

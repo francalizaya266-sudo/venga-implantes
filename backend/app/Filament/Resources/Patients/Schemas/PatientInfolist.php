@@ -14,6 +14,7 @@ use App\Filament\Resources\Patients\RelationManagers\ChargesRelationManager;
 use App\Filament\Resources\TreatmentPlans\Tables\TreatmentPlansTable;
 use App\Filament\Resources\TreatmentPlans\TreatmentPlanResource;
 use App\Filament\Support\ClinicalAlerts;
+use App\Filament\Support\PageLayout;
 use App\Filament\Support\PatientSummary;
 use App\Filament\Support\PatientTimeline;
 use App\Models\Charge;
@@ -47,13 +48,10 @@ use Illuminate\Support\HtmlString;
  */
 class PatientInfolist
 {
-    /** Columnas de la ficha: en un monitor grande el perfil queda angosto y las pestañas aprovechan el resto. */
-    private const COLUMNS = ['default' => 1, 'lg' => 3, '2xl' => 4];
-
     public static function configure(Schema $schema): Schema
     {
         return $schema
-            ->columns(self::COLUMNS)
+            ->columns(PageLayout::PROFILE_COLUMNS)
             ->components([
                 View::make('filament.patients.summary')
                     ->viewData(fn (Patient $record, $livewire) => PatientSummary::viewData($record, auth()->user(), $livewire, withProfile: true))
@@ -63,10 +61,11 @@ class PatientInfolist
                     ->key('clinicalAlert')
                     ->extraAttributes(['class' => 'pt-alert'])
                     ->columnSpanFull(),
+                // Con el menú cerrado o en un monitor grande, el perfil sigue angosto y las pestañas se quedan con el resto.
                 self::profile()
-                    ->columnSpan(['default' => 'full', 'lg' => 1]),
+                    ->columnSpan(PageLayout::NARROW),
                 self::sections()
-                    ->columnSpan(['default' => 'full', 'lg' => 2, '2xl' => 3]),
+                    ->columnSpan(PageLayout::WIDE),
             ]);
     }
 
