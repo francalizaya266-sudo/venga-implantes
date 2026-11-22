@@ -10,6 +10,13 @@
                 <span class="pt-step-kicker">{{ $kicker }}</span>
                 <strong class="pt-step-label">{{ $row['label'] }}</strong>
                 <span class="pt-step-detail">{{ $row['detail'] }}</span>
+                @if (($row['within'] ?? []) !== [])
+                    <span class="closeout-within" aria-label="Agendar en otro plazo">
+                        @foreach ($row['within'] as $link)
+                            <a href="{{ $link['url'] }}" class="pt-chip">{{ $link['label'] }}</a>
+                        @endforeach
+                    </span>
+                @endif
                 @if (($row['options'] ?? []) !== [])
                     <span class="pt-step-detail closeout-options">Formas de pago, se elige al firmar: {{ collect($row['options'])->map(fn ($option) => Str::lcfirst(rtrim($option, '.')))->implode(' · ') }}</span>
                 @endif

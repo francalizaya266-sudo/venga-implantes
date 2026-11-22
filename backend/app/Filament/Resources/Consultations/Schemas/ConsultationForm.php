@@ -869,7 +869,9 @@ class ConsultationForm
         return filled($record->current_illness)
             || collect(Arr::except($record->vital_signs ?? [], 'weight'))->filter(fn (mixed $value) => filled($value))->isNotEmpty()
             || self::riskConditions($record) !== []
-            || $record->visitType() === VisitType::Urgent;
+            || $record->visitType() === VisitType::Urgent
+            // La presión, antes de anestesiar para una extracción o un implante.
+            || $record->procedureKind()->isSurgical();
     }
 
     /** "La última: 140/90 el 12 oct.", para ver si subió. */
@@ -898,9 +900,11 @@ class ConsultationForm
     {
         $conditions = $record ? self::riskConditions($record) : [];
 
-        return $conditions === []
-            ? 'Para cirugías, urgencias o pacientes con presión alta, diabetes o problemas del corazón.'
-            : 'Tómalos antes de empezar: tiene '.mb_strtolower(implode(', ', $conditions)).'.';
+        return match (true) {
+            $conditions !== [] => 'Tómalos antes de empezar: tiene '.mb_strtolower(implode(', ', $conditions)).'.',
+            (bool) $record?->procedureKind()->isSurgical() => 'Es una cirugía: toma la presión antes de anestesiar.',
+            default => 'Para cirugías, urgencias o pacientes con presión alta, diabetes o problemas del corazón.',
+        };
     }
 
     /** @return list<string> */

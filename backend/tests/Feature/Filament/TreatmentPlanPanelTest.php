@@ -222,6 +222,35 @@ class TreatmentPlanPanelTest extends TestCase
         $this->assertSame(1, $consultation->diagnoses()->count());
     }
 
+    public function test_the_tooth_card_adds_its_own_suggestion_without_scrolling_down(): void
+    {
+        [$doctor, $patient] = $this->patientWithCariesIn36();
+        $consultation = $patient->consultations()->sole();
+        $this->actingAs($doctor->user);
+        $key = app(OdontogramSuggestions::class)->rows($consultation->odontogram, $consultation)[0]['key'];
+
+        $chart = Livewire::test(OdontogramChart::class, ['record' => $consultation, 'editable' => true]);
+
+        // La ficha de la 36 trae su sugerencia; la de una pieza sin marcas, nada.
+        $this->assertSame(
+            [['key' => $key, 'text' => 'O · Curación con resina', 'detail' => 'K02.1 Caries de la dentina · S/ 150.00', 'button' => '+ Diagnóstico y plan']],
+            $chart->viewData('state')['teeth'][36]['plan'],
+        );
+        $this->assertSame([], $chart->viewData('state')['teeth'][11]['plan']);
+
+        // Agregada desde la ficha, queda como en la lista de abajo: hecha.
+        $chart->call('applySuggestions', [$key])
+            ->assertDispatched('odontogram-suggestions-applied', planned: 1, plannedTotal: 'S/ 150.00');
+
+        $this->assertSame(
+            [['key' => $key, 'text' => 'O · Curación con resina', 'detail' => 'K02.1 Caries de la dentina · Ya está en el plan', 'button' => null]],
+            $chart->viewData('state')['teeth'][36]['plan'],
+        );
+
+        // Sin poder editar, la ficha no ofrece nada.
+        $this->assertSame([], Livewire::test(OdontogramChart::class, ['record' => $consultation])->viewData('state')['teeth'][36]['plan']);
+    }
+
     public function test_the_budget_names_each_tooth_says_why_and_until_when_it_is_valid(): void
     {
         [$doctor, $patient] = $this->patientWithCariesIn36();

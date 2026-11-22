@@ -2,6 +2,7 @@
 
 namespace App\Filament\Support;
 
+use App\Enums\TreatmentKind;
 use App\Enums\TreatmentPlanStatus;
 use App\Enums\UserRole;
 use App\Filament\Resources\Appointments\AppointmentResource;
@@ -10,6 +11,7 @@ use App\Filament\Resources\Patients\RelationManagers\TreatmentPlansRelationManag
 use App\Models\Appointment;
 use App\Models\Charge;
 use App\Models\Consultation;
+use App\Models\Patient;
 use App\Models\Payment;
 use App\Models\TreatmentPlan;
 use App\Models\TreatmentPlanItem;
@@ -18,6 +20,7 @@ use App\Services\Clinical\TreatmentPlanService;
 use App\Services\Patients\PatientInsights;
 use App\Services\StaffAlerts;
 use App\Support\Money;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Cache;
 
 /**
@@ -30,8 +33,11 @@ use Illuminate\Support\Facades\Cache;
  */
 final class VisitCloseOut
 {
+    /** Los plazos de siempre para la próxima cita, en días. */
+    private const WITHIN_DAYS = [7 => 'En 1 semana', 15 => 'En 15 días', 30 => 'En 1 mes'];
+
     /**
-     * @return array{plan: array{label: string, detail: string, button: string|null, action: string|null, done: bool, links: list<array{label: string, url?: string, action?: string}>, options: list<string>}|null, payment: array{label: string, detail: string, button: string|null, action: string|null, done: bool, secondary: array{label: string, action: string}|null}, next: array{label: string, detail: string, url: string|null, done: bool}}|null
+     * @return array{plan: array{label: string, detail: string, button: string|null, action: string|null, done: bool, links: list<array{label: string, url?: string, action?: string}>, options: list<string>}|null, payment: array{label: string, detail: string, button: string|null, action: string|null, done: bool, secondary: array{label: string, action: string}|null}, next: array{label: string, detail: string, url: string|null, done: bool, within: list<array{label: string, url: string}>}}|null
      */
     public static function viewData(Consultation $consultation, User $user): ?array
     {
@@ -221,9 +227,10 @@ final class VisitCloseOut
 
     /**
      * La próxima sesión de su plan. Si todavía no acepta el presupuesto, se ofrece su primera sesión: al
-     * agendarla se pregunta si ya lo aceptó.
+     * agendarla se pregunta si ya lo aceptó. Con los plazos de siempre a un toque (en 1 semana, en 15 días),
+     * para agendarla en otra fecha sin buscarla en el calendario.
      *
-     * @return array{label: string, detail: string, url: string|null, done: bool}
+     * @return array{label: string, detail: string, url: string|null, done: bool, within: list<array{label: string, url: string}>}
      */
     private static function next(Consultation $consultation, User $user): array
     {
@@ -236,6 +243,7 @@ final class VisitCloseOut
                 'detail' => ucfirst($booked->starts_at->translatedFormat('l j \d\e F, g:i a')).' · '.$booked->treatment->name,
                 'url' => null,
                 'done' => true,
+                'within' => [],
             ];
         }
 
@@ -248,6 +256,7 @@ final class VisitCloseOut
                 'detail' => 'Si necesita volver, prográmale una cita.',
                 'url' => $canBook ? AppointmentResource::nextVisitUrl($patient, $consultation->doctor_id) : null,
                 'done' => false,
+                'within' => $canBook ? self::within($consultation, checkupMonths: $consultation->mainTreatment()?->checkupMonths() ?? TreatmentKind::Other->checkupMonths()) : [],
             ];
         }
 
@@ -258,7 +267,34 @@ final class VisitCloseOut
             'detail' => 'Sugerida el '.$suggested['on']->translatedFormat('l j \d\e F').' · '.$suggested['why'],
             'url' => $canBook ? AppointmentResource::nextVisitUrl($patient, $consultation->doctor_id, $suggested['on'], $suggested['item']) : null,
             'done' => false,
+            'within' => $canBook ? self::within($consultation, $suggested['item']) : [],
         ];
+    }
+
+    /**
+     * "En 1 semana", "En 15 días", "En 1 mes": la cita nueva se abre con ese día ya elegido (y con la sesión del
+     * plan, si la hay). Sin sesión pendiente, además el control: "Control en 6 meses", o al año si fue un implante.
+     *
+     * @return list<array{label: string, url: string}>
+     */
+    private static function within(Consultation $consultation, ?TreatmentPlanItem $item = null, ?int $checkupMonths = null): array
+    {
+        $patient = Patient::query()->findOrFail($consultation->patient_id);
+        $today = CarbonImmutable::today();
+        $links = collect(self::WITHIN_DAYS)->map(fn (string $label, int $days) => [
+            'label' => $label,
+            'url' => AppointmentResource::nextVisitUrl($patient, $consultation->doctor_id, $today->addDays($days), $item),
+        ]);
+
+        // La ortodoncia vuelve al mes: ese plazo ya está.
+        if ($checkupMonths !== null && $checkupMonths > 1) {
+            $links->push([
+                'label' => $checkupMonths === 12 ? 'Control al año' : 'Control en '.$checkupMonths.' meses',
+                'url' => AppointmentResource::nextVisitUrl($patient, $consultation->doctor_id, $today->addMonths($checkupMonths)),
+            ]);
+        }
+
+        return $links->values()->all();
     }
 
     private static function notifiedKey(Consultation $consultation): string

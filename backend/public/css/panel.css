@@ -1027,7 +1027,9 @@ button.agenda-slot:focus-visible { outline: 2px solid var(--primary-600); outlin
 .odv-icon-btn:hover { background: var(--odv-hover); color: var(--odv-ink); }
 .odv-card-body { display: grid; grid-template-columns: 9.5rem minmax(0, 1fr); grid-template-rows: auto auto 1fr; grid-template-areas: "faces list" "faces quick" "hint quick"; gap: .625rem 1rem; align-items: start; padding: .75rem; }
 .odv-faces { grid-area: faces; display: block; width: 100%; height: auto; overflow: visible; }
-.odv-card-list { grid-area: list; }
+.odv-card-main { grid-area: list; min-width: 0; display: flex; flex-direction: column; gap: .5rem; }
+.odv-card-plan { display: flex; flex-direction: column; gap: .125rem; padding: .375rem .625rem .125rem; border-radius: .5rem; background: var(--odv-fill); }
+.odv-card-plan .odv-tag { background: var(--odv-surface); }
 .odv-card-tool { grid-area: hint; display: flex; flex-direction: column; gap: .5rem; min-width: 0; }
 .odv-card-brush { display: none; }
 .odv-faces-hint { font-size: .75rem; line-height: 1.35; text-align: center; color: var(--odv-soft); }
@@ -1242,6 +1244,8 @@ a.pt-chip:hover { filter: brightness(.97); text-decoration: underline; text-unde
 .dark .closeout-row.is-done .pt-step-icon { color: var(--success-400); }
 .closeout-options { flex-basis: 100%; color: var(--gray-700); }
 .dark .closeout-options { color: var(--gray-300); }
+.closeout-within { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: .375rem; margin-top: .375rem; }
+.closeout-within .pt-chip { padding: .25rem .625rem; font-weight: 500; }
 .closeout-actions { flex: none; display: flex; flex-wrap: wrap; gap: .5rem 1rem; align-items: center; }
 @media (max-width: 40rem) { .closeout-actions { flex-basis: 100%; margin-left: 2rem; } .closeout-actions .pt-step-button { margin-left: 0; } }
 button.pt-chip { border: 0; cursor: pointer; font-family: inherit; }
