@@ -50,6 +50,7 @@ use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Resources\Resource;
 use Filament\Support\Colors\Color;
+use Filament\Support\Enums\Width;
 use Filament\Support\Icons\Heroicon;
 use Filament\View\PanelsRenderHook;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
@@ -175,6 +176,9 @@ class AdminPanelProvider extends PanelProvider
             ->databaseNotifications()
             ->databaseNotificationsPolling('30s')
             ->sidebarCollapsibleOnDesktop()
+            // Todo el ancho del monitor en todas las pantallas, como Hoy: en uno grande las tablas no aprietan
+            // nombres ni cortan botones, y la agenda y las fichas aprovechan el espacio.
+            ->maxContentWidth(Width::Full)
             // Ctrl + K (o ⌘ + K) abre el buscador desde cualquier pantalla. Además de buscar, ofrece acciones ("nueva
             // cita", "llegó sin cita", ir a una fecha) y las próximas citas del paciente.
             ->globalSearch(PanelSearch::class)

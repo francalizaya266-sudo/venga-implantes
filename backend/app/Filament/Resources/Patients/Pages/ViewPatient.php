@@ -15,7 +15,6 @@ use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\EditAction;
 use Filament\Resources\Pages\ViewRecord;
-use Filament\Support\Enums\Width;
 use Filament\Support\Icons\Heroicon;
 
 class ViewPatient extends ViewRecord
@@ -23,9 +22,6 @@ class ViewPatient extends ViewRecord
     use HasPatientSummaryActions;
 
     protected static string $resource = PatientResource::class;
-
-    /** Todo el ancho, como Hoy: en un monitor grande el perfil queda al costado y las pestañas aprovechan el resto. */
-    protected Width|string|null $maxContentWidth = Width::Full;
 
     public function mount(int|string $record): void
     {

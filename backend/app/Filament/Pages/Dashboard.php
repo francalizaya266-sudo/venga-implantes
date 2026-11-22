@@ -23,7 +23,6 @@ use Filament\Pages\Dashboard as BaseDashboard;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Group;
 use Filament\Schemas\Schema;
-use Filament\Support\Enums\Width;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Str;
 
@@ -56,9 +55,6 @@ class Dashboard extends BaseDashboard
     protected static ?string $title = 'Hoy';
 
     protected static ?string $navigationLabel = 'Hoy';
-
-    /** Todo el ancho del monitor: en uno grande la agenda no aprieta nombres y el costado va en dos columnas. */
-    protected Width|string|null $maxContentWidth = Width::Full;
 
     /** "Buenos días, Dr. Jassmanny": el saludo según la hora, con el trato y el primer nombre. */
     public function getHeading(): string

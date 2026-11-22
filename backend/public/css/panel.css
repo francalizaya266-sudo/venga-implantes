@@ -633,6 +633,11 @@ button.agenda-slot:focus-visible { outline: 2px solid var(--primary-600); outlin
 .backup-status.is-warning .backup-status-icon { color: var(--warning-400); }
 .backup-status.is-danger { box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--danger-400) 60%, transparent); }
 .backup-status.is-danger .backup-status-icon { color: var(--danger-400); }
+/* Con el menú cerrado (solo íconos) queda el ícono del respaldo; el texto sale al pasar el mouse. */
+@media (min-width: 64rem) {
+    .fi-main-sidebar:not(.fi-sidebar-open) .backup-status { justify-content: center; margin: .25rem .5rem .75rem; padding: .55rem; }
+    .fi-main-sidebar:not(.fi-sidebar-open) .backup-status > span { display: none; }
+}
 
 /* ---------- Agenda: panel al costado con la cita ---------- */
 
