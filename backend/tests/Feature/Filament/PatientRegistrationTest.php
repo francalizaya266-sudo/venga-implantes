@@ -5,6 +5,7 @@ namespace Tests\Feature\Filament;
 use App\Enums\DocumentType;
 use App\Enums\PatientRelationship;
 use App\Filament\Pages\Agenda;
+use App\Filament\Resources\Appointments\AppointmentResource;
 use App\Filament\Resources\Patients\Pages\CreatePatient;
 use App\Filament\Resources\Patients\Pages\EditPatient;
 use App\Filament\Resources\Patients\Pages\ViewPatient;
@@ -144,6 +145,82 @@ class PatientRegistrationTest extends TestCase
 
         $this->assertSame(PatientRelationship::Child, $mateo->fresh()->relationship);
         $this->assertSame(PatientRelationship::Self, $mother->fresh()->relationship);
+    }
+
+    public function test_the_relationship_follows_the_phone_and_a_family_phone_asks_for_it(): void
+    {
+        $this->freezeMonday();
+        $treatment = Treatment::factory()->create(['duration_minutes' => 30]);
+        $doctor = $this->doctorOffering($treatment);
+        $account = Account::factory()->create(['phone' => '+51987654321']);
+        Patient::factory()->for($account)->create(['first_name' => 'María', 'last_name' => 'Quispe Huamán', 'relationship' => PatientRelationship::Self]);
+        $this->actingAs(User::factory()->reception()->create());
+
+        // Con un celular nuevo queda como titular, sin tocar nada.
+        Livewire::test(CreatePatient::class)
+            ->fillForm(['phone' => '912 345 678'])
+            ->assertSchemaStateSet(['relationship' => PatientRelationship::Self])
+            ->assertSee('Celular nuevo: será el titular.');
+
+        // Con el de María, "Titular" se quita y se pide el parentesco antes de guardar, no al fallar.
+        Livewire::test(CreatePatient::class)
+            ->fillForm(['first_name' => 'Lucía Fernanda', 'last_name' => 'Quispe Mamani', 'phone' => '987 654 321'])
+            ->assertSchemaStateSet(['relationship' => null])
+            ->assertSee(['Este celular es de María Quispe Huamán: elige qué es de esa persona.', 'Quedará en la familia de María Quispe Huamán, titular de este celular.'])
+            ->fillForm(['same_as' => 'new'])
+            ->call('create')
+            ->assertHasFormErrors(['relationship' => 'required'])
+            ->fillForm(['relationship' => PatientRelationship::Child->value])
+            ->call('create')
+            ->assertHasNoFormErrors();
+
+        $lucia = Patient::query()->where('first_name', 'Lucía Fernanda')->sole();
+        $this->assertSame([$account->id, PatientRelationship::Child], [$lucia->account_id, $lucia->relationship]);
+
+        // Lo mismo al registrarlo desde Nueva cita.
+        Livewire::test(Agenda::class)
+            ->mountAction('createAppointment', ['doctor' => $doctor->id, 'date' => '2026-11-03', 'time' => '16:00'])
+            ->setActionData(['new_patient' => true, 'treatment_id' => $treatment->id])
+            ->assertActionDataSet(['patient.relationship' => PatientRelationship::Self])
+            ->setActionData(['patient.phone' => '987 654 321'])
+            ->assertActionDataSet(['patient.relationship' => null]);
+    }
+
+    public function test_the_review_shows_there_are_no_duplicates_and_whether_a_guardian_is_needed(): void
+    {
+        $this->freezeMonday();
+        $this->actingAs(User::factory()->reception()->create());
+
+        Livewire::test(CreatePatient::class)
+            ->assertSee(['Al escribir el documento o el nombre, aquí ves si ya está registrado.', 'Sin celular todavía'])
+            ->fillForm(['document_number' => '7284 9102'])
+            ->assertSee('Sin duplicados · DNI 72849102 disponible')
+            ->fillForm(['birth_date' => '1994-05-14'])
+            ->assertSee('Mayor de edad: no necesita apoderado.')
+            ->fillForm(['birth_date' => '2019-05-10'])
+            ->assertSee('Es menor de edad: llena los datos del apoderado.');
+    }
+
+    public function test_creating_and_booking_opens_the_new_appointment_with_the_patient(): void
+    {
+        $this->actingAs(User::factory()->reception()->create());
+
+        $createAndBook = TestAction::make('createAndBook')->schemaComponent('form-actions', schema: 'content');
+
+        Livewire::test(CreatePatient::class)
+            ->assertActionVisible($createAndBook)
+            ->assertSee(['Crear y agendar cita', 'Volver'])
+            ->assertDontSee('Crear y crear otro')
+            ->fillForm(['first_name' => 'Lucía', 'last_name' => 'Quispe', 'document_number' => '72849102'])
+            ->callAction($createAndBook)
+            ->assertHasNoFormErrors()
+            ->assertRedirect(AppointmentResource::newUrl(['patient' => Patient::query()->sole()->id]));
+
+        // "Crear" a secas abre su ficha, como antes.
+        Livewire::test(CreatePatient::class)
+            ->fillForm(['first_name' => 'Luis', 'last_name' => 'Paz'])
+            ->call('create')
+            ->assertRedirect(PatientResource::getUrl('view', ['record' => Patient::query()->where('first_name', 'Luis')->sole()]));
     }
 
     public function test_booking_for_a_new_patient_who_already_exists_uses_the_existing_one(): void
