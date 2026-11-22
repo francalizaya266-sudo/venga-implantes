@@ -45,10 +45,14 @@ class AttendScreenTest extends TestCase
             ->assertSeeHtml('<h1 class="cb-name">Laura Zayas</h1>')
             ->assertSee(['46 años', $consultation->appointment->treatment->name, 'Se guarda solo'])
             ->assertSeeInOrder(['Antes de empezar', 'Motivo y examen', 'Radiografías y fotos', 'Lo que hiciste', 'Odontograma', 'Diagnóstico', 'Lo que se hizo', 'Nota de evolución', 'Para el paciente', 'Indicaciones y receta'])
-            // Dictar la evolución no necesita nada más que el micrófono del teclado.
-            ->assertSee('Para dictar, toca el micrófono del teclado');
+            // Cada nota se puede dictar, y el aviso dice que el navegador pasa la voz a texto por internet.
+            ->assertSeeHtml('x-on:click="toggleVoice()"')
+            ->assertSee('Tu navegador pasa la voz a texto por internet');
 
         $this->assertSame(1, substr_count($page->html(), 'Terminar atención'));
+        // Motivo, examen, enfermedad actual, evolución, próximos pasos, indicaciones (las notas del diagnóstico están
+        // plegadas) y el buscador del odontograma.
+        $this->assertSame(7, substr_count($page->html(), 'x-on:click="toggleVoice()"'));
 
         // Lo que estaba arriba ahora se abre desde la barra.
         $page->mountAction('template')->assertActionMounted('template')->call('unmountAction')
@@ -137,14 +141,37 @@ class AttendScreenTest extends TestCase
             ->assertDontSee('Al reservar escribió');
     }
 
-    public function test_the_bar_says_whether_the_consent_of_the_treatment_is_signed(): void
+    public function test_the_general_consent_is_signed_once_per_treatment(): void
+    {
+        [$doctor, $consultation] = $this->consultation();
+        $treatment = $consultation->appointment->treatment;
+        $general = ConsentTemplate::query()->whereNull('treatment_id')->sole();
+        $this->actingAs($doctor->user);
+
+        $this->assertFalse(ConsultationForm::consentStatus($consultation));
+        Livewire::test(EditConsultation::class, ['record' => $consultation->getRouteKey()])->assertSee('Falta firmar el consentimiento');
+
+        // Firmado para otro tratamiento no cubre este.
+        $this->signedConsent($consultation->patient, $general, now()->subMonths(3), Treatment::factory()->create());
+        $this->assertFalse(ConsultationForm::consentStatus($consultation));
+
+        // Firmado meses atrás para este mismo tratamiento, sí: no se vuelve a pedir en cada cita.
+        $this->signedConsent($consultation->patient, $general, now()->subMonths(3), $treatment);
+        $this->assertTrue(ConsultationForm::consentStatus($consultation));
+        Livewire::test(EditConsultation::class, ['record' => $consultation->getRouteKey()])
+            ->assertSee('Consentimiento firmado')
+            ->assertDontSee('Falta firmar el consentimiento');
+
+        // Sin ningún texto de consentimiento en uso, no se dice nada.
+        $general->update(['is_active' => false]);
+        $this->assertNull(ConsultationForm::consentStatus($consultation));
+    }
+
+    public function test_a_treatment_with_its_own_consent_signs_it_for_each_visit(): void
     {
         [$doctor, $consultation] = $this->consultation();
         $treatment = $consultation->appointment->treatment;
         $this->actingAs($doctor->user);
-
-        // Sin consentimiento propio del tratamiento, no se dice nada.
-        $this->assertNull(ConsultationForm::consentStatus($consultation));
 
         $template = ConsentTemplate::create(['name' => 'Consentimiento de extracción', 'treatment_id' => $treatment->id, 'body' => 'Extracción de {paciente}.']);
         $this->assertFalse(ConsultationForm::consentStatus($consultation));
@@ -276,12 +303,12 @@ class AttendScreenTest extends TestCase
         return [$doctor, app(ConsultationService::class)->startFromAppointment($booked, $doctor->user)];
     }
 
-    private function signedConsent(Patient $patient, ConsentTemplate $template, mixed $at): Consent
+    private function signedConsent(Patient $patient, ConsentTemplate $template, mixed $at, ?Treatment $treatment = null): Consent
     {
         return Consent::create([
             'patient_id' => $patient->id,
             'consent_template_id' => $template->id,
-            'treatment_id' => $template->treatment_id,
+            'treatment_id' => $treatment->id ?? $template->treatment_id,
             'title' => $template->name,
             'body_snapshot' => 'Firmado.',
             'signer_name' => $patient->full_name,

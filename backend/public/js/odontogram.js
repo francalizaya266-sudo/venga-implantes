@@ -25,6 +25,9 @@
     const ZONES = ['top', 'right', 'bottom', 'left', 'center'];
 
     const odontogram = (config) => ({
+        // "Dictar" en el buscador (dictation.js): lo dictado se suma a lo escrito, separado por comas.
+        ...(window.dictation?.({ separator: ', ', field() { return this.$refs.omni; } }) ?? {}),
+
         editable: config.editable,
         catalog: config.catalog ?? {},
         frequent: config.frequent ?? [],
@@ -78,6 +81,7 @@
 
         destroy() {
             this.stopListening?.();
+            this.stopVoice?.();
             this.lockPage(false);
         },
 
@@ -510,6 +514,14 @@
         // ---------- Teclado ----------
 
         onKey(event) {
+            // Ctrl + Z (⌘ + Z en Mac) fuera de un campo de texto: deshace el último cambio del odontograma.
+            if (this.editable && (event.ctrlKey || event.metaKey) && ! event.shiftKey && ! event.altKey && event.key.toLowerCase() === 'z' && ! typing(event.target)) {
+                event.preventDefault();
+                this.$wire.undoLast();
+
+                return;
+            }
+
             if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) {
                 return;
             }

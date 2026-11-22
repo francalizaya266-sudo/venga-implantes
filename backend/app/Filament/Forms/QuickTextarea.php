@@ -12,6 +12,7 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Support\Components\Attributes\ExposedLivewireMethod;
+use Filament\Support\Enums\IconSize;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\HtmlString;
@@ -19,10 +20,12 @@ use Illuminate\Support\Js;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Renderless;
 
+use function Filament\Support\generate_icon_html;
+
 /**
  * Texto de la historia con escritura rápida: opciones del campo (las más usadas primero)
  * que se agregan con un toque, atajos tipo /limp que se expanden al escribir un espacio,
- * y "Guardar como opción" para reutilizar lo escrito.
+ * "Dictar" (public/js/dictation.js) y "Guardar como opción" para reutilizar lo escrito.
  */
 class QuickTextarea extends Textarea
 {
@@ -44,6 +47,8 @@ class QuickTextarea extends Textarea
         ]);
 
         $this->belowContent(fn (QuickTextarea $component) => $component->isDisabled() ? null : $component->optionsHtml());
+
+        $this->hint(fn (QuickTextarea $component) => $component->isDisabled() ? null : $component->dictateButtonHtml());
 
         $this->hintAction(fn (QuickTextarea $component) => $component->saveAsOptionAction());
     }
@@ -101,6 +106,7 @@ class QuickTextarea extends Textarea
 
         return <<<JS
             {
+                ...(window.dictation?.({ field() { return this.\$el.closest('[data-field-wrapper]')?.querySelector('textarea') } }) ?? {}),
                 shortcuts: {$shortcuts},
                 more: false,
                 used(id) {
@@ -136,14 +142,22 @@ class QuickTextarea extends Textarea
             JS;
     }
 
-    public function optionsHtml(): ?HtmlString
+    /** "Dictar", junto al nombre del campo: escucha hasta que se toca "Parar". */
+    public function dictateButtonHtml(): HtmlString
+    {
+        $icon = generate_icon_html(Heroicon::Microphone, size: IconSize::Small)?->toHtml();
+
+        return new HtmlString(<<<HTML
+            <button type="button" class="dictate-btn" x-on:click="toggleVoice()" x-bind:class="{ 'is-on': voiceOn }" x-bind:aria-pressed="voiceOn" title="Dictar: tu navegador pasa la voz a texto">
+                {$icon}<span x-text="voiceOn ? 'Parar' : 'Dictar'">Dictar</span>
+            </button>
+            HTML);
+    }
+
+    public function optionsHtml(): HtmlString
     {
         $snippets = $this->available();
         $shortcuts = $snippets->whereNotNull('shortcut')->map(fn (TextSnippet $s) => '/'.$s->shortcut)->take(4)->implode(' ');
-
-        if ($snippets->isEmpty()) {
-            return null;
-        }
 
         $buttons = $snippets->values()->map(function (TextSnippet $snippet, int $i) {
             $hidden = $i >= self::VISIBLE_OPTIONS ? ' x-cloak x-show="more"' : '';
@@ -159,9 +173,14 @@ class QuickTextarea extends Textarea
             ? "<button type=\"button\" class=\"qt-chip qt-more\" x-on:click=\"more = ! more\" x-text=\"more ? 'Menos' : 'Más ({$extra})'\">Más ({$extra})</button>"
             : '';
         $hint = $shortcuts ? '<span class="qt-hint">Atajos: '.e($shortcuts).'</span>' : '';
+        $options = $snippets->isEmpty() ? '' : "<div class=\"qt-options\">{$buttons}{$toggle}{$hint}</div>";
 
         return new HtmlString(<<<HTML
-            <div class="qt-options">{$buttons}{$toggle}{$hint}</div>
+            <p class="dictate-note" x-cloak x-show="voiceOn || voiceProblem" aria-live="polite">
+                <span x-show="voiceOn">Escuchando<span x-show="voiceText" x-text="': «' + voiceText + '»'"></span>. Toca <b>Parar</b> al terminar. Tu navegador pasa la voz a texto por internet (Google en Chrome, Microsoft en Edge).</span>
+                <span x-show="! voiceOn" x-text="voiceProblem"></span>
+            </p>
+            {$options}
             <style>
                 .qt-options { display: flex; flex-wrap: wrap; gap: .35rem; align-items: center; }
                 .qt-chip { border: 1px dashed var(--gray-300); border-radius: 9999px; padding: .1rem .6rem; font-size: .75rem; color: var(--gray-700); background: transparent; cursor: pointer; }

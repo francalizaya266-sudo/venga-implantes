@@ -74,6 +74,14 @@
                         </x-filament::input.wrapper>
                     @endif
 
+                    @if ($canEdit && $this->undo !== [])
+                        {{-- Un toque equivocado se corrige aquí, sin abrir la pieza. --}}
+                        <button type="button" class="odv-btn" wire:click="undoLast" wire:loading.attr="disabled" wire:target="undoLast" title="Deshacer: {{ \Illuminate\Support\Arr::last($this->undo)['label'] }} (Ctrl + Z)">
+                            {{ \Filament\Support\generate_icon_html(\Filament\Support\Icons\Heroicon::ArrowUturnLeft, size: \Filament\Support\Enums\IconSize::Small) }}
+                            <span>Deshacer</span>
+                        </button>
+                    @endif
+
                     <details class="odv-keys">
                         <summary>Atajos</summary>
                         <dl>
@@ -84,6 +92,9 @@
                             @if ($canEdit)
                                 <dt><kbd>M</kbd> <kbd>O</kbd> <kbd>D</kbd> <kbd>V</kbd> <kbd>L</kbd></dt><dd>Marcar esa cara</dd>
                                 <dt><kbd>Enter</kbd></dt><dd>Marcar la pieza</dd>
+                            @endif
+                            @if ($canEdit)
+                                <dt><kbd>Ctrl</kbd> <kbd>Z</kbd></dt><dd>Deshacer</dd>
                             @endif
                             <dt><kbd>F</kbd></dt><dd>Pantalla completa</dd>
                             <dt><kbd>Esc</kbd></dt><dd>Cerrar o soltar</dd>
@@ -115,8 +126,18 @@
                             autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="done">
                         <kbd class="odv-omni-key" x-show="! query" aria-hidden="true">/</kbd>
                         <button type="button" class="odv-omni-clear" x-show="query" x-cloak x-on:click="clearQuery()" aria-label="Borrar">×</button>
+                        <button type="button" class="dictate-btn" x-on:click="toggleVoice()" x-bind:class="{ 'is-on': voiceOn }" x-bind:aria-pressed="voiceOn" title="Dictar hallazgos: tu navegador pasa la voz a texto">
+                            {{ \Filament\Support\generate_icon_html(\Filament\Support\Icons\Heroicon::Microphone, size: \Filament\Support\Enums\IconSize::Small) }}
+                            <span x-text="voiceOn ? 'Parar' : 'Dictar'">Dictar</span>
+                        </button>
 
-                        <div class="odv-matches" x-show="searching && ! dictating" x-cloak role="listbox" aria-label="Hallazgos">
+                        <div class="odv-matches odv-voice" x-show="voiceOn || voiceProblem" x-cloak aria-live="polite">
+                            <p x-show="voiceOn">Escuchando: di la pieza, las caras y el hallazgo, por ejemplo <b>«36 mesial caries, 18 ausente»</b>. Toca <b>Parar</b> al terminar. Tu navegador pasa la voz a texto por internet (Google en Chrome, Microsoft en Edge).</p>
+                            <p x-show="voiceOn && voiceText" x-text="'«' + voiceText + '»'"></p>
+                            <p x-show="! voiceOn" x-text="voiceProblem"></p>
+                        </div>
+
+                        <div class="odv-matches" x-show="searching && ! dictating && ! voiceOn && ! voiceProblem" x-cloak role="listbox" aria-label="Hallazgos">
                             <p class="odv-matches-tip" x-show="! query">También puedes escribir o dictar varios: <b>36 MO caries, 18 ausente</b>.</p>
                             <template x-for="(code, index) in matches" x-bind:key="code">
                                 <button type="button" role="option" x-bind:aria-selected="index === highlighted" x-on:mouseenter="highlighted = index" x-on:click="pick(code)">
@@ -175,7 +196,7 @@
                             @endforeach
                         </ul>
                         <div class="odv-parse-foot">
-                            <span class="odv-muted">Revisa lo que entendí: en el dibujo se resaltan las piezas. Para dictar, usa el micrófono del teclado (en Windows, Windows + H).</span>
+                            <span class="odv-muted">Revisa lo que entendí: en el dibujo se resaltan las piezas.</span>
                             <x-filament::button size="sm" x-on:click="submitQuery()" :disabled="collect($this->dictated)->every(fn ($finding) => $finding['error'])">
                                 Agregar
                             </x-filament::button>

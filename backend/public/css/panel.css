@@ -808,6 +808,27 @@ button.agenda-slot:focus-visible { outline: 2px solid var(--primary-600); outlin
 /* Lo que hay que revisar antes de empezar (anticoagulantes, embarazo…): una idea por renglón. */
 .consult-risks { margin: .25rem 0 0; padding-left: 1.1rem; list-style: disc; display: grid; gap: .3rem; }
 /*
+ * "Dictar" (public/js/dictation.js), junto al nombre de cada nota y en el buscador del odontograma. Mientras
+ * escucha se pone en rojo y el micrófono late; debajo de la nota, el aviso de que la voz pasa a texto por internet.
+ */
+.dictate-btn { display: inline-flex; align-items: center; gap: .3rem; min-height: 1.75rem; padding: .15rem .65rem; border-radius: 9999px; font-size: .75rem; font-weight: 600; line-height: 1; white-space: nowrap; color: var(--primary-700); background: var(--primary-50); cursor: pointer; transition: background-color 150ms ease, color 150ms ease; }
+.dictate-btn svg { flex: none; width: 1rem; height: 1rem; }
+.dictate-btn:hover { background: var(--primary-100); }
+.dictate-btn.is-on { color: #fff; background: #dc2626; }
+.dictate-btn.is-on svg { animation: dictate-pulse 1.2s ease-in-out infinite; }
+.dark .dictate-btn { color: var(--primary-300); background: rgb(255 255 255 / .07); }
+.dark .dictate-btn:hover { background: rgb(255 255 255 / .12); }
+.dark .dictate-btn.is-on { color: #fff; background: #b91c1c; }
+@keyframes dictate-pulse { 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) { .dictate-btn.is-on svg { animation: none; } }
+@media (pointer: coarse) { .dictate-btn { min-height: 2.25rem; padding-inline: .8rem; } }
+.dictate-note { margin: 0 0 .35rem; font-size: .78rem; line-height: 1.45; color: var(--gray-600); }
+.dictate-note b { font-weight: 600; color: var(--gray-900); }
+.dark .dictate-note { color: var(--gray-400); }
+.dark .dictate-note b { color: #fff; }
+.dictate-note[x-cloak] { display: none; }
+
+/*
  * Tablet horizontal y computadora: odontograma a la izquierda, notas a la derecha. El odontograma se queda a la
  * vista mientras se escribe: se pega debajo de la barra (o por abajo, si es más alto que la pantalla).
  */
@@ -820,8 +841,8 @@ button.agenda-slot:focus-visible { outline: 2px solid var(--primary-600); outlin
 /* ---------- Odontograma (resources/views/livewire/odontogram-chart.blade.php, public/js/odontogram.js) ---------- */
 
 /*
- * La hoja del odontograma es siempre blanca, como impresa, para que el rojo (por tratar) y el azul (tratado) de la
- * norma se lean igual con el modo oscuro (ahí se apaga un poco). Lo de alrededor (filtros, buscador, ficha, lista) sigue el tema.
+ * La hoja del odontograma es clara, como impresa, para que el rojo (por tratar) y el azul (tratado) de la norma se
+ * lean igual con el modo oscuro (ahí pasa a un gris suave). Lo de alrededor (filtros, buscador, ficha, lista) sigue el tema.
  */
 .odv {
     --odv-bad: #dc2626; --odv-good: #2563eb; --odv-today: #f59e0b;
@@ -885,6 +906,10 @@ button.agenda-slot:focus-visible { outline: 2px solid var(--primary-600); outlin
 .odv-matches-tip, .odv-matches-empty { padding: .5rem .625rem; font-size: .8125rem; color: var(--odv-soft); }
 .odv-matches-tip { margin-bottom: .25rem; border-bottom: 1px solid var(--odv-line); }
 .odv-matches-tip b { font-weight: 600; color: var(--odv-ink); }
+.odv-omni .dictate-btn { flex: none; }
+.odv-voice p { padding: .5rem .625rem; font-size: .8125rem; line-height: 1.45; color: var(--odv-soft); }
+.odv-voice p b { font-weight: 600; color: var(--odv-ink); }
+.odv-voice p + p { padding-top: 0; color: var(--odv-ink); font-style: italic; }
 
 /* Los hallazgos de todos los días a un toque. En el celular, una sola fila que se desliza. */
 .odv-chips { display: flex; flex-wrap: wrap; gap: .3rem; }
@@ -935,8 +960,19 @@ button.agenda-slot:focus-visible { outline: 2px solid var(--primary-600); outlin
 .odv-stage { display: flex; flex-direction: column; gap: .75rem; min-width: 0; }
 .odv-sheet { position: relative; min-width: 0; padding: .375rem .5rem .75rem; border-radius: .875rem; background: #fff; box-shadow: inset 0 0 0 1px var(--gray-200); outline: 0; }
 .dark .odv-sheet { box-shadow: none; }
-/* En modo oscuro la hoja sigue siendo papel, pero un poco apagada para que no encandile; el rojo y el azul se leen igual. */
-@media screen { .dark .odv-sheet { filter: brightness(.86); } }
+/*
+ * En modo oscuro la hoja pasa a un gris suave y las piezas a un blanco apagado: no encandila de noche y el rojo
+ * (por tratar) y el azul (tratado) se ven con todo su color. Al imprimir sigue blanca.
+ */
+@media screen {
+    .dark .odv-sheet { background: #b9c1cc; }
+    .dark .odv-sides { color: #334155; }
+    .dark .odv-svg .odv-crown, .dark .odv-svg .odv-surface.is-none, .dark .odv-svg .odv-box { fill: #eceff3; }
+    .dark .odv-svg .odv-root { fill: #dce1e8; }
+    .dark .odv-svg .odv-palatal { fill: #d0d6df; }
+    .dark .odv-svg .odv-num { fill: #1e293b; }
+    .dark .odv-svg .odv-midline, .dark .odv-svg .odv-bite { stroke: #8f9aab; }
+}
 .odv-sheet:focus-visible { box-shadow: inset 0 0 0 2px var(--primary-500); }
 .odv-sides { display: flex; justify-content: space-between; padding: .125rem .375rem .25rem; font-size: .6875rem; font-weight: 500; color: #94a3b8; }
 .odv-scroll { overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: thin; }

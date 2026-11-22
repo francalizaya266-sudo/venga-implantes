@@ -348,9 +348,6 @@ class ConsultationForm
                                     QuickTextarea::make('procedures')
                                         ->hiddenLabel()
                                         ->label('Nota de evolución')
-                                        // Dictar no necesita nada más: el micrófono del teclado escribe en el campo. Va arriba: abajo
-                                        // están las frases de "Escritura rápida".
-                                        ->aboveContent('Para dictar, toca el micrófono del teclado del celular o la tablet (en Windows, Windows + H).')
                                         ->snippets(SnippetField::Procedures),
                                     QuickTextarea::make('next_steps')
                                         ->label('Próximos pasos')
@@ -825,8 +822,8 @@ class ConsultationForm
     }
 
     /**
-     * Si el tratamiento de la cita tiene su consentimiento: true si ya lo firmó para esta cita, false si falta.
-     * Null si no aplica (sin cita, o el tratamiento no tiene consentimiento propio).
+     * El consentimiento de la cita: true si ya está firmado, false si falta (el general, una vez por tratamiento;
+     * el de texto propio, en cada cita). Null si no aplica: sin cita o sin ningún texto de consentimiento en uso.
      */
     public static function consentStatus(Consultation $consultation): ?bool
     {

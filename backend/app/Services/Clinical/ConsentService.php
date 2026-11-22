@@ -40,8 +40,8 @@ final class ConsentService
     ];
 
     /**
-     * Si el tratamiento de la cita tiene su consentimiento: true si ya lo firmó para esta cita, false si falta.
-     * Null si no aplica (el tratamiento no tiene consentimiento propio).
+     * Si la cita pide consentimiento: true si ya está firmado, false si falta. Null si no aplica (ningún texto de
+     * consentimiento en uso le corresponde).
      */
     public function signedForVisit(Appointment $appointment): ?bool
     {
@@ -49,20 +49,25 @@ final class ConsentService
     }
 
     /**
-     * Lo mismo para varias citas a la vez (las tarjetas de la agenda), con dos consultas. Solo vienen las citas
-     * cuyo tratamiento tiene consentimiento propio: true si ya se firmó desde que se agendó, false si falta.
+     * Lo mismo para varias citas a la vez (las tarjetas de la agenda), con dos consultas.
+     *
+     * Un tratamiento con texto propio (una cirugía, un implante) se firma para cada cita: vale lo firmado desde
+     * el día en que se agendó. Los demás usan el consentimiento general, que se firma una vez por tratamiento:
+     * firmado para limpieza, cubre sus limpiezas siguientes, pero una extracción lo pide de nuevo. Si ninguno de
+     * los dos está en uso, la cita no viene.
      *
      * @param  Collection<int, Appointment>  $appointments
      * @return array<int, bool> Por id de la cita.
      */
     public function signedForVisits(Collection $appointments): array
     {
-        $withConsent = ConsentTemplate::query()
+        $templates = ConsentTemplate::query()
             ->where('is_active', true)
-            ->whereIn('treatment_id', $appointments->pluck('treatment_id')->filter()->unique()->values()->all())
-            ->pluck('treatment_id')
-            ->flip();
-        $visits = $appointments->filter(fn (Appointment $appointment) => $withConsent->has($appointment->treatment_id));
+            ->where(fn (Builder $query) => $query->whereNull('treatment_id')->orWhereIn('treatment_id', $appointments->pluck('treatment_id')->filter()->unique()->values()->all()))
+            ->pluck('treatment_id');
+        $ownText = $templates->filter()->flip();
+        $general = $templates->containsStrict(null);
+        $visits = $appointments->filter(fn (Appointment $appointment) => $general || $ownText->has($appointment->treatment_id));
 
         if ($visits->isEmpty()) {
             return [];
@@ -70,22 +75,23 @@ final class ConsentService
 
         $signed = Consent::query()
             ->whereIn('patient_id', $visits->pluck('patient_id')->unique()->values()->all())
-            ->whereIn('treatment_id', $withConsent->keys()->all())
+            ->whereIn('treatment_id', $visits->pluck('treatment_id')->unique()->values()->all())
             ->whereNull('revoked_at')
             ->get(['patient_id', 'treatment_id', 'signed_at']);
 
-        return $visits->mapWithKeys(function (Appointment $appointment) use ($signed): array {
+        return $visits->mapWithKeys(function (Appointment $appointment) use ($signed, $ownText): array {
             /** @var CarbonInterface $bookedAt */
             $bookedAt = $appointment->created_at;
+            $since = $ownText->has($appointment->treatment_id) ? $bookedAt->copy()->startOfDay() : null;
 
-            return [$appointment->getKey() => $signed->contains(function (Consent $consent) use ($appointment, $bookedAt): bool {
+            return [$appointment->getKey() => $signed->contains(function (Consent $consent) use ($appointment, $since): bool {
                 /** @var CarbonInterface|null $signedAt */
                 $signedAt = $consent->signed_at;
 
                 return (int) $consent->patient_id === (int) $appointment->patient_id
                     && (int) $consent->treatment_id === (int) $appointment->treatment_id
                     && $signedAt !== null
-                    && $signedAt->gte($bookedAt->copy()->startOfDay());
+                    && ($since === null || $signedAt->gte($since));
             })];
         })->all();
     }
