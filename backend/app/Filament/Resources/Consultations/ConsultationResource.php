@@ -102,6 +102,12 @@ class ConsultationResource extends Resource
         return static::getUrl(auth()->user()->can('update', $consultation) ? 'edit' : 'view', ['record' => $consultation]);
     }
 
+    /** "Mostrar al paciente": su odontograma, fotos y plan en una pantalla limpia (se abre en otra pestaña). */
+    public static function presentUrl(Consultation $consultation): string
+    {
+        return Filament::getPanel('admin')->route('present.consultation', ['consultation' => $consultation]);
+    }
+
     public static function prescriptionPrintUrl(Prescription $prescription): string
     {
         return Filament::getPanel('admin')->route('print.prescription', ['prescription' => $prescription]);

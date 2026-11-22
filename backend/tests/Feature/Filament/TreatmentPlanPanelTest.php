@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Filament;
 
+use App\Enums\ClinicalFileType;
 use App\Enums\DiagnosisType;
 use App\Enums\MessageStatus;
 use App\Enums\MessageTemplateKey;
@@ -14,6 +15,7 @@ use App\Filament\Resources\Consultations\Pages\EditConsultation;
 use App\Filament\Resources\Patients\Pages\ViewClinicalRecord;
 use App\Filament\Resources\Patients\RelationManagers\TreatmentPlansRelationManager;
 use App\Filament\Resources\TreatmentPlans\Pages\ListTreatmentPlans;
+use App\Filament\Support\VisitCloseOut;
 use App\Livewire\OdontogramChart;
 use App\Models\Appointment;
 use App\Models\Doctor;
@@ -37,6 +39,7 @@ use Filament\Actions\Testing\TestAction;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\Repeater;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 use Tests\Concerns\CreatesAgenda;
@@ -249,6 +252,40 @@ class TreatmentPlanPanelTest extends TestCase
 
         // Sin poder editar, la ficha no ofrece nada.
         $this->assertSame([], Livewire::test(OdontogramChart::class, ['record' => $consultation])->viewData('state')['teeth'][36]['plan']);
+    }
+
+    public function test_the_doctor_shows_the_patient_the_odontogram_the_photos_and_the_plan(): void
+    {
+        [$doctor, $patient] = $this->patientWithCariesIn36();
+        $consultation = $patient->consultations()->sole();
+        $consultation->update(['chief_complaint' => 'Nota interna del doctor']);
+        $suggestions = app(OdontogramSuggestions::class);
+        $suggestions->apply($consultation, $doctor->user, [$suggestions->rows($consultation->odontogram, $consultation)[0]['key']]);
+        app(ClinicalFileService::class)->store($patient, UploadedFile::fake()->image('bite.jpg', 400, 300), ClinicalFileType::Xray, $doctor->user, $consultation, 'Aleta de mordida');
+        $url = ConsultationResource::presentUrl($consultation);
+        $this->actingAs($doctor->user);
+
+        // Desde la barra de Atender, en otra pestaña.
+        Livewire::test(EditConsultation::class, ['record' => $consultation->getRouteKey()])
+            ->assertSeeHtml('href="'.e($url).'"');
+
+        // Su odontograma con lo que hay que tratar, sus radiografías y su plan con precios; nada de lo interno.
+        $this->get($url)
+            ->assertOk()
+            ->assertSee('class="odv-svg', false)
+            ->assertSeeInOrder([$patient->short_name, 'Su boca hoy', '1', 'pieza por tratar', 'Lo que hay que tratar', '36', 'Caries', 'Primer molar inferior izquierdo'])
+            ->assertSeeInOrder(['Radiografías y fotos', 'Aleta de mordida'])
+            ->assertSeeInOrder(['Su plan de tratamiento', 'Curación con resina', 'S/ 150.00', 'Total', 'S/ 150.00'])
+            ->assertSee(ConsultationResource::getUrl('edit', ['record' => $consultation]), false)
+            ->assertDontSee(['Nota interna del doctor', 'Antecedentes']);
+
+        // Terminada la atención, también desde lo que sigue, junto al presupuesto por aceptar.
+        $consultation->update(['closed_at' => now()]);
+        $this->assertSame(['label' => 'Mostrar al paciente', 'url' => $url], VisitCloseOut::viewData($consultation->fresh(), $doctor->user)['plan']['links'][0]);
+
+        // Solo quien ve la historia: recepción y otro doctor no.
+        $this->actingAs(User::factory()->reception()->create())->get($url)->assertForbidden();
+        $this->actingAs($this->doctorOffering(Treatment::factory()->create())->user)->get($url)->assertForbidden();
     }
 
     public function test_the_budget_names_each_tooth_says_why_and_until_when_it_is_valid(): void

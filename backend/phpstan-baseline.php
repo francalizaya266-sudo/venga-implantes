@@ -3216,11 +3216,6 @@ $ignoreErrors[] = [
     'path' => __DIR__.'/app/Filament/Support/VisitCloseOut.php',
 ];
 $ignoreErrors[] = [
-    'rawMessage' => 'Parameter #1 $array (array{0: array{label: \'Imprimir\', url: string}, 1?: array{label: \'WhatsApp\', action: \'sendPlan\'}}) of array_values is already a list, call has no effect.',
-    'count' => 1,
-    'path' => __DIR__.'/app/Filament/Support/VisitCloseOut.php',
-];
-$ignoreErrors[] = [
     'rawMessage' => 'Parameter #1 $patient of method App\\Services\\Patients\\PatientInsights::suggestedNextVisit() expects App\\Models\\Patient, Illuminate\\Database\\Eloquent\\Model|null given.',
     'count' => 1,
     'path' => __DIR__.'/app/Filament/Support/VisitCloseOut.php',

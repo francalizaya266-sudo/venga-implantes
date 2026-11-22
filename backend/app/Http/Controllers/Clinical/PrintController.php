@@ -2,12 +2,17 @@
 
 namespace App\Http\Controllers\Clinical;
 
+use App\Enums\ClinicalFileType;
 use App\Enums\PlanItemStatus;
 use App\Enums\TreatmentPlanStatus;
+use App\Filament\Resources\Consultations\ConsultationResource;
 use App\Filament\Resources\Patients\RelationManagers\TreatmentPlansRelationManager;
+use App\Filament\Support\VisitCloseOut;
 use App\Http\Controllers\Controller;
 use App\Livewire\OdontogramChart;
+use App\Models\ClinicalFile;
 use App\Models\Consent;
+use App\Models\Consultation;
 use App\Models\Odontogram;
 use App\Models\OdontogramEntry;
 use App\Models\Patient;
@@ -28,9 +33,15 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Collection;
 use Illuminate\View\View;
 
-/** Receta, presupuesto, consentimiento e historia listos para imprimir o guardar en PDF desde el navegador. */
+/**
+ * Receta, presupuesto, consentimiento e historia listos para imprimir o guardar en PDF desde el navegador; y lo que
+ * se le muestra al paciente en la pantalla.
+ */
 class PrintController extends Controller
 {
+    /** Radiografías y fotos que se le muestran al paciente: las últimas. */
+    private const PHOTOS = 12;
+
     public function prescription(Prescription $prescription, PrescriptionService $prescriptions): View
     {
         abort_unless(auth()->user()->can('viewClinical', $prescription->patient), 403);
@@ -139,6 +150,57 @@ class PrintController extends Controller
                 ? Filament::getPanel('admin')->route('print.plan.delivered', ['plan' => $plan])
                 : null,
             'delivered' => (bool) session('planDelivered'),
+        ]);
+    }
+
+    /**
+     * "Mostrar al paciente": su odontograma, sus radiografías y fotos y su plan con precios, en una pantalla limpia
+     * para girarla hacia él y explicarle. Sin antecedentes, notas internas ni menús.
+     */
+    public function present(Consultation $consultation, TreatmentPlanService $plans): View
+    {
+        abort_unless(auth()->user()->can('viewClinical', $consultation->patient), 403);
+
+        $patientId = $consultation->patient_id;
+        // El odontograma de esta atención o, si no tiene, el último del paciente.
+        $odontogram = Odontogram::query()
+            ->where('patient_id', $patientId)
+            ->orderByRaw('consultation_id = ? desc', [$consultation->getKey()])
+            ->latest('id')
+            ->with('entries.condition')
+            ->first();
+        $drawing = self::drawing($odontogram);
+        $plan = VisitCloseOut::planToAccept($consultation) ?? TreatmentPlan::query()
+            ->open()
+            ->where('patient_id', $patientId)
+            ->whereNull('included_in_plan_id')
+            ->with('items')
+            ->latest('id')
+            ->first();
+        $items = $plan ? TreatmentPlanItem::query()
+            ->where('treatment_plan_id', $plan->getKey())
+            ->whereNot('status', PlanItemStatus::Cancelled)
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get() : collect();
+
+        return view('filament.consultations.present', [
+            ...$drawing,
+            'patient' => $consultation->patient,
+            'backUrl' => ConsultationResource::urlFor($consultation),
+            'toTreat' => collect(OdontogramChart::groups($odontogram->entries ?? collect()))->where('state', 'bad')->values(),
+            'counts' => collect(['bad', 'good', 'missing'])->mapWithKeys(fn (string $flag) => [$flag => collect($drawing['teeth'])->filter(fn (array $tooth) => $tooth['flags'][$flag])->count()])->all(),
+            'photos' => ClinicalFile::query()
+                ->where('patient_id', $patientId)
+                ->whereIn('type', [ClinicalFileType::Xray, ClinicalFileType::Photo])
+                ->where('mime_type', 'like', 'image/%')
+                ->latest('taken_at')
+                ->latest('id')
+                ->limit(self::PHOTOS)
+                ->get(),
+            'plan' => $plan,
+            'lines' => TreatmentPlan::lines($items),
+            'paymentOptions' => $plan && $plan->accepted_at === null ? $plans->paymentOptions($plan) : [],
         ]);
     }
 

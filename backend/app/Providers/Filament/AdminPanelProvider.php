@@ -241,6 +241,7 @@ class AdminPanelProvider extends PanelProvider
                 Route::post('imprimir/plan/{plan}/entregado', [PrintController::class, 'planDelivered'])->name('print.plan.delivered');
                 Route::get('imprimir/consentimiento/{consent}', [PrintController::class, 'consent'])->name('print.consent');
                 Route::get('imprimir/historia/{patient}', [PrintController::class, 'history'])->name('print.history');
+                Route::get('mostrar/atencion/{consultation}', [PrintController::class, 'present'])->name('present.consultation');
                 Route::get('archivos/{file}', [ClinicalFileController::class, 'show'])->name('clinical-files.show');
                 Route::get('reportes/ingresos/imprimir', [EarningsExportController::class, 'print'])->name('reports.earnings.print');
                 Route::get('reportes/ingresos/excel', [EarningsExportController::class, 'excel'])->name('reports.earnings.excel');
