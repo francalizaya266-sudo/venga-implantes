@@ -79,6 +79,16 @@ class AppointmentPageTest extends TestCase
         );
     }
 
+    public function test_the_hour_mentions_the_time_to_prepare_the_chair_only_when_there_is_some(): void
+    {
+        $this->actingAs(User::factory()->reception()->create());
+
+        $hint = fn (Appointment $appointment): ?string => collect(AppointmentInfolist::detailsData($appointment)['facts'])->firstWhere('label', 'Hora')['hint'] ?? null;
+
+        $this->assertSame('30 min (+10 min para preparar el sillón)', $hint($this->appointment('2026-11-03 10:00')));
+        $this->assertSame('30 min', $hint($this->appointment('2026-11-03 11:00', ['buffer_minutes' => 0])));
+    }
+
     public function test_a_visit_the_patient_missed_stops_at_its_last_step_and_says_so(): void
     {
         $appointment = $this->appointment('2026-11-02 10:00', ['status' => AppointmentStatus::NoShow, 'confirmed_at' => '2026-11-02 08:00', 'no_show_at' => '2026-11-02 10:40']);
