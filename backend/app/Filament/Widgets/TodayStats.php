@@ -18,6 +18,7 @@ use App\Support\Dates;
 use App\Support\Money;
 use Carbon\CarbonImmutable;
 use Filament\Widgets\Widget;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 
 /**
@@ -69,8 +70,10 @@ class TodayStats extends Widget
     private function appointments(string $label = 'Citas de hoy'): array
     {
         // Las mismas que lista "Agenda de hoy", justo debajo: todas menos las canceladas.
+        /** @var Builder<Appointment> $query */
+        $query = AppointmentResource::getEloquentQuery();
         /** @var Collection<int, Appointment> $today */
-        $today = AppointmentResource::getEloquentQuery()
+        $today = $query
             ->startsOn(today())
             ->where('status', '!=', AppointmentStatus::Cancelled)
             ->withoutEagerLoads()
