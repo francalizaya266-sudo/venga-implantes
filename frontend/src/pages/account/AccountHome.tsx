@@ -6,6 +6,7 @@ import { AppointmentCard } from '@/components/site/AppointmentCard';
 import { AppLink } from '@/components/ui/AppLink';
 import { Icon } from '@/components/ui/Icon';
 import { paths } from '@/lib/paths';
+import { AccountNotices } from '@/pages/account/AccountNotices';
 
 type Account = Extract<AccountData, { guest: false }>;
 
@@ -19,7 +20,8 @@ interface Props {
  * Mi cuenta. A un lado, de quién es la cuenta y el paso a cada parte; al otro, las citas que vienen, los planes y
  * pagos, y las citas anteriores con los datos. En el celular va todo en una columna, con "Salir" al final.
  *
- * Los montos, las citas pasadas y los datos personales solo llegan después de verificar por WhatsApp (`elevated`).
+ * Los montos, las citas pasadas y los datos personales llegan cuando este celular tocó un enlace de WhatsApp
+ * (`elevated`), y siguen hasta que salga. Bajo las citas, la app y dónde llegan los avisos (AccountNotices).
  */
 export function AccountHome({ account, clinic, howToPay }: Props) {
   const { run, busy } = useAction();
@@ -51,6 +53,12 @@ export function AccountHome({ account, clinic, howToPay }: Props) {
             <a href="#planes">
               <Icon name="wallet" />
               Planes y pagos
+            </a>
+          ) : null}
+          {account.notices ? (
+            <a href="#avisos">
+              <Icon name="bell" />
+              Avisos
             </a>
           ) : null}
           <a href="#anteriores">
@@ -102,6 +110,8 @@ export function AccountHome({ account, clinic, howToPay }: Props) {
             )}
           </div>
         </section>
+
+        <AccountNotices notices={account.notices} />
 
         {showsPlans ? (
           <section className="account-card" aria-labelledby="planes">

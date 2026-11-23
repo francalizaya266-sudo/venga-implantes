@@ -1,8 +1,10 @@
 <?php
 
 use App\Http\Controllers\Api\V1\Account\AccountController;
+use App\Http\Controllers\Api\V1\Account\AppCodeController;
 use App\Http\Controllers\Api\V1\Account\HealthController;
 use App\Http\Controllers\Api\V1\Account\LinkController;
+use App\Http\Controllers\Api\V1\Account\NoticesController;
 use App\Http\Controllers\Api\V1\Booking\BookingController;
 use App\Http\Controllers\Api\V1\Booking\WaitlistController;
 use App\Http\Controllers\Api\V1\Site\FaqController;
@@ -74,6 +76,18 @@ Route::prefix('account')
             Route::get('appointments/{appointment}/change/slots', 'changeSlots')->name('appointments.change.slots');
             Route::post('appointments/{appointment}/change', 'saveChange')->name('appointments.change.save');
             Route::post('patients/{patient}/next-session', 'requestSession')->name('patients.session');
+        });
+
+        // Avisos en el celular (y si además van por WhatsApp), y el código para entrar desde la app en iPhone.
+        Route::controller(NoticesController::class)->prefix('notices')->name('notices.')->group(function () {
+            Route::post('phone', 'subscribe')->name('subscribe');
+            Route::post('phone/off', 'unsubscribe')->name('unsubscribe');
+            Route::post('whatsapp', 'whatsapp')->name('whatsapp');
+        });
+
+        Route::controller(AppCodeController::class)->prefix('app-code')->name('app-code.')->group(function () {
+            Route::post('/', 'store')->name('store');
+            Route::post('enter', 'enter')->name('enter');
         });
 
         Route::controller(HealthController::class)->group(function () {

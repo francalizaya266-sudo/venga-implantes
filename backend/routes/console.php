@@ -62,6 +62,11 @@ Schedule::command('whatsapp:enviar')
     ->everyFiveMinutes()
     ->withoutOverlapping();
 
+// Los avisos de citas y cuotas también salen en la pantalla del celular de quien los activó en Mi cuenta, apenas tocan.
+Schedule::command('avisos:enviar-al-celular')
+    ->everyMinute()
+    ->withoutOverlapping();
+
 // Sin servidor de colas: el mismo cron procesa los trabajos pendientes.
 Schedule::command('queue:work --stop-when-empty --max-time=50')
     ->everyMinute()

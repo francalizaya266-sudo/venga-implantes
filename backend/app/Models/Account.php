@@ -17,7 +17,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 /** Cuenta de paciente: un número de celular con uno o varios pacientes a cargo. */
-#[Fillable(['phone', 'phone_verified_at', 'accepts_promotions', 'promotions_consent_at', 'privacy_accepted_at', 'privacy_version', 'blocked_at', 'blocked_reason', 'blocked_by_user_id', 'web_booking_limit', 'last_seen_at'])]
+#[Fillable(['phone', 'phone_verified_at', 'accepts_promotions', 'promotions_consent_at', 'whatsapp_notices', 'privacy_accepted_at', 'privacy_version', 'blocked_at', 'blocked_reason', 'blocked_by_user_id', 'web_booking_limit', 'last_seen_at'])]
 class Account extends Model
 {
     /** @use HasFactory<AccountFactory> */
@@ -29,6 +29,7 @@ class Account extends Model
             'phone_verified_at' => 'datetime',
             'accepts_promotions' => 'boolean',
             'promotions_consent_at' => 'datetime',
+            'whatsapp_notices' => 'boolean',
             'privacy_accepted_at' => 'datetime',
             'blocked_at' => 'datetime',
             'last_seen_at' => 'datetime',
@@ -44,6 +45,12 @@ class Account extends Model
     public function rememberedDevices(): HasMany
     {
         return $this->hasMany(RememberedDevice::class);
+    }
+
+    /** Los celulares donde el paciente activó los avisos en la pantalla. */
+    public function pushSubscriptions(): HasMany
+    {
+        return $this->hasMany(PushSubscription::class);
     }
 
     public function magicLinks(): HasMany

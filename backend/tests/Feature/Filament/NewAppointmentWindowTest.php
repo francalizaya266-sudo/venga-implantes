@@ -15,6 +15,7 @@ use App\Filament\Resources\Patients\PatientResource;
 use App\Models\Appointment;
 use App\Models\Doctor;
 use App\Models\Patient;
+use App\Models\PushSubscription;
 use App\Models\Treatment;
 use App\Models\User;
 use App\Models\WaitlistEntry;
@@ -108,6 +109,23 @@ class NewAppointmentWindowTest extends TestCase
         $this->assertSame(0, WhatsappMessage::query()->count());
         $appointment = $this->patient->appointments()->sole();
         $this->assertSame('Cita movida. No tiene celular: no se preparó aviso al paciente.', AppointmentActions::movedMessage($appointment, now()->addDays(3), agreed: false));
+    }
+
+    public function test_a_patient_who_chose_notices_only_on_the_phone_is_not_offered_a_whatsapp_send(): void
+    {
+        $this->patient->account->update(['whatsapp_notices' => false]);
+        PushSubscription::factory()->for($this->patient->account)->create();
+
+        $this->windowOpenedFrom(Dashboard::getUrl(), ['patient' => $this->patient->id])
+            ->setActionData(['doctor_id' => $this->doctor->id, 'treatment_id' => $this->treatment->id, 'date' => '2026-11-03', 'slot' => '10:00'])
+            ->callMountedAction()
+            ->assertHasNoActionErrors();
+
+        // Le llega solo a la pantalla de su celular: ofrecer enviarlo por WhatsApp sería mandárselo dos veces.
+        $notice = $this->lastNotification();
+        $this->assertSame(['Cita creada. El aviso le llegará a la pantalla de su celular.', ['Ver cita']], [$notice['title'], array_column($notice['actions'], 'label')]);
+        $this->assertSame(1, WhatsappMessage::query()->pending()->count());
+        $this->assertSame(0, WhatsappMessage::query()->due()->count());
     }
 
     public function test_a_booking_that_fails_stays_in_the_window(): void

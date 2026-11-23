@@ -68,8 +68,9 @@ function Privacy({ data: { clinic, address, whatsapp } }: { data: PrivacyData })
         <h2>Tu celular recordado</h2>
         <p>
           Cuando tocas el enlace que te enviamos por WhatsApp, guardamos en tu navegador una cookie que recuerda este
-          celular para que no tengas que identificarte cada vez. Puedes quitarla con "Salir en este celular" en Mi
-          cuenta.
+          celular para que no tengas que identificarte cada vez. Mientras lo sigas usando, Mi cuenta queda abierta en
+          él; si pasas más de un año sin entrar, te pediremos un enlace nuevo. Puedes quitarla con "Salir en este
+          celular" en Mi cuenta, y si pierdes tu celular, escríbenos y la cerramos en todos.
         </p>
       </section>
 

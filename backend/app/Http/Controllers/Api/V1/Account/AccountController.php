@@ -24,6 +24,7 @@ use App\Services\Billing\BillingService;
 use App\Services\Booking\AppointmentService;
 use App\Services\Booking\PatientChangePolicy;
 use App\Services\Clinical\TreatmentPlanService;
+use App\Services\Notices\PhoneNotices;
 use App\Services\StaffAlerts;
 use App\Services\Web\PageMeta;
 use App\Services\Web\ReturningPatient;
@@ -53,6 +54,7 @@ class AccountController extends Controller
         private readonly BillingService $billing,
         private readonly TreatmentPlanService $plans,
         private readonly PageMeta $meta,
+        private readonly PhoneNotices $notices,
     ) {}
 
     /**
@@ -68,7 +70,8 @@ class AccountController extends Controller
         }
 
         $account = $device->account;
-        $elevated = $this->devices->isElevated();
+        // Un celular que tocó un enlace del número ve todo; el que solo reservó, sus próximas citas.
+        $elevated = $device->isVerified();
         $patients = $account->patients()->orderBy('first_name')->get();
         // Quien reservó con este número desde otro celular: su cita se ve, pero no cuenta como familia todavía.
         $guests = $account->guestIds();
@@ -102,6 +105,8 @@ class AccountController extends Controller
                 'several' => $family->count() > 1,
                 'phone' => Phone::display($account->phone),
                 'elevated' => $elevated,
+                // Avisos en el celular: si este los muestra y si además van por WhatsApp. Null sin las claves o sin verificar.
+                'notices' => $this->notices->stateFor($device),
                 'upcoming' => $upcoming->map(fn (Appointment $appointment) => AppointmentCardResource::make($appointment)->shownAs(
                     name: $appointment->patient->is($holder) ? null : $names[$appointment->patient_id],
                     guest: in_array((int) $appointment->patient_id, $guests, true),
@@ -155,7 +160,7 @@ class AccountController extends Controller
         ]]);
     }
 
-    /** Desde el celular recordado: pedir el enlace para ver citas pasadas y datos personales. */
+    /** Desde un celular que reservó sin enlace: pedir el enlace para ver planes, pagos, citas pasadas y datos. */
     public function requestVerification(Request $request): JsonResponse
     {
         $device = $this->device($request);
@@ -164,7 +169,7 @@ class AccountController extends Controller
             $this->access->requestAccess($device->account->phone);
         }
 
-        return $this->done('Te enviaremos un enlace por WhatsApp. Al tocarlo, verás tus planes, pagos, citas anteriores y datos durante unos minutos.');
+        return $this->done('Te enviaremos un enlace por WhatsApp. Al tocarlo, verás en este celular tus planes, pagos, citas anteriores y datos.');
     }
 
     public function confirm(Request $request, Appointment $appointment): JsonResponse

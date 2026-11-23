@@ -1343,6 +1343,372 @@
         ]
       }
     },
+    "/account/notices/phone": {
+      "post": {
+        "operationId": "account.notices.subscribe",
+        "tags": [
+          "Mi cuenta"
+        ],
+        "summary": "Activar los avisos en este celular",
+        "description": "El navegador aceptó el permiso: se guarda su suscripción. El primer celular con avisos de la familia vuelve a dejar WhatsApp activo.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Xsrf"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PhoneSubscription"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Los avisos de citas y cuotas saldrán en la pantalla de este celular.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Message"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Sin celular recordado, sin verificar (no tocó un enlace del número) o sin las claves de los avisos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "419": {
+            "description": "La sesión venció y la cabecera X-XSRF-TOKEN ya no vale: la web pide /site para renovarla y reintenta una vez.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Datos que no pasaron la validación.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Demasiados pedidos seguidos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "celularRecordado": []
+          }
+        ]
+      }
+    },
+    "/account/notices/phone/off": {
+      "post": {
+        "operationId": "account.notices.unsubscribe",
+        "tags": [
+          "Mi cuenta"
+        ],
+        "summary": "Dejar los avisos en este celular",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Xsrf"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Este celular ya no los muestra. Si no queda ninguno, los avisos vuelven a ir por WhatsApp.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Message"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Sin celular recordado, sin verificar (no tocó un enlace del número) o sin las claves de los avisos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "419": {
+            "description": "La sesión venció y la cabecera X-XSRF-TOKEN ya no vale: la web pide /site para renovarla y reintenta una vez.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Demasiados pedidos seguidos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "celularRecordado": []
+          }
+        ]
+      }
+    },
+    "/account/notices/whatsapp": {
+      "post": {
+        "operationId": "account.notices.whatsapp",
+        "tags": [
+          "Mi cuenta"
+        ],
+        "summary": "Recibir los avisos también por WhatsApp, o no",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Xsrf"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WhatsAppNotices"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Elegido.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Message"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Sin celular recordado, sin verificar (no tocó un enlace del número) o sin las claves de los avisos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "419": {
+            "description": "La sesión venció y la cabecera X-XSRF-TOKEN ya no vale: la web pide /site para renovarla y reintenta una vez.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Para dejar WhatsApp, la familia necesita un celular con los avisos activos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Demasiados pedidos seguidos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "celularRecordado": []
+          }
+        ]
+      }
+    },
+    "/account/app-code": {
+      "post": {
+        "operationId": "account.app-code.store",
+        "tags": [
+          "Mi cuenta"
+        ],
+        "summary": "Código para la app instalada en iPhone",
+        "description": "La app agregada a la pantalla de inicio de un iPhone no comparte lo que recuerda Safari: este código de 6 números la deja abierta. Sirve una vez y por 15 minutos.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Xsrf"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "El código.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "message"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/AppCode"
+                    },
+                    "message": {
+                      "type": "null"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Sin celular recordado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "419": {
+            "description": "La sesión venció y la cabecera X-XSRF-TOKEN ya no vale: la web pide /site para renovarla y reintenta una vez.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Demasiados pedidos seguidos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "celularRecordado": []
+          }
+        ]
+      }
+    },
+    "/account/app-code/enter": {
+      "post": {
+        "operationId": "account.app-code.enter",
+        "tags": [
+          "Mi cuenta"
+        ],
+        "summary": "Entrar en la app con el código",
+        "description": "Este navegador queda recordado como el celular que mostró el código (verificado si aquel lo estaba).",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Xsrf"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AppCodeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Mi cuenta quedó abierta en la app.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Message"
+                }
+              }
+            }
+          },
+          "419": {
+            "description": "La sesión venció y la cabecera X-XSRF-TOKEN ya no vale: la web pide /site para renovarla y reintenta una vez.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "El código no existe, ya se usó o venció.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Demasiados intentos (5 por minuto por conexión, 60 entre todas).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/account/appointments/{appointment}/confirm": {
       "post": {
         "operationId": "account.appointments.confirm",
@@ -2621,7 +2987,7 @@
         "additionalProperties": false
       },
       "AccountData": {
-        "description": "Sin celular recordado solo dice \"guest: true\". Planes, saldos, citas pasadas y datos de la familia llegan solo con el acceso verificado por enlace (\"elevated\"); si no, son null.",
+        "description": "Sin celular recordado solo dice \"guest: true\". Planes, saldos, citas pasadas y datos de la familia llegan cuando este celular tocó un enlace que llegó al WhatsApp del número (\"elevated\"), y siguen llegando hasta que salga; si solo reservó con un número nuevo, son null. \"notices\" dice si este celular muestra los avisos de citas y cuotas en la pantalla y si además van por WhatsApp.",
         "oneOf": [
           {
             "type": "object",
@@ -2643,6 +3009,7 @@
               "several",
               "phone",
               "elevated",
+              "notices",
               "upcoming",
               "plans",
               "balances",
@@ -2680,6 +3047,17 @@
               },
               "elevated": {
                 "type": "boolean"
+              },
+              "notices": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/NoticesState"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Avisos en el celular. Null si este celular no tocó un enlace del número o si el consultorio no creó sus claves (avisos:crear-claves)."
               },
               "upcoming": {
                 "type": "array",
@@ -2807,6 +3185,37 @@
             "additionalProperties": false
           }
         ]
+      },
+      "AppCode": {
+        "type": "object",
+        "required": [
+          "code",
+          "minutes"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "pattern": "^[0-9]{6}$"
+          },
+          "minutes": {
+            "type": "integer"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AppCodeRequest": {
+        "type": "object",
+        "required": [
+          "code"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "maxLength": 12,
+            "description": "Los 6 números, con o sin espacio."
+          }
+        },
+        "additionalProperties": false
       },
       "AppointmentCard": {
         "type": "object",
@@ -4627,6 +5036,36 @@
         },
         "additionalProperties": false
       },
+      "NoticesState": {
+        "type": "object",
+        "description": "Dónde llegan los avisos de citas y cuotas de la familia.",
+        "required": [
+          "key",
+          "this_phone",
+          "phones",
+          "whatsapp"
+        ],
+        "properties": {
+          "key": {
+            "type": "string",
+            "description": "Clave pública del consultorio (VAPID, base64 de URL) para suscribir el navegador."
+          },
+          "this_phone": {
+            "type": "boolean",
+            "description": "Este celular ya los activó."
+          },
+          "phones": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Celulares de la familia con los avisos activos (este incluido)."
+          },
+          "whatsapp": {
+            "type": "boolean",
+            "description": "Además van por WhatsApp. Siempre true si no hay ningún celular con avisos."
+          }
+        },
+        "additionalProperties": false
+      },
       "OriginRequest": {
         "type": "object",
         "required": [
@@ -4740,6 +5179,55 @@
           }
         },
         "additionalProperties": false
+      },
+      "PhoneSubscription": {
+        "type": "object",
+        "description": "La suscripción del navegador (PushSubscription.toJSON()) y su cifrado.",
+        "required": [
+          "endpoint",
+          "keys"
+        ],
+        "properties": {
+          "endpoint": {
+            "type": "string",
+            "format": "uri",
+            "maxLength": 1000
+          },
+          "expirationTime": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "keys": {
+            "type": "object",
+            "required": [
+              "p256dh",
+              "auth"
+            ],
+            "properties": {
+              "p256dh": {
+                "type": "string",
+                "maxLength": 120
+              },
+              "auth": {
+                "type": "string",
+                "maxLength": 60
+              }
+            }
+          },
+          "content_encoding": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "aes128gcm",
+              "aesgcm",
+              null
+            ]
+          }
+        }
       },
       "PickerDay": {
         "type": "object",
@@ -6148,6 +6636,18 @@
               },
               "additionalProperties": false
             }
+          }
+        },
+        "additionalProperties": false
+      },
+      "WhatsAppNotices": {
+        "type": "object",
+        "required": [
+          "whatsapp"
+        ],
+        "properties": {
+          "whatsapp": {
+            "type": "boolean"
           }
         },
         "additionalProperties": false

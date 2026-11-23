@@ -6,7 +6,9 @@ use App\Enums\MessageStatus;
 use App\Enums\MessageTemplateKey;
 use App\Filament\Actions\SendWhatsAppAction;
 use App\Models\Account;
+use App\Models\RememberedDevice;
 use App\Models\WhatsappMessage;
+use App\Services\Access\DeviceService;
 use App\Services\WhatsApp\WhatsAppOutbox;
 use Closure;
 use Filament\Actions\Action;
@@ -14,7 +16,7 @@ use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
 use Filament\Support\Icons\Heroicon;
 
-/** Bloquear o permitir las reservas web de un celular y enviarle su enlace de Mi cuenta. */
+/** Bloquear o permitir las reservas web de un celular, enviarle su enlace de Mi cuenta y cerrarla en sus celulares. */
 final class AccountActions
 {
     /**
@@ -60,6 +62,31 @@ final class AccountActions
             ->pending()
             ->oldest('id')
             ->first();
+    }
+
+    /**
+     * Mi cuenta queda abierta en el celular que tocó un enlace del número. Si el paciente lo perdió o cambió de
+     * celular, el consultorio la cierra en todos: para volver a entrar necesita un enlace nuevo.
+     */
+    public static function forgetDevices(): Action
+    {
+        return Action::make('forgetDevices')
+            ->label('Cerrar Mi cuenta en sus celulares')
+            ->icon(Heroicon::OutlinedDevicePhoneMobile)
+            ->visible(fn (Account $record) => RememberedDevice::query()->whereBelongsTo($record)->usable()->exists())
+            ->authorize('block')
+            ->requiresConfirmation()
+            ->modalHeading('¿Cerrar Mi cuenta en sus celulares?')
+            ->modalDescription('Úsalo si perdió o cambió su celular. Mi cuenta deja de estar abierta en los celulares donde entró, y para volver a entrar necesitará un enlace nuevo por WhatsApp.')
+            ->modalSubmitActionLabel('Cerrar Mi cuenta')
+            ->action(function (Account $record) {
+                $closed = app(DeviceService::class)->forgetAll($record);
+
+                Notification::make()
+                    ->success()
+                    ->title($closed === 1 ? 'Mi cuenta quedó cerrada en 1 celular' : "Mi cuenta quedó cerrada en {$closed} celulares")
+                    ->send();
+            });
     }
 
     public static function block(): Action

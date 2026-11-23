@@ -18,8 +18,8 @@ class ViewAccount extends ViewRecord
             AccountActions::sendAccessLink(),
             AccountActions::unblock(),
             EditAction::make()->color('gray'),
-            // Bloquear va en el menú ⋮, no como botón rojo: se usa poco y el rojo queda para lo urgente.
-            ActionGroup::make([AccountActions::block()]),
+            // Bloquear y cerrar Mi cuenta van en el menú ⋮: se usan poco y el rojo queda para lo urgente.
+            ActionGroup::make([AccountActions::forgetDevices(), AccountActions::block()]),
         ];
     }
 }

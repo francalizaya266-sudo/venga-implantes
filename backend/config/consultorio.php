@@ -176,10 +176,9 @@ return [
         ],
 
         'devices' => [
-            // El dispositivo deja de estar recordado tras estos días sin uso.
-            'remember_days' => 120,
-            // Minutos que dura la verificación reforzada (citas pasadas, datos personales).
-            'elevated_minutes' => 15,
+            // El celular deja de estar recordado tras estos días sin entrar; cada visita los renueva. Los navegadores
+            // no guardan una cookie más de 400 días.
+            'remember_days' => 400,
         ],
 
         'plans' => [
@@ -228,6 +227,16 @@ return [
             'phone_number_id' => env('WHATSAPP_PHONE_NUMBER_ID'),
             'version' => env('WHATSAPP_API_VERSION', 'v21.0'),
         ],
+    ],
+
+    // Avisos en el celular: los de las citas y cuotas también salen en la pantalla del paciente que los activó en
+    // Mi cuenta. Las claves se crean una vez con `php artisan avisos:crear-claves`; sin ellas, la opción no aparece.
+    // Solo funciona con la web en https (en local, en http://localhost).
+    'push' => [
+        'public_key' => env('VAPID_PUBLIC_KEY'),
+        'private_key' => env('VAPID_PRIVATE_KEY'),
+        // Cómo ubicar a quien envía si el servicio de avisos (Google, Apple, Mozilla) tiene un problema: la web o un correo.
+        'subject' => env('VAPID_SUBJECT'),
     ],
 
     // Proxies en los que se confía para saber la IP real del paciente y si la conexión es HTTPS. En Azure es el

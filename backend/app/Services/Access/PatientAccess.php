@@ -46,8 +46,8 @@ class PatientAccess
     }
 
     /**
-     * El paciente tocó un botón del enlace: el celular queda verificado y este
-     * dispositivo, recordado (con la verificación reforzada por unos minutos).
+     * El paciente tocó un botón del enlace: este celular queda recordado y verificado, así que ve todo lo de su
+     * familia en Mi cuenta hasta que salga.
      */
     public function actWithLink(Request $request, MagicLink $link): void
     {
@@ -62,8 +62,6 @@ class PatientAccess
             $this->devices->forgetUnverified($link->account);
             $this->devices->remember($link->account, $request);
         }
-
-        $this->devices->elevate();
     }
 
     /**

@@ -39,6 +39,8 @@
     <link rel="icon" href="{{ asset('favicon.ico') }}" sizes="32x32">
     <link rel="icon" href="{{ asset('favicon.svg') }}" type="image/svg+xml">
     <link rel="apple-touch-icon" href="{{ asset('apple-touch-icon.png') }}">
+    {{-- Se instala como app: con su ícono en la pantalla del celular, se abre en Mi cuenta. --}}
+    <link rel="manifest" href="{{ route('site.manifest', absolute: false) }}">
     <link rel="preload" href="{{ asset('fonts/inter-latin.woff2') }}" as="font" type="font/woff2" crossorigin>
     <link rel="preload" href="{{ asset('fonts/poppins-latin-700.woff2') }}" as="font" type="font/woff2" crossorigin>
     {{-- Con JavaScript, las secciones aparecen suaves al llegar a ellas. --}}

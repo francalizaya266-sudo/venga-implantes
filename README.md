@@ -58,7 +58,7 @@ De aquí en adelante, las carpetas y los comandos son dentro de `backend/`.
 
 1. La raíz pública del dominio apunta a la carpeta `public/`.
 2. `.env` con `APP_ENV=production`, `APP_DEBUG=false`, los datos de la base (MySQL 8 o MariaDB 10.6+) y `APP_URL` con la dirección real y `https://` (por ejemplo `https://vegaimplant.pe`): de ahí salen el mapa del sitio para Google, los enlaces de las citas que van por WhatsApp y la vista previa al compartir la web. Con `http://localhost`, esos enlaces no le sirven a nadie.
-3. `composer install --no-dev --optimize-autoloader`, `php artisan migrate --force` y `php artisan db:seed --class=CatalogSeeder --force` (solo catálogos, sin datos de prueba).
+3. `composer install --no-dev --optimize-autoloader`, `php artisan migrate --force` y `php artisan db:seed --class=CatalogSeeder --force` (solo catálogos, sin datos de prueba). La primera vez, también `php artisan avisos:crear-claves`: ver [Avisos en el celular y Mi cuenta como app](#avisos-en-el-celular-y-mi-cuenta-como-app).
 4. Un único cron cada minuto:
    `* * * * * php /ruta/al/proyecto/artisan schedule:run >> /dev/null 2>&1`
    Ese cron prepara los recordatorios del día anterior, marca las citas sin confirmar, procesa la cola, limpia enlaces vencidos y guarda cada madrugada una copia de la base de datos. Cada pasada deja su hora: si pasa más de una hora sin correr, **Hoy** se lo avisa a quien administra. En una laptop con Windows no hay cron: ver [Instalación en una laptop con Windows](#instalación-en-una-laptop-con-windows).
@@ -170,6 +170,16 @@ La web le pide todo a Laravel en `/api/v1`, dentro del mismo dominio. El contrat
 
 - **Etapa 1 (`WHATSAPP_DRIVER=click_to_chat`):** el panel arma el mensaje con un enlace personal nuevo y abre WhatsApp ya escrito; recepción solo presiona Enviar. Sin programas no oficiales.
 - **Etapa 2 (`WHATSAPP_DRIVER=cloud_api`):** con el trámite de Meta listo, se completan `WHATSAPP_CLOUD_TOKEN` y `WHATSAPP_PHONE_NUMBER_ID`, y en cada texto del panel el nombre de su plantilla aprobada. `whatsapp:enviar` los manda solos cada 5 minutos.
+
+## Avisos en el celular y Mi cuenta como app
+
+Cada paciente elige en **Mi cuenta → Avisos** dónde le llegan los avisos de sus citas y cuotas: en la pantalla de su celular (como los de cualquier app), por WhatsApp o por los dos. Lo que se ve con el celular bloqueado dice solo de quién es, el día, la hora y el doctor; el tratamiento y los montos se ven al abrir Mi cuenta.
+
+- **Una sola vez por instalación:** `php artisan avisos:crear-claves` guarda en `.env` las claves con que el consultorio firma los avisos (`VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`). No se cambian después: con claves nuevas, cada paciente tiene que volver a activarlos. Sin ellas, Mi cuenta no ofrece los avisos y todo sigue por WhatsApp.
+- **Solo con `https://`:** los navegadores no muestran avisos de una web sin candado. En la laptop (`http://127.0.0.1:8000`) se ven las opciones, pero los avisos funcionan cuando el sistema está en el hosting.
+- **Salen solos:** el cron de cada minuto (`avisos:enviar-al-celular`) los manda a los celulares que los activaron. Si alguien eligió solo el celular y el aviso no llega a mostrarse en media hora (cambió de celular, salió de Mi cuenta), vuelve a **Avisos → Por enviar** para que salga por WhatsApp. En **Avisos**, los que salieron así dicen «En su celular».
+- **Android (Chrome):** Mi cuenta ofrece **Instalar la app**: queda un ícono en la pantalla que abre Mi cuenta directo.
+- **iPhone (iOS 16.4 o más nuevo):** los avisos llegan solo con la web agregada a la pantalla de inicio. Mi cuenta muestra los pasos (Safari → Compartir → Agregar a inicio). La app no comparte la sesión de Safari, así que la primera vez pide un código de 6 números que Mi cuenta muestra en Safari (vale 15 minutos y sirve una vez).
 
 ## Consulta de DNI (RENIEC)
 
