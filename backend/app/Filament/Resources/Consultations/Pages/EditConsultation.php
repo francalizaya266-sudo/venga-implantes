@@ -54,6 +54,21 @@ class EditConsultation extends EditRecord
         $this->savedFingerprint = $this->fingerprint();
     }
 
+    /**
+     * Si la atención deja de poder editarse con la pantalla abierta (se terminó aquí o en otra pestaña), lo que esta
+     * pantalla todavía pida no rebota con un cuadro de error: pasa a la atención terminada, en modo lectura, como al abrirla.
+     */
+    public function hydrate(): void
+    {
+        $consultation = $this->getConsultation();
+
+        if (! auth()->user()->can('update', $consultation) && auth()->user()->can('view', $consultation)) {
+            throw new HttpResponseException(redirect(ConsultationResource::getUrl('view', ['record' => $consultation])));
+        }
+
+        parent::hydrate();
+    }
+
     /** Hora del último guardado automático, para mostrarla en la barra fija. */
     #[Locked]
     public ?string $autosavedAt = null;
@@ -352,6 +367,13 @@ class EditConsultation extends EditRecord
                     ->send();
 
                 $this->redirect(ConsultationResource::getUrl('view', ['record' => $consultation]));
+
+                // Con materiales, la ventana queda abierta, tal cual, hasta que se abre la atención terminada: cerrarla
+                // vaciaría sus listas, que volverían a pedir sus nombres a una atención que ya no se puede editar.
+                if (array_key_exists('supplies_used', $data)) {
+                    $this->skipRender();
+                    $action->halt();
+                }
             });
     }
 
