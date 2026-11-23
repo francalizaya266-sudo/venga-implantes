@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\PaymentMethod;
 use App\Enums\UserRole;
 use App\Filament\Pages\CashClosing;
 use App\Livewire\PanelPulse;
@@ -99,8 +100,11 @@ class StaffAlerts
     /** Se anuló un cargo desde la cuenta del paciente: ya no se le cobra, y quien administra lo sabe al momento. */
     public function chargeVoided(Charge $charge, User $by): void
     {
+        /** @var Patient $patient */
+        $patient = $charge->patient;
+
         $this->toAdmins(
-            'Se anuló un cargo de '.$charge->patient->full_name,
+            'Se anuló un cargo de '.$patient->full_name,
             e($charge->description.' de '.Money::format($charge->net()).'. Motivo: '.$charge->void_reason.'. Lo anuló '.$by->name.'.'),
             $by,
             ['label' => 'Ver en el cierre del día', 'url' => self::closingUrl(today())],
@@ -110,22 +114,36 @@ class StaffAlerts
     /** Se anuló un pago: deja de contar en la caja de su día, y quien administra lo sabe al momento. */
     public function paymentVoided(Payment $payment, User $by): void
     {
+        /** @var Patient $patient */
+        $patient = $payment->patient;
+        /** @var PaymentMethod $method */
+        $method = $payment->method;
+        /** @var CarbonInterface $paidAt */
+        $paidAt = $payment->paid_at;
+
         $this->toAdmins(
-            'Se anuló un pago de '.$payment->patient->full_name,
-            e(Money::format(abs((float) $payment->amount)).' con '.$payment->method->getLabel().' ('.$payment->paid_at->translatedFormat('l j \d\e F').', '.Dates::time($payment->paid_at).'). Motivo: '.$payment->void_reason.'. Lo anuló '.$by->name.'.'),
+            'Se anuló un pago de '.$patient->full_name,
+            e(Money::format(abs((float) $payment->amount)).' con '.$method->getLabel().' ('.$paidAt->translatedFormat('l j \d\e F').', '.Dates::time($paidAt).'). Motivo: '.$payment->void_reason.'. Lo anuló '.$by->name.'.'),
             $by,
-            ['label' => 'Ver en el cierre del día', 'url' => self::closingUrl($payment->paid_at)],
+            ['label' => 'Ver en el cierre del día', 'url' => self::closingUrl($paidAt)],
         );
     }
 
     /** Se devolvió dinero que el paciente tenía a favor: sale de la caja de hoy. */
     public function refunded(Payment $refund, User $by): void
     {
+        /** @var Patient $patient */
+        $patient = $refund->patient;
+        /** @var PaymentMethod $method */
+        $method = $refund->method;
+        /** @var CarbonInterface $paidAt */
+        $paidAt = $refund->paid_at;
+
         $this->toAdmins(
-            'Se devolvió dinero a '.$refund->patient->full_name,
-            e(Money::format(abs((float) $refund->amount)).' con '.$refund->method->getLabel().'. Motivo: '.$refund->notes.'. Lo devolvió '.$by->name.'.'),
+            'Se devolvió dinero a '.$patient->full_name,
+            e(Money::format(abs((float) $refund->amount)).' con '.$method->getLabel().'. Motivo: '.$refund->notes.'. Lo devolvió '.$by->name.'.'),
             $by,
-            ['label' => 'Ver en el cierre del día', 'url' => self::closingUrl($refund->paid_at)],
+            ['label' => 'Ver en el cierre del día', 'url' => self::closingUrl($paidAt)],
         );
     }
 

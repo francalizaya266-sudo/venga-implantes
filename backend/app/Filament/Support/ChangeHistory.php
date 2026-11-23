@@ -359,10 +359,7 @@ final class ChangeHistory
         }
 
         if ($log->auditable_type === Charge::class) {
-            // "Limpieza dental · Rosa Huamán".
-            $patient = Patient::withTrashed()->find($record?->patient_id ?? $values['patient_id'] ?? null);
-
-            return ($record?->description ?? $values['description'] ?? 'Un cobro').($patient ? ' · '.$patient->full_name : '');
+            return self::chargeSubject($log);
         }
 
         if ($log->auditable_type === MessageTemplate::class) {
@@ -372,6 +369,18 @@ final class ChangeHistory
         }
 
         return (string) ($record?->name ?? $values['name'] ?? 'Ya no existe');
+    }
+
+    /** "Limpieza dental · Rosa Huamán". */
+    private static function chargeSubject(AuditLog $log): string
+    {
+        /** @var Charge|null $charge */
+        $charge = $log->auditable;
+        /** @var array<string, mixed> $values */
+        $values = ($log->new_values ?? []) + ($log->old_values ?? []);
+        $patient = Patient::withTrashed()->find($charge->patient_id ?? $values['patient_id'] ?? null);
+
+        return ($charge->description ?? $values['description'] ?? 'Un cobro').($patient ? ' · '.$patient->full_name : '');
     }
 
     /** El cambio en una línea, para la lista. */
@@ -399,6 +408,7 @@ final class ChangeHistory
     /** "Precio: S/ 120.00 → S/ 70.00 · Motivo: paciente frecuente", "Se agregó al cobrar: S/ 30.00" o "Se quitó al cobrar". */
     private static function chargeInWords(AuditLog $log): string
     {
+        /** @var array<string, mixed> $new */
         $new = $log->new_values ?? [];
         $reason = filled($new['adjustment_reason'] ?? null) ? 'Motivo: '.$new['adjustment_reason'] : null;
 

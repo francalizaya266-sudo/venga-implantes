@@ -1,6 +1,4 @@
 @use('App\Support\Money')
-@use('App\Support\Dates')
-@use('App\Services\Billing\PriceAdjustments')
 {{-- Lo que se cambió al cobrar: otro precio, un descuento, un concepto agregado o quitado, con su motivo y quién. --}}
 <x-filament-widgets::widget>
     <x-filament::section :heading="$heading" icon="heroicon-o-receipt-percent">
@@ -10,7 +8,7 @@
             <p class="cc-adjust-total">
                 <strong>{{ $totals['count'] }} {{ $totals['count'] === 1 ? 'cambio' : 'cambios' }}</strong>
                 @if ($totals['lowered'] > 0)
-                    · se cobró <strong class="is-lowered">{{ Money::format($totals['lowered']) }}</strong> menos de lo que traían
+                    · se cobró <strong class="is-lowered">{{ Money::format($totals['lowered']) }}</strong> menos de su precio
                 @endif
                 @if ($totals['raised'] > 0)
                     · {{ Money::format($totals['raised']) }} más por precios subidos
@@ -21,7 +19,7 @@
                     <li>
                         <span class="cc-row-text">
                             <strong>{{ $row['patient'] }} · {{ $row['concept'] }}</strong>
-                            <small>{{ PriceAdjustments::change($row['charge']) }} · {{ filled($row['reason']) ? 'Motivo: '.$row['reason'] : 'Sin motivo' }} · {{ $row['by'] }}, {{ Dates::time($row['at']) }}</small>
+                            <small>{{ $row['change'] }} · {{ filled($row['reason']) ? 'Motivo: '.$row['reason'] : 'Sin motivo' }} · {{ $row['by'] }}, {{ $row['at']->format('H:i') }}</small>
                         </span>
                         @if (abs($row['lowered']) >= 0.005)
                             <span @class(['cc-amount', 'is-lowered' => $row['lowered'] > 0])>{{ $row['lowered'] > 0 ? '−' : '+' }} {{ Money::format(abs($row['lowered'])) }}</span>

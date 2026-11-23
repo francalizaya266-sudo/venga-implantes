@@ -1,5 +1,4 @@
 @use('App\Support\Money')
-@use('App\Support\Dates')
 @use('App\Filament\Widgets\CashClosingCheck')
 @use('App\Services\Billing\PriceAdjustments')
 <x-print-layout title="Cierre del día">
@@ -68,7 +67,7 @@
                     @foreach ($adjustments as $row)
                         <tr>
                             <td>{{ $row['patient'] }} · {{ $row['concept'] }}</td>
-                            <td class="muted">{{ PriceAdjustments::change($row['charge']) }} · {{ filled($row['reason']) ? 'Motivo: '.$row['reason'] : 'Sin motivo' }} · {{ $row['by'] }}, {{ Dates::time($row['at']) }}</td>
+                            <td class="muted">{{ $row['change'] }} · {{ filled($row['reason']) ? 'Motivo: '.$row['reason'] : 'Sin motivo' }} · {{ $row['by'] }}, {{ $row['at']->format('H:i') }}</td>
                             <td class="num">{{ abs($row['lowered']) >= 0.005 ? ($row['lowered'] > 0 ? '− ' : '+ ').Money::format(abs($row['lowered'])) : '' }}</td>
                         </tr>
                     @endforeach

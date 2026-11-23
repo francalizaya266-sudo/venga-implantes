@@ -678,7 +678,10 @@ final class BillingService
         });
 
         $this->settleWhenNothingIsOwed($appointment->patient_id);
-        app(StaffAlerts::class)->checkoutAdjusted($appointment->patient, $adjusted, $by);
+
+        /** @var Patient $patient */
+        $patient = $appointment->patient;
+        app(StaffAlerts::class)->checkoutAdjusted($patient, $adjusted, $by);
 
         return $adjusted;
     }
