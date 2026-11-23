@@ -80,8 +80,8 @@ class PaymentsTable
                     ])
                     ->columns(2)
                     ->query(fn (Builder $query, array $data) => $query
-                        ->when(self::day($data['from'] ?? null), fn (Builder $q, $date) => $q->whereDate('paid_at', '>=', $date))
-                        ->when(self::day($data['until'] ?? null), fn (Builder $q, $date) => $q->whereDate('paid_at', '<=', $date)))
+                        ->when(self::day($data['from'] ?? null), fn (Builder $q, $date) => $q->where('paid_at', '>=', $date))
+                        ->when(self::day($data['until'] ?? null), fn (Builder $q, $date) => $q->where('paid_at', '<', CarbonImmutable::parse($date)->addDay()->toDateString())))
                     ->indicateUsing(function (array $data): array {
                         $from = self::day($data['from'] ?? null);
                         $until = self::day($data['until'] ?? null);

@@ -138,7 +138,7 @@ class ListConsultations extends ListRecords
             ->where('patient_id', $patientId)
             ->where('doctor_id', $doctorId)
             ->whereIn('status', AppointmentStatus::open())
-            ->whereDate('starts_at', today())
+            ->startsOn(today())
             ->orderBy('starts_at')
             ->first();
     }

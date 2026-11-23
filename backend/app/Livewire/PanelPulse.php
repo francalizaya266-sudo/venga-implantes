@@ -111,7 +111,7 @@ class PanelPulse extends Component
         $record = $user->canSeeClinical() ? Appointment::query()
             ->whereKey($appointment)
             ->where('doctor_id', $user->doctorId())
-            ->whereDate('starts_at', today())
+            ->startsOn(today())
             ->whereIn('status', [AppointmentStatus::CheckedIn, AppointmentStatus::InProgress])
             ->first() : null;
 
