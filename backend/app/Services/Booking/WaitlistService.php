@@ -403,6 +403,7 @@ final class WaitlistService
                 $this->alerts->toReception(
                     'Lista de espera desde la web',
                     "{$patient->full_name} · {$treatment->name}".($doctor ? " con {$doctor->name}" : '').' · '.mb_strtolower($data->period->getLabel())
+                        .(filled($data->days) ? ' · '.trim($data->days) : '')
                         .'. No encontró un horario que le sirva: ofrécele uno cuando se libere.',
                     link: ['label' => 'Ver la lista de espera', 'url' => WaitlistEntryResource::getUrl()],
                 );
@@ -423,7 +424,8 @@ final class WaitlistService
                 throw new AuthorizationException('Para elegir a un familiar registrado, abre la web desde tu enlace de WhatsApp.');
             }
 
-            return $account->patients()->find($data->patientId)
+            // Como al reservar: quien está "por confirmar" en este número no es de la familia y no se puede elegir.
+            return $account->patients()->whereKeyNot($account->guestIds())->find($data->patientId)
                 ?? throw new BookingException('No encontramos a esa persona en este celular. Elige de nuevo para quién es.');
         }
 
