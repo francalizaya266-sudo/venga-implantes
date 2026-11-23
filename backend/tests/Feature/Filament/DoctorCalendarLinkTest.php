@@ -60,8 +60,10 @@ class DoctorCalendarLinkTest extends TestCase
         $this->get($old)->assertNotFound();
         $this->get($new)->assertOk();
 
-        // Quien administra ve que lo cambió, sin la clave.
-        $change = AuditLog::query()->where('auditable_type', Doctor::class)->where('event', 'calendar_link_changed')->sole();
+        // Quien administra ve que lo cambió, sin la clave. El historial guarda hasta 20 letras: la base de las pruebas no
+        // lo exige, MySQL sí (con un nombre más largo, cambiar el enlace daba error).
+        $this->assertLessThanOrEqual(20, strlen(DoctorCalendarFeed::LINK_CHANGED));
+        $change = AuditLog::query()->where('auditable_type', Doctor::class)->where('event', DoctorCalendarFeed::LINK_CHANGED)->sole();
         $this->assertSame($doctor->user_id, $change->user_id);
         $this->assertStringNotContainsString(basename($new, '.ics'), json_encode($change->toArray()));
         $this->assertSame(0, AuditLog::query()->where('auditable_type', Doctor::class)->where('event', 'updated')->count());
