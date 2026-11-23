@@ -9,6 +9,7 @@ use App\Models\Payment;
 use App\Models\User;
 use App\Services\StaffAlerts;
 use Carbon\CarbonImmutable;
+use Carbon\CarbonInterface;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Forms\Components\DatePicker;
@@ -41,7 +42,12 @@ class PaymentsTable
                 TextColumn::make('paid_at')
                     ->label('Fecha')
                     // El año solo si no es este: así, en el celular, cada pago entra en dos líneas.
-                    ->dateTime(fn (Payment $record) => $record->paid_at->isCurrentYear() ? 'd/m H:i' : 'd/m/Y H:i')
+                    ->dateTime(function (Payment $record): string {
+                        /** @var CarbonInterface $paidAt */
+                        $paidAt = $record->paid_at;
+
+                        return $paidAt->isCurrentYear() ? 'd/m H:i' : 'd/m/Y H:i';
+                    })
                     ->sortable(),
                 TextColumn::make('patient.last_name')
                     ->label('Paciente')

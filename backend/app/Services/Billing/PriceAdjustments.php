@@ -3,6 +3,8 @@
 namespace App\Services\Billing;
 
 use App\Models\Charge;
+use App\Models\Patient;
+use App\Models\User;
 use App\Support\Money;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
@@ -13,6 +15,8 @@ use Illuminate\Support\Collection;
  * el doctor), un descuento, un concepto agregado o quitado a mano. También los cargos que se anularon a mano desde la
  * cuenta del paciente, que bajan lo que se cobra igual que un precio cambiado. Cada cambio queda con su motivo, quién
  * y cuándo. Lo usan el cierre del día (en pantalla y en la hoja), la alerta a quien administra y la constancia de pago.
+ *
+ * @phpstan-type Adjustment array{charge: Charge, patient: string, concept: string, kind: string, change: string, original: float|null, price: float, discount: float, charged: float, lowered: float, reason: string|null, by: string, at: CarbonInterface}
  */
 final class PriceAdjustments
 {
@@ -30,7 +34,7 @@ final class PriceAdjustments
      * Lo que anula el sistema al corregirse una atención no cuenta: se vuelve a cargar. Un cargo que se cambió al cobrar
      * y después se anuló a mano sale dos veces, cada cambio en su día y con su motivo y quién.
      *
-     * @return Collection<int, array{charge: Charge, patient: string, concept: string, kind: string, change: string, original: float|null, price: float, discount: float, charged: float, lowered: float, reason: string|null, by: string, at: CarbonInterface}>
+     * @return Collection<int, Adjustment>
      */
     public function ofDay(CarbonInterface $date, ?int $by = null): Collection
     {
@@ -60,7 +64,7 @@ final class PriceAdjustments
     /**
      * Cuántos cambios hubo y cuánto se cobró de menos (y de más, si se subió algún precio) frente a lo que traían.
      *
-     * @param  Collection<int, array{lowered: float}>  $rows
+     * @param  Collection<int, Adjustment>  $rows
      * @return array{count: int, lowered: float, raised: float}
      */
     public static function totals(Collection $rows): array
@@ -76,16 +80,22 @@ final class PriceAdjustments
      * Un cambio, listo para mostrar. Con $voidedByHand, la anulación a mano desde la cuenta del paciente (y no lo que se
      * cambió al cobrar, si además se cambió).
      *
-     * @return array{charge: Charge, patient: string, concept: string, kind: string, change: string, original: float|null, price: float, discount: float, charged: float, lowered: float, reason: string|null, by: string, at: CarbonInterface}
+     * @return Adjustment
      */
     public static function row(Charge $charge, bool $voidedByHand = false): array
     {
         $removedAtCheckout = $charge->voided_at !== null && $charge->void_reason === BillingService::REMOVED_AT_CHECKOUT;
         $charged = $voidedByHand || $removedAtCheckout ? 0.0 : $charge->net();
+        /** @var Patient|null $patient */
+        $patient = $charge->patient;
+        /** @var User|null $by */
+        $by = $voidedByHand ? $charge->voidedBy : $charge->adjustedBy;
+        /** @var CarbonInterface $at */
+        $at = $voidedByHand ? $charge->voided_at : $charge->adjusted_at;
 
         return [
             'charge' => $charge,
-            'patient' => $charge->patient?->full_name ?? '—',
+            'patient' => $patient->full_name ?? '—',
             'concept' => $charge->description,
             'kind' => $voidedByHand ? self::REMOVED : self::kind($charge),
             'change' => self::change($charge, $voidedByHand),
@@ -96,8 +106,8 @@ final class PriceAdjustments
             // Lo anulado a mano deja de cobrarse entero; lo cambiado al cobrar, lo que va de cómo llegó a cómo quedó.
             'lowered' => $voidedByHand ? $charge->net() : round($charge->originalNet() - $charged, 2),
             'reason' => $voidedByHand ? $charge->void_reason : $charge->adjustment_reason,
-            'by' => ($voidedByHand ? $charge->voidedBy : $charge->adjustedBy)?->name ?? 'Alguien que ya no está',
-            'at' => $voidedByHand ? $charge->voided_at : $charge->adjusted_at,
+            'by' => $by->name ?? 'Alguien que ya no está',
+            'at' => $at,
         ];
     }
 
