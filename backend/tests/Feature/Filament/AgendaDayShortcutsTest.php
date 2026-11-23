@@ -101,6 +101,9 @@ class AgendaDayShortcutsTest extends TestCase
         // Solo la de una hora: en la de 30 minutos no hay lugar.
         $this->assertSame(1, substr_count($html, 'class="agenda-appt-step"'));
         $this->assertMatchesRegularExpression('/agenda-appt-step.*?Llegó/s', $html);
+        // Su tarjeta lo sabe: en una columna angosta, sus líneas le dejan lugar al botón para que no tape la hora.
+        $this->assertSame(1, substr_count($html, 'has-step'));
+        $this->assertMatchesRegularExpression('/class="agenda-appt [^"]*has-step[^"]*"[^>]*>\s*<b>Rosa/s', $html);
 
         Livewire::test(Agenda::class)
             ->callAction('listArrived', arguments: ['id' => $long->id])

@@ -342,6 +342,13 @@
 .agenda-appt-step { position: absolute; right: .5rem; z-index: 2; transform: translateY(-100%); }
 .agenda-appt-step .fi-btn { box-shadow: 0 1px 2px rgb(0 0 0 / .12); }
 .agenda-frame.is-dragging .agenda-appt-step { pointer-events: none; opacity: .4; }
+/* En una columna angosta (dos doctores en el celular) el botón con su nombre tapaba la hora y el estado de la cita:
+   ahí va solo su ícono, en la esquina, y las líneas de la tarjeta le dejan lugar. El lector de pantalla sigue
+   leyendo el nombre del paso. */
+@container (max-width: 16rem) {
+    .agenda-appt.has-step small { padding-right: 2.25rem; }
+    .agenda-appt-step .fi-btn { gap: 0; padding: .375rem; font-size: 0; line-height: 0; }
+}
 /* Enfoque: lo atendido y pagado queda tenue; al pasar el mouse vuelve. */
 .agenda-layout.is-focus :is(.agenda-appt, .agenda-item).is-settled { opacity: .35; filter: saturate(.4); transition: opacity .15s ease; }
 .agenda-layout.is-focus :is(.agenda-appt, .agenda-item).is-settled:hover { opacity: 1; filter: none; }
@@ -397,6 +404,11 @@
     .agenda-modes .fi-tabs-item { padding-block: .4375rem; }
     .agenda-help summary { display: inline-flex; align-items: center; min-height: 2.75rem; }
     .agenda-appt-step .fi-btn::after { content: ""; position: absolute; inset-inline: -.25rem; top: calc(50% - 1.375rem); height: 2.75rem; }
+    /* El ícono solo, en la esquina: la zona del dedo crece hacia adentro de la tarjeta y termina en su borde, sin
+       llegar a la cita de abajo. */
+    @container (max-width: 16rem) {
+        .agenda-appt-step .fi-btn::after { inset-inline: -.5rem; top: auto; bottom: -.25rem; }
+    }
 }
 @media (prefers-reduced-motion: reduce) {
     .agenda-appt { animation-name: agenda-fade; }
