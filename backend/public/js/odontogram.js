@@ -457,6 +457,7 @@
 
             if (this.dictating) {
                 clearTimeout(this.sendTimer);
+                this.closeMatches();
                 this.$wire.addDictated(this.query).then(() => {
                     this.query = this.$wire.dictation ?? '';
                 });
@@ -473,7 +474,17 @@
             }
 
             this.query = '';
+            this.closeMatches();
+        },
+
+        // Al aceptar, la lista se cierra para ver lo marcado en el dibujo; se abre de nuevo al volver a escribir.
+        // En el celular, además, se baja el teclado.
+        closeMatches() {
             this.searching = false;
+
+            if (coarse()) {
+                this.$refs.omni?.blur();
+            }
         },
 
         clearQuery() {
