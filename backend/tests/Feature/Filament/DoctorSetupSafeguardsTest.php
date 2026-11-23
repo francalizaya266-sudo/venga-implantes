@@ -7,6 +7,7 @@ use App\Filament\Resources\Doctors\Pages\CreateDoctor;
 use App\Filament\Resources\Doctors\Pages\EditDoctor;
 use App\Filament\Resources\Doctors\Pages\ListDoctors;
 use App\Filament\Resources\Doctors\RelationManagers\TreatmentsRelationManager;
+use App\Filament\Resources\Doctors\Schemas\DoctorForm;
 use App\Models\Appointment;
 use App\Models\Doctor;
 use App\Models\Patient;
@@ -99,9 +100,9 @@ class DoctorSetupSafeguardsTest extends TestCase
 
         // En su ficha y en la lista se dice qué le falta para que se le pueda agendar.
         Livewire::test(EditDoctor::class, ['record' => $doctor->getKey()])
-            ->assertSee('Todavía no se le puede agendar: falta su horario y los tratamientos que realiza.');
+            ->assertSee('Todavía no se le puede agendar. Falta agregar: su horario y los tratamientos que realiza.');
         Livewire::test(ListDoctors::class)
-            ->assertSee('No se le puede agendar: falta su horario y sus tratamientos.');
+            ->assertSee('No se le puede agendar. Falta agregar: su horario y sus tratamientos.');
 
         $doctor->schedules()->create(['weekday' => 1, 'starts_at' => '09:00', 'ends_at' => '13:00']);
         $doctor->treatments()->attach(Treatment::factory()->create());
@@ -179,12 +180,36 @@ class DoctorSetupSafeguardsTest extends TestCase
             ->callMountedAction()
             ->assertHasNoActionErrors()
             ->assertNotified('Tratamientos agregados')
+            ->assertDispatched(TreatmentsRelationManager::CHANGED)
             ->mountAction(TestAction::make('detach')->table($treatment))
             ->assertMountedActionModalSee(['¿Quitar Endodoncia molar?', 'Ya no se le podrá agendar este tratamiento. Las citas ya dadas siguen igual.'])
             ->callMountedAction()
-            ->assertNotified('Tratamiento quitado');
+            ->assertNotified('Tratamiento quitado')
+            ->assertDispatched(TreatmentsRelationManager::CHANGED);
 
         $this->assertSame(0, $doctor->treatments()->count());
+    }
+
+    public function test_the_warning_of_what_is_missing_reads_well_and_updates_without_reloading_the_page(): void
+    {
+        $doctor = Doctor::factory()->withSchedule()->create();
+        $this->actingAs(User::factory()->admin()->create());
+
+        $page = Livewire::test(EditDoctor::class, ['record' => $doctor->getKey()])
+            ->assertSee('Todavía no se le puede agendar. Falta agregar: los tratamientos que realiza.');
+
+        // Lo que se agrega en "Tratamientos que realiza" avisa a la ficha: el aviso de arriba se va sin recargar.
+        $doctor->treatments()->attach(Treatment::factory()->create());
+        $page->dispatch(TreatmentsRelationManager::CHANGED)
+            ->assertDontSee('Todavía no se le puede agendar');
+
+        // Y vuelve, con lo que falte, si se queda sin algo.
+        $doctor->schedules()->delete();
+        $page->dispatch(TreatmentsRelationManager::CHANGED)
+            ->assertSee('Todavía no se le puede agendar. Falta agregar: su horario.');
+
+        // Con varias cosas: comas y una "y" al final.
+        $this->assertSame('Falta agregar: su horario, sus tratamientos y su foto.', DoctorForm::missingInWords(['su horario', 'sus tratamientos', 'su foto']));
     }
 
     public function test_the_access_password_needs_letters_and_numbers(): void

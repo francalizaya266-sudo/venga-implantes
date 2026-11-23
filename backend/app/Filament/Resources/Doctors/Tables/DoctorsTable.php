@@ -32,8 +32,8 @@ class DoctorsTable
                     ->searchable()
                     // Activo pero sin horario o sin tratamientos: no se le puede dar citas, y se avisa en la lista.
                     ->description(fn (Doctor $record) => $record->is_active && ($record->schedules->isEmpty() || $record->treatments_count === 0)
-                        ? new HtmlString(trim(e((string) $record->specialty).' <span class="help-warning">No se le puede agendar: falta '
-                            .implode(' y ', array_filter([$record->schedules->isEmpty() ? 'su horario' : null, $record->treatments_count === 0 ? 'sus tratamientos' : null])).'.</span>'))
+                        ? new HtmlString(trim(e((string) $record->specialty).' <span class="help-warning">No se le puede agendar. '
+                            .DoctorForm::missingInWords(array_values(array_filter([$record->schedules->isEmpty() ? 'su horario' : null, $record->treatments_count === 0 ? 'sus tratamientos' : null]))).'</span>'))
                         : $record->specialty),
                 TextColumn::make('user.email')
                     ->label('Usuario')
