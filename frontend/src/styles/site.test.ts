@@ -43,7 +43,36 @@ function rules(source: string): Rule[] {
   return found;
 }
 
+/** Lo que se toca en la web: con el dedo (o en todo aparato, si tiene caja propia) mide al menos 44 px de alto. */
+const TOUCHED = [
+  '.wordmark',
+  '.menu > summary',
+  '.header-back',
+  '.btn.small',
+  '.pill',
+  '.arrow',
+  '.crumbs a',
+  '.next-free .more',
+  '.faq-group h2 a',
+  '.team.full .doctor .treatments a',
+  '.site-footer ul a',
+  '.footer-contact a',
+  '.footer-bottom a',
+  '.site-footer.minimal .wrap > p a',
+];
+
 describe('site.css', () => {
+  it('with a finger, what is touched on the web measures 44 px', () => {
+    const tall = rules(css)
+      .filter(
+        (rule) =>
+          /(^|;)\s*min-height:\s*44px/.test(rule.body) && rule.at.every((at) => /\(pointer:\s*coarse\)/.test(at)),
+      )
+      .flatMap((rule) => rule.selectors);
+
+    expect(TOUCHED.filter((selector) => !tall.includes(selector))).toEqual([]);
+  });
+
   it('on the phone and the tablet, the services end with the wide button to see them all', () => {
     const shown = rules(css).filter(
       (rule) => rule.selectors.includes('.services-all') && /(^|;)\s*display:\s*block/.test(rule.body),

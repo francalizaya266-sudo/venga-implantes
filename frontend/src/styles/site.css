@@ -105,7 +105,7 @@ img { max-width: 100%; display: block; }
 .site-header { background: rgb(255 255 255 / .94); position: sticky; top: 0; z-index: 20; border-bottom: 1px solid var(--line); -webkit-backdrop-filter: saturate(1.4) blur(10px); backdrop-filter: saturate(1.4) blur(10px); }
 .site-header .wrap { display: flex; align-items: center; gap: 12px; min-height: 64px; max-width: calc(var(--wide) + 2 * var(--gutter)); position: relative; }
 /* La marca: el diente en línea, el nombre y debajo dónde atiende. */
-.wordmark { display: inline-flex; align-items: center; gap: 10px; font-weight: 800; font-size: 1.125rem; letter-spacing: -.02em; color: var(--ink); text-decoration: none; margin-right: auto; line-height: 1.15; }
+.wordmark { display: inline-flex; align-items: center; gap: 10px; min-height: 44px; font-weight: 800; font-size: 1.125rem; letter-spacing: -.02em; color: var(--ink); text-decoration: none; margin-right: auto; line-height: 1.15; }
 .mark { flex: none; display: grid; place-items: center; width: 40px; height: 40px; color: var(--btn); }
 .mark svg { width: 38px; height: 38px; stroke-width: 1.7; }
 .brand { display: grid; gap: 2px; white-space: nowrap; }
@@ -142,7 +142,7 @@ img { max-width: 100%; display: block; }
 .site-header .btn svg { margin-right: 8px; }
 @media (max-width: 479px) { .site-header .long { display: none; } }
 /* Reservar cita: la salida al inicio, discreta, para que no compita con los pasos. */
-.header-back { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); text-decoration: none; font-weight: 600; font-size: .9375rem; padding: 10px; border-radius: 999px; white-space: nowrap; transition: color .15s ease, background-color .15s ease; }
+.header-back { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; color: var(--muted); text-decoration: none; font-weight: 600; font-size: .9375rem; padding: 10px; border-radius: 999px; white-space: nowrap; transition: color .15s ease, background-color .15s ease; }
 /* Solo con mouse: en el celular el botón quedaba marcado después de tocarlo. */
 @media (hover: hover) and (pointer: fine) { .header-back:hover { color: var(--accent); background: var(--surface); } }
 /* Sin la barra de abajo (el enlace de una cita), "Reservar" no entra en un celular junto al nombre y "Menú". */
@@ -155,7 +155,7 @@ img { max-width: 100%; display: block; }
 /* En el celular, las páginas van en "Menú"; desde 1080 px, a la vista. */
 .site-nav { display: none; }
 .menu > summary {
-    list-style: none; cursor: pointer; display: inline-flex; align-items: center; min-height: 40px; padding: 8px 16px;
+    list-style: none; cursor: pointer; display: inline-flex; align-items: center; min-height: 44px; padding: 8px 16px;
     border-radius: 999px; background: var(--surface); font-weight: 700; font-size: .9375rem;
 }
 .menu > summary::-webkit-details-marker { display: none; }
@@ -319,7 +319,8 @@ h3 { font-size: 1.1rem; font-weight: 700; letter-spacing: -.01em; }
 .btn.block { width: 100%; }
 .btn.quiet { background: var(--surface); color: var(--ink); }
 .btn.danger { background: var(--bad-bg); color: var(--bad); }
-.btn.small { min-height: 40px; padding: 8px 16px; font-size: .9375rem; }
+/* Aun chico, un botón mide 44 px de alto: con 40 se erraba al tocarlo con el dedo. */
+.btn.small { min-height: 44px; padding: 8px 16px; font-size: .9375rem; }
 .btn.whatsapp { background: #11824a; }
 /* Sobre el azul oscuro: el botón principal en blanco y el secundario solo con su borde. */
 .btn.light { background: #fff; color: var(--btn); box-shadow: 0 0 0 4px rgb(255 255 255 / .14), 0 8px 24px -8px rgb(120 190 255 / .6); }
@@ -1043,10 +1044,10 @@ main.with-band > .wrap:first-child .flash { margin: 16px 0; }
 
 .crumbs { margin-bottom: 12px; font-weight: 700; }
 .crumbs a { text-decoration: none; }
-.crumbs a::before { content: "← "; }
+.crumbs a::before { content: "←\00a0"; }
 
 .arrow { font-weight: 700; text-decoration: none; }
-.arrow::after { content: " →"; }
+.arrow::after { content: "\00a0→"; }
 
 .prose { max-width: 68ch; }
 .about .prose { font-size: clamp(1.25rem, 2.6vw, 1.625rem); line-height: 1.45; letter-spacing: -.015em; max-width: 40ch; }
@@ -1456,7 +1457,7 @@ main.with-band > .wrap:first-child .flash { margin: 16px 0; }
 .way-icon.whatsapp { color: #11824a; }
 /* Botón chico en pastilla celeste: escribir, llamar, cómo llegar. */
 .pill {
-    display: inline-flex; align-items: center; justify-content: center; min-height: 40px; padding: 8px 16px; border-radius: 999px;
+    display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 8px 16px; border-radius: 999px;
     background: #e9f1ff; color: var(--btn); font-weight: 700; font-size: .9375rem; line-height: 1.2; text-decoration: none; white-space: nowrap;
     transition: background-color .15s ease, transform .16s var(--ease-out);
 }
@@ -1602,10 +1603,19 @@ a.chip { text-decoration: none; display: inline-flex; align-items: center; }
     body:has(.action-bar) .hero .row,
     body:has(.action-bar) .quick-actions .in-bar,
     body:has(.action-bar) .how-band .section-head .btn { display: none; }
-    body:has(.action-bar) .quick .next-free .more { display: inline-block; }
+    body:has(.action-bar) .quick .next-free .more { display: inline-flex; }
     body:has(.action-bar) .hero .lead { margin-bottom: 0; }
     body:has(.action-bar) .hero .rating { margin: 14px 0 0; }
     body:has(.action-bar) .site-footer { padding-bottom: calc(104px + env(safe-area-inset-bottom)); }
+}
+
+/* Con el dedo (celular y tableta), los enlaces sueltos también miden 44 px de alto: de 17 a 30 se erraba al tocar.
+   Con mouse quedan como texto. */
+@media (pointer: coarse) {
+    .arrow, .crumbs a, .next-free .more, .faq-group h2 a, .team.full .doctor .treatments a { display: inline-flex; align-items: center; min-height: 44px; }
+    .site-footer ul a, .footer-contact a, .footer-bottom a, .site-footer.minimal .wrap > p a { display: inline-flex; align-items: center; min-width: 44px; min-height: 44px; }
+    /* Los enlaces del pie ya miden 44: entre fila y fila no hace falta más aire. */
+    .site-footer ul { row-gap: 0; }
 }
 
 /* Hover solo con mouse: en pantallas táctiles el color se quedaba pegado tras tocar */
