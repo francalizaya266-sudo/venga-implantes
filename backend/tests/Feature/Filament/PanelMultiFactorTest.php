@@ -31,7 +31,8 @@ class PanelMultiFactorTest extends TestCase
         $this->actingAs(User::factory()->admin()->withoutMfa()->create());
 
         $this->get(Filament::getPanel('admin')->getUrl())->assertRedirect($this->setUpUrl());
-        $this->get($this->setUpUrl())->assertOk();
+        // Sin la barra de abajo del celular: sus botones solo lo traerían de vuelta aquí.
+        $this->get($this->setUpUrl())->assertOk()->assertDontSee('Accesos rápidos');
     }
 
     public function test_someone_with_the_second_factor_reaches_the_panel(): void

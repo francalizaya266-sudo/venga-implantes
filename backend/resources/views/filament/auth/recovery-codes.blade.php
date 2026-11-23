@@ -19,5 +19,5 @@
         <span class="mfa-codes-copied" x-show="copied" x-cloak role="status">Copiados</span>
     </div>
 
-    <p class="mfa-step-note">Cada uno sirve una sola vez. Guárdalos fuera de tu celular, en un papel o en tu computadora: no se vuelven a mostrar.</p>
+    <p class="mfa-step-note">Cada uno sirve una sola vez. Anótalos en un papel o guarda el archivo donde solo tú lo abras: no se vuelven a mostrar.</p>
 </div>
