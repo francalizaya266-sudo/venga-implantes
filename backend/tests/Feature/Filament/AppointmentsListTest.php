@@ -125,6 +125,22 @@ class AppointmentsListTest extends TestCase
         Livewire::test(ListAppointments::class)->assertTableColumnStateNotSet('flags', ['Debe S/ 120'], $owing);
     }
 
+    public function test_a_visit_without_flags_still_names_its_link_for_a_screen_reader(): void
+    {
+        $plain = $this->visit('Lucía', '2026-11-05 10:00', ['is_new_patient' => false]);
+
+        // Cada celda abre la cita: la de Avisos vacía dice "Sin avisos" (solo para el lector de pantalla).
+        Livewire::test(ListAppointments::class)
+            ->assertTableColumnStateNotSet('flags', ['Nuevo'], $plain)
+            ->assertSeeHtml('<span class="fi-sr-only">Sin avisos</span>');
+
+        $plain->update(['is_new_patient' => true]);
+
+        Livewire::test(ListAppointments::class)
+            ->assertTableColumnStateSet('flags', ['Nuevo'], $plain)
+            ->assertDontSeeHtml('Sin avisos');
+    }
+
     public function test_the_number_on_to_confirm_is_the_number_of_rows_and_turns_to_warning_when_someone_must_be_called(): void
     {
         $tomorrow = $this->visit('Lucía', '2026-11-03 10:00', ['status' => AppointmentStatus::Pending, 'confirmed_at' => null]);
