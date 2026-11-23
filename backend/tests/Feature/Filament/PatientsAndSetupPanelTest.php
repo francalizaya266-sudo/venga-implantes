@@ -387,6 +387,22 @@ class PatientsAndSetupPanelTest extends TestCase
         $this->assertSame([null, null], [Setting::get('clinic.google_rating'), Setting::get('clinic.google_reviews_count')]);
     }
 
+    public function test_the_help_of_the_home_photo_says_it_also_goes_on_top_of_the_pages_without_their_own(): void
+    {
+        Storage::fake(PublicImages::DISK);
+        $this->actingAs(User::factory()->admin()->create());
+
+        Livewire::test(WebSetup::class)
+            ->assertSee('También sale arriba de las demás páginas (Servicios, Equipo, Contacto, Reservar cita…) que no tienen foto propia')
+            ->fillForm(['web' => ['hero_image' => UploadedFile::fake()->image('consultorio.jpg', 2400, 1200)]])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $this->getJson(route('api.v1.site'))
+            ->assertJsonPath('data.pages.equipo.photo_url', PublicImages::url(Setting::get('web.hero_image')))
+            ->assertJsonPath('data.pages.reservar.photo_url', PublicImages::url(Setting::get('web.hero_image')));
+    }
+
     public function test_the_admin_changes_or_removes_the_phrase_above_the_home_title(): void
     {
         $this->actingAs(User::factory()->admin()->create());
