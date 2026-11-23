@@ -32,7 +32,7 @@
                  aquí con los botones de la agenda; una acción que no aplica a esa cita no se pinta. --}}
             @if ($unclosed->isNotEmpty())
                 <h3 class="cc-title">Citas sin cerrar <span class="cc-title-count">{{ $unclosed->count() }}</span></h3>
-                <ul class="cc-rows">
+                <ul class="cc-rows has-actions">
                     @foreach ($unclosed as $row)
                         <li wire:key="cc-unclosed-{{ $row['id'] }}">
                             <span class="cc-row-text">
@@ -61,7 +61,7 @@
             {{-- En curso: el paciente sigue en sala o en atención. No es un olvido, pero todavía no se cobró. --}}
             @if ($inCourse->isNotEmpty())
                 <h3 class="cc-title">En curso <span class="cc-title-count">{{ $inCourse->count() }}</span></h3>
-                <ul class="cc-rows">
+                <ul class="cc-rows has-actions">
                     @foreach ($inCourse as $row)
                         <li wire:key="cc-in-course-{{ $row['id'] }}">
                             <span class="cc-row-text">

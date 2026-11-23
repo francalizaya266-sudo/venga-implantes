@@ -2,6 +2,7 @@
 
 namespace App\Filament\Widgets;
 
+use App\Filament\Widgets\Reports\EarningsTables;
 use App\Models\Payment;
 use App\Services\Billing\CashClosing;
 use Filament\Widgets\Concerns\InteractsWithPageFilters;
@@ -24,6 +25,8 @@ class CashClosingTables extends Widget
     /** @return array<string, mixed> */
     protected function getViewData(): array
     {
-        return ['tables' => CashClosing::fromFilters($this->pageFilters ?? [])->tables()];
+        $tables = CashClosing::fromFilters($this->pageFilters ?? [])->tables();
+
+        return ['tables' => $tables, 'fullWidth' => EarningsTables::fullWidth($tables, ['payments', 'voided'])];
     }
 }

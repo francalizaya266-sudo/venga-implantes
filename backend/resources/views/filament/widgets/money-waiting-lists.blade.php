@@ -10,7 +10,7 @@
 <x-filament-widgets::widget>
     <div class="earnings-grid">
         <x-filament::section heading="Presupuestos sin respuesta" description="Presentados y sin un sí ni un no. Un mensaje a tiempo suele cerrarlos." class="is-wide">
-            <div class="earnings-scroll">
+            <div class="earnings-scroll" tabindex="0" role="region" aria-label="Presupuestos sin respuesta">
                 <table class="report-table report-stack">
                     <thead>
                         <tr>
@@ -50,7 +50,7 @@
         </x-filament::section>
 
         <x-filament::section heading="Faltas del período" :description="$period->label().': lo que valía cada cita y si volvió a agendar.'" class="is-wide">
-            <div class="earnings-scroll">
+            <div class="earnings-scroll" tabindex="0" role="region" aria-label="Faltas del período">
                 <table class="report-table report-stack">
                     <thead>
                         <tr>
