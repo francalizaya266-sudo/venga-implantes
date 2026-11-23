@@ -1412,13 +1412,12 @@ button.pt-chip { transition: transform 160ms ease-out; }
     .dash-segmented :is(a, button) { flex: 1; text-align: center; }
 }
 
-/* La agenda de hoy con "Todos · cada doctor" al lado del título; si no entra, baja debajo. El nombre largo se corta. */
+/* La agenda de hoy con "Todos · cada doctor" al lado del título; si no entra, baja debajo. Si tampoco entra ahí, las
+   opciones no se encogen ni se cortan ("To…"): se deslizan de lado. */
 .fi-ta-ctn .fi-ta-header.dash-agenda-header { flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .75rem 1rem; }
-.dash-doctor-switch { max-width: 100%; }
-.dash-doctor-switch button { min-width: 0; cursor: pointer; overflow: hidden; text-overflow: ellipsis; }
-@media (max-width: 40rem) {
-    .dash-doctor-switch button { flex: 1 1 0; padding-inline: .5rem; }
-}
+.dash-doctor-switch { position: relative; max-width: 100%; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; }
+.dash-doctor-switch::-webkit-scrollbar { display: none; }
+.dash-doctor-switch button { flex: 1 0 auto; cursor: pointer; }
 
 /* Los números del día: cuatro en una fila; en el celular, de a dos, y si queda uno solo abajo, ocupa el ancho. */
 .dash-kpis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; }
