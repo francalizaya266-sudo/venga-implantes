@@ -79,6 +79,8 @@ body {
 #app { display: contents; }
 
 a { color: var(--accent); text-underline-offset: .18em; }
+/* Lo que se toca responde al instante: el navegador no espera a ver si es un doble toque para acercar. */
+a, button, summary, label { touch-action: manipulation; }
 
 img { max-width: 100%; display: block; }
 
@@ -121,7 +123,8 @@ img { max-width: 100%; display: block; }
 @media (max-width: 479px) { .site-header .long { display: none; } }
 /* Reservar cita: la salida al inicio, discreta, para que no compita con los pasos. */
 .header-back { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); text-decoration: none; font-weight: 600; font-size: .9375rem; padding: 10px; border-radius: 999px; white-space: nowrap; transition: color .15s ease, background-color .15s ease; }
-.header-back:hover { color: var(--accent); background: var(--surface); }
+/* Solo con mouse: en el celular el botón quedaba marcado después de tocarlo. */
+@media (hover: hover) and (pointer: fine) { .header-back:hover { color: var(--accent); background: var(--surface); } }
 /* Sin la barra de abajo (el enlace de una cita), "Reservar" no entra en un celular junto al nombre y "Menú". */
 @media (max-width: 559px) { .site-header .btn { display: none; } }
 @media (max-width: 359px) { .action-bar .long { display: none; } }
@@ -387,8 +390,11 @@ a.choice { text-decoration: none; }
 .chip, .day, .time { transition: background-color .15s ease, color .15s ease, transform .16s var(--ease-out); }
 .chip:active, .day:active, .time:active { transform: scale(.96); }
 
-.days { display: grid; grid-auto-flow: column; grid-auto-columns: 68px; gap: 8px; overflow-x: auto; padding: 2px 2px 8px; margin: 0 -2px; scroll-snap-type: x proximity; scrollbar-width: none; }
+/* En el celular la tira se desliza: entran cuatro días y medio, y el último, cortado, avisa que siguen más a la derecha. */
+.days { display: grid; grid-auto-flow: column; grid-auto-columns: calc((100% - 4 * 8px) / 4.5); gap: 8px; overflow-x: auto; padding: 2px 2px 8px; margin: 0 -2px; scroll-snap-type: x proximity; scrollbar-width: none; }
 .days::-webkit-scrollbar { display: none; }
+/* En los más angostos, tres y medio: con cuatro y medio, "Mañana" no entraría. */
+@media (max-width: 359px) { .days { grid-auto-columns: calc((100% - 3 * 8px) / 3.5); } }
 /* Con mouse no hay cómo deslizar la tira: en pantallas anchas los días van en filas, todos a la vista. */
 @media (min-width: 600px) {
     .days { grid-auto-flow: row; grid-template-columns: repeat(6, 1fr); overflow: visible; }
