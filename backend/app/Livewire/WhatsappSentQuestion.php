@@ -193,8 +193,12 @@ class WhatsappSentQuestion extends Component implements HasActions, HasSchemas
 
         $message = $this->asked();
 
+        // Mientras tanto otra persona lo abrió o lo descartó, o la cita cambió: no queda nada que responder. En fila,
+        // «Enviar en fila» sigue desde el que toca.
         if ($message === null) {
             SendWhatsAppAction::closeTab($this);
+            Notification::make()->warning()->title('Ese aviso cambió mientras tanto')->body('Otra persona lo abrió o lo descartó, o la cita cambió. Míralo en Avisos.')->send();
+            $this->forget();
 
             return;
         }

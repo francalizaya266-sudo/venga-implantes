@@ -16,7 +16,9 @@ use App\Models\Treatment;
 use App\Models\User;
 use App\Models\WhatsappMessage;
 use App\Services\Access\PatientAccess;
+use App\Services\Booking\AppointmentService;
 use App\Services\WhatsApp\WhatsAppOutbox;
+use Carbon\CarbonImmutable;
 use Filament\Actions\Testing\TestAction;
 use Filament\Notifications\Notification;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
@@ -234,6 +236,39 @@ class WhatsAppSentQuestionTest extends TestCase
 
         $this->assertSame(MessageStatus::Sent, $first->fresh()->status);
         $this->assertNull($second->fresh()->opened_at);
+    }
+
+    public function test_without_anything_to_send_in_queue_the_page_does_not_offer_it(): void
+    {
+        $message = $this->notice('Rosa', '2026-11-03 10:00');
+        app(WhatsAppOutbox::class)->clickToChatUrl($message, $this->reception, markSent: false);
+
+        // Lo único por enviar ya se abrió y espera respuesta: no hay fila, y el texto de arriba no la nombra.
+        Livewire::test(ListWhatsappMessages::class)
+            ->assertActionHidden('sendInQueue')
+            ->assertDontSee('«Enviar en fila»')
+            ->assertSee('Tocas Enviar y, al volver, dices si se envió.');
+    }
+
+    public function test_a_notice_that_changed_while_in_whatsapp_says_so_instead_of_closing_in_silence(): void
+    {
+        $message = $this->notice('Rosa', '2026-11-03 10:00');
+        $next = $this->notice('Bruno', '2026-11-04 09:00');
+        app(WhatsAppOutbox::class)->clickToChatUrl($message, $this->reception, markSent: false);
+
+        $question = Livewire::test(WhatsappSentQuestion::class)
+            ->dispatch(WhatsappSentQuestion::OPENED, message: $message->id, url: self::URL, queue: 'due');
+
+        // Mientras estaba en WhatsApp, otra persona movió la cita sin acordarlo: ese aviso se retiró y va el del cambio.
+        app(AppointmentService::class)->rescheduleByStaff($message->appointment, CarbonImmutable::parse('2026-11-05 16:00'), User::factory()->reception()->create());
+
+        $question->callMountedAction()
+            ->assertNotified('Ese aviso cambió mientras tanto')
+            ->assertActionNotMounted('askSent');
+
+        // No se da por enviado ni abre el siguiente por su cuenta: la fila sigue desde «Enviar en fila».
+        $this->assertSame(MessageStatus::Cancelled, $message->fresh()->status);
+        $this->assertNull($next->fresh()->opened_at);
     }
 
     public function test_with_the_whatsapp_api_opening_it_still_marks_it_sent_and_there_is_no_queue(): void

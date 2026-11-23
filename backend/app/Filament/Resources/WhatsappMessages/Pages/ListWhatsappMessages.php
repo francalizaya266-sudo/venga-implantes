@@ -30,9 +30,14 @@ class ListWhatsappMessages extends ListRecords
 
     public function getSubheading(): ?string
     {
-        return $this->sendsInQueue()
+        if (app(WhatsAppOutbox::class)->channel() !== MessageChannel::ClickToChat) {
+            return 'Presiona "Enviar por WhatsApp": se abre el chat del paciente con el mensaje listo y solo tienes que tocar Enviar.';
+        }
+
+        // Solo nombra «Enviar en fila» cuando el botón está: sin nada en la fila, no se ve.
+        return $this->hasQueue()
             ? '«Enviar en fila» abre el chat de cada paciente con el mensaje listo. Tocas Enviar en WhatsApp y, al volver, dices si se envió.'
-            : 'Presiona "Enviar por WhatsApp": se abre el chat del paciente con el mensaje listo y solo tienes que tocar Enviar.';
+            : 'Presiona "Enviar por WhatsApp": se abre el chat del paciente con el mensaje listo. Tocas Enviar y, al volver, dices si se envió.';
     }
 
     protected function getHeaderActions(): array
@@ -45,7 +50,7 @@ class ListWhatsappMessages extends ListRecords
                 ->color('success')
                 // El mismo toque abre la pestaña de WhatsApp: si no, el navegador la bloquea.
                 ->extraAttributes(SendWhatsAppAction::OPENS_TAB_ON_CLICK)
-                ->visible(fn (): bool => $this->sendsInQueue() && WhatsAppQueue::next($this->queueTab()) !== null)
+                ->visible(fn (): bool => $this->hasQueue())
                 ->action(function (): void {
                     $first = WhatsAppQueue::next($this->queueTab());
 
@@ -66,6 +71,12 @@ class ListWhatsappMessages extends ListRecords
     {
         return app(WhatsAppOutbox::class)->channel() === MessageChannel::ClickToChat
             && in_array($this->activeTab ?? 'due', WhatsAppQueue::TABS, true);
+    }
+
+    /** Hay algo para «Enviar en fila» en esta pestaña. */
+    private function hasQueue(): bool
+    {
+        return $this->sendsInQueue() && WhatsAppQueue::next($this->queueTab()) !== null;
     }
 
     private function queueTab(): string
