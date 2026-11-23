@@ -37,8 +37,13 @@
     .dark .fi-ta-actions > .fi-dropdown .fi-icon-btn,
     .dark .fi-ta-actions > .fi-icon-btn { background: rgb(255 255 255 / .07); }
     .fi-modal-footer-actions .fi-btn { min-height: 2.75rem; }
+    /* Las pestañas y los enlaces que hacen de botón ("Ver", "Ocultar", "Ver antecedentes"): 44 px de alto, lo
+       cómodo para un dedo (de fábrica, 31 a 34 y 20). */
+    .fi-tabs-item, .fi-link { min-height: 2.75rem; }
     /* "Ctrl + K" no sirve sin teclado y le quita espacio al buscador. */
     .fi-global-search-field .fi-input-wrp-suffix { display: none; }
+    /* Letra de 16 px al escribir: con menos (los campos traen 14), el iPhone acerca la pantalla y hay que alejarla a mano. */
+    :root :is(input:not([type=checkbox], [type=radio], [type=range], [type=color], [type=file], [type=hidden]), select, textarea, [contenteditable="true"]) { font-size: 16px; }
 }
 
 /* En el celular, cada fila de una lista es una tarjeta: la primera columna, en negrita y sin etiqueta;
@@ -80,7 +85,13 @@
     .dark .mobile-bar-item.is-primary { color: var(--gray-200); }
     /* Que lo último de la página no quede tapado por la barra. */
     body:has(.mobile-bar) .fi-main { padding-bottom: calc(5rem + env(safe-area-inset-bottom)); }
+    /* Con el celular de costado, los botones de las puntas no quedan bajo la muesca. */
+    .mobile-bar { padding-inline: max(.4rem, env(safe-area-inset-left)) max(.4rem, env(safe-area-inset-right)); }
 }
+/* La cabecera pide viewport-fit=cover (panel-styles.blade.php): la página llega a los bordes del iPhone y las franjas
+   "safe-area-inset" dejan libre lo que tapan la barra del sistema y la muesca. De costado, la muesca no tapa nada. */
+.fi-body { padding-inline: env(safe-area-inset-left) env(safe-area-inset-right); }
+.fi-main-sidebar { padding-inline-start: env(safe-area-inset-left); }
 @media print { .mobile-bar { display: none !important; } }
 
 /* ---------- Agenda en calendario ---------- */
@@ -367,10 +378,14 @@
     .agenda-frame.is-fit { overflow: clip; max-height: none; }
     .agenda-frame.is-fit .agenda-head { top: 4rem; }
 }
+/* Con el dedo, cada botón de la barra y el siguiente paso de una cita miden 44 px: el riel crece con ellos. */
 @media (pointer: coarse) {
-    .agenda-nav, .agenda-find-toggle { height: 2.5rem; }
-    .agenda-nav-btn.is-icon { width: 2.375rem; }
+    .agenda-nav { height: 3.125rem; }
+    .agenda-toolbar-group .agenda-find-toggle { height: 2.75rem; }
+    .agenda-nav-btn.is-icon { width: 2.75rem; }
     .agenda-modes .fi-tabs-item { padding-block: .4375rem; }
+    .agenda-help summary { display: inline-flex; align-items: center; min-height: 2.75rem; }
+    .agenda-appt-step .fi-btn { min-height: 2.75rem; padding-inline: .75rem; }
 }
 @media (prefers-reduced-motion: reduce) {
     .agenda-appt { animation-name: agenda-fade; }
@@ -622,8 +637,8 @@ button.agenda-slot:focus-visible { outline: 2px solid var(--primary-600); outlin
 .agenda-list-empty { padding: 2.5rem 1rem; border-radius: .875rem; text-align: center; color: var(--gray-500); background: var(--ag-surface); box-shadow: 0 0 0 1px var(--ag-line); }
 
 @media (pointer: coarse) {
-    .agenda-item-actions .fi-btn, .agenda-call { min-height: 2.5rem; }
-    .agenda-gap-btn { height: 2.5rem; }
+    .agenda-item-actions .fi-btn, .agenda-call { min-height: 2.75rem; }
+    .agenda-gap-btn { height: 2.75rem; }
 }
 @media (prefers-reduced-motion: reduce) {
     .agenda-item, .agenda-find-day { animation-name: agenda-fade; }
