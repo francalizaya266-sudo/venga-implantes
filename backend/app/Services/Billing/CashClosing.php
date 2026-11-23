@@ -62,7 +62,7 @@ final class CashClosing
     public static function receivers(CarbonImmutable $date): array
     {
         return User::query()
-            ->whereIn('id', Payment::query()->whereDate('paid_at', $date)->whereNotNull('received_by_user_id')->select('received_by_user_id'))
+            ->whereIn('id', Payment::query()->whereBetween('paid_at', [$date->startOfDay(), $date->endOfDay()])->whereNotNull('received_by_user_id')->select('received_by_user_id'))
             ->orderBy('name')
             ->pluck('name', 'id')
             ->all();

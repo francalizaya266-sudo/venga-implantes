@@ -34,7 +34,7 @@ final class DoctorDay
     {
         return Appointment::query()
             ->where('doctor_id', $this->doctorId)
-            ->whereDate('starts_at', today())
+            ->startsOn(today())
             ->where(fn ($query) => $query
                 ->where(fn ($query) => $query->inChairWithoutConsultation())
                 ->orWhere(fn ($query) => $query->waitingNow())
@@ -54,7 +54,7 @@ final class DoctorDay
     {
         return Appointment::query()
             ->where('doctor_id', $this->doctorId)
-            ->whereDate('starts_at', today())
+            ->startsOn(today())
             ->where('status', '!=', AppointmentStatus::Cancelled)
             ->exists();
     }

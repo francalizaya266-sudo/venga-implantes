@@ -5,6 +5,7 @@ namespace App\Providers\Filament;
 use App\Filament\Pages\Auth\EditProfile;
 use App\Filament\Pages\Auth\RequestPasswordReset;
 use App\Filament\Pages\Backups;
+use App\Filament\Pages\ClinicSetup;
 use App\Filament\Pages\Dashboard;
 use App\Filament\Pages\Settings;
 use App\Filament\Pages\WebPages;
@@ -68,9 +69,11 @@ class AdminPanelProvider extends PanelProvider
     /**
      * @var list<class-string> Páginas y secciones que van dentro de "Configuración", en el orden del menú:
      *                         Consultorio (Ajustes, Copias, Historial), Catálogo (Tratamientos, Paquetes), Equipo (Doctores, Usuarios) y Textos.
+     *                         La puesta a punto va arriba de todo en el menú, pero "Configuración" sigue abriendo Ajustes.
      */
     private const SETTINGS = [
         Settings::class,
+        ClinicSetup::class,
         Backups::class,
         AuditLogResource::class,
         TreatmentResource::class,

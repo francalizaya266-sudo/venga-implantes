@@ -8,6 +8,7 @@ use App\Enums\BookingChannel;
 use App\Enums\CancelledBy;
 use App\Enums\ConfirmationChannel;
 use App\Models\Concerns\Auditable;
+use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Database\Factories\AppointmentFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -150,6 +151,20 @@ class Appointment extends Model
     }
 
     /**
+     * Las citas de un día: desde las 00:00 hasta antes de las 00:00 del siguiente. Va por rango y no con whereDate():
+     * date(starts_at) recorre la tabla entera, y el rango usa el índice de starts_at en MySQL, MariaDB y SQLite.
+     */
+    #[Scope]
+    protected function startsOn(Builder $query, CarbonInterface|string $day): Builder
+    {
+        $from = CarbonImmutable::parse($day)->startOfDay();
+
+        return $query
+            ->where($query->qualifyColumn('starts_at'), '>=', $from)
+            ->where($query->qualifyColumn('starts_at'), '<', $from->addDay());
+    }
+
+    /**
      * "Sin cerrar", con una sola regla para todo el panel (Hoy, Citas, la agenda y el cierre del día): ya pasó su hora
      * y nadie marcó si vino o si faltó, o vino y su atención nunca se cerró (llegó otro día, o sigue "en sala" o "en
      * atención" horas después de su hora, WAIT_EXPIRES_HOURS). La de hoy que está en sala o en consulta no cuenta:
@@ -232,7 +247,7 @@ class Appointment extends Model
     protected function waitingNow(Builder $query): Builder
     {
         return $query
-            ->whereDate('starts_at', today())
+            ->startsOn(today())
             ->where('status', AppointmentStatus::CheckedIn)
             ->where('ends_at', '>', now()->subHours(self::WAIT_EXPIRES_HOURS));
     }
@@ -245,7 +260,7 @@ class Appointment extends Model
     protected function inChairWithoutConsultation(Builder $query): Builder
     {
         return $query
-            ->whereDate('starts_at', today())
+            ->startsOn(today())
             ->where('status', AppointmentStatus::InProgress)
             ->whereDoesntHave('consultation')
             ->where('ends_at', '>', now()->subHours(self::WAIT_EXPIRES_HOURS));

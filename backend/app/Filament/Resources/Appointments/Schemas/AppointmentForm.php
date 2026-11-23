@@ -698,7 +698,7 @@ class AppointmentForm
                 ->orderBy('starts_at');
 
             $onChosenDay = filled($chosenDate) && preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $chosenDate)
-                ? $withDetails()->whereDate('starts_at', (string) $chosenDate)->first()
+                ? $withDetails()->startsOn((string) $chosenDate)->first()
                 : null;
 
             request()->attributes->set($memo, [

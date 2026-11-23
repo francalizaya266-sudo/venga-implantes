@@ -293,7 +293,7 @@ final class WalkInAction
             request()->attributes->set($memo, AppointmentResource::getEloquentQuery()
                 ->with(['treatment', 'doctor'])
                 ->where('patient_id', $patientId)
-                ->whereDate('starts_at', today())
+                ->startsOn(today())
                 ->whereIn('status', AppointmentStatus::open())
                 ->orderBy('starts_at')
                 ->get());

@@ -4,7 +4,7 @@ Hecho para **Clínica Vega Implant** (Jr. Apurímac 648, Juliaca). Su nombre, di
 
 Reservas online verificadas por WhatsApp, agenda inteligente, historia clínica con odontograma y paneles para administrador, recepción y doctores. Pagos solo informativos (se cobra en el consultorio).
 
-**Stack:** Laravel 13 (PHP 8.3+) · MySQL · Filament 5 para los paneles · React 19 + TypeScript + Vite para la web pública, que habla con Laravel por una API. Pensado para hosting compartido con PHP: sin Node en producción (la web se sube ya compilada) y con un solo cron.
+**Stack:** Laravel 13 (PHP 8.3+) · MySQL 8 o MariaDB 10.6+ · Filament 5 para los paneles · React 19 + TypeScript + Vite para la web pública, que habla con Laravel por una API. Pensado para hosting compartido con PHP: sin Node en producción (la web se sube ya compilada) y con un solo cron.
 
 ## Backend y frontend
 
@@ -17,7 +17,7 @@ Todo vive en un solo dominio: la web usa las cookies y la sesión de Laravel (el
 
 ## Puesta en marcha local
 
-Hace falta PHP 8.3+, Composer, MySQL y Node 22+ (Node solo en la computadora donde se desarrolla).
+Hace falta PHP 8.3+, Composer, una base de datos **MySQL 8 o MariaDB 10.6+** y Node 22+ (Node solo en la computadora donde se desarrolla). Para dejarlo funcionando en la laptop del consultorio, mira [Instalación en una laptop con Windows](#instalación-en-una-laptop-con-windows).
 
 ```bash
 cd backend
@@ -57,14 +57,14 @@ El hosting no necesita Node: la web se compila antes de subirla. Hay dos formas 
 De aquí en adelante, las carpetas y los comandos son dentro de `backend/`.
 
 1. La raíz pública del dominio apunta a la carpeta `public/`.
-2. `.env` con `APP_ENV=production`, `APP_DEBUG=false`, los datos de MySQL y `APP_URL` con `https://`.
+2. `.env` con `APP_ENV=production`, `APP_DEBUG=false`, los datos de la base (MySQL 8 o MariaDB 10.6+) y `APP_URL` con la dirección real y `https://` (por ejemplo `https://vegaimplant.pe`): de ahí salen el mapa del sitio para Google, los enlaces de las citas que van por WhatsApp y la vista previa al compartir la web. Con `http://localhost`, esos enlaces no le sirven a nadie.
 3. `composer install --no-dev --optimize-autoloader`, `php artisan migrate --force` y `php artisan db:seed --class=CatalogSeeder --force` (solo catálogos, sin datos de prueba).
 4. Un único cron cada minuto:
    `* * * * * php /ruta/al/proyecto/artisan schedule:run >> /dev/null 2>&1`
-   Ese cron prepara los recordatorios del día anterior, marca las citas sin confirmar, procesa la cola, limpia enlaces vencidos y guarda cada madrugada una copia de la base de datos.
+   Ese cron prepara los recordatorios del día anterior, marca las citas sin confirmar, procesa la cola, limpia enlaces vencidos y guarda cada madrugada una copia de la base de datos. Cada pasada deja su hora: si pasa más de una hora sin correr, **Hoy** se lo avisa a quien administra. En una laptop con Windows no hay cron: ver [Instalación en una laptop con Windows](#instalación-en-una-laptop-con-windows).
 5. PHP con la extensión **GD** (casi todos los hostings la traen): comprime radiografías y fotos al subirlas. Esos archivos y las firmas quedan en `storage/app/private/clinica`, fuera de `public/`; inclúyanlo en las copias de seguridad junto con la base de datos.
 6. Las fotos de la web (doctores, tratamientos, promociones, antes y después) se guardan en `public/media`, achicadas y sin datos de ubicación. También van en las copias de seguridad.
-7. **Copias de seguridad:** cada día a las 3:00 a. m. se guarda una copia de la base de datos en `storage/app/private/respaldos` (se conservan las últimas 14). Cualquier administrador ve en **Configuración → Copias de seguridad** si están al día, crea una, borra las viejas y cambia cuántas se conservan (`BACKUPS_KEEP` es solo el valor con que nace ese número). Descargarlas, y bajar en `.zip` las radiografías, fotos, documentos y firmas de los puntos 5 y 6, solo puede el administrador odontólogo, porque traen historias clínicas. Quién descarga o borra cada copia queda en **Configuración → Historial de cambios**.
+7. **Copias de seguridad:** cada día a las 3:00 a. m. se guarda una copia de la base de datos en `storage/app/private/respaldos` (se conservan las últimas 14). Cualquier administrador ve en **Configuración → Copias de seguridad** si están al día, crea una, borra las viejas y cambia cuántas se conservan (`BACKUPS_KEEP` es solo el valor con que nace ese número). Descargarlas, y bajar en `.zip` las radiografías, fotos, documentos y firmas de los puntos 5 y 6, solo puede el administrador odontólogo, porque traen historias clínicas. Quién descarga o borra cada copia queda en **Configuración → Historial de cambios**. Cada copia del día también puede guardarse sola en otra carpeta: ver «La copia fuera de la laptop» en la sección de Windows.
 
    **Restaurar una copia.** Probado sobre MariaDB 10.11 con una base vacía (hosting nuevo) y con una base dañada: las 66 tablas volvieron con las mismas filas, índices y llaves foráneas, y el panel abrió con normalidad.
    1. `php artisan down`, para que nadie registre nada mientras tanto.
@@ -75,7 +75,29 @@ De aquí en adelante, las carpetas y los comandos son dentro de `backend/`.
    6. `php artisan migrate --force` (por si el sistema es más nuevo que la copia), `php artisan optimize:clear` y `php artisan up`.
    7. Las sesiones vienen vacías: todos vuelven a entrar con su correo y su contraseña. Revisar la agenda de hoy, un paciente con radiografías y la caja del día.
 8. En **Ajustes** se revisan los datos de la clínica (vienen los del recetario) y se agregan el correo, las redes y los textos del inicio. El horario de atención que muestra la web sale solo de los horarios de los doctores.
-9. **Correo para recuperar contraseñas:** en `.env`, `MAIL_MAILER=smtp` con los datos del buzón que da el hosting (`MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_SCHEME` y `MAIL_FROM_ADDRESS`). Con eso, "¿Olvidaste tu contraseña?" en el inicio de sesión envía al correo del usuario un enlace que sirve una hora (sale con el cron del punto 4, en menos de un minuto). Mientras siga en `log`, esa página solo dice que se le pida la contraseña al administrador, que la cambia en **Configuración → Usuarios**. Por eso conviene que el correo del administrador sea uno que de verdad revise. Si el administrador olvida la suya y no hay correo, quien tenga acceso al servidor le pone una temporal con `php artisan usuario:clave su@correo.com`.
+9. **Correo para recuperar contraseñas (antes de usarlo con pacientes):** en `.env`, `MAIL_MAILER=smtp` con los datos del buzón que da el hosting (`MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_SCHEME` y `MAIL_FROM_ADDRESS`). Con eso, "¿Olvidaste tu contraseña?" en el inicio de sesión envía al correo del usuario un enlace que sirve una hora (sale con el cron del punto 4, en menos de un minuto). Mientras siga en `log`, esa página solo dice que se le pida la contraseña al administrador, que la cambia en **Configuración → Usuarios**. Por eso conviene que el correo del administrador sea uno que de verdad revise. Si el administrador olvida la suya y no hay correo, quien tenga acceso al servidor le pone una temporal con `php artisan usuario:clave su@correo.com`.
+
+10. **Puesta a punto:** **Configuración → Puesta a punto** dice qué falta para empezar a atender (horarios de los doctores, precios, usuario de recepción, RUC, celular, tareas automáticas, primera copia y copia extra), y **Página web → Puesta a punto**, lo que falta en la web.
+
+## Instalación en una laptop con Windows
+
+Mientras el consultorio use el sistema en su propia laptop, sin hosting:
+
+1. Se instala como en [Puesta en marcha local](#puesta-en-marcha-local), con PHP 8.3+, Composer y una base **MySQL 8 o MariaDB 10.6+** (si usas un paquete como XAMPP, revisa sus versiones: suele traer un PHP y una MariaDB más antiguos), la web ya compilada (`npm --prefix frontend run build`) y `php artisan db:seed --class=CatalogSeeder` en lugar de `--seed`, para empezar sin datos de prueba.
+2. **Para abrir el sistema:** doble clic en `infra\windows\iniciar-consultorio.bat`. Lo abre en `http://127.0.0.1:8000/panel` y, mientras su ventana siga abierta, también corre las tareas automáticas (`php artisan schedule:work`). Conviene un acceso directo en el escritorio: clic derecho → Enviar a → Escritorio.
+3. **Para que las tareas automáticas corran siempre:** doble clic en `infra\windows\encender-tareas-automaticas.bat` y aceptar el permiso que pide Windows. Se hace una vez: crea en el Programador de tareas la tarea "Consultorio - tareas automaticas", que ejecuta `php artisan schedule:run` cada minuto aunque el sistema esté cerrado o nadie haya iniciado sesión, también a batería y sin abrir ventanas. Para quitarla: `infra\windows\quitar-tareas-automaticas.bat`, o `schtasks /delete /tn "Consultorio - tareas automaticas" /f` en una consola abierta como administrador.
+4. **Correo para recuperar contraseñas:** como en el punto 9 de la sección anterior, con los datos del correo del consultorio. Sin eso, el enlace de "¿Olvidaste tu contraseña?" no llega: quien administra cambia la contraseña desde **Configuración → Usuarios**.
+
+Sin las tareas automáticas no salen los recordatorios, no se cargan las cuotas, la lista de espera no se libera y no se crean las copias de seguridad. Si pasa más de una hora sin que corran, **Hoy** se lo avisa a quien administra, y **Configuración → Puesta a punto** lo marca como pendiente.
+
+**Con la laptop apagada, dormida o en hibernación no corre nada.** Al prenderla, el sistema se pone al día solo: la copia del día se crea en ese momento y los recordatorios que tocaban mientras tanto salen más tarde. Por eso, cuando se atienda todos los días con pacientes, conviene pasar a un hosting (sección anterior) o dejar la laptop enchufada y sin suspensión.
+
+**La copia fuera de la laptop.** La copia de cada día se queda en la misma laptop: si se malogra, se moja o la roban, se pierde con ella. En **Configuración → Copias de seguridad → Copia extra en otra carpeta**, quien puede descargar las copias elige una carpeta donde cada copia del día se guarda también, con solo las últimas:
+
+- **OneDrive** (viene con Windows) o **Google Drive para escritorio**: la carpeta se sube sola a la nube. Hace el papel de "subir la copia a Drive" sin que el sistema necesite una cuenta ni claves de Google. Con Google Drive hay que usar el modo **Reflejar archivos** y su carpeta "Mi unidad": la unidad `G:` del modo transmisión no la ven las tareas automáticas.
+- Un **USB** que no se quede junto a la laptop. Si un día no está conectado, el sistema avisa en Hoy y vuelve a intentarlo cada 15 minutos.
+
+La carpeta tiene que existir, dejar guardar archivos y estar fuera de `backend/` (nunca en `storage/` ni en `public/`). Las copias van comprimidas pero sin cifrar, igual que las que se descargan: esa cuenta o ese USB tienen que ser solo del consultorio. Las radiografías, fotos y firmas siguen bajándose desde Copias de seguridad, en `.zip`.
 
 ## Cómo está organizado
 

@@ -19,7 +19,9 @@ use App\Models\Treatment;
 use App\Models\TreatmentPackage;
 use App\Models\User;
 use App\Services\Backup\DatabaseBackup;
+use App\Services\Backup\ExtraCopy;
 use App\Services\Backup\OffsiteCopies;
+use App\Services\ClinicSetupChecklist;
 use App\Services\Web\PageTexts;
 use App\Support\Money;
 use Carbon\CarbonImmutable;
@@ -57,6 +59,9 @@ final class ChangeHistory
         OffsiteCopies::DELETED => 'Se borró del sistema',
     ];
 
+    /** Los ajustes de las copias, que se cambian en su pantalla: cuántas se guardan y la carpeta de la copia extra. */
+    private const BACKUP_SETTINGS = [DatabaseBackup::KEEP_SETTING, ExtraCopy::FOLDER_SETTING, ExtraCopy::KEEP_SETTING];
+
     /**
      * @var array<string, string> Cada ajuste (de Ajustes y de la puesta a punto de la página web) con su nombre en pantalla.
      *                            Los textos de cada página de la web llevan el suyo en PageTexts::settings(): ver settingName().
@@ -86,6 +91,8 @@ final class ChangeHistory
         'reminders.installment_days_before' => 'Días antes para el aviso de una cuota',
         'plans.valid_days' => 'Un presupuesto vale por',
         DatabaseBackup::KEEP_SETTING => 'Copias de los datos que se guardan',
+        ExtraCopy::FOLDER_SETTING => 'Carpeta de la copia extra',
+        ExtraCopy::KEEP_SETTING => 'Copias que se guardan en la carpeta extra',
         'reports.doctors_see_own' => 'Cada doctor ve sus propios ingresos y gráficos',
         'reports.monthly_goal' => 'Meta de cobro del mes',
         'inventory.deduct_on_close' => 'Al terminar una atención, revisar y descontar los materiales usados',
@@ -93,6 +100,7 @@ final class ChangeHistory
         'payments.yape_holder' => 'Titular de Yape',
         'payments.plin_qr' => 'QR de Plin',
         'payments.plin_holder' => 'Titular de Plin',
+        ClinicSetupChecklist::NO_RECEPTION => 'Nadie trabaja en recepción (puesta a punto)',
         'web.tagline' => 'Frase arriba del título de la web',
         'web.headline' => 'Título del inicio de la web',
         'web.intro' => 'Frase bajo el título de la web',
@@ -234,6 +242,7 @@ final class ChangeHistory
         'plans.valid_days' => 'días',
         'reminders.installment_days_before' => 'días',
         DatabaseBackup::KEEP_SETTING => 'copias',
+        ExtraCopy::KEEP_SETTING => 'copias',
         'booking.self_reschedule_min_hours' => 'horas',
         'booking.self_cancel_min_hours' => 'horas',
     ];
@@ -303,7 +312,7 @@ final class ChangeHistory
             ->whereIn('event', array_keys(self::BACKUP_EVENTS))
             ->orWhere(fn (Builder $kept) => $kept
                 ->where('auditable_type', Setting::class)
-                ->whereIn('auditable_id', Setting::query()->where('key', DatabaseBackup::KEEP_SETTING)->select('id')));
+                ->whereIn('auditable_id', Setting::query()->whereIn('key', self::BACKUP_SETTINGS)->select('id')));
 
         if ($section === self::BACKUPS) {
             return $query->where($aboutBackups);
@@ -470,10 +479,10 @@ final class ChangeHistory
         return isset(self::BACKUP_EVENTS[$log->event]);
     }
 
-    /** Cuántas copias se guardan es un ajuste, pero se cambia en la pantalla de copias de seguridad. */
+    /** Cuántas copias se guardan y la carpeta de la copia extra son ajustes, pero se cambian en la pantalla de copias. */
     private static function isBackupSetting(AuditLog $log): bool
     {
-        return $log->auditable_type === Setting::class && $log->auditable?->key === DatabaseBackup::KEEP_SETTING;
+        return $log->auditable_type === Setting::class && in_array($log->auditable?->key, self::BACKUP_SETTINGS, true);
     }
 
     /** "Copia de los datos del 23/10/2026 03:00", o el .zip de las radiografías, fotos y firmas con su nombre. */

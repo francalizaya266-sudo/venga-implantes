@@ -158,7 +158,7 @@ final class FollowUps
 
         $key = MessageTemplateKey::ReviewRequest;
         $since = today()->subDays(self::CONTACT_DAYS[$key->value]);
-        $attendedToday = fn ($appointments) => $appointments->where('status', AppointmentStatus::Completed)->whereDate('starts_at', today());
+        $attendedToday = fn ($appointments) => $appointments->where('status', AppointmentStatus::Completed)->startsOn(today());
 
         return Patient::query()
             ->whereHas('account')

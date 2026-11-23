@@ -23,7 +23,7 @@ final class Tray
     {
         $appointments = Appointment::query()
             ->occupying()
-            ->whereDate('starts_at', $day)
+            ->startsOn($day)
             ->with(['patient.medicalBackground', 'treatment', 'doctor'])
             ->orderBy('starts_at')
             ->get();

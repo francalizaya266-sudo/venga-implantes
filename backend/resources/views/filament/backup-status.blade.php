@@ -1,4 +1,4 @@
-{{-- Para el administrador, al pie del menú: si la copia de cada día se hizo y cuándo se bajó la última fuera del hosting. --}}
+{{-- Para el administrador, al pie del menú: si la copia de cada día se hizo y cuándo se bajó la última fuera del equipo. --}}
 @if ($status)
     <a href="{{ $status['url'] }}" class="backup-status is-{{ $status['tone'] }}" title="{{ $status['text'] }} · Ver las copias de seguridad">
         <x-filament::icon :icon="$status['tone'] === 'success' ? 'heroicon-m-shield-check' : 'heroicon-m-exclamation-triangle'" class="backup-status-icon" />

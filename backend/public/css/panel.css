@@ -1355,6 +1355,12 @@ button.pt-chip { transition: transform 160ms ease-out; }
 .backup-help { font-size: .875rem; color: var(--gray-600); display: grid; gap: .5rem; }
 .dark .backup-help { color: var(--gray-400); }
 .backup-steps { list-style: decimal; padding-left: 1.25rem; display: grid; gap: .5rem; }
+.backup-extra { display: flex; align-items: flex-start; gap: .5rem; font-size: .875rem; color: var(--gray-700); overflow-wrap: anywhere; }
+.dark .backup-extra { color: var(--gray-300); }
+.backup-extra strong { font-weight: 600; color: var(--gray-950); }
+.dark .backup-extra strong { color: #fff; }
+.backup-extra-icon { width: 1.25rem; height: 1.25rem; flex: none; color: var(--success-600); }
+.dark .backup-extra-icon { color: var(--success-400); }
 
 /* ---------- "Hoy": el dashboard ---------- */
 
