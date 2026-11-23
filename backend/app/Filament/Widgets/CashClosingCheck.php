@@ -51,6 +51,9 @@ class CashClosingCheck extends Widget implements HasActions, HasSchemas
     /** @var array<string, mixed>|null */
     private ?array $closingFilters = null;
 
+    /** @var array<int, Appointment|null> Las citas de las filas con botones, buscadas una vez por pedido. */
+    private array $listedAppointments = [];
+
     public static function canView(): bool
     {
         return auth()->user()?->can('viewAny', Payment::class) ?? false;
@@ -152,7 +155,8 @@ class CashClosingCheck extends Widget implements HasActions, HasSchemas
             ])
             ->action(function (array $data) {
                 $record = $this->closing()->close((float) $data['opening_cash'], (float) $data['counted_cash'], $data['notes'] ?? null, self::user());
-                $summaries = app(DaySummary::class)->send($this->closing(), $record);
+                // El resumen es un extra: si algo falla al armarlo, el día queda cerrado igual (y el error, en el registro).
+                $summaries = rescue(fn () => app(DaySummary::class)->send($this->closing(), $record), 0);
 
                 Notification::make()
                     ->success()
@@ -224,9 +228,29 @@ class CashClosingCheck extends Widget implements HasActions, HasSchemas
     private function forListedAppointment(Action $action): Action
     {
         return $action
-            ->record(fn (array $arguments) => AppointmentResource::getEloquentQuery()->find($arguments['appointment'] ?? null))
+            ->record(fn (array $arguments): ?Appointment => $this->listedAppointment($arguments['appointment'] ?? null))
             ->size(Size::Small)
-            ->after(fn () => $this->closing = null);
+            ->after(function (): void {
+                $this->closing = null;
+                $this->listedAppointments = [];
+            });
+    }
+
+    /**
+     * La cita de una fila. Cada botón la pide varias veces al pintarse (si se ve, si se puede, qué pregunta): se busca
+     * una sola vez, con lo que esos botones miran. Antes eran unas 60 consultas por fila.
+     */
+    private function listedAppointment(mixed $id): ?Appointment
+    {
+        if (! is_numeric($id)) {
+            return null;
+        }
+
+        if (! array_key_exists((int) $id, $this->listedAppointments)) {
+            $this->listedAppointments[(int) $id] = AppointmentResource::getEloquentQuery()->with(['consultation', 'planItem'])->find($id);
+        }
+
+        return $this->listedAppointments[(int) $id];
     }
 
     private function difference(Get $get): ?float

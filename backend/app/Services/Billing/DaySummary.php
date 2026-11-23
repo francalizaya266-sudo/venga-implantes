@@ -19,6 +19,7 @@ use App\Support\Money;
 use App\Support\Phone;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Str;
 
 /**
  * El resumen del día para quien administra, al cerrar la caja: lo cobrado por medio de pago, el arqueo, los pacientes
@@ -71,8 +72,9 @@ class DaySummary
         $date = $closing->date;
         $day = [$date->startOfDay(), $date->endOfDay()];
         $appointments = Appointment::query()->whereBetween('starts_at', $day)->get(['patient_id', 'status']);
-        // El día que sigue al cerrado; si se cierra un día pasado, el que empieza hoy.
-        $next = $date->addDay()->max(CarbonImmutable::today());
+        // El día que sigue al cerrado (si se cierra un día pasado, desde hoy) y que tiene citas: el sábado importa el
+        // lunes, no el domingo sin atención.
+        $next = self::nextDayWithAppointments($date->addDay()->max(CarbonImmutable::today()));
 
         return [
             'dia' => $date->toDateString(),
@@ -128,7 +130,7 @@ class DaySummary
             default => 'sobran '.Money::format($difference),
         };
 
-        return $count.(filled($record->notes) ? ' ('.$record->notes.')' : '');
+        return $count.(filled($record->notes) ? ' ('.Str::squish($record->notes).')' : '');
     }
 
     /**
@@ -152,13 +154,25 @@ class DaySummary
         }
 
         $named = $charges->take(self::NAMED_DISCOUNTS)
-            ->map(fn (Charge $charge) => $charge->patient->full_name.(filled($charge->discount_reason) ? ': '.$charge->discount_reason : ''))
+            ->map(fn (Charge $charge) => collect([$charge->patient?->full_name, $charge->discount_reason])->filter(fn (?string $part) => filled($part))->implode(': '))
             ->implode(' · ');
         $more = $charges->count() > self::NAMED_DISCOUNTS ? ' y '.($charges->count() - self::NAMED_DISCOUNTS).' más' : '';
 
         return Money::format($charges->sum(fn (Charge $charge) => (float) $charge->discount))
             .' en '.($charges->count() === 1 ? '1 cargo' : $charges->count().' cargos')
             .' ('.$named.$more.')';
+    }
+
+    /** El primer día con citas desde ese, dentro de una semana; si no hay ninguna, ese mismo día. */
+    private static function nextDayWithAppointments(CarbonImmutable $from): CarbonImmutable
+    {
+        $first = Appointment::query()
+            ->where('status', '!=', AppointmentStatus::Cancelled)
+            ->where('starts_at', '>=', $from->startOfDay())
+            ->where('starts_at', '<', $from->addWeek()->startOfDay())
+            ->min('starts_at');
+
+        return $first === null ? $from : CarbonImmutable::parse($first)->startOfDay();
     }
 
     /**

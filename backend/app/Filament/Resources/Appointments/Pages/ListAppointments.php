@@ -46,11 +46,12 @@ class ListAppointments extends ListRecords
     {
         return [
             // Cada cita pendiente o confirmada está en un solo lugar: aquí mientras no pasa su hora, después en "Sin cerrar".
-            // Quien llegó hoy sigue aquí (en sala o en atención) hasta que se cierra: no "desaparece" al tocar "Llegó".
+            // Quien llegó hoy sigue aquí (en sala o en atención) mientras está en curso: no "desaparece" al tocar "Llegó".
+            // Si sigue así horas después de su hora, nadie la cerró: pasa a "Sin cerrar" (Appointment::inCourse).
             'upcoming' => Tab::make('Próximas')
                 ->modifyQueryUsing(fn (Builder $query) => $query->where(fn (Builder $coming) => $coming
                     ->where(fn (Builder $notYet) => $notYet->whereIn('status', AppointmentStatus::changeable())->where('ends_at', '>=', now()))
-                    ->orWhere(fn (Builder $here) => $here->whereIn('status', AppointmentStatus::inClinic())->where('starts_at', '>=', today())))),
+                    ->orWhere(fn (Builder $here) => $here->inCourse()))),
             // El número es el de la lista. Se pinta de alerta cuando alguna ya toca llamar (está a un día de su cita).
             'pending' => Tab::make('Por confirmar')
                 ->badge(fn () => $this->awaitingConfirmation()['total'] ?: null)

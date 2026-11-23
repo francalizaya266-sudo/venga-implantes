@@ -1319,8 +1319,12 @@ button.pt-chip { transition: transform 160ms ease-out; }
 .dark .earnings-scroll { --scroll-surface: var(--gray-900); --scroll-shade: rgb(0 0 0 / .55); }
 /* La zona que se desliza se alcanza con el teclado (tabindex="0"): al llegar, se ve dónde está. */
 .earnings-scroll:focus-visible { outline: 2px solid var(--primary-500); outline-offset: 2px; border-radius: .25rem; }
-/* Las cifras de arriba de los reportes y del cierre: un monto no se parte en dos líneas ("S/" arriba, "120.00" abajo). */
-.fi-wi-stats-overview-stat-value { white-space: nowrap; font-variant-numeric: tabular-nums; }
+/*
+ * Las cifras de arriba de los reportes y del cierre: un monto no se parte en dos líneas ("S/" arriba, "120.00" abajo).
+ * En una tarjeta angosta (laptop chica, tablet) la cifra se achica para entrar entera, en vez de cortarse ("S/ 10,120.0").
+ */
+.fi-wi-stats-overview-stat { container-type: inline-size; }
+.fi-wi-stats-overview-stat .fi-wi-stats-overview-stat-value { white-space: nowrap; font-variant-numeric: tabular-nums; font-size: min(1.875rem, 15cqi); }
 .report-table { width: 100%; border-collapse: collapse; font-size: .875rem; font-variant-numeric: tabular-nums; }
 .report-table th, .report-table td { padding: .5rem .75rem; text-align: left; border-bottom: 1px solid var(--gray-200); white-space: nowrap; }
 .report-table th:first-child, .report-table td:first-child { padding-left: 0; }

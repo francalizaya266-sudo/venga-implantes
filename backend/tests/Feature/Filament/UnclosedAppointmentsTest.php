@@ -15,6 +15,7 @@ use App\Services\Billing\CashClosing;
 use Carbon\CarbonImmutable;
 use Filament\Actions\Testing\TestAction;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
 use Tests\Concerns\CreatesAgenda;
 use Tests\TestCase;
@@ -120,6 +121,22 @@ class UnclosedAppointmentsTest extends TestCase
             ->assertMountedActionModalSee('Antes de cerrar: 1 cita quedó sin cerrar y 1 cita sigue en curso.');
     }
 
+    public function test_the_buttons_of_each_row_look_up_its_appointment_only_once(): void
+    {
+        $this->visit('Pedro', '2026-11-02 09:00', AppointmentStatus::Confirmed);
+        $this->travelTo(CarbonImmutable::parse('2026-11-02 19:30', 'America/Lima'));
+        $this->actingAs(User::factory()->reception()->create());
+        $withOneRow = $this->queriesToShowTheClosing();
+
+        foreach (['Ana', 'Luis', 'Rosa'] as $hour => $firstName) {
+            $this->visit($firstName, '2026-11-02 1'.$hour.':00', AppointmentStatus::Confirmed);
+        }
+
+        // Cada botón mira su cita varias veces al pintarse (si se ve, si se puede): antes cada vez la volvía a buscar
+        // y eran unas 60 consultas por fila.
+        $this->assertLessThanOrEqual($withOneRow + 3 * 8, $this->queriesToShowTheClosing());
+    }
+
     private function visit(string $firstName, string $when, AppointmentStatus $status): Appointment
     {
         return Appointment::factory()
@@ -128,5 +145,17 @@ class UnclosedAppointmentsTest extends TestCase
             ->for(Patient::factory()->create(['first_name' => $firstName, 'last_name' => 'Prueba']))
             ->at($when)
             ->create(['status' => $status]);
+    }
+
+    private function queriesToShowTheClosing(): int
+    {
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+        Livewire::test(CashClosingCheck::class, ['pageFilters' => ['date' => '2026-11-02']])
+            ->assertSee(['Atendido', 'No asistió']);
+        $count = count(DB::getQueryLog());
+        DB::disableQueryLog();
+
+        return $count;
     }
 }
