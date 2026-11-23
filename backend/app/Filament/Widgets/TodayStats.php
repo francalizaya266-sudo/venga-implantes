@@ -71,7 +71,7 @@ class TodayStats extends Widget
         // Las mismas que lista "Agenda de hoy", justo debajo: todas menos las canceladas.
         /** @var Collection<int, Appointment> $today */
         $today = AppointmentResource::getEloquentQuery()
-            ->whereDate('starts_at', today())
+            ->startsOn(today())
             ->where('status', '!=', AppointmentStatus::Cancelled)
             ->withoutEagerLoads()
             ->get(['id', 'status', 'starts_at', 'ends_at']);
@@ -180,7 +180,7 @@ class TodayStats extends Widget
 
         $closing = new CashClosing(CarbonImmutable::today());
         $owing = $closing->pending()->count();
-        $finished = Appointment::query()->whereDate('starts_at', today())->where('status', AppointmentStatus::Completed)->exists();
+        $finished = Appointment::query()->startsOn(today())->where('status', AppointmentStatus::Completed)->exists();
 
         return [
             'label' => 'Cobrado hoy',

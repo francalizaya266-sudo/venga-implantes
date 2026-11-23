@@ -58,6 +58,7 @@ use App\Services\Dashboard\MonthFigures;
 use Carbon\CarbonImmutable;
 use Filament\Actions\Testing\TestAction;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Once;
 use Livewire\Livewire;
@@ -412,6 +413,28 @@ class DashboardPanelTest extends TestCase
         // Para su doctor tampoco es "tu próximo paciente": es una cita que quedó sin cerrar.
         $this->assertSame('Pedro', (new DoctorDay($doctor->id))->next()->patient->first_name);
         $this->assertSame(1, (new DoctorDay($doctor->id))->waiting());
+    }
+
+    public function test_today_finds_the_appointments_of_the_day_by_a_range_of_hours(): void
+    {
+        // Con date(starts_at) la base revisa cita por cita y no usa el índice de starts_at: las tarjetas, la agenda,
+        // la sala y los pendientes de Hoy buscan las del día de 00:00 a 00:00 (Appointment::startsOn).
+        $treatment = Treatment::factory()->create();
+        $doctor = $this->doctorOffering($treatment);
+        Appointment::factory()->for($doctor)->for($treatment)->for($this->patient('Rosa', 'Quispe'))->at('2026-11-02 07:30')
+            ->create(['status' => AppointmentStatus::CheckedIn, 'checked_in_at' => '2026-11-02 07:25']);
+        Appointment::factory()->for($doctor)->for($treatment)->for($this->patient('Pedro', 'Paz'))->at('2026-11-02 10:00')->confirmed()->create();
+        $this->actingAs(User::factory()->admin()->create());
+        DB::enableQueryLog();
+
+        Livewire::test(TodayStats::class)->assertSee('Citas de hoy');
+        Livewire::test(TodayAppointments::class)->assertSee(['Rosa Quispe', 'Pedro Paz']);
+        Livewire::test(WaitingRoom::class)->assertSee('Rosa Quispe');
+        Livewire::test(FollowUpsToday::class)->assertOk();
+
+        $byDate = collect(DB::getQueryLog())->pluck('query')
+            ->filter(fn (string $sql) => preg_match('/(strftime\(\'%Y-%m-%d\', |date\()["`]?(appointments["`]?\.["`]?)?starts_at/i', $sql) === 1);
+        $this->assertSame([], $byDate->values()->all());
     }
 
     public function test_who_reception_passed_to_the_chair_stays_as_the_doctors_next_patient(): void

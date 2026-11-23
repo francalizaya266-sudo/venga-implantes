@@ -213,7 +213,7 @@ class TodayAppointments extends TableWidget
 
         return $query
             ->when($this->shownDoctor(), fn (Builder $query, int $doctor) => $query->where('doctor_id', $doctor))
-            ->whereDate('starts_at', $day ?? today())
+            ->startsOn($day ?? today())
             ->where('status', '!=', AppointmentStatus::Cancelled);
     }
 

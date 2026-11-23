@@ -104,7 +104,7 @@ class WaitingRoom extends Widget
     {
         $doctors = Doctor::query()
             ->whereHas('appointments', fn ($appointments) => $appointments
-                ->whereDate('starts_at', today())
+                ->startsOn(today())
                 ->where('status', '!=', AppointmentStatus::Cancelled))
             ->orderBy('sort_order')
             ->get(['id', 'name']);
@@ -115,7 +115,7 @@ class WaitingRoom extends Widget
 
         // El último que pasó a consulta con cada doctor.
         $inConsultation = Appointment::query()
-            ->whereDate('starts_at', today())
+            ->startsOn(today())
             ->where('status', AppointmentStatus::InProgress)
             ->with('patient')
             ->orderBy('started_at')
