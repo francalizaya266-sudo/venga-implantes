@@ -219,7 +219,8 @@ class PriceChangesAtCheckoutTest extends TestCase
 
         app(BillingService::class)->registerRefund($patient->fresh(), 30, PaymentMethod::Cash, 'Pagó de más', $this->reception);
 
-        $this->assertSame([
+        // Las tres llegan en el mismo segundo: en la campana no tienen un orden fijo (en MySQL y MariaDB sale otro).
+        $this->assertEqualsCanonicalizing([
             'Se anuló un pago de Ana Flores | S/ 50.00 con Yape (lunes 2 de noviembre, 10:40 a. m.). Motivo: Monto mal escrito. Lo anuló Rosa Pérez.',
             'Se anuló un cargo de Ana Flores | Limpieza dental de S/ 120.00. Motivo: Se atendió gratis. Lo anuló Rosa Pérez.',
             'Se devolvió dinero a Ana Flores | S/ 30.00 con Efectivo. Motivo: Pagó de más. Lo devolvió Rosa Pérez.',
