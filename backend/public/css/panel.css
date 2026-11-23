@@ -1902,6 +1902,12 @@ a.ap-visit:hover { background: var(--gray-50); }
 .dark .cc-title { color: var(--gray-300); }
 .cc-title-amount { margin-left: .375rem; font-variant-numeric: tabular-nums; color: var(--danger-600); }
 .dark .cc-title-amount { color: var(--danger-400); }
+/* Cuántas hay en cada lista del cuadre ("Citas sin cerrar 2", "En curso 1"): la misma cuenta que en Hoy. */
+.cc-title-count { display: inline-block; min-width: 1.4rem; margin-left: .375rem; padding: 0 .4rem; border-radius: 999px; background: var(--gray-100); color: var(--gray-700); font-size: .75rem; font-weight: 700; line-height: 1.25rem; text-align: center; font-variant-numeric: tabular-nums; }
+.dark .cc-title-count { background: rgb(255 255 255 / .08); color: var(--gray-300); }
+/* Las citas sin cerrar de días anteriores: no son de este cierre, pero Hoy las cuenta. */
+.cc-aside { display: flex; flex-wrap: wrap; align-items: baseline; gap: .25rem .5rem; margin: .5rem 0 0; font-size: .8125rem; color: var(--gray-600); }
+.dark .cc-aside { color: var(--gray-400); }
 .cc-amount { font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .cc-ok { margin: 0; font-size: .875rem; color: var(--gray-600); }
 .cc-status { display: flex; align-items: center; gap: .75rem; margin-top: 1rem; padding: .65rem .75rem; border-radius: .75rem; background: var(--primary-50); box-shadow: inset 0 0 0 1px var(--primary-200); }

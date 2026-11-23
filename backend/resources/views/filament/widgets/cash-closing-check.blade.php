@@ -28,16 +28,52 @@
                 <p class="cc-ok">Se cobró todo lo de este día.</p>
             @endif
 
+            {{-- Sin cerrar: ya pasó su hora y nadie marcó si vino (la misma regla y la misma cuenta de Hoy). Se resuelven
+                 aquí con los botones de la agenda; una acción que no aplica a esa cita no se pinta. --}}
             @if ($unclosed->isNotEmpty())
-                <h3 class="cc-title">Citas sin cerrar</h3>
+                <h3 class="cc-title">Citas sin cerrar <span class="cc-title-count">{{ $unclosed->count() }}</span></h3>
                 <ul class="cc-rows">
                     @foreach ($unclosed as $row)
-                        <li>
+                        <li wire:key="cc-unclosed-{{ $row['id'] }}">
                             <span class="cc-row-text">
                                 <strong>{{ $row['time'] }} · {{ $row['name'] }}</strong>
                                 <small>{{ $row['detail'] }}</small>
                             </span>
-                            <x-filament::link :href="$row['url']" size="sm">Ver cita</x-filament::link>
+                            <span class="cc-row-actions">
+                                @foreach ([$this->completeAction, $this->missedAction] as $action)
+                                    @if (($action = $action(['appointment' => $row['id']]))->isVisible())
+                                        {{ $action }}
+                                    @endif
+                                @endforeach
+                                <x-filament::link :href="$row['url']" size="sm" color="gray">Ver cita</x-filament::link>
+                            </span>
+                        </li>
+                    @endforeach
+                </ul>
+            @endif
+            @if ($earlierUnclosed > 0)
+                <p class="cc-aside">
+                    {{ $earlierUnclosed === 1 ? 'Además queda 1 cita de días anteriores sin cerrar.' : 'Además quedan '.$earlierUnclosed.' citas de días anteriores sin cerrar.' }}
+                    <x-filament::link :href="$unclosedUrl" size="sm">Verlas en Citas</x-filament::link>
+                </p>
+            @endif
+
+            {{-- En curso: el paciente sigue en sala o en atención. No es un olvido, pero todavía no se cobró. --}}
+            @if ($inCourse->isNotEmpty())
+                <h3 class="cc-title">En curso <span class="cc-title-count">{{ $inCourse->count() }}</span></h3>
+                <ul class="cc-rows">
+                    @foreach ($inCourse as $row)
+                        <li wire:key="cc-in-course-{{ $row['id'] }}">
+                            <span class="cc-row-text">
+                                <strong>{{ $row['time'] }} · {{ $row['name'] }}</strong>
+                                <small>{{ $row['detail'] }}</small>
+                            </span>
+                            <span class="cc-row-actions">
+                                @if (($complete = ($this->completeAction)(['appointment' => $row['id']]))->isVisible())
+                                    {{ $complete }}
+                                @endif
+                                <x-filament::link :href="$row['url']" size="sm" color="gray">Ver cita</x-filament::link>
+                            </span>
                         </li>
                     @endforeach
                 </ul>
