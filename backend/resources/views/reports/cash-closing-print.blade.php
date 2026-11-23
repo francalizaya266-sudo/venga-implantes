@@ -9,7 +9,7 @@
         .totals div { padding: 8px 10px; background: #f1f5f9; border-radius: 6px; }
         .totals span { display: block; font-size: .75rem; color: var(--muted); }
         .totals strong { font-size: 1.05rem; }
-        .tables { display: grid; grid-template-columns: 1fr 1fr; gap: 18px 24px; align-items: start; }
+        .tables { display: grid; grid-template-columns: 1fr 1fr; gap: 18px 24px; align-items: start; margin-top: 18px; }
         .tables section.wide { grid-column: 1 / -1; }
         h2 { font-size: .85rem; text-transform: uppercase; letter-spacing: .04em; color: var(--brand); margin: 0 0 4px; }
         .report-table td, .report-table th { padding: 4px 6px; font-variant-numeric: tabular-nums; }
@@ -35,15 +35,6 @@
         <div><span>Pagos</span><strong>{{ number_format($closing->payments()->count()) }}</strong></div>
         <div><span>Efectivo en caja</span><strong>{{ Money::format($closing->cashInDrawer()) }}</strong></div>
         <div><span>Otros medios</span><strong>{{ Money::format($closing->total() - $closing->cash()) }}</strong></div>
-    </div>
-
-    <div class="tables">
-        @foreach ($closing->tables() as $table)
-            <section @class(['wide' => in_array($table['key'], ['payments', 'voided'], true)]) tabindex="0" aria-label="{{ $table['title'] }}">
-                <h2>{{ $table['title'] }}</h2>
-                @include('reports.partials.table', ['table' => $table, 'empty' => 'Sin pagos este día.'])
-            </section>
-        @endforeach
     </div>
 
     @if ($closing->receivedBy === null && $closing->pending()->isNotEmpty())
@@ -85,6 +76,15 @@
             </table>
         @endif
     </section>
+
+    <div class="tables">
+        @foreach ($closing->tables() as $table)
+            <section @class(['wide' => in_array($table['key'], ['payments', 'voided'], true)]) tabindex="0" aria-label="{{ $table['title'] }}">
+                <h2>{{ $table['title'] }}</h2>
+                @include('reports.partials.table', ['table' => $table, 'empty' => 'Sin pagos este día.'])
+            </section>
+        @endforeach
+    </div>
 
     {{-- Con el día cerrado, el arqueo ya está hecho: se imprime lo que se contó. --}}
     @php($record = $closing->receivedBy === null ? $closing->record() : null)

@@ -67,7 +67,8 @@ class DaySummaryTest extends TestCase
         $this->visit('Marta', '2026-11-03 12:00', AppointmentStatus::Confirmed);
 
         Charge::factory()->for($ana)->create(['description' => 'Limpieza dental', 'amount' => 200, 'discount' => 50, 'discount_reason' => 'Familiar', 'charged_at' => '2026-11-02 10:30']);
-        Charge::factory()->for($luis)->create(['description' => 'Limpieza dental', 'amount' => 80, 'charged_at' => '2026-11-02 11:30']);
+        // A Luis se le cobró la limpieza a S/ 80.00 en vez de S/ 120.00, con su motivo (PriceAdjustments).
+        Charge::factory()->for($luis)->create(['description' => 'Limpieza dental', 'amount' => 80, 'charged_at' => '2026-11-02 11:30', 'original_amount' => 120, 'adjustment_reason' => 'Paciente frecuente', 'adjusted_by_user_id' => $this->reception->id, 'adjusted_at' => '2026-11-02 11:35']);
         // Un cargo anulado: su descuento no cuenta.
         Charge::factory()->for($luis)->create(['amount' => 100, 'discount' => 20, 'charged_at' => '2026-11-02 11:40', 'voided_at' => '2026-11-02 11:45']);
         Payment::factory()->for($ana)->create(['amount' => 150, 'method' => PaymentMethod::Cash, 'paid_at' => '2026-11-02 10:40', 'received_by_user_id' => $this->reception->id]);
@@ -86,6 +87,7 @@ class DaySummaryTest extends TestCase
             'Arqueo: cuadra · cerró Rosa Pérez',
             'Pacientes atendidos: 2 · Faltas: 1 · Citas sin cerrar: 1',
             'Descuentos: S/ 50.00 en 1 cargo (Ana Prueba: Familiar)',
+            'Precios cambiados y descuentos al cobrar: 1 cambio, se cobró S/ 40.00 menos (Luis Prueba: Paciente frecuente)',
             'Citas del martes 3 sin confirmar: 2',
         ];
 
@@ -121,6 +123,7 @@ class DaySummaryTest extends TestCase
             'Arqueo: faltan S/ 10.00 (Se dio vuelto de más) · cerró Elena Ríos',
             'Pacientes atendidos: 0 · Faltas: 0 · Citas sin cerrar: 0',
             'Descuentos: ninguno',
+            'Precios cambiados y descuentos al cobrar: ninguno',
             'Citas del martes 3 sin confirmar: 0',
         ]), app(WhatsAppOutbox::class)->draft($first));
 

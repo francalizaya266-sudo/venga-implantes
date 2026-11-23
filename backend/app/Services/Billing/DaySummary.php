@@ -22,13 +22,13 @@ use Illuminate\Database\Eloquent\Collection;
 
 /**
  * El resumen del día para quien administra, al cerrar la caja: lo cobrado por medio de pago, el arqueo, los pacientes
- * atendidos, las faltas, las citas que quedaron sin cerrar, los descuentos y cuántas citas del día siguiente siguen
- * sin confirmar. Llega a la campana de quien administra y queda en Avisos, listo para enviarlo por WhatsApp a su
- * celular (o, si nadie que administra tiene uno, al del consultorio).
+ * atendidos, las faltas, las citas que quedaron sin cerrar, los descuentos, los precios cambiados al cobrar y cuántas
+ * citas del día siguiente siguen sin confirmar. Llega a la campana de quien administra y queda en Avisos, listo para
+ * enviarlo por WhatsApp a su celular (o, si nadie que administra tiene uno, al del consultorio).
  */
 class DaySummary
 {
-    /** Cuántos descuentos se nombran uno por uno; del resto se dice cuántos más hubo. */
+    /** Cuántos descuentos (y cambios al cobrar) se nombran uno por uno; del resto se dice cuántos más hubo. */
     private const NAMED_DISCOUNTS = 3;
 
     public function __construct(
@@ -40,13 +40,10 @@ class DaySummary
     public function send(CashClosing $closing, DailyClosing $record): int
     {
         $figures = self::figures($closing, $record);
-        $admins = User::query()->where('is_active', true)->where('role', UserRole::Admin)->get();
         // En la campana, un monto no se parte en dos líneas ("S/" al final de una y "240.00" en la otra).
         $body = collect(self::lines($figures))->map(fn (string $line) => str_replace('S/ ', "S/\u{00A0}", e($line)))->implode('<br>');
 
-        foreach ($admins as $admin) {
-            $this->alerts->toUser($admin, 'Resumen del '.$figures['fecha'], $body);
-        }
+        $this->alerts->toAdmins('Resumen del '.$figures['fecha'], $body);
 
         // Si el día se reabrió y se volvió a cerrar, el resumen anterior que no se envió ya no vale.
         WhatsappMessage::query()
@@ -55,7 +52,7 @@ class DaySummary
             ->where('params->dia', $figures['dia'])
             ->update(['status' => MessageStatus::Cancelled]);
 
-        $phones = self::phones($admins);
+        $phones = self::phones(User::query()->where('is_active', true)->where('role', UserRole::Admin)->get());
 
         foreach ($phones as $phone) {
             $this->outbox->queueForPhone($phone, MessageTemplateKey::DaySummary, $figures);
@@ -87,9 +84,7 @@ class DaySummary
             'faltas' => (string) $appointments->where('status', AppointmentStatus::NoShow)->count(),
             'sin_cerrar' => (string) $closing->unclosedAppointments()->count(),
             'descuentos' => self::discounts($day),
-            // Aquí van los cambios de precio del día (Charge::priceChange: lo que el dentista bajó o subió del precio
-            // sugerido) cuando el cierre los muestre: un dato más, por ejemplo 'precios', con su línea en lines() y en
-            // el texto del aviso (MessageTemplateKey::DaySummary y MessageTemplateResource::PLACEHOLDERS).
+            'precios' => self::priceChanges($date),
             'siguiente' => $next->translatedFormat('l j'),
             'sin_confirmar' => (string) Appointment::query()->awaitingConfirmation()->whereDate('starts_at', $next)->count(),
         ];
@@ -108,6 +103,7 @@ class DaySummary
             'Arqueo: '.$figures['arqueo'].' · cerró '.$figures['cerro'],
             'Pacientes atendidos: '.$figures['atendidos'].' · Faltas: '.$figures['faltas'].' · Citas sin cerrar: '.$figures['sin_cerrar'],
             'Descuentos: '.$figures['descuentos'],
+            'Precios cambiados y descuentos al cobrar: '.$figures['precios'],
             'Citas del '.$figures['siguiente'].' sin confirmar: '.$figures['sin_confirmar'],
         ];
     }
@@ -162,6 +158,31 @@ class DaySummary
 
         return Money::format($charges->sum(fn (Charge $charge) => (float) $charge->discount))
             .' en '.($charges->count() === 1 ? '1 cargo' : $charges->count().' cargos')
+            .' ('.$named.$more.')';
+    }
+
+    /**
+     * "2 cambios, se cobró S/ 70.00 menos (Ana Flores: paciente frecuente · Luis Soto)", o "ninguno". Lo mismo que el
+     * bloque «Precios cambiados y descuentos» del cierre (PriceAdjustments): otro precio, un descuento, un concepto
+     * agregado o quitado al cobrar y los cargos anulados a mano, con a quién y por qué.
+     */
+    private static function priceChanges(CarbonImmutable $date): string
+    {
+        $rows = app(PriceAdjustments::class)->ofDay($date);
+
+        if ($rows->isEmpty()) {
+            return 'ninguno';
+        }
+
+        $totals = PriceAdjustments::totals($rows);
+        $named = $rows->take(self::NAMED_DISCOUNTS)
+            ->map(fn (array $row) => $row['patient'].(filled($row['reason']) ? ': '.$row['reason'] : ''))
+            ->implode(' · ');
+        $more = $rows->count() > self::NAMED_DISCOUNTS ? ' y '.($rows->count() - self::NAMED_DISCOUNTS).' más' : '';
+
+        return $totals['count'].' '.($totals['count'] === 1 ? 'cambio' : 'cambios')
+            .($totals['lowered'] > 0 ? ', se cobró '.Money::format($totals['lowered']).' menos' : '')
+            .($totals['raised'] > 0 ? ', '.Money::format($totals['raised']).' más por precios subidos' : '')
             .' ('.$named.$more.')';
     }
 
