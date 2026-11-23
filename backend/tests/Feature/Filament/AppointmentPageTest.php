@@ -17,6 +17,8 @@ use App\Models\Payment;
 use App\Models\Treatment;
 use App\Models\User;
 use App\Services\WhatsApp\WhatsAppOutbox;
+use DOMDocument;
+use DOMXPath;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Livewire\Livewire;
 use Tests\Concerns\CreatesAgenda;
@@ -49,9 +51,32 @@ class AppointmentPageTest extends TestCase
 
         $this->assertSame(['done', 'skipped', 'current', 'todo', 'todo'], array_column($steps, 'state'));
         $this->assertSame(['2 nov. · 08:00', null, '09:55', null, null], array_column($steps, 'at'));
+        // En el celular solo el paso de ahora lleva su nombre; los demás quedan como puntos.
+        $this->assertSame([false, false, true, false, false], array_column($steps, 'shown'));
 
         Livewire::test(ViewAppointment::class, ['record' => $appointment->getKey()])
-            ->assertSeeInOrder(['Reservada', '2 nov. · 08:00', 'Confirmada', 'No se marcó', 'Llegó', '09:55', 'En atención', 'Atendida']);
+            ->assertSeeInOrder(['Reservada', '2 nov. · 08:00', 'Confirmada', 'No se marcó', 'Llegó', '09:55', 'En atención', 'Atendida'])
+            ->assertSeeHtml('class="ap-step is-current is-shown"');
+    }
+
+    public function test_each_fact_of_the_visit_is_a_label_and_value_pair_a_screen_reader_can_follow(): void
+    {
+        $appointment = $this->appointment('2026-11-03 10:00');
+        $this->actingAs(User::factory()->reception()->create());
+
+        $html = Livewire::test(ViewAppointment::class, ['record' => $appointment->getKey()])->html();
+        $dom = new DOMDocument;
+        $dom->loadHTML('<?xml encoding="utf-8"?>'.$html, LIBXML_NOERROR);
+        $xpath = new DOMXPath($dom);
+
+        // Etiqueta y dato van juntos, cada par en su casilla de la lista; el ícono va en la etiqueta y la aclaración en el dato.
+        $this->assertGreaterThan(0, $xpath->query('//dl[contains(@class, "ap-facts")]/div/dt')->length);
+        $this->assertSame(0, $xpath->query('//dt[not(parent::dl or parent::div/parent::dl)] | //dd[not(parent::dl or parent::div/parent::dl)]')->length);
+        $this->assertSame(0, $xpath->query('//dl[contains(@class, "ap-facts")]/div/*[not(self::dt or self::dd)]')->length);
+        $this->assertMatchesRegularExpression(
+            '/^\d+ min \(\+\d+ min para preparar el sillón\)$/',
+            trim($xpath->query('//dt[normalize-space() = "Hora"]/following-sibling::dd/small')->item(0)?->textContent ?? ''),
+        );
     }
 
     public function test_a_visit_the_patient_missed_stops_at_its_last_step_and_says_so(): void
@@ -63,6 +88,7 @@ class AppointmentPageTest extends TestCase
         $details = AppointmentInfolist::detailsData($appointment);
 
         $this->assertSame(['done', 'done', 'todo', 'todo', 'todo'], array_column($details['steps'], 'state'));
+        $this->assertSame([false, true, false, false, false], array_column($details['steps'], 'shown'));
         $this->assertSame(['label' => 'No asistió', 'detail' => 'Se marcó el 2 de noviembre a las 10:40.', 'color' => 'danger'], $details['closed']);
     }
 
@@ -98,6 +124,7 @@ class AppointmentPageTest extends TestCase
 
         $this->assertSame(['done', 'done', 'done', 'done', 'done'], array_column($steps, 'state'));
         $this->assertSame([null, '19 oct. · 18:00', '09:55', '10:00', '10:35'], array_column($steps, 'at'));
+        $this->assertSame([false, false, false, false, true], array_column($steps, 'shown'));
 
         // Sin cambios anotados, el historial se arma con las horas que guarda la propia cita.
         $this->assertSame(['Cita registrada', 'Confirmada', 'Llegó al consultorio', 'Pasó a atención', 'Atendida'], array_column($history, 'label'));

@@ -2176,9 +2176,14 @@ a.ap-visit:hover { background: var(--gray-50); }
 .dark .ap-step.is-done .ap-step-label, .dark .ap-step.is-skipped .ap-step-label { color: var(--gray-100); }
 .dark .ap-step.is-current .ap-step-label { color: var(--primary-300); }
 .dark .ap-step-at { color: var(--gray-400); }
+/* En el celular los cinco nombres no caben y quedaban pegados ("ReservadaConfirmada"): solo el paso en que va la
+   cita lleva su nombre y su hora, en una línea; los demás quedan como puntos y su nombre lo oye solo un lector de pantalla. */
 @media (max-width: 30rem) {
-    .ap-step-label { font-size: .6875rem; }
-    .ap-step-at { font-size: .6875rem; }
+    .ap-step { grid-template-columns: minmax(0, 1fr); }
+    .ap-step:not(.is-shown) :is(.ap-step-label, .ap-step-at) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+    .ap-step.is-shown :is(.ap-step-label, .ap-step-at) { white-space: nowrap; }
+    .ap-step.is-shown:first-child :is(.ap-step-label, .ap-step-at) { justify-self: start; }
+    .ap-step.is-shown:last-child :is(.ap-step-label, .ap-step-at) { justify-self: end; }
 }
 
 /* Cómo terminó una cita que no se dio, o el aviso de que falta llamar. */
@@ -2190,15 +2195,15 @@ a.ap-visit:hover { background: var(--gray-50); }
 .dark .ap-closed.is-danger { background: rgb(239 68 68 / .1); color: var(--danger-300); box-shadow: inset 0 0 0 1px rgb(239 68 68 / .3); }
 .dark .ap-closed.is-warning { background: rgb(245 158 11 / .1); color: var(--warning-300); box-shadow: inset 0 0 0 1px rgb(245 158 11 / .3); }
 
-/* Los datos de la cita: un ícono en su cuadrito, la etiqueta chica y el dato en negrita. */
+/* Los datos de la cita: un ícono en su cuadrito, la etiqueta chica y el dato en negrita. El ícono va dentro de la
+   etiqueta (<dt>) y la aclaración dentro del dato (<dd>), para que la lista quede bien armada; el ícono se pone a la izquierda. */
 .ap-facts { display: grid; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); gap: 1rem 1.5rem; margin: 0; }
-.ap-fact { display: flex; gap: .75rem; align-items: flex-start; min-width: 0; }
-.ap-fact-icon { display: grid; place-items: center; flex: none; width: 2.25rem; height: 2.25rem; border-radius: .7rem; background: var(--primary-50); color: var(--primary-600); }
+.ap-fact { position: relative; display: grid; align-content: start; min-width: 0; min-height: 2.25rem; padding-left: 3rem; }
+.ap-fact-icon { position: absolute; top: 0; left: 0; display: grid; place-items: center; width: 2.25rem; height: 2.25rem; border-radius: .7rem; background: var(--primary-50); color: var(--primary-600); }
 .ap-fact-icon svg { width: 1.2rem; height: 1.2rem; }
-.ap-fact-text { display: grid; min-width: 0; }
 .ap-fact dt { font-size: .75rem; font-weight: 500; color: var(--gray-500); }
 .ap-fact dd { margin: 0; font-size: .9375rem; font-weight: 600; line-height: 1.35; color: var(--gray-950); overflow-wrap: anywhere; }
-.ap-fact small { font-size: .78rem; line-height: 1.35; color: var(--gray-500); }
+.ap-fact small { display: block; font-size: .78rem; font-weight: 400; line-height: 1.35; color: var(--gray-500); }
 .dark .ap-fact-icon { background: color-mix(in oklab, var(--primary-400) 16%, transparent); color: var(--primary-300); }
 .dark .ap-fact dt, .dark .ap-fact small { color: var(--gray-400); }
 .dark .ap-fact dd { color: #fff; }
