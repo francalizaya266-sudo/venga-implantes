@@ -336,6 +336,16 @@
               }
             }
           },
+          "404": {
+            "description": "Todavía no hay casos publicados: la página no existe.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "422": {
             "description": "Datos que no pasaron la validación.",
             "content": {
@@ -376,6 +386,16 @@
                     }
                   },
                   "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Todavía no hay opiniones publicadas: la página no existe.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
                 }
               }
             }

@@ -3,6 +3,8 @@
 namespace Tests\Feature\Http\Controllers\Site;
 
 use App\Models\Campaign;
+use App\Models\Review;
+use App\Models\SmileCase;
 use App\Models\Treatment;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Tests\TestCase;
@@ -30,13 +32,26 @@ class SitemapControllerTest extends TestCase
             ->assertDontSee(route('site.treatment', 'interno'), false)
             ->assertSee('<loc>'.route('site.promotion', 'limpieza-verano').'</loc>', false)
             ->assertSee('<loc>'.route('site.contact').'</loc>', false)
-            // Sin preguntas publicadas, no se anuncia una página vacía.
-            ->assertDontSee(route('site.faq'), false);
+            // Sin preguntas, casos ni opiniones publicadas, no se anuncia una página vacía.
+            ->assertDontSee(route('site.faq'), false)
+            ->assertDontSee(route('site.cases'), false)
+            ->assertDontSee(route('site.reviews'), false);
 
         $this->get(route('site.robots'))
             ->assertOk()
             ->assertSee('Disallow: /panel')
             ->assertSee('Disallow: /mi-cuenta')
             ->assertSee('Sitemap: '.route('site.sitemap'));
+    }
+
+    public function test_cases_and_reviews_enter_the_sitemap_once_something_is_published(): void
+    {
+        SmileCase::factory()->create();
+        Review::factory()->create();
+
+        $this->get(route('site.sitemap'))
+            ->assertOk()
+            ->assertSee('<loc>'.route('site.cases').'</loc>', false)
+            ->assertSee('<loc>'.route('site.reviews').'</loc>', false);
     }
 }

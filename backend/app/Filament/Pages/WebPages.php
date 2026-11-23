@@ -4,6 +4,8 @@ namespace App\Filament\Pages;
 
 use App\Filament\Forms\WebPhotoUpload;
 use App\Filament\Pages\Concerns\EditsSettings;
+use App\Models\Review;
+use App\Models\SmileCase;
 use App\Services\Web\PageTexts;
 use BackedEnum;
 use Filament\Actions\Action;
@@ -37,6 +39,12 @@ class WebPages extends Page
         'opiniones' => 'site.reviews',
         'cuenta' => 'site.account',
         'reservar' => 'site.booking',
+    ];
+
+    /** @var array<string, string> Las páginas que solo existen en la web cuando tienen algo publicado, y qué les falta. */
+    private const ONLY_WITH_CONTENT = [
+        'casos' => 'el primer caso',
+        'opiniones' => 'la primera opinión',
     ];
 
     protected static ?string $title = 'Textos de las páginas';
@@ -91,14 +99,19 @@ class WebPages extends Page
     /** La franja celeste con que abre una página. */
     private function headerSection(string $page): Section
     {
+        $hidden = ! $this->isOnTheWeb($page);
+
         return Section::make('Encabezado')
-            ->description('La franja celeste con que abre la página.'.(in_array($page, PageTexts::WITH_CLOSING, true) ? '' : ' Esta página cierra con la frase de la pestaña Cierre general.'))
+            ->description('La franja celeste con que abre la página.'.(in_array($page, PageTexts::WITH_CLOSING, true) ? '' : ' Esta página cierra con la frase de la pestaña Cierre general.')
+                .($hidden ? ' La página sale en la web cuando publiques '.self::ONLY_WITH_CONTENT[$page].'.' : ''))
             ->headerActions([
                 Action::make('see_'.$page)
                     ->label('Ver la página')
                     ->link()
                     ->icon(Heroicon::OutlinedArrowTopRightOnSquare)
-                    ->url(fn () => route(self::ROUTES[$page]), shouldOpenInNewTab: true),
+                    ->url(fn () => route(self::ROUTES[$page]), shouldOpenInNewTab: true)
+                    // Vacía, la página responde "No encontramos esta página": no se ofrece verla.
+                    ->hidden($hidden),
             ])
             ->columns(2)
             ->schema([
@@ -123,6 +136,16 @@ class WebPages extends Page
                     ->helperText('Una foto real del consultorio o del equipo, horizontal. Sale a la derecha del título y se funde con el celeste. Sin foto, se usa la del inicio.')
                     ->columnSpanFull(),
             ]);
+    }
+
+    /** Antes y después y Opiniones no existen en la web mientras no tengan nada publicado; las demás, siempre. */
+    private function isOnTheWeb(string $page): bool
+    {
+        return match ($page) {
+            'casos' => SmileCase::query()->published()->exists(),
+            'opiniones' => Review::query()->published()->exists(),
+            default => true,
+        };
     }
 
     /** Los puntos de la franja celeste que va bajo los doctores, en Equipo. */

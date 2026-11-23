@@ -5,7 +5,7 @@ import { Reviews } from '@/components/site/Reviews';
 import { Loading } from '@/components/ui/Loading';
 import { ErrorPage } from '@/pages/ErrorPage';
 
-/** Opiniones de pacientes, con el paso al perfil de Google. */
+/** Opiniones de pacientes, con el paso al perfil de Google. Sin ninguna publicada, la API responde 404. */
 export function ReviewsPage() {
   const site = useSite();
   const { data, error } = usePage<ReviewsData>('reviews');
@@ -37,11 +37,7 @@ export function ReviewsPage() {
         </p>
       ) : null}
 
-      {reviews.length ? (
-        <Reviews reviews={reviews} />
-      ) : (
-        <p className="panel">Pronto publicaremos opiniones de nuestros pacientes.</p>
-      )}
+      <Reviews reviews={reviews} />
     </SiteLayout>
   );
 }

@@ -8,7 +8,9 @@ use App\Models\Appointment;
 use App\Models\Campaign;
 use App\Models\Patient;
 use App\Models\RememberedDevice;
+use App\Models\Review;
 use App\Models\Setting;
+use App\Models\SmileCase;
 use App\Models\Treatment;
 use App\Services\Access\DeviceService;
 use App\Services\Access\MagicLinkService;
@@ -101,6 +103,10 @@ class SpaControllerTest extends TestCase
     #[DataProvider('pages')]
     public function test_each_page_of_the_web_opens_with_its_data(string $route, string $resource): void
     {
+        // Antes y después y Opiniones existen solo con algo publicado.
+        SmileCase::factory()->create();
+        Review::factory()->create();
+
         $response = $this->get(route($route));
 
         $response->assertOk();
@@ -122,6 +128,21 @@ class SpaControllerTest extends TestCase
         // Solo viaja lo que la página entiende: lo demás de la dirección no cambia sus datos.
         $this->assertSame(['/api/v1/site', '/api/v1/booking/options?origen=instagram&tratamiento=limpieza'], array_keys($preloaded));
         $this->assertSame($treatment->id, $preloaded['/api/v1/booking/options?origen=instagram&tratamiento=limpieza']['body']['data']['initial_treatment_id']);
+    }
+
+    public function test_cases_and_reviews_with_nothing_published_answer_404_and_stay_out_of_google(): void
+    {
+        SmileCase::factory()->create(['is_published' => false]);
+        Review::factory()->create(['is_published' => false]);
+
+        foreach (['site.cases' => '/api/v1/cases', 'site.reviews' => '/api/v1/reviews'] as $route => $resource) {
+            $response = $this->get(route($route));
+
+            $response->assertNotFound()
+                ->assertSee('<title>No encontramos esta página · ', false)
+                ->assertSee('<meta name="robots" content="noindex">', false);
+            $this->assertSame(404, $this->preloaded($response)[$resource]['status']);
+        }
     }
 
     public function test_a_treatment_that_is_not_public_answers_404_and_stays_out_of_google(): void
