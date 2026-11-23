@@ -193,7 +193,7 @@ class AppointmentInfolist
                 'icon' => Heroicon::OutlinedClock,
                 'label' => 'Hora',
                 'value' => $appointment->starts_at->format('H:i').' – '.$appointment->ends_at->format('H:i'),
-                'hint' => $minutes.' min (+'.$appointment->buffer_minutes.' de esterilización)',
+                'hint' => $minutes.' min (+'.$appointment->buffer_minutes.' min para preparar el sillón)',
             ],
             [
                 'icon' => Heroicon::OutlinedSparkles,

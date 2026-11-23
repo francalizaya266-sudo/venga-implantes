@@ -106,7 +106,7 @@ class TreatmentResource extends Resource
                             ->required()
                             ->helperText(fn (?Treatment $record) => self::durationHelp($record)),
                         TextInput::make('buffer_minutes')
-                            ->label('Limpieza y esterilización')
+                            ->label('Tiempo para preparar el sillón')
                             ->suffix('min')
                             ->numeric()
                             ->minValue(0)
@@ -273,7 +273,7 @@ class TreatmentResource extends Resource
 
     /**
      * Qué se ofrece, a qué precio, con quién y dónde aparece lo decide el administrador. Un doctor abre la ficha para
-     * ajustar lo clínico: la duración, la limpieza, las sesiones, el tipo, el seguimiento y las indicaciones.
+     * ajustar lo clínico: la duración, el tiempo para preparar el sillón, las sesiones, el tipo, el seguimiento y las indicaciones.
      */
     private static function decidesTheOffer(): bool
     {
@@ -396,13 +396,13 @@ class TreatmentResource extends Resource
                     ->state(fn (Treatment $record) => self::whoAttends($record))
                     ->placeholder('Nadie')
                     ->wrap(),
-                // El tiempo que de verdad se usa y de dónde viene: la limpieza propia o la general, y los doctores
+                // El tiempo que de verdad se usa y de dónde viene: el propio para preparar el sillón o el general, y los doctores
                 // a los que se les reserva otra duración.
                 TextColumn::make('duration_minutes')
                     ->label('Duración de la cita')
                     ->suffix(' min')
                     ->description(fn (Treatment $record) => collect([
-                        '+'.$record->bufferMinutes().' de limpieza'.($record->buffer_minutes === null ? ' (la general)' : ' (propia)'),
+                        '+'.$record->bufferMinutes().' min para preparar el sillón'.($record->buffer_minutes === null ? ' (tiempo general)' : ' (tiempo propio)'),
                         ...array_map(fn (array $duration) => "{$duration['doctor']}: {$duration['minutes']} min", $record->ownDurations()),
                     ])->implode(' · '))
                     ->wrap(),
@@ -477,7 +477,7 @@ class TreatmentResource extends Resource
                     ->iconButton()
                     ->tooltip('Editar')
                     ->mutateDataUsing(fn (array $data) => self::withPresence($data))
-                    ->modalDescription(fn () => self::decidesTheOffer() ? null : 'Puedes cambiar la duración, la limpieza, las sesiones, el tipo, el seguimiento y las indicaciones. El nombre, el precio, quién lo atiende y dónde aparece los cambia el administrador.')
+                    ->modalDescription(fn () => self::decidesTheOffer() ? null : 'Puedes cambiar la duración, el tiempo para preparar el sillón, las sesiones, el tipo, el seguimiento y las indicaciones. El nombre, el precio, quién lo atiende y dónde aparece los cambia el administrador.')
                     ->successNotificationTitle('Tratamiento guardado'),
                 // Borrar va en el menú para que la fila entre entera. Con citas o cobros no se borra: avisa que se apaga "Activo".
                 ActionGroup::make([
