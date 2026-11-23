@@ -23,6 +23,7 @@ use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
 use OpenSpout\Reader\XLSX\Reader as XlsxReader;
 use Tests\TestCase;
+use ZipArchive;
 
 /** Pacientes › Importar pacientes: la lista en Excel o CSV entra revisada como el alta del panel, sin repetir a nadie. */
 class PatientImportTest extends TestCase
@@ -69,6 +70,35 @@ class PatientImportTest extends TestCase
         unlink($path);
 
         return $rows;
+    }
+
+    /**
+     * El Excel con fórmulas, como lo guarda Excel: en cada celda marcada, la fórmula y lo que muestra.
+     *
+     * @param  array<string, array{0: string, 1: string}>  $formulas  Texto de la celda => [fórmula, lo que muestra].
+     */
+    private function withFormulas(string $xlsx, array $formulas): string
+    {
+        $path = (string) tempnam(sys_get_temp_dir(), 'xlsx');
+        file_put_contents($path, $xlsx);
+        $zip = new ZipArchive;
+        $zip->open($path);
+        $sheet = (string) $zip->getFromName('xl/worksheets/sheet1.xml');
+
+        foreach ($formulas as $text => [$formula, $shown]) {
+            $sheet = (string) preg_replace(
+                '#<c r="([A-Z]+\d+)" t="inlineStr" s="\d+"><is><t xml:space="preserve">'.preg_quote($text, '#').'</t></is></c>#',
+                '<c r="$1" t="str"><f>'.htmlspecialchars($formula, ENT_XML1).'</f><v>'.htmlspecialchars($shown, ENT_XML1).'</v></c>',
+                $sheet,
+            );
+        }
+
+        $zip->addFromString('xl/worksheets/sheet1.xml', $sheet);
+        $zip->close();
+        $contents = (string) file_get_contents($path);
+        unlink($path);
+
+        return $contents;
     }
 
     /** @return list<string> Qué hay que corregir en cada fila que no entró. */
@@ -156,6 +186,24 @@ class PatientImportTest extends TestCase
             $jorge->last_name, $jorge->document_number, $jorge->birth_date->toDateString(), $jorge->account->phone,
         ]);
         $this->assertSame([1, 1], [$this->lastImport()->total_rows, $this->lastImport()->successful_rows]);
+    }
+
+    public function test_a_column_made_with_a_formula_brings_what_excel_shows_not_the_formula(): void
+    {
+        $this->actingAs(User::factory()->reception()->create());
+
+        $book = (new Spreadsheet)->sheet('Pacientes', ['Nombres', 'Apellidos', 'Celular'], [Spreadsheet::TEXT, Spreadsheet::TEXT, Spreadsheet::TEXT], [
+            ['[nombre]', '[apellidos]', '987654321'],
+        ]);
+        $xlsx = $this->withFormulas($book->toXlsx(), [
+            '[nombre]' => ['PROPER("ROSA MARÍA")', 'Rosa María'],
+            '[apellidos]' => ['CONCATENATE("Huamán"," ","Quispe")', 'Huamán Quispe'],
+        ]);
+
+        $this->import(UploadedFile::fake()->createWithContent('pacientes.xlsx', $xlsx));
+
+        $rosa = Patient::query()->sole();
+        $this->assertSame(['Rosa María', 'Huamán Quispe', '+51987654321'], [$rosa->first_name, $rosa->last_name, $rosa->account->phone]);
     }
 
     public function test_the_template_downloads_in_excel_and_imports_as_it_comes(): void

@@ -15,6 +15,8 @@ use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
 use League\Csv\Reader as CsvReader;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
+use OpenSpout\Common\Entity\Cell;
+use OpenSpout\Common\Entity\Cell\FormulaCell;
 use OpenSpout\Reader\XLSX\Reader as XlsxReader;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Throwable;
@@ -211,7 +213,8 @@ class ImportPatientsAction extends ImportAction
     }
 
     /**
-     * Las filas de la primera hoja de un Excel.
+     * Las filas de la primera hoja de un Excel. De una celda con fórmula vale lo que Excel muestra (=NOMPROPIO(A2)
+     * da "Rosa María"), no la fórmula.
      *
      * @return list<array<int, mixed>>
      */
@@ -225,13 +228,14 @@ class ImportPatientsAction extends ImportAction
             $target = fopen($path, 'w');
             stream_copy_to_stream($source, $target);
             fclose($target);
+            fclose($source);
 
             $reader->open($path);
             $rows = [];
 
             foreach ($reader->getSheetIterator() as $sheet) {
                 foreach ($sheet->getRowIterator() as $row) {
-                    $rows[] = $row->toArray();
+                    $rows[] = array_map(fn (Cell $cell): mixed => $cell instanceof FormulaCell ? $cell->getComputedValue() : $cell->getValue(), $row->getCells());
                 }
 
                 break;
