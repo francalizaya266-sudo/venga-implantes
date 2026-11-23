@@ -73,7 +73,7 @@ final class ScheduledTasks
     public function howToTurnOn(): string
     {
         return $this->onWindows()
-            ? 'Para encenderlas, abre la carpeta del sistema, entra a infra › windows, haz doble clic en «encender-tareas-automaticas.bat» y acepta el permiso que pide Windows. Se hace una sola vez: desde ahí corren solas mientras la computadora esté prendida.'
+            ? 'Para encenderlas, abre la carpeta donde se instaló el sistema, entra a infra › windows, haz doble clic en «encender-tareas-automaticas.bat» y acepta el permiso que pide Windows. Se hace una sola vez: desde ahí corren solas mientras la computadora esté prendida.'
             : 'Pide a quien instaló el sistema que encienda la tarea que corre cada minuto en el servidor: está en su guía de instalación.';
     }
 
