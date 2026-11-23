@@ -588,6 +588,8 @@ class AppointmentService
             'unconfirmed_flagged_at' => null,
         ]);
 
+        // Lo eligió él mismo: el aviso de un cambio anterior ya no sirve.
+        $this->outbox->discardPending($appointment, MessageTemplateKey::CHANGE_NOTICES);
         $this->closeRescheduleRequests($appointment, 'El paciente movió su cita a otro horario.', 'patient');
 
         $waitlist = $this->waitlist->freedSlotNotice($freedDoctor, $freedAt, $appointment->patient_id);
@@ -642,7 +644,7 @@ class AppointmentService
 
         if ($agreed) {
             // Ya lo sabe: no se le pide confirmar, y el aviso de un cambio anterior ya no sirve.
-            $this->outbox->discardPending($appointment, MessageTemplateKey::Rescheduled);
+            $this->outbox->discardPending($appointment, MessageTemplateKey::CHANGE_NOTICES);
         } else {
             $this->outbox->queueForAppointment($appointment, MessageTemplateKey::Rescheduled);
         }
@@ -1013,9 +1015,17 @@ class AppointmentService
                 $this->waitlist->settle($appointment);
             }
 
-            // El recordatorio del horario anterior ya no sirve; el enlace sigue sirviendo para el nuevo.
-            $this->outbox->discardPending($appointment, MessageTemplateKey::Reminder);
             $appointment->refresh();
+
+            // Lo que todavía no se envió dice el horario y el doctor nuevos, venga de donde venga el cambio. El
+            // recordatorio sigue (con la hora nueva) solo si a esa hora ya le toca; si no, sale el día que le toque.
+            if (! app(AppointmentReminders::class)->isTimeToRemind($appointment)) {
+                $this->outbox->discardPending($appointment, MessageTemplateKey::Reminder);
+            }
+
+            $this->outbox->rebuildPending($appointment);
+
+            // El enlace sigue sirviendo para el nuevo horario.
             $this->links->extendForAppointment($appointment);
 
             return $appointment;

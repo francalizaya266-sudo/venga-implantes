@@ -43,8 +43,9 @@ class WhatsAppOutbox
             return null; // paciente sin celular registrado
         }
 
-        // Un solo aviso pendiente por tipo y cita (si la mueven dos veces, vale el último).
-        $this->discardPending($appointment, $key);
+        // Un solo aviso pendiente por tipo y cita (si la mueven dos veces, vale el último). El de un cambio de horario
+        // reemplaza además a los que todavía decían el horario anterior: la confirmación, el recordatorio, otro cambio.
+        $this->discardPending($appointment, in_array($key, MessageTemplateKey::CHANGE_NOTICES, true) ? MessageTemplateKey::TELLS_THE_DATE : $key);
 
         $message->fill(['due_at' => $dueAt])->save();
 
@@ -95,23 +96,38 @@ class WhatsAppOutbox
         ]);
     }
 
-    /** Descarta avisos pendientes de una cita (por ejemplo, al cancelarla o moverla). */
-    public function discardPending(Appointment $appointment, ?MessageTemplateKey $key = null): void
+    /**
+     * Descarta avisos pendientes de una cita (por ejemplo, al cancelarla o moverla): todos, los de un tipo o los de
+     * varios.
+     *
+     * @param  MessageTemplateKey|list<MessageTemplateKey>|null  $key
+     */
+    public function discardPending(Appointment $appointment, MessageTemplateKey|array|null $key = null): void
     {
         WhatsappMessage::query()
             ->where('appointment_id', $appointment->getKey())
-            ->when($key, fn ($q) => $q->where('template_key', $key))
+            ->when($key !== null, fn ($q) => $q->whereIn('template_key', is_array($key) ? $key : [$key]))
             ->pending()
             ->update(['status' => MessageStatus::Cancelled]);
     }
 
     /**
+     * La cita cambió de horario o de doctor: lo que todavía no se envió vuelve a armarse con la fecha, la hora y el
+     * doctor nuevos, y sale el aviso de que la cita seguía como estaba (ya no es cierto).
+     */
+    public function rebuildPending(Appointment $appointment): void
+    {
+        $this->discardPending($appointment, MessageTemplateKey::RescheduleRejected);
+        $this->refreshPending($appointment);
+    }
+
+    /**
      * Los avisos de la cita que todavía no se enviaron vuelven a tomar sus datos (por ejemplo, cuando le cambian el
-     * tratamiento): así no sale un mensaje con lo que ya no es.
+     * tratamiento, el horario o el doctor): así no sale un mensaje con lo que ya no es.
      */
     public function refreshPending(Appointment $appointment): void
     {
-        $appointment->unsetRelation('treatment');
+        $appointment->unsetRelation('treatment')->unsetRelation('doctor');
         $params = $this->appointmentParams($appointment->loadMissing('patient', 'doctor', 'treatment', 'campaign'));
 
         WhatsappMessage::query()

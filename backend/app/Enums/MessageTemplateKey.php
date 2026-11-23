@@ -30,6 +30,21 @@ enum MessageTemplateKey: string implements HasLabel
     case Aftercare = 'aftercare';
     case MissedVisit = 'missed_visit';
 
+    /** Avisos que le dicen al paciente cuándo es su cita y con quién. */
+    public const TELLS_THE_DATE = [
+        self::Reminder,
+        self::BookingConfirmation,
+        self::AppointmentScheduled,
+        self::Rescheduled,
+        self::RescheduleApproved,
+    ];
+
+    /** Avisos de que la cita cambió de horario: el nuevo reemplaza a los que todavía decían el horario anterior. */
+    public const CHANGE_NOTICES = [
+        self::Rescheduled,
+        self::RescheduleApproved,
+    ];
+
     public function getLabel(): string
     {
         return match ($this) {
