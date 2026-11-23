@@ -477,7 +477,7 @@ class Settings extends Page
             ->directory('cobros')
             ->visibility('public')
             ->maxSize(2 * 1024)
-            ->helperText('Descárgalo desde la app (opción "Mi QR") y súbelo aquí. Si lo quitas, ya no se muestra al cobrar.');
+            ->helperText('La imagen del QR que da la app: descárgala o haz una captura y súbela aquí. Si la quitas, ya no se muestra al cobrar.');
     }
 
     private static function number(string $key, string $label, int $min, int $max, string $suffix): TextInput

@@ -127,7 +127,9 @@ class PriceChangesAtCheckoutTest extends TestCase
             ->assertCanNotSeeTableRecords(AuditLog::query()->where('auditable_type', Charge::class)->where('event', 'created')->get())
             ->assertTableColumnStateSet('section', 'Cobros', $change)
             ->assertTableColumnStateSet('subject', 'Limpieza dental · Ana Flores', $change)
-            ->assertTableColumnStateSet('summary', 'Precio: S/ 120.00 → S/ 70.00 · Motivo: Paciente frecuente', $change);
+            ->assertTableColumnStateSet('summary', 'Precio: S/ 120.00 → S/ 70.00 · Motivo: Paciente frecuente', $change)
+            ->mountAction(TestAction::make('detail')->table($change))
+            ->assertMountedActionModalSee(['Limpieza dental · Ana Flores', 'Cobros', 'Rosa Pérez', 'S/ 120.00', 'S/ 70.00', 'Paciente frecuente']);
     }
 
     public function test_a_discount_or_a_concept_added_by_hand_also_asks_why(): void
