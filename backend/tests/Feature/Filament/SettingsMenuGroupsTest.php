@@ -27,7 +27,9 @@ class SettingsMenuGroupsTest extends TestCase
         // Cualquier administrador ve las copias de seguridad, aunque no atienda pacientes (descargarlas es otra cosa).
         $this->actingAs(User::factory()->admin(isDentist: false)->create());
 
+        // La puesta a punto del consultorio va arriba de todo, como la de la web en "Página web".
         $this->assertSame([
+            'Consultorio: Puesta a punto',
             'Consultorio: Ajustes',
             'Consultorio: Copias de seguridad',
             'Consultorio: Historial de cambios',

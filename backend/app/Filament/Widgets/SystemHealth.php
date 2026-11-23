@@ -3,6 +3,7 @@
 namespace App\Filament\Widgets;
 
 use App\Filament\Pages\Backups;
+use App\Filament\Pages\ClinicSetup;
 use App\Filament\Resources\WhatsappMessages\WhatsappMessageResource;
 use App\Models\User;
 use App\Models\WhatsappMessage;
@@ -53,8 +54,8 @@ class SystemHealth extends Widget
                 'description' => 'Sin ellas no salen los recordatorios ni las copias de seguridad.'
                     .($lastRun ? ' Corrieron por última vez '.$lastRun->diffForHumans().'.' : '')
                     .' '.$tasks->howToTurnOn(),
-                'url' => null,
-                'link' => null,
+                'url' => ClinicSetup::canAccess() ? ClinicSetup::getUrl() : null,
+                'link' => 'Ver la puesta a punto',
             ];
         }
 

@@ -1,4 +1,5 @@
-{{-- Lo que falta para que la web dé confianza: lo pendiente primero, con su enlace; lo listo, al final con su check. --}}
+{{-- Lo que falta para que la web dé confianza: lo pendiente primero, con su enlace; lo listo, al final con su check.
+     La puesta a punto del consultorio la usa con su propio título; un paso puede no tener enlace o traer una acción. --}}
 @php
     $done = collect($items)->where('done', true)->count();
     $sorted = collect($items)->sortBy(fn (array $item) => $item['done'])->values();
@@ -6,8 +7,8 @@
 <section class="setup" aria-labelledby="setup-title">
     <header class="setup-head">
         <div>
-            <h2 id="setup-title" class="setup-title">Lo que falta para que la web dé confianza</h2>
-            <p class="setup-sub">Cada cosa se hace una sola vez. Cuando esté todo, esta lista desaparece.</p>
+            <h2 id="setup-title" class="setup-title">{{ $heading ?? 'Lo que falta para que la web dé confianza' }}</h2>
+            <p class="setup-sub">{{ $subheading ?? 'Cada cosa se hace una sola vez. Cuando esté todo, esta lista desaparece.' }}</p>
         </div>
         <span class="setup-count">{{ $done }} de {{ count($items) }} listos</span>
     </header>
@@ -25,7 +26,12 @@
                     @endunless
                 </div>
                 @unless ($item['done'])
-                    <x-filament::button size="sm" color="gray" tag="a" :href="$item['url']" class="setup-link">{{ $item['link'] }}</x-filament::button>
+                    @if (filled($item['action'] ?? null))
+                        <span class="setup-link">{{ $this->{$item['action']} }}</span>
+                    @endif
+                    @if ($item['url'])
+                        <x-filament::button size="sm" color="gray" tag="a" :href="$item['url']" class="setup-link">{{ $item['link'] }}</x-filament::button>
+                    @endif
                 @endunless
             </li>
         @endforeach

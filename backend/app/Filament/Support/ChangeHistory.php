@@ -19,6 +19,7 @@ use App\Models\User;
 use App\Services\Backup\DatabaseBackup;
 use App\Services\Backup\ExtraCopy;
 use App\Services\Backup\OffsiteCopies;
+use App\Services\ClinicSetupChecklist;
 use App\Services\Web\PageTexts;
 use App\Support\Money;
 use Carbon\CarbonImmutable;
@@ -90,6 +91,7 @@ final class ChangeHistory
         'reports.doctors_see_own' => 'Cada doctor ve sus propios ingresos y gráficos',
         'reports.monthly_goal' => 'Meta de cobro del mes',
         'inventory.deduct_on_close' => 'Al terminar una atención, revisar y descontar los materiales usados',
+        ClinicSetupChecklist::NO_RECEPTION => 'Nadie trabaja en recepción (puesta a punto)',
         'web.tagline' => 'Frase arriba del título de la web',
         'web.headline' => 'Título del inicio de la web',
         'web.intro' => 'Frase bajo el título de la web',
