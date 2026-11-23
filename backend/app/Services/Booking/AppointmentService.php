@@ -129,10 +129,10 @@ class AppointmentService
                 'last_seen_at' => now(),
             ])->save();
 
-            // Un código que no es de ninguna promoción no impide reservar ni quita la de la página de la que llegó: queda
+            // La misma campaña que la web le mostró (con su precio): la del código, o la de la página de la que llegó si el
+            // código no es de ninguna promoción vigente o la suya ya no tiene cupos. Ese código no impide reservar: queda
             // escrito en la cita y recepción lo revisa.
-            $campaign = (filled($data->promoCode) ? Campaign::query()->published()->where('promo_code', strtoupper(trim($data->promoCode)))->first() : null)
-                ?? (filled($data->campaignSlug) ? Campaign::query()->published()->where('slug', $data->campaignSlug)->first() : null);
+            $campaign = Campaign::forBooking($data->promoCode, $data->campaignSlug);
 
             $appointment = Appointment::create([
                 'patient_id' => $patient->getKey(),
@@ -144,7 +144,7 @@ class AppointmentService
                 'status' => AppointmentStatus::Pending,
                 'booked_via' => BookingChannel::Web,
                 'origin' => $campaign ? AppointmentOrigin::Campaign : $data->origin,
-                'campaign_id' => $campaign?->hasSlotsLeft() ? $campaign->getKey() : null,
+                'campaign_id' => $campaign?->getKey(),
                 'promo_code' => $data->promoCode,
                 'is_new_patient' => ! $patient->appointments()->where('status', AppointmentStatus::Completed)->exists(),
                 'from_verified_device' => $fromVerifiedDevice,
