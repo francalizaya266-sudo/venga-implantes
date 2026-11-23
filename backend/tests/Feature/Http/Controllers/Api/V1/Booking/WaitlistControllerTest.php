@@ -80,10 +80,10 @@ class WaitlistControllerTest extends TestCase
         $this->assertSame(['María Quispe Rojas', '+51987654321'], [$entry->patient->full_name, $entry->patient->account->phone]);
         $this->assertNotNull($entry->patient->account->privacy_accepted_at);
 
-        // Recepción recibe el aviso en la campana, como con las reservas web.
+        // Recepción recibe el aviso en la campana, como con las reservas web, con los días y la hora que le sirven.
         $alert = $this->reception->notifications()->sole();
         $this->assertSame('Lista de espera desde la web', $alert->data['title']);
-        $this->assertSame('María Quispe Rojas · Limpieza dental con Dra. Vega · en la mañana. No encontró un horario que le sirva: ofrécele uno cuando se libere.', $alert->data['body']);
+        $this->assertSame('María Quispe Rojas · Limpieza dental con Dra. Vega · en la mañana · lunes o sábados. No encontró un horario que le sirva: ofrécele uno cuando se libere.', $alert->data['body']);
 
         // Y en la lista de espera sale marcado.
         $this->actingAs($this->reception);
@@ -195,6 +195,27 @@ class WaitlistControllerTest extends TestCase
         $maria = WaitlistEntry::sole()->patient;
         $this->assertTrue($maria->account->is($account));
         $this->assertSame([$maria->id], $account->guestIds());
+    }
+
+    public function test_from_the_remembered_phone_who_is_still_to_be_confirmed_cannot_be_chosen(): void
+    {
+        $account = Account::factory()->verified()->create(['phone' => '+51912345678']);
+        $holder = Patient::factory()->for($account)->create();
+        Appointment::factory()->for($holder)->confirmed()->create();
+        // Reservó con este número desde otro celular y nadie de la familia lo confirmó todavía (así la crea la fábrica).
+        $newcomer = Patient::factory()->dependentOf($account)->create();
+        Appointment::factory()->for($newcomer)->create();
+        RememberedDevice::create(['account_id' => $account->id, 'token_hash' => hash('sha256', 'celular-de-la-familia'), 'expires_at' => now()->addMonth(), 'verified_at' => now()]);
+        $this->withCookie(DeviceService::COOKIE, 'celular-de-la-familia');
+        $this->assertSame([$newcomer->id], $account->guestIds());
+
+        $this->ask(['treatment_id' => $this->cleaning->id, 'patient_id' => $newcomer->id, 'preferred_period' => DayPeriod::Any->value, 'accepts_privacy' => true])
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'No encontramos a esa persona en este celular. Elige de nuevo para quién es.');
+        $this->assertDatabaseCount('waitlist_entries', 0);
+
+        $this->ask(['treatment_id' => $this->cleaning->id, 'patient_id' => $holder->id, 'preferred_period' => DayPeriod::Any->value, 'accepts_privacy' => true])->assertCreated();
+        $this->assertTrue(WaitlistEntry::sole()->patient->is($holder));
     }
 
     public function test_choosing_a_registered_relative_needs_the_remembered_phone(): void
