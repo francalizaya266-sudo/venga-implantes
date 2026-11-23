@@ -5,8 +5,8 @@
  *
  * Tamaños de letra: 12, 13, 14, 16, 18 y 22 px (.75, .8125, .875, 1, 1.125 y 1.375rem). Nada más chico que 12 px,
  * salvo donde no entra: las letras dentro del dibujo de los dientes (crecen con el dibujo) y las horas libres de la
- * semana en Hoy ("11 h 20" en el ancho de un día). Los títulos de pantalla y las cifras grandes (los números de Hoy,
- * el total al cobrar) van aparte.
+ * semana en Hoy ("11 h 20" en el ancho de un día). Van aparte los títulos de pantalla de Filament y las cifras de
+ * arriba de los reportes y del cierre, que se achican para entrar enteras.
  */
 
 /* ---------- Ajustes generales del panel ---------- */
@@ -364,7 +364,7 @@
 @media (max-width: 40rem) {
     .agenda-page .fi-header .fi-header-actions-ctn { display: none; }
     .agenda-page .fi-page-header-main-ctn { padding-top: 1.25rem; row-gap: 1rem; }
-    .agenda-page .fi-header-heading { font-size: 1.5rem; line-height: 2rem; }
+    .agenda-page .fi-header-heading { font-size: 1.375rem; line-height: 2rem; }
     .agenda-controls { grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: .625rem .75rem; }
     .agenda-toolbar, .agenda-info, .agenda-toolbar > .agenda-toolbar-group:last-child { display: contents; }
     .agenda-toolbar > .agenda-toolbar-group:first-child { grid-column: 1 / -1; flex-wrap: nowrap; }
@@ -734,9 +734,9 @@ button.agenda-slot:focus-visible { outline: 2px solid var(--primary-600); outlin
 /* Dos filas: arriba quién es (nombre, edad, tratamiento y alertas en la misma línea) y las acciones; abajo los pasos. */
 .cb-top { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .45rem 1rem; align-items: center; }
 .cb-who { min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: .3rem .65rem; }
-.cb-name { margin: 0; min-width: 0; max-width: 100%; font-size: 1.05rem; font-weight: 700; line-height: 1.25; letter-spacing: -.01em; color: var(--gray-950); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cb-name { margin: 0; min-width: 0; max-width: 100%; font-size: 1rem; font-weight: 700; line-height: 1.25; letter-spacing: -.01em; color: var(--gray-950); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .dark .cb-name { color: #fff; }
-.cb-meta { margin: 0; min-width: 0; font-size: .8rem; color: var(--gray-500); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cb-meta { margin: 0; min-width: 0; font-size: .8125rem; color: var(--gray-500); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .dark .cb-meta { color: var(--gray-400); }
 .cb-actions { display: flex; gap: .4rem; align-items: center; }
 .cb-tools { display: flex; align-items: center; gap: .3rem; }
@@ -763,7 +763,7 @@ button.agenda-slot:focus-visible { outline: 2px solid var(--primary-600); outlin
 .cb-bottom { display: flex; align-items: center; justify-content: space-between; gap: .5rem 1rem; }
 .cb-sections { min-width: 0; display: flex; gap: .35rem; overflow-x: auto; scrollbar-width: none; }
 .cb-sections::-webkit-scrollbar { display: none; }
-.cb-sections a { flex: none; display: inline-flex; align-items: center; gap: .35rem; font-size: .78rem; font-weight: 500; color: var(--gray-600); text-decoration: none; padding: .3rem .7rem; border-radius: 9999px; background: var(--gray-100); transition: background-color .15s ease, color .15s ease; }
+.cb-sections a { flex: none; display: inline-flex; align-items: center; gap: .35rem; font-size: .8125rem; font-weight: 500; color: var(--gray-600); text-decoration: none; padding: .3rem .7rem; border-radius: 9999px; background: var(--gray-100); transition: background-color .15s ease, color .15s ease; }
 .cb-sections a:hover, .cb-sections a.is-current { background: var(--primary-50); color: var(--primary-700); }
 .cb-sections a.is-current { box-shadow: inset 0 0 0 1px var(--primary-300); font-weight: 600; }
 /* El número del paso, y un punto verde si ya tiene algo escrito. */
@@ -793,7 +793,7 @@ button.agenda-slot:focus-visible { outline: 2px solid var(--primary-600); outlin
     .consultation-bar { padding: .55rem .7rem .5rem; gap: .45rem; }
     .cb-top { grid-template-areas: "name actions" "meta actions" "flags flags"; row-gap: .15rem; }
     .cb-who { display: contents; }
-    .cb-name { grid-area: name; font-size: .98rem; }
+    .cb-name { grid-area: name; }
     .cb-meta { grid-area: meta; }
     .cb-flags { grid-area: flags; margin-top: .3rem; }
     .cb-actions { grid-area: actions; }
@@ -817,9 +817,9 @@ button.agenda-slot:focus-visible { outline: 2px solid var(--primary-600); outlin
 
 /* Los tres pasos de la atención: antes de empezar, lo que hiciste, para el paciente. */
 .consult-step { display: flex; gap: .75rem; align-items: center; margin-top: .5rem; padding: 0 .25rem; }
-.consult-step-num { flex: none; display: grid; place-items: center; width: 1.9rem; height: 1.9rem; border-radius: 9999px; background: var(--primary-600); color: #fff; font-size: .9rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.consult-step-num { flex: none; display: grid; place-items: center; width: 1.9rem; height: 1.9rem; border-radius: 9999px; background: var(--primary-600); color: #fff; font-size: .875rem; font-weight: 700; font-variant-numeric: tabular-nums; }
 .consult-step-title { margin: 0; font-size: 1rem; font-weight: 700; line-height: 1.3; color: var(--gray-950); }
-.consult-step-text { margin: 0; font-size: .8rem; color: var(--gray-500); }
+.consult-step-text { margin: 0; font-size: .8125rem; color: var(--gray-500); }
 .dark .consult-step-num { background: var(--primary-500); }
 .dark .consult-step-title { color: #fff; }
 .dark .consult-step-text { color: var(--gray-400); }
@@ -851,7 +851,7 @@ button.agenda-slot:focus-visible { outline: 2px solid var(--primary-600); outlin
 @keyframes dictate-pulse { 50% { opacity: .35; } }
 @media (prefers-reduced-motion: reduce) { .dictate-btn.is-on svg { animation: none; } }
 @media (pointer: coarse) { .dictate-btn { min-height: 2.25rem; padding-inline: .8rem; } }
-.dictate-note { margin: 0 0 .35rem; font-size: .78rem; line-height: 1.45; color: var(--gray-600); }
+.dictate-note { margin: 0 0 .35rem; font-size: .8125rem; line-height: 1.45; color: var(--gray-600); }
 .dictate-note b { font-weight: 600; color: var(--gray-900); }
 .dark .dictate-note { color: var(--gray-400); }
 .dark .dictate-note b { color: #fff; }
@@ -923,10 +923,10 @@ button.agenda-slot:focus-visible { outline: 2px solid var(--primary-600); outlin
 .odv-omni { position: relative; display: flex; align-items: center; gap: .5rem; min-height: 2.75rem; padding: 0 .5rem 0 .75rem; border-radius: .75rem; background: var(--odv-surface); box-shadow: inset 0 0 0 1px var(--odv-line); color: var(--odv-soft); transition: box-shadow 150ms ease; }
 .odv-omni:focus-within { box-shadow: inset 0 0 0 2px var(--primary-500); }
 .odv-omni > svg { flex: none; }
-.odv-omni input { flex: 1; min-width: 0; padding: .5rem 0; border: 0; outline: 0; background: transparent; box-shadow: none; font-size: .9375rem; color: var(--odv-ink); }
+.odv-omni input { flex: 1; min-width: 0; padding: .5rem 0; border: 0; outline: 0; background: transparent; box-shadow: none; font-size: 1rem; color: var(--odv-ink); }
 .odv-omni input:focus { outline: 0; box-shadow: none; }
 .odv-omni input::placeholder { color: var(--gray-400); }
-.odv-omni-clear { display: grid; place-items: center; width: 2rem; height: 2rem; border-radius: 999px; font-size: 1.25rem; line-height: 1; color: var(--odv-soft); }
+.odv-omni-clear { display: grid; place-items: center; width: 2rem; height: 2rem; border-radius: 999px; font-size: 1.375rem; line-height: 1; color: var(--odv-soft); }
 .odv-omni-clear:hover { background: var(--odv-hover); }
 .odv-matches { position: absolute; left: 0; right: 0; top: calc(100% + .375rem); z-index: 30; max-height: min(20rem, 60vh); overflow-y: auto; overscroll-behavior: contain; padding: .25rem; border-radius: .75rem; background: var(--odv-surface); box-shadow: 0 0 0 1px var(--odv-line), 0 16px 40px -12px rgb(15 23 42 / .28); }
 .odv-matches button { display: flex; align-items: baseline; gap: .5rem; width: 100%; padding: .5rem .625rem; border-radius: .5rem; text-align: left; font-size: .875rem; color: var(--odv-ink); }
@@ -1057,10 +1057,10 @@ button.agenda-slot:focus-visible { outline: 2px solid var(--primary-600); outlin
 @starting-style { .odv-card { opacity: 0; } }
 .odv-card-head { display: flex; align-items: center; gap: .125rem; padding: .375rem; border-bottom: 1px solid var(--odv-line); }
 .odv-card-title { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 .5rem; padding: 0 .375rem; }
-.odv-card-title strong { font-size: 1.25rem; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--odv-ink); }
+.odv-card-title strong { font-size: 1.375rem; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--odv-ink); }
 .odv-card-title span { min-width: 0; font-size: .875rem; line-height: 1.3; color: var(--odv-soft); }
-.odv-icon-btn { display: grid; place-items: center; flex: none; width: 2.25rem; height: 2.25rem; border-radius: .5rem; font-size: 1.25rem; line-height: 1; color: var(--odv-soft); transition: background-color 150ms ease; }
-.odv-icon-btn.is-small { width: 1.75rem; height: 1.75rem; font-size: 1.05rem; }
+.odv-icon-btn { display: grid; place-items: center; flex: none; width: 2.25rem; height: 2.25rem; border-radius: .5rem; font-size: 1.375rem; line-height: 1; color: var(--odv-soft); transition: background-color 150ms ease; }
+.odv-icon-btn.is-small { width: 1.75rem; height: 1.75rem; font-size: 1rem; }
 .odv-icon-btn:hover { background: var(--odv-hover); color: var(--odv-ink); }
 .odv-card-body { display: grid; grid-template-columns: 9.5rem minmax(0, 1fr); grid-template-rows: auto auto 1fr; grid-template-areas: "faces list" "faces quick" "hint quick"; gap: .625rem 1rem; align-items: start; padding: .75rem; }
 .odv-faces { grid-area: faces; display: block; width: 100%; height: auto; overflow: visible; }
@@ -1413,11 +1413,11 @@ button.pt-chip { transition: transform 160ms ease-out; }
  */
 
 /* El saludo: grande pero sin peso de cartel; la fecha, debajo y en gris. */
-.today-page .fi-header-heading { font-size: 1.625rem; line-height: 2rem; font-weight: 600; letter-spacing: -.02em; }
-.today-page .fi-header-subheading { margin-top: .15rem; font-size: .9375rem; color: var(--gray-500); }
+.today-page .fi-header-heading { font-size: 1.375rem; line-height: 2rem; font-weight: 600; letter-spacing: -.02em; }
+.today-page .fi-header-subheading { margin-top: .15rem; font-size: 1rem; color: var(--gray-500); }
 /* Bajo la fecha de la agenda, qué tan lleno está el día: un dato, no un título. */
-.agenda-page .fi-header-subheading { margin-top: .15rem; font-size: .9375rem; color: var(--gray-500); font-variant-numeric: tabular-nums; }
-@media (max-width: 40rem) { .today-page .fi-header-heading { font-size: 1.375rem; line-height: 1.75rem; } }
+.agenda-page .fi-header-subheading { margin-top: .15rem; font-size: 1rem; color: var(--gray-500); font-variant-numeric: tabular-nums; }
+@media (max-width: 40rem) { .today-page .fi-header-heading { line-height: 1.75rem; } }
 
 /* El cuadrito de cada tarjeta, en gris: en Hoy el azul queda para lo que se toca. */
 .today-page .fi-section > .fi-section-header > .fi-icon:not(.fi-color) { background: var(--gray-100); color: var(--gray-500); }
@@ -1487,7 +1487,7 @@ button.pt-chip { transition: transform 160ms ease-out; }
 .dark .dash-kpi { background: var(--gray-900); color: var(--gray-400); }
 .dash-kpi-label { display: flex; align-items: center; gap: .45rem; font-size: .8125rem; font-weight: 500; }
 .dash-kpi-icon { width: 1rem; height: 1rem; flex: none; color: var(--gray-400); }
-.dash-kpi-value { font-size: 1.75rem; line-height: 1.2; font-weight: 600; letter-spacing: -.025em; font-variant-numeric: tabular-nums; color: var(--gray-950); overflow-wrap: anywhere; }
+.dash-kpi-value { font-size: 1.375rem; line-height: 1.2; font-weight: 600; letter-spacing: -.025em; font-variant-numeric: tabular-nums; color: var(--gray-950); overflow-wrap: anywhere; }
 .dark .dash-kpi-value { color: #fff; }
 .dash-kpi-hint { font-size: .75rem; line-height: 1.35; color: var(--gray-500); }
 /* Lo que espera a alguien: un punto arriba a la derecha y la línea de abajo en su color; la tarjeta sigue blanca. */
@@ -1499,7 +1499,6 @@ button.pt-chip { transition: transform 160ms ease-out; }
 .dark .dash-kpi.is-danger .dash-kpi-hint { color: var(--danger-400); }
 @media (max-width: 40rem) {
     .dash-kpi { padding: .8rem .85rem; }
-    .dash-kpi-value { font-size: 1.5rem; }
     .dash-kpi:is(.is-warning, .is-danger)::after { top: 1rem; right: .85rem; }
 }
 @media (prefers-reduced-motion: reduce) { .dash-kpi, .dash-kpi:hover, .dash-kpi:active { transition-property: box-shadow; transform: none; } }
@@ -1551,7 +1550,7 @@ button.pt-chip { transition: transform 160ms ease-out; }
 .dark .dash-agenda-finished { border-top-color: rgb(255 255 255 / .1); color: var(--gray-400); }
 .dark .dash-agenda-finished p span { color: var(--gray-100); }
 .dash-appt-time { min-width: 3.25rem; }
-.dash-appt-time .fi-ta-text-item { font-size: 1.05rem; line-height: 1.3; font-variant-numeric: tabular-nums; color: var(--gray-950); }
+.dash-appt-time .fi-ta-text-item { font-size: 1rem; line-height: 1.3; font-variant-numeric: tabular-nums; color: var(--gray-950); }
 .dark .dash-appt-time .fi-ta-text-item { color: #fff; }
 .dash-appt-time .fi-ta-text-description { font-size: .75rem; color: var(--gray-500); white-space: nowrap; }
 .dash-appt-next { border-top: 1px solid var(--primary-500) !important; }
@@ -1612,7 +1611,7 @@ button.pt-chip { transition: transform 160ms ease-out; }
 .dark .dash-waiting strong { color: #fff; }
 .dash-waiting:hover strong { color: var(--primary-600); }
 .dash-waiting small { font-size: .75rem; color: var(--gray-500); overflow-wrap: anywhere; }
-.dash-waiting-time { flex: none; padding: .15rem .55rem; border-radius: 999px; background: var(--gray-100); color: var(--gray-700); font-size: .78rem; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.dash-waiting-time { flex: none; padding: .15rem .55rem; border-radius: 999px; background: var(--gray-100); color: var(--gray-700); font-size: .8125rem; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .dash-waiting-time.is-long { background: var(--danger-50); color: var(--danger-700); }
 .dark .dash-waiting-time { background: rgb(255 255 255 / .07); color: var(--gray-300); }
 .dark .dash-waiting-time.is-long { background: rgb(239 68 68 / .16); color: var(--danger-300); }
@@ -1669,14 +1668,14 @@ summary.dash-block-title:focus-visible { outline: 2px solid var(--primary-500); 
 .dash-doctor .dash-group { margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--gray-200); }
 .dark .dash-doctor .dash-group { border-color: rgb(255 255 255 / .1); }
 .dash-group-head { display: flex; align-items: baseline; justify-content: space-between; gap: .75rem; }
-.dash-group-head h3 { margin: 0; font-size: .9rem; font-weight: 600; color: var(--gray-950); }
+.dash-group-head h3 { margin: 0; font-size: .875rem; font-weight: 600; color: var(--gray-950); }
 .dark .dash-group-head h3 { color: #fff; }
 .dash-count { display: inline-block; flex: none; min-width: 1.6rem; padding: .05rem .45rem; border-radius: 999px; background: var(--gray-100); color: var(--gray-700); font-size: .75rem; font-weight: 700; text-align: center; font-variant-numeric: tabular-nums; }
 .dark .dash-count { background: rgb(255 255 255 / .08); color: var(--gray-200); }
 /* Lo que no puede esperar se distingue por contraste, no por color: el número en oscuro. */
 .dash-count.is-warning { background: var(--gray-800); color: #fff; }
 .dark .dash-count.is-warning { background: var(--gray-200); color: var(--gray-900); }
-.dash-hint { margin: .15rem 0 0; font-size: .8rem; color: var(--gray-500); }
+.dash-hint { margin: .15rem 0 0; font-size: .8125rem; color: var(--gray-500); }
 
 /* Sin esto, el texto bajo el título no baja de línea y la tarjeta se sale de su columna. */
 /* Vale para toda sección (también Resumen y Ganancias en el celular, donde las cifras se salían por la derecha). */
@@ -1742,12 +1741,12 @@ a.dash-name:hover { color: var(--primary-600); }
 .dark .dash-week-day:hover { border-color: rgb(255 255 255 / .2); }
 .dark .dash-week-day.is-selected { border-color: var(--primary-400); background: color-mix(in oklab, var(--primary-400) 10%, transparent); box-shadow: inset 0 0 0 1px var(--primary-400); }
 .dash-week-name { font-size: .75rem; font-weight: 500; line-height: 1rem; color: var(--gray-500); }
-.dash-week-number { font-size: .9375rem; font-weight: 600; line-height: 1.25rem; color: var(--gray-950); font-variant-numeric: tabular-nums; }
+.dash-week-number { font-size: 1rem; font-weight: 600; line-height: 1.25rem; color: var(--gray-950); font-variant-numeric: tabular-nums; }
 .dark .dash-week-number { color: #fff; }
 .dash-week-day .dash-meter { width: calc(100% - .6rem); height: .25rem; margin: .2rem 0 .1rem; }
 .dash-week-free { max-width: 100%; overflow: hidden; text-overflow: ellipsis; font-size: .6875rem; font-weight: 600; line-height: 1rem; white-space: nowrap; color: var(--gray-700); font-variant-numeric: tabular-nums; }
 .dark .dash-week-free { color: var(--gray-200); }
-.dash-week-day.is-full .dash-week-free { font-weight: 500; color: var(--gray-400); }
+.dash-week-day.is-full .dash-week-free { font-weight: 500; color: var(--gray-500); }
 /* En el celular los días quedan angostos: "13 h 20" entra completo con la letra un poco más chica. */
 @media (max-width: 40rem) {
     .dash-week-strip { gap: .2rem; }
@@ -1768,7 +1767,7 @@ a.dash-name:hover { color: var(--primary-600); }
 .dash-day small { font-size: .75rem; color: var(--gray-500); font-variant-numeric: tabular-nums; }
 .dash-day small b { font-weight: 600; color: var(--gray-700); }
 .dark .dash-day small b { color: var(--gray-300); }
-.dash-day-wait { display: inline-flex; align-items: center; gap: .3rem; justify-self: start; margin-top: .15rem; font-size: .78rem; font-weight: 600; color: var(--primary-600); text-decoration: none; }
+.dash-day-wait { display: inline-flex; align-items: center; gap: .3rem; justify-self: start; margin-top: .15rem; font-size: .8125rem; font-weight: 600; color: var(--primary-600); text-decoration: none; }
 .dash-day-wait:hover { text-decoration: underline; }
 .dark .dash-day-wait { color: var(--primary-400); }
 .dash-day-wait-icon { width: 1rem; height: 1rem; }
@@ -1776,12 +1775,12 @@ a.dash-name:hover { color: var(--primary-600); }
 
 .dash-next { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: .75rem 1.5rem; }
 .dash-next-main { display: grid; gap: .3rem; justify-items: start; min-width: 0; }
-.dash-next-name { margin: 0; font-size: 1.15rem; font-weight: 700; color: var(--gray-950); overflow-wrap: anywhere; }
+.dash-next-name { margin: 0; font-size: 1.125rem; font-weight: 700; color: var(--gray-950); overflow-wrap: anywhere; }
 .dark .dash-next-name { color: #fff; }
 .dash-next-name time { font-variant-numeric: tabular-nums; color: var(--primary-600); margin-right: .25rem; }
 .dark .dash-next-name time { color: var(--primary-400); }
-.dash-next-name span { font-weight: 500; color: var(--gray-500); font-size: .95rem; }
-.dash-next-reason { margin: 0; color: var(--gray-700); font-size: .9rem; }
+.dash-next-name span { font-weight: 500; color: var(--gray-500); font-size: 1rem; }
+.dash-next-reason { margin: 0; color: var(--gray-700); font-size: .875rem; }
 .dark .dash-next-reason { color: var(--gray-300); }
 .dash-next-actions { display: flex; flex-wrap: wrap; gap: .5rem; }
 /* Alergias, anticoagulantes, sangrado: enteras, una por línea y en rojo. */
@@ -1799,7 +1798,7 @@ a.dash-name:hover { color: var(--primary-600); }
 .dark .dash-alerts .is-danger { background: rgb(239 68 68 / .12); color: var(--danger-300); }
 .dark .dash-alerts .is-warning { background: rgb(245 158 11 / .12); color: var(--warning-300); }
 .dark .dash-alerts .is-success { background: rgb(255 255 255 / .06); color: var(--gray-300); }
-.dash-next-facts { margin: .9rem 0 0; display: grid; grid-template-columns: max-content 1fr; gap: .35rem 1rem; font-size: .85rem; }
+.dash-next-facts { margin: .9rem 0 0; display: grid; grid-template-columns: max-content 1fr; gap: .35rem 1rem; font-size: .875rem; }
 .dash-next-facts div { display: contents; }
 .dash-next-facts dt { color: var(--gray-500); }
 .dash-next-facts dd { margin: 0; color: var(--gray-950); overflow-wrap: anywhere; }
@@ -2494,8 +2493,8 @@ a.ap-visit:hover { background: var(--gray-50); }
 
 /* Es el número que recepción le dice al paciente: antes salía en gris, del tamaño de una nota. */
 .pay-total { display: grid; grid-template-columns: 1fr auto; align-items: baseline; gap: .15rem 1rem; padding: .85rem 1rem; border-radius: .85rem; background: var(--primary-50); box-shadow: inset 0 0 0 1px var(--primary-200); }
-.pay-total-label { font-size: .9375rem; font-weight: 600; color: var(--primary-800); }
-.pay-total-value { font-size: 1.75rem; line-height: 1.1; font-weight: 700; letter-spacing: -.02em; color: var(--gray-950); font-variant-numeric: tabular-nums; }
+.pay-total-label { font-size: 1rem; font-weight: 600; color: var(--primary-800); }
+.pay-total-value { font-size: 1.375rem; line-height: 1.1; font-weight: 700; letter-spacing: -.02em; color: var(--gray-950); font-variant-numeric: tabular-nums; }
 .pay-total-note { grid-column: 1 / -1; font-size: .8125rem; line-height: 1.35; color: var(--gray-600); }
 .dark .pay-total { background: color-mix(in oklab, var(--primary-400) 12%, transparent); box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--primary-400) 30%, transparent); }
 .dark .pay-total-label { color: var(--primary-200); }
@@ -2531,8 +2530,8 @@ a.ap-visit:hover { background: var(--gray-50); }
     .pay-list .fi-ta-cell-paid-at > .fi-ta-cell-content { order: 6; flex: none; }
     .pay-list .fi-ta-cell-received-by\.name > .fi-ta-cell-content { order: 7; flex: none; }
     .pay-list .fi-ta-table-stacked-on-mobile > tbody > tr.fi-ta-row > td.fi-ta-cell:has(> .fi-ta-actions) { order: 8; margin-inline-start: auto; padding: 0; }
-    .pay-list .fi-ta-table-stacked-on-mobile > tbody > tr.fi-ta-row .fi-ta-cell-patient\.last-name .fi-ta-text-item { display: block; overflow: hidden; font-size: .9375rem; font-weight: 600; white-space: nowrap; text-overflow: ellipsis; color: var(--gray-950); }
-    .pay-list .fi-ta-table-stacked-on-mobile > tbody > tr.fi-ta-row .fi-ta-cell-amount .fi-ta-text-item { font-size: .9375rem; font-weight: 700; }
+    .pay-list .fi-ta-table-stacked-on-mobile > tbody > tr.fi-ta-row .fi-ta-cell-patient\.last-name .fi-ta-text-item { display: block; overflow: hidden; font-size: 1rem; font-weight: 600; white-space: nowrap; text-overflow: ellipsis; color: var(--gray-950); }
+    .pay-list .fi-ta-table-stacked-on-mobile > tbody > tr.fi-ta-row .fi-ta-cell-amount .fi-ta-text-item { font-size: 1rem; font-weight: 700; }
     .pay-list .fi-ta-table-stacked-on-mobile > tbody > tr.fi-ta-row :is(.fi-ta-cell-patient\.last-name, .fi-ta-cell-treatment\.name) :is(.fi-ta-col, .fi-ta-text) { min-width: 0; max-width: 100%; }
     .pay-list .fi-ta-table-stacked-on-mobile > tbody > tr.fi-ta-row .fi-ta-cell-treatment\.name .fi-ta-text-item { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
     .pay-list .fi-ta-table-stacked-on-mobile > tbody > tr.fi-ta-row :is(.fi-ta-cell-treatment\.name, .fi-ta-cell-method) .fi-ta-text-description { display: none; }
