@@ -360,17 +360,20 @@ class BackupsPanelTest extends TestCase
     {
         $admin = User::factory()->admin(isDentist: true)->create(['name' => 'Ana Torres']);
         $this->actingAs($admin);
+        // Con las mismas palabras que el resto del panel: "copia de seguridad", no "respaldo".
+        $this->assertSame(['danger', 'Todavía no hay copias de seguridad'], [Backups::sidebarStatus()['tone'], Backups::sidebarStatus()['text']]);
+
         $this->stored('respaldos/respaldo_2026-10-23_030000.sql.gz', '2026-10-23 03:00');
         app(OffsiteCopies::class)->recordDatabaseDownload($admin, 'respaldo_2026-10-23_030000.sql.gz');
         $this->travel(3)->days();
         $this->stored('respaldos/respaldo_2026-10-26_030000.sql.gz', '2026-10-26 03:00');
 
-        $this->assertSame(['tone' => 'success', 'text' => 'Respaldo de hoy ✓', 'detail' => 'Copia fuera del servidor hace 3 días', 'url' => Backups::getUrl()], Backups::sidebarStatus());
-        $this->get(Backups::getUrl())->assertOk()->assertSee(['Respaldo de hoy ✓', 'Copia fuera del servidor hace 3 días']);
+        $this->assertSame(['tone' => 'success', 'text' => 'Copia de seguridad de hoy ✓', 'detail' => 'Copia fuera del servidor hace 3 días', 'url' => Backups::getUrl()], Backups::sidebarStatus());
+        $this->get(Backups::getUrl())->assertOk()->assertSee(['Copia de seguridad de hoy ✓', 'Copia fuera del servidor hace 3 días']);
 
         // Dos días sin copia: en rojo.
         $this->travel(2)->days();
-        $this->assertSame(['danger', 'Respaldo atrasado: el último es de hace 2 días'], [Backups::sidebarStatus()['tone'], Backups::sidebarStatus()['text']]);
+        $this->assertSame(['danger', 'Copia de seguridad atrasada: la última es de hace 2 días'], [Backups::sidebarStatus()['tone'], Backups::sidebarStatus()['text']]);
 
         // Recepción no lo ve.
         $this->actingAs(User::factory()->reception()->create());
