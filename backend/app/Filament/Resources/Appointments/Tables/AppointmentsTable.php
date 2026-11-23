@@ -23,6 +23,7 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\Relation;
+use Illuminate\Support\HtmlString;
 
 class AppointmentsTable
 {
@@ -197,6 +198,8 @@ class AppointmentsTable
                 $state === 'Pidió cambio', str_starts_with($state, 'Debe'), str_starts_with($state, 'Faltó') => 'warning',
                 default => 'gray',
             })
-            ->tooltip(fn (Appointment $record, HasTable $livewire) => VisitFlags::of($record, auth()->user(), $livewire->getTableRecords())['alert']);
+            ->tooltip(fn (Appointment $record, HasTable $livewire) => VisitFlags::of($record, auth()->user(), $livewire->getTableRecords())['alert'])
+            // La celda también abre la cita: sin avisos quedaba como un enlace vacío que el lector de pantalla no sabe nombrar.
+            ->placeholder(new HtmlString('<span class="fi-sr-only">Sin avisos</span>'));
     }
 }

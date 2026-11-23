@@ -22,6 +22,17 @@ final class Dates
         return $time->format('g:i')."\u{00A0}".($time->hour < 12 ? "a.\u{00A0}m." : "p.\u{00A0}m.");
     }
 
+    /**
+     * "mié. 25 nov., 3:00 p. m.": el día corto con la hora como en la web y en los mensajes. Para los avisos del
+     * panel que dicen cuándo es algo.
+     */
+    public static function shortDayAndTime(CarbonInterface|string $date): string
+    {
+        $date = CarbonImmutable::parse($date);
+
+        return $date->translatedFormat('D j M').', '.self::time($date);
+    }
+
     /** "Hoy", "Mañana" o "Lunes 3 de noviembre"; con $withDate, "Hoy, viernes 23 de octubre". */
     public static function relativeDay(CarbonInterface|string $date, bool $withDate = false): string
     {

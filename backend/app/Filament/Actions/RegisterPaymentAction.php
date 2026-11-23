@@ -15,6 +15,7 @@ use App\Models\User;
 use App\Services\Billing\BillingService;
 use App\Services\Billing\CashClosing;
 use App\Services\Patients\PatientInsights;
+use App\Support\Dates;
 use App\Support\Money;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
@@ -194,7 +195,7 @@ final class RegisterPaymentAction
         }
 
         if ($booked = $insights->upcomingVisit($patient)) {
-            return ['text' => 'Su próxima cita: '.$booked->starts_at->translatedFormat('l j \d\e F, g:i a').' · '.$booked->treatment->name.'.', 'url' => null];
+            return ['text' => 'Su próxima cita: '.$booked->starts_at->translatedFormat('l j \d\e F').', '.Dates::time($booked->starts_at).' · '.$booked->treatment->name.'.', 'url' => null];
         }
 
         $canBook = $user->can('create', Appointment::class);

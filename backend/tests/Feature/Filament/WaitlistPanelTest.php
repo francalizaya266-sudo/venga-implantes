@@ -401,10 +401,10 @@ class WaitlistPanelTest extends TestCase
                 'doctor_id' => $this->doctor->id,
                 'date' => '2026-11-03',
                 'slot' => '15:00',
-                'body' => 'Hola Rosa, se liberó un horario para limpieza dental el martes 3 de noviembre a las 3:00 pm con Dra. Ana Torres. Te lo guardamos hasta las 10:00 am: ¿lo quieres? Respóndenos y te lo reservamos.',
+                'body' => "Hola Rosa, se liberó un horario para limpieza dental el martes 3 de noviembre a las 3:00\u{00A0}p.\u{00A0}m. con Dra. Ana Torres. Te lo guardamos hasta las 10:00\u{00A0}a.\u{00A0}m.: ¿lo quieres? Respóndenos y te lo reservamos.",
             ])
             ->setTableActionData(['slot' => '16:30'])
-            ->assertSchemaStateSet(['body' => 'Hola Rosa, se liberó un horario para limpieza dental el martes 3 de noviembre a las 4:30 pm con Dra. Ana Torres. Te lo guardamos hasta las 10:00 am: ¿lo quieres? Respóndenos y te lo reservamos.'])
+            ->assertSchemaStateSet(['body' => "Hola Rosa, se liberó un horario para limpieza dental el martes 3 de noviembre a las 4:30\u{00A0}p.\u{00A0}m. con Dra. Ana Torres. Te lo guardamos hasta las 10:00\u{00A0}a.\u{00A0}m.: ¿lo quieres? Respóndenos y te lo reservamos."])
             ->callMountedTableAction()
             ->assertHasNoTableActionErrors();
 
@@ -452,7 +452,7 @@ class WaitlistPanelTest extends TestCase
             ->assertActionVisible($nextDay)
             ->callAction($nextDay)
             ->assertSchemaStateSet(['date' => '2026-11-04', 'slot' => '09:00'])
-            ->assertSchemaStateSet(['body' => 'Hola Rosa, se liberó un horario para limpieza dental el miércoles 4 de noviembre a las 9:00 am con Dra. Ana Torres. Te lo guardamos hasta las 10:00 am: ¿lo quieres? Respóndenos y te lo reservamos.']);
+            ->assertSchemaStateSet(['body' => "Hola Rosa, se liberó un horario para limpieza dental el miércoles 4 de noviembre a las 9:00\u{00A0}a.\u{00A0}m. con Dra. Ana Torres. Te lo guardamos hasta las 10:00\u{00A0}a.\u{00A0}m.: ¿lo quieres? Respóndenos y te lo reservamos."]);
 
         // Cerrar la ventana no cancela nada.
         $this->assertSame('Volver', WaitlistEntryActions::offer()->getModalCancelActionLabel());
@@ -629,7 +629,7 @@ class WaitlistPanelTest extends TestCase
 
         $notice = $this->lastNotification();
         $this->assertSame('Horario liberado', $notice['title']);
-        $this->assertSame('Mié. 4 nov., 10:00 a. m. con Dra. Ana Torres quedó libre. Luis Soto, de la lista de espera, puede venir a esa hora.', $notice['body']);
+        $this->assertSame("Mié. 4 nov., 10:00\u{00A0}a.\u{00A0}m. con Dra. Ana Torres quedó libre. Luis Soto, de la lista de espera, puede venir a esa hora.", $notice['body']);
         $this->assertSame('Ofrecérselo a Luis', $notice['actions'][0]['label']);
         $this->assertSame(WaitlistEntryResource::urlForOffer($luis, $this->doctor, now()->parse('2026-11-04 10:00')), $notice['actions'][0]['url']);
         // Se va solo: no se queda tapando los botones de arriba.
@@ -641,7 +641,7 @@ class WaitlistPanelTest extends TestCase
         Livewire::test(ManageWaitlistEntries::class)->callTableAction('remove', $luis->fresh(), ['reason' => 'Ya no puede']);
 
         $removed = $this->lastNotification();
-        $this->assertSame(['Retirado de la lista de espera', 'Mié. 4 nov., 10:00 a. m. con Dra. Ana Torres quedó libre para la agenda y la web.'], [$removed['title'], $removed['body']]);
+        $this->assertSame(['Retirado de la lista de espera', "Mié. 4 nov., 10:00\u{00A0}a.\u{00A0}m. con Dra. Ana Torres quedó libre para la agenda y la web."], [$removed['title'], $removed['body']]);
     }
 
     public function test_the_freed_slot_alert_opens_the_agenda_with_the_offer_ready(): void

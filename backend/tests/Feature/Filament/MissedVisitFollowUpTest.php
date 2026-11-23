@@ -20,12 +20,13 @@ use App\Models\WaitlistEntry;
 use Filament\Actions\Testing\TestAction;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Livewire\Livewire;
+use Tests\Concerns\AnswersWhatsAppQuestion;
 use Tests\Concerns\CreatesAgenda;
 use Tests\TestCase;
 
 class MissedVisitFollowUpTest extends TestCase
 {
-    use CreatesAgenda, LazilyRefreshDatabase;
+    use AnswersWhatsAppQuestion, CreatesAgenda, LazilyRefreshDatabase;
 
     private Treatment $cleaning;
 
@@ -90,11 +91,11 @@ class MissedVisitFollowUpTest extends TestCase
             ->mountAction('whatsapp', ['template' => MessageTemplateKey::MissedVisit->value, 'patient' => $cancelled->id])
             ->assertSchemaStateSet(['body' => "Hola Luis, te escribimos de Clínica Vega Implant.\nSe canceló tu cita de limpieza dental del jueves 5 de noviembre. ¿Te reservamos otro horario? Respóndenos con el día y la hora que te acomodan."]);
 
-        Livewire::test(FollowUpsToday::class)
+        $this->answerWhatsApp(Livewire::test(FollowUpsToday::class)
             ->mountAction('whatsapp', ['template' => MessageTemplateKey::MissedVisit->value, 'patient' => $noShow->id])
             ->assertSchemaStateSet(['body' => "Hola Rosa, te escribimos de Clínica Vega Implant.\nNo pudimos verte en tu cita de limpieza dental del martes 27 de octubre. ¿Te reservamos otro horario? Respóndenos con el día y la hora que te acomodan."])
             ->callMountedAction()
-            ->assertHasNoErrors();
+            ->assertHasNoErrors());
 
         Livewire::test(FollowUpsToday::class)->assertSee('Le escribiste hoy');
 
@@ -118,14 +119,14 @@ class MissedVisitFollowUpTest extends TestCase
             ->assertSeeInOrder(['Faltó a su cita del 27 de octubre', 'Recordar por WhatsApp', 'Agendar']);
 
         // En la pestaña, el paso va en la misma fila: qué pasó y "Recordar", que abre el aviso ya escrito.
-        Livewire::withQueryParams(['tab' => 'missed'])
+        $this->answerWhatsApp(Livewire::withQueryParams(['tab' => 'missed'])
             ->test(ListPatients::class)
             ->assertSee(['Qué pasó', 'Limpieza dental'])
             ->assertActionHidden(TestAction::make('schedule')->table($rosa))
             ->mountAction(TestAction::make('remind')->table($rosa))
             ->assertSchemaStateSet(fn (array $state) => $this->assertStringContainsString('No pudimos verte en tu cita de limpieza dental', $state['body']) ?? [])
             ->callMountedAction()
-            ->assertHasNoErrors();
+            ->assertHasNoErrors());
 
         // Ya se le escribió: se dice cuándo y el paso que sigue es agendarle lo mismo que perdió.
         Livewire::withQueryParams(['tab' => 'missed'])

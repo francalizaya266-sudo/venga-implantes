@@ -20,6 +20,7 @@ use App\Models\User;
 use App\Services\Clinical\TreatmentPlanService;
 use App\Services\Patients\PatientInsights;
 use App\Services\StaffAlerts;
+use App\Support\Dates;
 use App\Support\Money;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Cache;
@@ -243,7 +244,7 @@ final class VisitCloseOut
         if ($booked = $insights->upcomingVisit($patient)) {
             return [
                 'label' => 'Ya tiene su próxima cita',
-                'detail' => ucfirst($booked->starts_at->translatedFormat('l j \d\e F, g:i a')).' · '.$booked->treatment->name,
+                'detail' => Dates::day($booked->starts_at).', '.Dates::time($booked->starts_at).' · '.$booked->treatment->name,
                 'url' => null,
                 'done' => true,
                 'within' => [],

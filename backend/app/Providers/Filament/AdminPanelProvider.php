@@ -212,6 +212,8 @@ class AdminPanelProvider extends PanelProvider
             ->renderHook(PanelsRenderHook::SIDEBAR_FOOTER, fn () => auth()->check() ? view('filament.backup-status', ['status' => Backups::sidebarStatus()]) : '')
             // En todas las pantallas: lo que guarda otra persona se ve en pocos segundos, sin recargar.
             ->renderHook(PanelsRenderHook::BODY_END, fn () => auth()->check() ? Blade::render('<livewire:panel-pulse />') : '')
+            // En todas las pantallas: después de abrir WhatsApp, al volver se pregunta si el mensaje se envió.
+            ->renderHook(PanelsRenderHook::BODY_END, fn () => auth()->check() ? Blade::render('<livewire:whatsapp-sent-question />') : '')
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')
             ->pages([

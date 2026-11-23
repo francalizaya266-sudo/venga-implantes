@@ -2,7 +2,9 @@
 
 namespace App\Filament\Actions;
 
+use App\Enums\MessageChannel;
 use App\Enums\MessageStatus;
+use App\Livewire\WhatsappSentQuestion;
 use App\Models\WhatsappMessage;
 use App\Services\WhatsApp\WhatsAppOutbox;
 use App\Support\Phone;
@@ -15,7 +17,7 @@ use Livewire\Component;
 
 /**
  * Abre el WhatsApp del consultorio con el aviso ya escrito (con un enlace personal nuevo, creado al
- * abrirlo). Se puede retocar el texto antes, y deshacer si al final no se envió.
+ * abrirlo). Se puede retocar el texto antes y, al volver al panel, se dice si se envió.
  */
 final class SendWhatsAppAction
 {
@@ -45,7 +47,7 @@ final class SendWhatsAppAction
 
     /**
      * Mensaje que no estaba en la bandeja (receta, presupuesto): se arma al abrir, se puede
-     * retocar y recién al abrir WhatsApp queda registrado como enviado.
+     * retocar y recién al abrir WhatsApp queda registrado (al volver, se dice si se envió).
      *
      * @param  Closure  $draft  Devuelve el aviso sin guardar, o null (después de avisar por qué) si no hay nada que enviar. Recibe $record, $livewire, etc.
      */
@@ -77,8 +79,23 @@ final class SendWhatsAppAction
                     $action->halt();
                 }
 
+                $composed = ! $message->exists;
                 $message->save();
-                self::open($message, $data['body'], $livewire);
+                self::open($message, $data['body'], $livewire, $composed);
+            });
+    }
+
+    /** Se abrió en WhatsApp y nadie dijo si se envió: aquí se dice que sí, sin abrirlo otra vez. */
+    public static function confirmSent(): Action
+    {
+        return Action::make('confirmSent')
+            ->label('Ya se envió')
+            ->icon(Heroicon::OutlinedCheck)
+            ->color('gray')
+            ->visible(fn (WhatsappMessage $record) => WhatsAppOutbox::isOpenedUnconfirmed($record))
+            ->action(function (WhatsappMessage $record) {
+                app(WhatsAppOutbox::class)->markSent($record, auth()->user());
+                Notification::make()->success()->title('Pasó a "Enviados"')->send();
             });
     }
 
@@ -114,9 +131,10 @@ final class SendWhatsAppAction
 
     /**
      * Para el botón que abre WhatsApp: abre una pestaña vacía en el mismo toque (el navegador no bloquea lo que abre
-     * un toque). Cuando el servidor arma el enlace, goToTab() la lleva a WhatsApp.
+     * un toque). Cuando el servidor arma el enlace, goToTab() la lleva a WhatsApp. Va en ".capture": el botón trae su
+     * propio "x-on:click" (vacío) y ese borraba este.
      */
-    public const OPENS_TAB_ON_CLICK = ['x-on:click' => "window.waTab = window.open('', '_blank')"];
+    public const OPENS_TAB_ON_CLICK = ['x-on:click.capture' => "window.waTab = window.open('', '_blank')"];
 
     /** Lleva a WhatsApp la pestaña que abrió el toque; si el navegador no la dejó abrir, la intenta abrir ahora. */
     public static function goToTab(string $url, Component $livewire): void
@@ -130,8 +148,15 @@ final class SendWhatsAppAction
         $livewire->js('(() => { const tab = window.waTab; window.waTab = null; if (tab && ! tab.closed) { tab.close(); } })()');
     }
 
-    private static function open(WhatsappMessage $message, string $body, Component $livewire): void
+    private static function open(WhatsappMessage $message, string $body, Component $livewire, bool $composed = false): void
     {
+        // Desde el panel, al volver se pregunta si se envió. Con la API de WhatsApp no hace falta: queda enviado.
+        if (app(WhatsAppOutbox::class)->channel() === MessageChannel::ClickToChat) {
+            self::openAndAsk($message, $livewire, $body, composed: $composed);
+
+            return;
+        }
+
         $url = app(WhatsAppOutbox::class)->clickToChatUrl($message, auth()->user(), $body);
         $to = $message->patient?->full_name ?? Phone::display($message->phone);
 
@@ -146,6 +171,20 @@ final class SendWhatsAppAction
                 Action::make('reopen')->label('Abrir de nuevo')->url($url, shouldOpenInNewTab: true)->link(),
             ])
             ->send();
+    }
+
+    /**
+     * Abre el aviso en WhatsApp sin darlo por enviado: al volver al panel, "¿Se envió?" (WhatsappSentQuestion)
+     * espera la respuesta. En fila, con la pestaña de Avisos que se está enviando.
+     *
+     * @param  bool  $composed  Se armó al abrirlo: si no se envió, se descarta en vez de volver a "Por enviar".
+     */
+    public static function openAndAsk(WhatsappMessage $message, Component $livewire, ?string $body = null, ?string $queue = null, bool $composed = false): void
+    {
+        $url = app(WhatsAppOutbox::class)->clickToChatUrl($message, auth()->user(), $body, markSent: false);
+
+        self::goToTab($url, $livewire);
+        $livewire->dispatch(WhatsappSentQuestion::OPENED, message: $message->getKey(), url: $url, queue: $queue, composed: $composed, from: $livewire->getId());
     }
 
     private static function heading(WhatsappMessage $message): string
