@@ -1,6 +1,6 @@
 import { screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import type { TreatmentData } from '@/api/types';
+import type { Doctor, TreatmentData } from '@/api/types';
 import { mockApi, renderApp } from '@/test/app';
 import { page, treatment } from '@/test/fixtures';
 
@@ -146,6 +146,36 @@ describe('TreatmentPage', () => {
     );
     expect(screen.queryByRole('heading', { level: 2, name: 'Quién lo realiza' })).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { level: 2, name: 'Opiniones' })).not.toBeInTheDocument();
+  });
+
+  it('with several doctors, the button of each one says with whom the appointment is', async () => {
+    const doctor = (id: number, slug: string, name: string): Doctor => ({
+      id,
+      slug,
+      name,
+      specialty: 'Ortodoncista',
+      cop_number: null,
+      rne_number: null,
+      photo_url: null,
+      initials: 'AV',
+      bio_short: null,
+      bio_html: null,
+      education: [],
+      accepts_online_booking: true,
+    });
+    openTreatment(
+      treatmentData({ doctors: [doctor(1, 'ana-vega', 'Dra. Ana Vega'), doctor(2, 'luis-ramos', 'Dr. Luis Ramos')] }),
+    );
+
+    const team = within(await screen.findByRole('region', { name: 'Quién lo realiza' }));
+    expect(team.getByRole('link', { name: 'Reservar cita con la Dra. Ana Vega' })).toHaveAttribute(
+      'href',
+      '/reservar?doctor=ana-vega',
+    );
+    expect(team.getByRole('link', { name: 'Reservar cita con el Dr. Luis Ramos' })).toHaveAttribute(
+      'href',
+      '/reservar?doctor=luis-ramos',
+    );
   });
 
   it('shows the not found page for a treatment the API does not have', async () => {

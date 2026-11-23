@@ -6,6 +6,7 @@ import type { ChangeData, Slot } from '@/api/types';
 import { SlotPicker } from '@/components/site/SlotPicker';
 import { AppLink } from '@/components/ui/AppLink';
 import { useLeave } from '@/lib/leave';
+import { withArticle } from '@/lib/text';
 
 interface Props {
   change: ChangeData;
@@ -102,7 +103,7 @@ export function ChangeAppointment({ change, resource, back }: Props) {
           <p className="what">{change.appointment.what}</p>
           <p style={{ margin: '4px 0 0' }}>Ahora: {change.appointment.now}</p>
           <p className="muted" style={{ margin: '2px 0 0' }}>
-            con {change.appointment.doctor}
+            con {withArticle(change.appointment.doctor)}
           </p>
         </div>
 

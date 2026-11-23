@@ -251,7 +251,7 @@ describe('BookingPage', () => {
 
     await step('Tus datos');
     expect(screen.getByText('Jueves 5 de noviembre, 11:00 a. m.')).toBeInTheDocument();
-    expect(screen.getByText('con Dra. Vega')).toBeInTheDocument();
+    expect(screen.getByText('con la Dra. Vega')).toBeInTheDocument();
   });
 
   it('lets choose the doctor when several attend the treatment', async () => {

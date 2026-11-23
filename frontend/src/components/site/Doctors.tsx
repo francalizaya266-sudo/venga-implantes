@@ -3,6 +3,7 @@ import { AppLink } from '@/components/ui/AppLink';
 import { Html } from '@/components/ui/Html';
 import { Icon } from '@/components/ui/Icon';
 import { paths } from '@/lib/paths';
+import { withArticle } from '@/lib/text';
 
 /** La foto del doctor o, sin foto, sus iniciales: nunca una foto de banco. */
 export function Portrait({ doctor }: { doctor: Doctor }) {
@@ -45,7 +46,7 @@ export function Doctors({ doctors, full = false }: Props) {
               <AppLink
                 href={paths.booking({ doctor: doctor.slug })}
                 className="btn small quiet"
-                aria-label={`Reservar cita con ${doctor.name}`}
+                aria-label={`Reservar cita con ${withArticle(doctor.name)}`}
               >
                 Reservar cita
               </AppLink>
@@ -60,7 +61,7 @@ export function Doctors({ doctors, full = false }: Props) {
                   <AppLink
                     href={paths.booking({ doctor: doctor.slug })}
                     className="btn small"
-                    aria-label={`Reservar cita con ${doctor.name}`}
+                    aria-label={`Reservar cita con ${withArticle(doctor.name)}`}
                   >
                     <Icon name="calendar" />
                     Reservar cita
