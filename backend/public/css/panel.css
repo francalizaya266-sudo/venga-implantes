@@ -340,6 +340,9 @@
 /* Lleva mucho en sala, o en atención más de lo previsto: el estado en rojo o ámbar, no solo el color de la tarjeta. */
 .agenda-appt.is-long.s-checked_in small:last-of-type, .agenda-item.s-checked_in .agenda-pill.is-long { color: var(--danger-700); font-weight: 600; }
 .agenda-appt.is-long.s-in_progress small:last-of-type, .agenda-item.s-in_progress .agenda-pill.is-long { color: var(--warning-800); font-weight: 600; }
+/* En modo oscuro, el rojo y el ámbar claros: los de arriba no se leían sobre el bloque azul oscuro (2.3:1). */
+.dark .agenda-appt.is-long.s-checked_in small:last-of-type, .dark .agenda-item.s-checked_in .agenda-pill.is-long { color: var(--danger-300); }
+.dark .agenda-appt.is-long.s-in_progress small:last-of-type, .dark .agenda-item.s-in_progress .agenda-pill.is-long { color: var(--warning-300); }
 /* El siguiente paso de una cita larga, abajo a la derecha de su tarjeta (encima, no dentro: es otro botón). */
 .agenda-appt-step { position: absolute; right: .5rem; z-index: 2; transform: translateY(-100%); }
 .agenda-appt-step .fi-btn { box-shadow: 0 1px 2px rgb(0 0 0 / .12); }
@@ -361,6 +364,9 @@
 /* La alerta médica en la semana: las etiquetas no entran, y esta no se puede perder. */
 .agenda-appt .appt-alert-mark { display: none; margin-left: .2rem; color: var(--danger-600); }
 .agenda-appt .appt-alert-mark.is-caution { color: var(--warning-600); }
+/* En modo oscuro, el rojo y el ámbar claros, como la espera larga. */
+.dark .agenda-appt .appt-alert-mark { color: var(--danger-300); }
+.dark .agenda-appt .appt-alert-mark.is-caution { color: var(--warning-300); }
 @container (max-width: 12rem) {
     .agenda-appt .tag { display: none; }
     .agenda-appt .appt-alert-mark { display: inline; }
