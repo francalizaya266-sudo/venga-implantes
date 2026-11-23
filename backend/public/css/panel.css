@@ -20,6 +20,10 @@
 /* La caja de acciones de arriba de una lista, vacía hasta que se marcan filas, no deja un hueco. */
 .fi-ta-header-toolbar > .fi-ta-actions:not(:has(*)) { display: none; }
 
+/* El rojo de "No asistió" y de los demás botones y enlaces en rojo, un tono más oscuro en modo claro: el de fábrica
+   (600) no llegaba a 4.5:1 sobre la pastilla gris de las filas ni sobre el fondo de la página. */
+.fi-btn.fi-outlined.fi-color-danger, .fi-link.fi-color-danger { --text: var(--danger-700); }
+
 /* Al tocar un botón se hunde apenas: se nota que respondió aunque la respuesta tarde. */
 @media (prefers-reduced-motion: no-preference) {
     .fi-btn:not([disabled], .fi-disabled):active,
@@ -203,7 +207,7 @@
 .agenda-head.is-today .agenda-head-num { background: var(--primary-600); color: #fff; }
 .agenda-head.is-today .agenda-head-title { font-weight: 600; color: var(--primary-600); }
 .agenda-head.is-past .agenda-head-num, .agenda-head.is-past .agenda-head-title { color: var(--gray-500); }
-.agenda-head-avatar { --doc: var(--primary-600); display: inline-grid; place-items: center; flex: none; width: 2.25rem; height: 2.25rem; border-radius: 9999px; font-size: .8125rem; font-weight: 700; letter-spacing: .02em; background: color-mix(in oklab, var(--doc) 14%, #fff); color: color-mix(in oklab, var(--doc) 80%, #000); }
+.agenda-head-avatar { --doc: var(--primary-600); display: inline-grid; place-items: center; flex: none; width: 2.25rem; height: 2.25rem; border-radius: 9999px; font-size: .8125rem; font-weight: 700; letter-spacing: .02em; background: color-mix(in oklab, var(--doc) 14%, #fff); color: color-mix(in oklab, var(--doc) 55%, #000); }
 .dark .agenda-head-num, .dark .agenda-head-title { color: #fff; }
 .dark .agenda-head.is-week .agenda-head-title { color: var(--gray-300); }
 .dark .agenda-head.is-today .agenda-head-num { background: var(--primary-500); color: #fff; }
@@ -362,8 +366,9 @@
 /* En una columna angosta (la semana) las etiquetas no entran junto al nombre: el nombre queda entero
    y lo que pide algo (sin cerrar, llamar) se ve como un punto rojo en la esquina. */
 /* La alerta médica en la semana: las etiquetas no entran, y esta no se puede perder. */
-.agenda-appt .appt-alert-mark { display: none; margin-left: .2rem; color: var(--danger-600); }
-.agenda-appt .appt-alert-mark.is-caution { color: var(--warning-600); }
+/* Un tono más oscuro que el de las etiquetas: sobre el fondo teñido de la cita, el de fábrica no llegaba a 4.5:1. */
+.agenda-appt .appt-alert-mark { display: none; margin-left: .2rem; color: var(--danger-700); }
+.agenda-appt .appt-alert-mark.is-caution { color: var(--warning-700); }
 /* En modo oscuro, el rojo y el ámbar claros, como la espera larga. */
 .dark .agenda-appt .appt-alert-mark { color: var(--danger-300); }
 .dark .agenda-appt .appt-alert-mark.is-caution { color: var(--warning-300); }
@@ -549,7 +554,7 @@ button.agenda-slot:active { transform: scale(.96); }
 button.agenda-slot:focus-visible { outline: 2px solid var(--primary-600); outline-offset: 2px; }
 .agenda-slot-star { margin-left: -.25rem; font-size: .75rem; color: var(--primary-500); }
 .dark .agenda-slot-star { color: var(--primary-300); }
-.agenda-slot-doc { --doc: var(--primary-600); display: inline-grid; place-items: center; min-width: 1.25rem; height: 1.25rem; margin-right: -.4375rem; padding: 0 .1875rem; border-radius: 9999px; font-size: .75rem; font-weight: 700; letter-spacing: .02em; background: color-mix(in oklab, var(--doc) 16%, #fff); color: color-mix(in oklab, var(--doc) 80%, #000); }
+.agenda-slot-doc { --doc: var(--primary-600); display: inline-grid; place-items: center; min-width: 1.25rem; height: 1.25rem; margin-right: -.4375rem; padding: 0 .1875rem; border-radius: 9999px; font-size: .75rem; font-weight: 700; letter-spacing: .02em; background: color-mix(in oklab, var(--doc) 16%, #fff); color: color-mix(in oklab, var(--doc) 55%, #000); }
 @media (hover: hover) and (pointer: fine) {
     button.agenda-slot:hover { background: var(--primary-100); }
     .dark button.agenda-slot:hover { background: color-mix(in oklab, var(--primary-500) 32%, transparent); }
