@@ -73,6 +73,41 @@ describe('site.css', () => {
     expect(TOUCHED.filter((selector) => !tall.includes(selector))).toEqual([]);
   });
 
+  it('with very large letters, a long word breaks with its hyphen and what went in twos goes one under the other', () => {
+    const large = rules(css).filter((rule) => rule.at.includes('@container (max-width: 16em)'));
+    const body = (selector: string) => large.find((rule) => rule.selectors.includes(selector))?.body ?? '';
+
+    expect(body('main *')).toMatch(/(^|;)\s*hyphens:\s*auto/);
+    expect(body('main :is(.services-grid, .free-times, .times)')).toMatch(/grid-template-columns:\s*minmax\(0, 1fr\)/);
+    expect(body('.site-footer .footer-cta')).toMatch(/grid-template-columns:\s*minmax\(0, 1fr\)/);
+    expect(body('.site-footer .footer-cta :is(img, .btn svg)')).toMatch(/display:\s*none/);
+  });
+
+  it('with very large letters, the open menu slides and its last page stays above the bar at the bottom', () => {
+    const menu = rules(css).find(
+      (rule) =>
+        rule.at.includes('@container (max-width: 11.5em)') && rule.selectors.includes('.site-header .menu-panel'),
+    );
+
+    expect(menu?.body).toMatch(/max-height:\s*calc\(100dvh - 100% - 1px\)/);
+    expect(menu?.body).toMatch(/overflow-y:\s*auto/);
+    expect(menu?.body).toMatch(/padding-bottom:\s*calc\(104px/);
+  });
+
+  it('the title of a page, like the one of the home, is never bigger than what fits on a narrow phone', () => {
+    const titles = rules(css).filter(
+      (rule) =>
+        rule.at.length === 0 &&
+        rule.selectors.some((selector) => ['.hero h1', '.page-band h1'].includes(selector)) &&
+        /font-size/.test(rule.body),
+    );
+
+    expect(titles.map((rule) => rule.selectors[0])).toEqual(['.hero h1', '.page-band h1']);
+    for (const title of titles) {
+      expect(title.body).toMatch(/font-size:\s*clamp\(min\([^,]+,\s*[\d.]+vw\)/);
+    }
+  });
+
   it('on the phone and the tablet, the services end with the wide button to see them all', () => {
     const shown = rules(css).filter(
       (rule) => rule.selectors.includes('.services-all') && /(^|;)\s*display:\s*block/.test(rule.body),
