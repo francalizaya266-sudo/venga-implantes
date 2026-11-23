@@ -4,13 +4,13 @@ namespace Tests\Feature\Filament;
 
 use App\Filament\Pages\Auth\ChoosePassword;
 use App\Filament\Pages\Auth\EditProfile;
+use App\Filament\Pages\Auth\Login;
 use App\Filament\Pages\Auth\SetUpTwoFactor;
 use App\Filament\Resources\Users\Pages\ManageUsers;
 use App\Models\AuditLog;
 use App\Models\User;
 use Filament\Actions\Testing\TestAction;
 use Filament\Auth\MultiFactor\App\AppAuthentication;
-use Filament\Auth\Pages\Login;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Features\SupportLockedProperties\CannotUpdateLockedPropertyException;
@@ -220,7 +220,15 @@ class PanelMultiFactorTest extends TestCase
             ->set('data.multiFactor.app.useRecoveryCode', true)
             // Los 6 casilleros se van: el navegador ya no los pide al tocar "Entrar" y no hay que tocarlo dos veces.
             ->assertDontSeeHtml('fi-one-time-code-input-ctn')
-            ->assertSee(['Escribe uno de los códigos de recuperación que guardaste', 'Mejor uso mi celular']);
+            // Y arriba ya no le dice que abra la aplicación del celular que no tiene.
+            ->assertDontSee('Abre Google Authenticator en tu celular.')
+            ->assertSee(['Sin tu celular, entras con un código de recuperación.', 'Escribe uno de los códigos de recuperación que guardaste', 'Mejor uso mi celular']);
+
+        // Si se tocó sin querer, vuelve al celular.
+        $login->set('data.multiFactor.app.useRecoveryCode', false)
+            ->assertSee('Abre Google Authenticator en tu celular.')
+            ->assertDontSee('Sin tu celular, entras con un código de recuperación.')
+            ->set('data.multiFactor.app.useRecoveryCode', true);
 
         // Sin el código de recuperación no entra.
         $login->call('authenticate')->assertHasErrors(['data.multiFactor.app.recoveryCode' => 'required']);
@@ -243,7 +251,7 @@ class PanelMultiFactorTest extends TestCase
             ->mountAction(TestAction::make('disableAppAuthentication')->schemaComponent('app', schema: 'content'))
             ->setActionData(['useRecoveryCode' => true])
             ->assertMountedActionModalDontSeeHtml('fi-one-time-code-input-ctn')
-            ->assertMountedActionModalSee(['Escribe uno de los códigos de recuperación que guardaste', 'Todavía tengo el celular de antes']);
+            ->assertMountedActionModalSee(['o con un código de recuperación', 'Escribe uno de los códigos de recuperación que guardaste', 'Todavía tengo el celular de antes']);
 
         $profile->setActionData(['useRecoveryCode' => true, 'password' => 'password'])
             ->callMountedAction()

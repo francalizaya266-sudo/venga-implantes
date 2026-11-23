@@ -3,6 +3,7 @@
 namespace App\Providers\Filament;
 
 use App\Filament\Pages\Auth\EditProfile;
+use App\Filament\Pages\Auth\Login;
 use App\Filament\Pages\Auth\RequestPasswordReset;
 use App\Filament\Pages\Auth\SetUpTwoFactor;
 use App\Filament\Pages\Backups;
@@ -150,7 +151,7 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('panel')
             ->unsavedChangesAlerts()
-            ->login()
+            ->login(Login::class)
             // "¿Olvidaste tu contraseña?": el enlace llega por correo cuando el hosting ya tiene uno configurado.
             ->passwordReset(RequestPasswordReset::class)
             // "Mi perfil" en el menú del usuario: cada uno cambia su propia clave sin pedírsela al administrador,
