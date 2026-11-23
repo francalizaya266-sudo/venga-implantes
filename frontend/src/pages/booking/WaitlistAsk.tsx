@@ -49,6 +49,7 @@ export function WaitlistAsk({ treatment, doctor, device, noTimes }: Props) {
     days: '',
     accepts_privacy: false,
   }));
+  const [rejected, setRejected] = useState(0);
   const form = useRef<HTMLFormElement>(null);
 
   // Al abrirlo, el primer dato por llenar queda listo para escribir.
@@ -57,6 +58,13 @@ export function WaitlistAsk({ treatment, doctor, device, noTimes }: Props) {
       form.current?.querySelector<HTMLElement>('input, button')?.focus();
     }
   }, [open]);
+
+  // Si algo no se aceptó, se lleva al paciente al primer campo marcado (el lector de pantalla le dice qué revisar).
+  useEffect(() => {
+    if (rejected) {
+      form.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus();
+    }
+  }, [rejected]);
 
   const newPerson = details.patient_id === null;
 
@@ -83,8 +91,15 @@ export function WaitlistAsk({ treatment, doctor, device, noTimes }: Props) {
         accepts_privacy: details.accepts_privacy,
       },
       { onDone: (message) => setDone(message), onRejected: setProblem },
-    );
+    ).then((accepted) => {
+      if (!accepted) {
+        setRejected((times) => times + 1);
+      }
+    });
   }
+
+  /** El mensaje de un campo que no se aceptó, para leerlo junto con él. */
+  const describedBy = (field: keyof WaitlistDetails) => (errors[field] ? `avisame-${field}-error` : undefined);
 
   return (
     <section className="panel stack waitlist-ask" aria-labelledby="avisame">
@@ -149,9 +164,14 @@ export function WaitlistAsk({ treatment, doctor, device, noTimes }: Props) {
                   value={details.phone}
                   onChange={(event) => change('phone', event.target.value)}
                   aria-invalid={errors.phone ? true : undefined}
+                  aria-describedby={describedBy('phone')}
                 />
               </div>
-              {errors.phone ? <span className="error">{errors.phone}</span> : null}
+              {errors.phone ? (
+                <span className="error" id="avisame-phone-error">
+                  {errors.phone}
+                </span>
+              ) : null}
             </div>
           )}
 
@@ -167,8 +187,13 @@ export function WaitlistAsk({ treatment, doctor, device, noTimes }: Props) {
                   value={details.first_name}
                   onChange={(event) => change('first_name', event.target.value)}
                   aria-invalid={errors.first_name ? true : undefined}
+                  aria-describedby={describedBy('first_name')}
                 />
-                {errors.first_name ? <span className="error">{errors.first_name}</span> : null}
+                {errors.first_name ? (
+                  <span className="error" id="avisame-first_name-error">
+                    {errors.first_name}
+                  </span>
+                ) : null}
               </div>
               <div className="field">
                 <label htmlFor="avisame-apellidos">Apellidos</label>
@@ -180,8 +205,13 @@ export function WaitlistAsk({ treatment, doctor, device, noTimes }: Props) {
                   value={details.last_name}
                   onChange={(event) => change('last_name', event.target.value)}
                   aria-invalid={errors.last_name ? true : undefined}
+                  aria-describedby={describedBy('last_name')}
                 />
-                {errors.last_name ? <span className="error">{errors.last_name}</span> : null}
+                {errors.last_name ? (
+                  <span className="error" id="avisame-last_name-error">
+                    {errors.last_name}
+                  </span>
+                ) : null}
               </div>
             </div>
           ) : null}
@@ -215,8 +245,13 @@ export function WaitlistAsk({ treatment, doctor, device, noTimes }: Props) {
               value={details.days}
               onChange={(event) => change('days', event.target.value)}
               aria-invalid={errors.days ? true : undefined}
+              aria-describedby={describedBy('days')}
             />
-            {errors.days ? <span className="error">{errors.days}</span> : null}
+            {errors.days ? (
+              <span className="error" id="avisame-days-error">
+                {errors.days}
+              </span>
+            ) : null}
           </div>
 
           {device?.privacy_accepted ? null : (
@@ -227,6 +262,7 @@ export function WaitlistAsk({ treatment, doctor, device, noTimes }: Props) {
                   checked={details.accepts_privacy}
                   onChange={(event) => change('accepts_privacy', event.target.checked)}
                   aria-invalid={errors.accepts_privacy ? true : undefined}
+                  aria-describedby={describedBy('accepts_privacy')}
                 />
                 <span>
                   Acepto la{' '}
@@ -236,7 +272,11 @@ export function WaitlistAsk({ treatment, doctor, device, noTimes }: Props) {
                   : mis datos se usan solo para atenderme.
                 </span>
               </label>
-              {errors.accepts_privacy ? <span className="error">{errors.accepts_privacy}</span> : null}
+              {errors.accepts_privacy ? (
+                <span className="error" id="avisame-accepts_privacy-error">
+                  {errors.accepts_privacy}
+                </span>
+              ) : null}
             </div>
           )}
 

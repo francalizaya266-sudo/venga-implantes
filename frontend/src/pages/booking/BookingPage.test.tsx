@@ -378,7 +378,14 @@ describe('BookingPage', () => {
 
     expect(await screen.findByText('Revisa tu celular: debe tener 9 dígitos y empezar con 9.')).toBeInTheDocument();
     expect(screen.getByText('Para anotarte, acepta la política de privacidad.')).toBeInTheDocument();
-    expect(screen.getByLabelText('Tu celular')).toHaveAttribute('aria-invalid', 'true');
+    const phone = screen.getByLabelText('Tu celular');
+    expect(phone).toHaveAttribute('aria-invalid', 'true');
+    // El primer campo por revisar queda listo, y el lector de pantalla dice qué pasó al llegar a él.
+    await waitFor(() => expect(phone).toHaveFocus());
+    expect(phone).toHaveAccessibleDescription('Revisa tu celular: debe tener 9 dígitos y empezar con 9.');
+    expect(screen.getByRole('checkbox', { name: /Acepto la política de privacidad/ })).toHaveAccessibleDescription(
+      'Para anotarte, acepta la política de privacidad.',
+    );
   });
 
   it('from a remembered phone the waiting list does not ask the number and can be for a relative', async () => {
