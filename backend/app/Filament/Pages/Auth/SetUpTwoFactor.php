@@ -19,6 +19,7 @@ use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Validation\ValidationException;
+use Livewire\Attributes\Locked;
 use SensitiveParameter;
 
 /**
@@ -38,10 +39,12 @@ class SetUpTwoFactor extends SetUpRequiredMultiFactorAuthentication
     /** @var array<string, mixed>|null */
     public ?array $data = [];
 
-    /** El secreto y los códigos de recuperación por activar, cifrados: no viajan legibles al navegador. */
+    /** El secreto y los códigos de recuperación por activar, cifrados: no viajan legibles al navegador ni se cambian desde ahí. */
+    #[Locked]
     public ?string $pending = null;
 
-    /** Ya activada: quedan a la vista los códigos de recuperación hasta que entra. */
+    /** Ya activada: quedan a la vista los códigos de recuperación hasta que entra. Solo lo cambia activate(). */
+    #[Locked]
     public bool $isActivated = false;
 
     /** Al entrar con su contraseña o al elegirla: lo que mira esta pantalla para no pedirla otra vez. */

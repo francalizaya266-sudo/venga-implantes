@@ -2,10 +2,17 @@
 
 namespace App\Filament\Support;
 
+use App\Filament\Pages\Auth\SetUpTwoFactor;
 use Filament\Actions\Action;
 use Filament\Auth\MultiFactor\App\AppAuthentication;
 use Filament\Facades\Filament;
+use Filament\Forms\Components\OneTimeCodeInput;
+use Filament\Forms\Components\TextInput;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
+use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
+use Illuminate\Contracts\Auth\Authenticatable;
 use Livewire\Component;
 
 /**
@@ -24,13 +31,57 @@ class PhoneAuthentication extends AppAuthentication
         );
     }
 
-    /** El "Apagar" de Filament, con otro nombre (ver lang/vendor/.../disable.php): al confirmar lleva a activarla en el nuevo. */
+    /** Al entrar, "No tengo mi celular a la mano" deja solo el código de recuperación. */
+    public function getChallengeFormComponents(Authenticatable $user): array
+    {
+        return self::recoveryCodeInsteadOfPhone(parent::getChallengeFormComponents($user), 'Mejor uso mi celular');
+    }
+
+    /**
+     * El "Apagar" de Filament, con otro nombre (ver lang/vendor/.../disable.php): al confirmar lleva a activarla en el
+     * nuevo. Para confirmar ya escribió su contraseña: en la pantalla de los tres pasos no se le vuelve a pedir.
+     */
     private static function changePhone(Action $action): Action
     {
+        $components = $action->getSchema(Schema::make())?->getComponents(withHidden: true) ?? [];
+
         return $action
+            ->schema(self::recoveryCodeInsteadOfPhone($components, 'Todavía tengo el celular de antes'))
             ->color('gray')
             ->icon(Heroicon::OutlinedDevicePhoneMobile)
             ->modalIcon(Heroicon::OutlinedDevicePhoneMobile)
-            ->after(fn (Component $livewire) => $livewire->redirect((string) Filament::getSetUpRequiredMultiFactorAuthenticationUrl()));
+            ->after(function (Component $livewire): void {
+                SetUpTwoFactor::rememberPasswordWasTyped();
+
+                $livewire->redirect((string) Filament::getSetUpRequiredMultiFactorAuthenticationUrl());
+            });
+    }
+
+    /**
+     * Sin el celular a la mano se esconden los 6 casilleros y queda solo el código de recuperación, que entonces es
+     * obligatorio. Antes los casilleros seguían a la vista y el navegador los pedía igual: había que tocar el botón dos
+     * veces. Debajo queda la vuelta al celular, por si se tocó sin querer.
+     *
+     * @param  array<mixed>  $components
+     * @return array<mixed>
+     */
+    private static function recoveryCodeInsteadOfPhone(array $components, string $backToPhone): array
+    {
+        foreach ($components as $component) {
+            if ($component instanceof OneTimeCodeInput && $component->getName() === 'code') {
+                $component->hidden(fn (Get $get): bool => (bool) $get('useRecoveryCode'));
+            }
+
+            if ($component instanceof TextInput && $component->getName() === 'recoveryCode') {
+                $component
+                    ->required()
+                    ->belowContent(Action::make('usePhoneCode')
+                        ->label($backToPhone)
+                        ->link()
+                        ->action(fn (Set $set) => $set('useRecoveryCode', false)));
+            }
+        }
+
+        return $components;
     }
 }

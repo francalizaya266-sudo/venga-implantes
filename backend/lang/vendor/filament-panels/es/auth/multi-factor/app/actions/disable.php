@@ -10,7 +10,7 @@ return [
 
         'heading' => 'Pasar la doble verificación a tu celular nuevo',
 
-        'description' => 'Confirma con el código de tu celular de antes. Enseguida escaneas un código nuevo con el celular nuevo.',
+        'description' => 'Confirma con el código de tu celular de antes o con un código de recuperación. Enseguida escaneas un código nuevo con el celular nuevo.',
 
         'form' => [
 
