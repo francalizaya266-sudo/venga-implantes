@@ -236,7 +236,7 @@ class PatientImportTest extends TestCase
 
         $csv = implode("\n", [
             'Nombres,Apellidos,DNI,Celular,Fecha de nacimiento,Correo,Notas',
-            'Rosa,Huamán Quispe,45678912,987654321,01/01/1980,rosa@gmail.com,Otra nota',
+            'Rosa,Huamán Quispe,45678912,987654321,,rosa@gmail.com,Otra nota',
             'Lucía,Huamán,,987654321,,,',
             'Mateo,Huamán,,987654321,,,',
         ]);
@@ -258,6 +258,40 @@ class PatientImportTest extends TestCase
         $this->assertSame(['Ya está registrado (mismo celular y nombre): Mateo Huamán. Ya tenía esos datos: no se cambió nada.'], $this->failures($this->lastImport()));
         $this->assertSame(
             'Se importó 1 paciente y se completaron los datos de 1 que ya estaba registrado. 1 ya estaba registrado y quedó como estaba. Descarga el archivo para ver cuál y por qué.',
+            PatientImporter::getCompletedNotificationBody($this->lastImport()),
+        );
+    }
+
+    public function test_relatives_with_the_same_phone_are_not_mixed_up(): void
+    {
+        $this->actingAs(User::factory()->reception()->create());
+        $account = Account::factory()->create(['phone' => '+51987654321']);
+        $elena = Patient::factory()->for($account)->create(['first_name' => 'María Elena', 'last_name' => 'Quispe Torres', 'document_number' => null, 'email' => null, 'birth_date' => '2001-05-06']);
+        $father = Patient::factory()->for($account)->create(['first_name' => 'Juan', 'last_name' => 'Quispe Torres', 'document_number' => '41234567', 'email' => null, 'birth_date' => '1970-02-10']);
+        $rosa = Patient::factory()->for($account)->create(['first_name' => 'Rosa', 'last_name' => 'Quispe Torres', 'document_number' => null, 'email' => null]);
+
+        $csv = implode("\n", [
+            'Nombres,Apellidos,DNI,Celular,Fecha de nacimiento,Correo',
+            // Su hermana gemela: el mismo celular y la misma fecha, otro segundo nombre.
+            'María José,Quispe Torres,71234567,987654321,06/05/2001,majo@gmail.com',
+            // El hijo que lleva el nombre del papá: otra fecha de nacimiento.
+            'Juan,Quispe,,987654321,15/08/1998,juan.hijo@gmail.com',
+            // Una prima con el mismo nombre: otro segundo apellido.
+            'Rosa,Quispe de la Cruz,,987654321,,rosa.prima@gmail.com',
+            // Solo "María Quispe": podría ser cualquiera de las dos hermanas.
+            'María,Quispe,,987654321,,maria@gmail.com',
+        ]);
+
+        $this->import(UploadedFile::fake()->createWithContent('pacientes.csv', $csv), [PatientImporter::EXISTING => PatientImporter::FILL]);
+
+        // Entraron la gemela, el hijo y la prima; a los que ya estaban no se les puso nada de otra persona.
+        $this->assertSame(6, $account->patients()->count());
+        $this->assertSame([null, null], [$elena->refresh()->document_number, $elena->email]);
+        $this->assertSame(['1970-02-10', null], [$father->refresh()->birth_date->toDateString(), $father->email]);
+        $this->assertNull($rosa->refresh()->email);
+        $this->assertSame(['Podría ser María Elena Quispe Torres o María José Quispe Torres. Agrega su DNI o su fecha de nacimiento para saber quién es.'], $this->failures($this->lastImport()));
+        $this->assertSame(
+            'Se importaron 3 pacientes. 1 fila tiene datos por corregir. Descarga el archivo para ver cuál y por qué.',
             PatientImporter::getCompletedNotificationBody($this->lastImport()),
         );
     }

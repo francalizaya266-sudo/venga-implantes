@@ -8,6 +8,7 @@ use App\Models\Account;
 use App\Models\Patient;
 use App\Services\Patients\PatientRegistrar;
 use App\Support\Phone;
+use Carbon\CarbonInterface;
 use Closure;
 use Filament\Actions\Imports\Downloaders\Contracts\Downloader;
 use Filament\Actions\Imports\Exceptions\RowImportFailedException;
@@ -333,7 +334,8 @@ class PatientImporter extends Importer
      * El paciente que ya está registrado y por qué se sabe, o [null, null]. Primero por DNI; luego por celular, con el
      * mismo nombre (otro nombre con ese celular es un familiar, y se suma a la familia); luego por nombre y fecha de
      * nacimiento; y si la fila no trae DNI, celular ni fecha de nacimiento, por el nombre completo. Un DNI que ya es
-     * de otra persona (otro nombre) no se toca: hay que revisarlo.
+     * de otra persona (otro nombre) no se toca: hay que revisarlo. Si varios podrían ser la persona de la fila, no se
+     * adivina: la fila queda para revisar.
      *
      * @return array{0: ?Patient, 1: ?string}
      */
@@ -365,7 +367,7 @@ class PatientImporter extends Importer
             $account = Account::query()->where('phone', Phone::normalize($phone))->first();
             /** @var Collection<int, Patient> $family */
             $family = $account === null ? new Collection : $account->patients;
-            $relative = $family->first(fn (Patient $patient): bool => self::samePerson($patient, $firstName, $lastName));
+            $relative = $this->theOneWhoCouldBe($family);
 
             if ($relative !== null) {
                 return [$relative, 'mismo celular y nombre'];
@@ -375,8 +377,9 @@ class PatientImporter extends Importer
         $birthDate = $this->data['birth_date'] ?? null;
 
         if (filled($birthDate) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $birthDate) === 1) {
-            $twin = Patient::query()->whereDate('birth_date', $birthDate)->get()
-                ->first(fn (Patient $patient): bool => self::samePerson($patient, $firstName, $lastName));
+            /** @var Collection<int, Patient> $bornThatDay */
+            $bornThatDay = Patient::query()->whereDate('birth_date', $birthDate)->get();
+            $twin = $this->theOneWhoCouldBe($bornThatDay);
 
             if ($twin !== null) {
                 return [$twin, 'mismo nombre y fecha de nacimiento'];
@@ -386,7 +389,9 @@ class PatientImporter extends Importer
         // Sin DNI, celular ni fecha de nacimiento no hay con qué distinguirlos: el mismo nombre completo es la misma
         // persona (así, subir dos veces la misma lista no repite a nadie).
         if (blank($document) && blank($phone) && blank($birthDate) && filled($firstName) && filled($lastName)) {
-            $namesake = Patient::query()->where('search_name', Patient::searchable($firstName.' '.$lastName))->first();
+            /** @var Collection<int, Patient> $namesakes */
+            $namesakes = Patient::query()->where('search_name', Patient::searchable($firstName.' '.$lastName))->get();
+            $namesake = $this->theOneWhoCouldBe($namesakes);
 
             if ($namesake !== null) {
                 return [$namesake, 'mismo nombre'];
@@ -396,7 +401,10 @@ class PatientImporter extends Importer
         return [null, null];
     }
 
-    /** El mismo primer nombre y el mismo primer apellido, sin importar tildes: "Rosa Huamán" es "Rosa María Huamán Quispe". */
+    /**
+     * Para el dueño de un DNI: el mismo primer nombre y el mismo primer apellido, sin importar tildes ("Rosa Huamán"
+     * es "Rosa María Huamán Quispe"). El DNI ya dice quién es; el nombre solo confirma que no está mal escrito.
+     */
     private static function samePerson(Patient $patient, string $firstName, string $lastName): bool
     {
         return self::firstWord($patient->first_name) === self::firstWord($firstName) && self::firstWord($patient->last_name) === self::firstWord($lastName);
@@ -405,6 +413,52 @@ class PatientImporter extends Importer
     private static function firstWord(string $text): string
     {
         return Str::before(Patient::searchable($text).' ', ' ');
+    }
+
+    /**
+     * El único de los candidatos que puede ser la persona de la fila, o null si ninguno. Si son varios (la fila dice
+     * "María Quispe" y con ese celular están María Elena y María José), no se adivina: la fila queda para revisar.
+     *
+     * @param  Collection<int, Patient>  $candidates
+     */
+    private function theOneWhoCouldBe(Collection $candidates): ?Patient
+    {
+        $matches = $candidates->filter(fn (Patient $patient): bool => $this->couldBe($patient))->values();
+
+        if ($matches->count() > 1) {
+            throw new RowImportFailedException('Podría ser '.$matches->map(fn (Patient $patient): string => $patient->full_name)->sort()->join(', ', ' o ').'. Agrega su DNI o su fecha de nacimiento para saber quién es.');
+        }
+
+        return $matches->first();
+    }
+
+    /**
+     * ¿Puede ser la persona de la fila? Los nombres y los apellidos coinciden palabra por palabra hasta donde los dos
+     * los tienen, sin importar tildes ("Rosa Huamán" es "Rosa María Huamán Quispe"), y nada los separa: si los dos
+     * tienen DNI, o fecha de nacimiento, es el mismo. Así no se confunden dos hermanas, María Elena y María José,
+     * con el mismo celular, ni el papá con el hijo que lleva su nombre.
+     */
+    private function couldBe(Patient $patient): bool
+    {
+        $document = $this->data['document_number'] ?? null;
+        $birthDate = $this->data['birth_date'] ?? null;
+        /** @var CarbonInterface|null $bornOn */
+        $bornOn = $patient->birth_date;
+
+        return self::startsAlike($patient->first_name, (string) ($this->data['first_name'] ?? ''))
+            && self::startsAlike($patient->last_name, (string) ($this->data['last_name'] ?? ''))
+            && (blank($document) || blank($patient->document_number) || $patient->document_number === $document)
+            && (blank($birthDate) || $bornOn === null || $bornOn->toDateString() === $birthDate);
+    }
+
+    /** Una es el comienzo de la otra, palabra por palabra y sin importar tildes: "rosa" y "rosa maria", no "maria elena" y "maria jose". */
+    private static function startsAlike(string $one, string $other): bool
+    {
+        $one = explode(' ', Patient::searchable($one));
+        $other = explode(' ', Patient::searchable($other));
+        $shared = min(count($one), count($other));
+
+        return $one[0] !== '' && $other[0] !== '' && array_slice($one, 0, $shared) === array_slice($other, 0, $shared);
     }
 
     /**
