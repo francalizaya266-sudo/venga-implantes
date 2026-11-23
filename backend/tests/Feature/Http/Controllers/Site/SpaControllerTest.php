@@ -3,6 +3,7 @@
 namespace Tests\Feature\Http\Controllers\Site;
 
 use App\Enums\MagicLinkPurpose;
+use App\Http\Controllers\Site\SpaController;
 use App\Models\Account;
 use App\Models\Appointment;
 use App\Models\Campaign;
@@ -13,6 +14,13 @@ use App\Models\Treatment;
 use App\Services\Access\DeviceService;
 use App\Services\Access\MagicLinkService;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
+use Illuminate\Foundation\Vite;
+use Illuminate\Foundation\ViteException;
+use Illuminate\Routing\Route as RouteDefinition;
+use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Vite as ViteFacade;
+use Illuminate\Support\HtmlString;
+use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\Concerns\CreatesAgenda;
@@ -108,6 +116,61 @@ class SpaControllerTest extends TestCase
         $this->assertSame(['/api/v1/site', $resource], array_keys($preloaded));
         $this->assertSame(200, $preloaded[$resource]['status']);
         $this->assertArrayHasKey('data', $preloaded[$resource]['body']);
+    }
+
+    /** La compilación del frontend (public/app/manifest.json) en la que está el código de la página del equipo. */
+    private function buildWithTheTeamPage(): void
+    {
+        ViteFacade::swap(new class extends Vite
+        {
+            public function __invoke($entrypoints, $buildDirectory = null)
+            {
+                return new HtmlString('');
+            }
+
+            public function asset($asset, $buildDirectory = null)
+            {
+                if ($asset !== 'src/pages/TeamPage.tsx' || $buildDirectory !== 'app') {
+                    throw new ViteException("Unable to locate file in Vite manifest: {$asset}.");
+                }
+
+                return 'http://localhost/app/assets/TeamPage-abc123.js';
+            }
+        });
+    }
+
+    public function test_a_page_whose_code_comes_apart_asks_for_it_with_the_document(): void
+    {
+        $this->buildWithTheTeamPage();
+
+        $this->get(route('site.team'))
+            ->assertOk()
+            ->assertSee('<link rel="modulepreload" as="script" href="http://localhost/app/assets/TeamPage-abc123.js">', false);
+        // El inicio viene en el archivo principal.
+        $this->get(route('site.home'))->assertOk()->assertDontSee('modulepreload', false);
+    }
+
+    public function test_a_page_whose_code_is_missing_from_the_build_opens_anyway(): void
+    {
+        $this->buildWithTheTeamPage();
+
+        $this->get(route('site.faq'))->assertOk()->assertDontSee('modulepreload', false);
+    }
+
+    public function test_each_page_but_the_home_page_asks_for_the_code_the_frontend_brings_apart_for_it(): void
+    {
+        $router = (string) file_get_contents(base_path('../frontend/src/app/router.tsx'));
+        $pages = collect(Route::getRoutes()->getRoutes())
+            ->filter(fn (RouteDefinition $route): bool => $route->getControllerClass() === SpaController::class)
+            ->map(fn (RouteDefinition $route): ?string => $route->getName())
+            ->reject(fn (?string $name): bool => $name === 'site.home');
+
+        $this->assertEqualsCanonicalizing($pages->values()->all(), array_keys(SpaController::MODULES));
+
+        foreach (SpaController::MODULES as $page => $module) {
+            $this->assertFileExists(base_path('../frontend/'.$module));
+            $this->assertStringContainsString("import('@/".Str::between($module, 'src/', '.tsx')."')", $router, "{$page}: frontend/src/app/router.tsx no la baja aparte.");
+        }
     }
 
     public function test_what_the_address_asks_for_reaches_the_data_of_the_page(): void

@@ -1,24 +1,45 @@
-import { lazy, type ComponentType } from 'react';
-import { createBrowserRouter, type RouteObject } from 'react-router';
+import { isValidElement, lazy, type ComponentType } from 'react';
+import { createBrowserRouter, matchRoutes, type RouteObject } from 'react-router';
 import { Root } from '@/app/Root';
 import { ErrorPage } from '@/pages/ErrorPage';
 import { HomePage } from '@/pages/HomePage';
 
-/** Cómo se baja el código de cada página que no viene en el archivo principal (prefetchPages los usa). */
-const pageLoaders: (() => Promise<unknown>)[] = [];
+/** Cómo se baja el código de cada página que no viene en el archivo principal (loadPage y prefetchPages). */
+const pageLoaders = new Map<unknown, () => Promise<unknown>>();
 
 /**
  * Una página cuyo código se descarga recién al abrirla. El inicio, que es por donde entra casi todo el mundo, va
  * en el archivo principal; la reserva, Mi cuenta y las demás páginas, cada una en el suyo. Al pasar de una página
- * a otra se queda la de antes hasta que llega la nueva; al abrir una directamente, Root muestra la página vacía.
+ * a otra se queda la de antes hasta que llega la nueva. Con su código ya en el navegador (lo bajaron loadPage o
+ * prefetchPages), la página sale de una vez, sin pasar por el hueco de Root.
  */
 function onDemand<Name extends string, Module extends Record<Name, ComponentType>>(
   name: Name,
   load: () => Promise<Module>,
 ) {
-  pageLoaders.push(load);
+  let Page: ComponentType | undefined;
+  const fetchPage = async () => (Page ??= (await load())[name]);
+  const Lazy = lazy(async () => ({ default: await fetchPage() }));
 
-  return lazy(async () => ({ default: (await load())[name] }));
+  function OnDemand() {
+    return Page ? <Page /> : <Lazy />;
+  }
+
+  pageLoaders.set(OnDemand, fetchPage);
+
+  return OnDemand;
+}
+
+/**
+ * Baja el código de la página de una dirección, si viene aparte. main.tsx lo espera antes de pintar la página con
+ * que se abrió la web (el documento ya lo pidió junto con el archivo principal): así sale completa de una vez, sin
+ * mostrar antes el hueco de la página. Si no llega (sin señal), se pinta igual y la página lo vuelve a pedir.
+ */
+export function loadPage(pathname: string): Promise<unknown> {
+  const element = matchRoutes(pages, pathname)?.at(-1)?.route.element;
+  const load = isValidElement(element) ? pageLoaders.get(element.type) : undefined;
+
+  return load ? load().catch(() => undefined) : Promise.resolve();
 }
 
 /**
@@ -34,7 +55,7 @@ export function prefetchPages(): void {
   }
 
   const prefetch = () => {
-    for (const load of pageLoaders) {
+    for (const load of pageLoaders.values()) {
       // Es solo un adelanto: si no llega (sin señal), no hay nada que avisar.
       load().catch(() => undefined);
     }
