@@ -982,6 +982,13 @@ button.agenda-slot:focus-visible { outline: 2px solid var(--primary-600); outlin
 .odv-sides { display: flex; justify-content: space-between; padding: .125rem .375rem .25rem; font-size: .6875rem; font-weight: 500; color: #94a3b8; }
 .odv-scroll { overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: thin; }
 .odv-scroll .odv-svg { width: 100%; height: auto; max-width: 69rem; min-width: 38rem; }
+/*
+ * En el celular, ampliado de entrada sin tapar el resto: cada pieza mide 3rem (los números se leen y se toca cómodo
+ * con el dedo). La hoja se desliza de lado como antes. "Ampliar" sigue dando la pantalla completa.
+ */
+@media screen and (max-width: 40rem) {
+    .odv-scroll .odv-svg { min-width: max(38rem, calc(var(--odv-teeth, 16) * 3rem)); }
+}
 .odv-svg [data-tooth-group] { cursor: pointer; }
 .odv-svg .odv-col { stroke: transparent; transition: fill 120ms ease; }
 .odv-svg [data-focus] .odv-col { fill: rgb(37 99 235 / .07); stroke: #3b82f6; stroke-width: 1.5; }
