@@ -25,7 +25,7 @@ use Illuminate\Support\Arr;
 use Illuminate\Support\Number;
 
 /**
- * Las copias de seguridad, para bajarlas y guardarlas fuera del hosting: la de los datos, que se crea
+ * Las copias de seguridad, para guardarlas fuera del equipo donde corre el sistema: la de los datos, que se crea
  * sola cada día, y las radiografías, fotos, documentos y firmas, que se bajan en archivos .zip.
  * Cualquier administrador ve si están al día, crea una y borra las viejas. Descargarlas es otra cosa: traen
  * datos clínicos, así que solo las baja el administrador que es odontólogo (Ley N.º 29733).
@@ -132,7 +132,7 @@ class Backups extends Page
             ->link()
             ->size(Size::Small)
             ->modalHeading('Cuántas copias de los datos se guardan')
-            ->modalDescription('Se crea una copia cada día. Con 14 puedes volver hasta dos semanas atrás; con 30, hasta un mes. Mientras más guardes, más espacio ocupan en el hosting.')
+            ->modalDescription('Se crea una copia cada día. Con 14 puedes volver hasta dos semanas atrás; con 30, hasta un mes. Mientras más guardes, más espacio ocupan en el disco.')
             ->modalWidth('md')
             ->fillForm(fn (DatabaseBackup $backup) => ['keep' => $backup->keep()])
             ->schema([
@@ -285,7 +285,8 @@ class Backups extends Page
     }
 
     /**
-     * Para el administrador, al pie del menú: "Respaldo de hoy ✓" y cuándo se bajó la última copia fuera del hosting.
+     * Para el administrador, al pie del menú: "Respaldo de hoy ✓" y cuándo se bajó la última copia fuera del equipo
+     * ("de esta computadora" en la laptop, "del servidor" en un hosting).
      * En ámbar si toca bajarla, en rojo si la copia diaria dejó de hacerse. Sin la palabra "cifrado": las copias
      * todavía no lo están.
      *
@@ -318,8 +319,8 @@ class Backups extends Page
             'detail' => match (true) {
                 // La copia extra en otra carpeta la guarda fuera cada día, sin descargar nada.
                 app(ExtraCopy::class)->lastSavedAt()?->isToday() === true => 'Copia de hoy guardada también en otra carpeta',
-                $downloaded === null => 'Aún no se bajó una copia fuera del hosting',
-                default => 'Copia fuera del hosting '.$downloaded['at']->diffForHumans(),
+                $downloaded === null => 'Aún no se bajó una copia fuera '.app(ScheduledTasks::class)->ofMachine(),
+                default => 'Copia fuera '.app(ScheduledTasks::class)->ofMachine().' '.$downloaded['at']->diffForHumans(),
             },
             'url' => self::getUrl(),
         ];

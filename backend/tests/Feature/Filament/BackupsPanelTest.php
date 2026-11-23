@@ -239,7 +239,7 @@ class BackupsPanelTest extends TestCase
     {
         $this->actingAs(User::factory()->admin()->create());
 
-        // Con menos de tres no se podría volver unos días atrás; más de noventa solo llenan el hosting.
+        // Con menos de tres no se podría volver unos días atrás; más de noventa solo llenan el disco.
         foreach ([2, 91, null, 'muchas'] as $keep) {
             Livewire::test(Backups::class)
                 ->callAction('keep', data: ['keep' => $keep])
@@ -365,8 +365,8 @@ class BackupsPanelTest extends TestCase
         $this->travel(3)->days();
         $this->stored('respaldos/respaldo_2026-10-26_030000.sql.gz', '2026-10-26 03:00');
 
-        $this->assertSame(['tone' => 'success', 'text' => 'Respaldo de hoy ✓', 'detail' => 'Copia fuera del hosting hace 3 días', 'url' => Backups::getUrl()], Backups::sidebarStatus());
-        $this->get(Backups::getUrl())->assertOk()->assertSee(['Respaldo de hoy ✓', 'Copia fuera del hosting hace 3 días']);
+        $this->assertSame(['tone' => 'success', 'text' => 'Respaldo de hoy ✓', 'detail' => 'Copia fuera del servidor hace 3 días', 'url' => Backups::getUrl()], Backups::sidebarStatus());
+        $this->get(Backups::getUrl())->assertOk()->assertSee(['Respaldo de hoy ✓', 'Copia fuera del servidor hace 3 días']);
 
         // Dos días sin copia: en rojo.
         $this->travel(2)->days();
