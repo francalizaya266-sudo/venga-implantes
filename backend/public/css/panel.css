@@ -45,7 +45,16 @@
     .dark .fi-ta-actions > .fi-link,
     .dark .fi-ta-actions > .fi-dropdown .fi-icon-btn,
     .dark .fi-ta-actions > .fi-icon-btn { background: rgb(255 255 255 / .07); }
-    .fi-modal-footer-actions .fi-btn { min-height: 2.75rem; }
+    /* Todos los botones, 44 px de alto (de fábrica, 32 a 36): los de arriba de cada página, los medios de pago,
+       "Terminar", "Agregar diagnóstico". Los de solo ícono y el de tu foto arriba, 44 × 44; dentro de un campo, no,
+       para que el campo no crezca. El siguiente paso de una cita en la agenda queda chico: tiene su propia zona para
+       el dedo (más abajo). */
+    .fi-btn:not(.agenda-appt-step .fi-btn) { min-height: 2.75rem; }
+    .fi-icon-btn:not(.fi-input-wrp .fi-icon-btn) { min-width: 2.75rem; min-height: 2.75rem; }
+    .fi-user-menu-trigger { display: grid; place-items: center; min-width: 2.75rem; min-height: 2.75rem; }
+    /* La "x" que quita lo elegido en un campo (un tratamiento en Atender): 44 × 44, y su etiqueta crece con ella. */
+    .fi-badge .fi-badge-delete-btn { min-width: 2.75rem; min-height: 2.75rem; }
+    .fi-badge:has(.fi-badge-delete-btn) .fi-badge-label-ctn { align-self: center; }
     /* Las pestañas y los enlaces que hacen de botón ("Ver", "Ocultar", "Ver antecedentes"): 44 px de alto, lo
        cómodo para un dedo (de fábrica, 31 a 34 y 20). El nombre del enlace, centrado como su ícono (de fábrica va
        pegado arriba: con el alto nuevo quedaba más alto que el ícono). */
@@ -674,7 +683,7 @@ button.agenda-slot:focus-visible { outline: 2px solid var(--primary-600); outlin
 .agenda-list-empty { padding: 2.5rem 1rem; border-radius: .875rem; text-align: center; color: var(--gray-500); background: var(--ag-surface); box-shadow: 0 0 0 1px var(--ag-line); }
 
 @media (pointer: coarse) {
-    .agenda-item-actions .fi-btn, .agenda-call { min-height: 2.75rem; }
+    .agenda-call { min-height: 2.75rem; }
     .agenda-gap-btn { height: 2.75rem; }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -831,8 +840,14 @@ button.agenda-slot:focus-visible { outline: 2px solid var(--primary-600); outlin
     body:has(.consultation-bar) .mobile-bar { display: none; }
     body:has(.consultation-bar) .fi-main { padding-bottom: calc(1.5rem + env(safe-area-inset-bottom)); }
 }
+/* Con el dedo, los pasos, "Falta firmar el consentimiento", "Registrar · Nada relevante" y "Sin guardar" miden 44 px
+   de alto (eran de 22 a 35). Las etiquetas que solo avisan quedan como están, centradas en su fila. */
 @media (pointer: coarse) {
-    .cb-sections a { padding: .5rem .85rem; }
+    .cb-sections a { padding: .5rem .85rem; min-height: 2.75rem; }
+    .cb-flags { align-items: center; }
+    button.cb-flag, .cb-unsaved { min-height: 2.75rem; }
+    .cb-flag-ask { padding-block: 0; }
+    .cb-flag-ask button { min-height: 2.75rem; margin-block: -1px; }
 }
 
 /* Receta: cada medicamento en un bloque sin fila de encabezado; guardar y quitar quedan arriba a la derecha. */
@@ -875,7 +890,7 @@ button.agenda-slot:focus-visible { outline: 2px solid var(--primary-600); outlin
 .dark .dictate-btn.is-on { color: #fff; background: #b91c1c; }
 @keyframes dictate-pulse { 50% { opacity: .35; } }
 @media (prefers-reduced-motion: reduce) { .dictate-btn.is-on svg { animation: none; } }
-@media (pointer: coarse) { .dictate-btn { min-height: 2.25rem; padding-inline: .8rem; } }
+@media (pointer: coarse) { .dictate-btn { min-height: 2.75rem; padding-inline: .8rem; } }
 .dictate-note { margin: 0 0 .35rem; font-size: .8125rem; line-height: 1.45; color: var(--gray-600); }
 .dictate-note b { font-weight: 600; color: var(--gray-900); }
 .dark .dictate-note { color: var(--gray-400); }
@@ -1317,7 +1332,14 @@ button.pt-chip { transition: transform 160ms ease-out; }
 .pt-family a { color: var(--primary-600); font-weight: 600; text-decoration: none; }
 .pt-family a:hover { text-decoration: underline; text-underline-offset: 2px; }
 .dark .pt-family a { color: var(--primary-400); }
-@media (pointer: coarse) { .pt-chip { padding: .45rem .8rem; } .pt-contact .fi-link { min-height: 2.75rem; } }
+/* Con el dedo, las etiquetas que llevan a algo y el filtro de la línea de tiempo miden 44 px de alto (eran de 31 y 32);
+   las que solo avisan quedan como están, centradas en su fila. */
+@media (pointer: coarse) {
+    .pt-chip { padding: .45rem .8rem; }
+    :is(a, button).pt-chip, .pt-filter-chip { min-height: 2.75rem; }
+    .pt-chips { align-items: center; }
+    .pt-contact .fi-link { min-height: 2.75rem; }
+}
 
 /* ---------- Ficha: el perfil a la izquierda, con sus partes en títulos chicos, y las pestañas a la derecha ---------- */
 .pt-profile > .fi-section > .fi-section-content-ctn > .fi-section-content { row-gap: 1rem; }
@@ -1485,6 +1507,8 @@ button.pt-chip { transition: transform 160ms ease-out; }
     .dash-segmented { display: flex; width: 100%; }
     .dash-segmented :is(a, button) { flex: 1; text-align: center; }
 }
+/* Con el dedo, cada opción mide 44 px de alto (eran 31). */
+@media (pointer: coarse) { .dash-segmented :is(a, button) { display: inline-flex; align-items: center; justify-content: center; min-height: 2.75rem; } }
 
 /* La agenda de hoy con "Todos · cada doctor" al lado del título; si no entra, baja debajo. Si tampoco entra ahí, las
    opciones no se encogen ni se cortan ("To…"): se deslizan de lado. */

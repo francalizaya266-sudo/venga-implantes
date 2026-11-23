@@ -188,6 +188,8 @@ class QuickTextarea extends Textarea
                 .dark .qt-chip { color: var(--gray-300); border-color: rgb(255 255 255 / .2); }
                 .qt-more { border-style: solid; }
                 .qt-hint { font-size: .75rem; color: var(--gray-500); margin-left: .25rem; }
+                /* Con el dedo, cada opción mide 44 px de alto (de 22 se erraba al tocar). */
+                @media (pointer: coarse) { .qt-chip { min-height: 2.75rem; padding-inline: .85rem; } }
             </style>
             HTML);
     }
