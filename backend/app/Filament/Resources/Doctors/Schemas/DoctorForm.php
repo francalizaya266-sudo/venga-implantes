@@ -53,6 +53,12 @@ class DoctorForm
 
     public const WEEKDAYS = WeeklySchedule::DAYS;
 
+    /** El nombre con que se elige un color de la agenda ("Violeta"), y "Otro color" si es uno de antes de esta lista. */
+    public static function colorName(?string $color): string
+    {
+        return self::AGENDA_COLORS[strtolower((string) $color)] ?? 'Otro color';
+    }
+
     /**
      * "Copiar este día a otros": arma el lunes (mañana y tarde) y lo repite en los días que se marquen, en vez
      * de llenar tramo por tramo. Lo que esos días tenían se reemplaza; se guarda al guardar el doctor.
