@@ -1,5 +1,5 @@
 import { isValidElement, lazy, type ComponentType } from 'react';
-import { createBrowserRouter, matchRoutes, type RouteObject } from 'react-router';
+import { createBrowserRouter, matchRoutes, useRouteError, type RouteObject } from 'react-router';
 import { Root } from '@/app/Root';
 import { ErrorPage } from '@/pages/ErrorPage';
 import { HomePage } from '@/pages/HomePage';
@@ -110,8 +110,21 @@ export const pages: RouteObject[] = [
   { path: '*', element: <ErrorPage status={404} /> },
 ];
 
+/**
+ * Si una página no se pudo pintar (por ejemplo, su código no llegó porque se fue la señal): la página del error,
+ * con la cabecera, el pie y "Volver a intentar", en vez del aviso en inglés de React Router.
+ */
+function PageError() {
+  return <ErrorPage error={useRouteError()} />;
+}
+
 export function routes(documentError: number | null = null): RouteObject[] {
-  return [{ element: <Root documentError={documentError} />, children: pages }];
+  return [
+    {
+      element: <Root documentError={documentError} />,
+      children: [{ errorElement: <PageError />, children: pages }],
+    },
+  ];
 }
 
 export function createAppRouter(documentError: number | null) {

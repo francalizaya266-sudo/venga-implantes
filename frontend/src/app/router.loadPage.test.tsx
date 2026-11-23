@@ -30,8 +30,17 @@ describe('the page the web is opened with', () => {
     expect(await screen.findByRole('heading', { name: 'Nuestro equipo' })).toBeInTheDocument();
   });
 
-  it('is painted anyway when its code does not arrive', async () => {
+  it('is painted anyway when its code does not arrive, saying so and offering to try again', async () => {
+    // React y React Router anotan el error en la consola.
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    mockApi();
     await expect(loadPage('/contacto')).resolves.toBeUndefined();
+
+    renderApp('/contacto');
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Algo falló de nuestro lado' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Volver a intentar' })).toBeInTheDocument();
+    expect(screen.queryByText(/Unexpected Application Error/)).not.toBeInTheDocument();
   });
 
   it('brings nothing for the home page, which comes in the main file', async () => {
