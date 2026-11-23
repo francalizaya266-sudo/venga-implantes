@@ -7,3 +7,8 @@ export function plain(text: string): string {
 export function textOf(html: string): string {
   return new DOMParser().parseFromString(html, 'text/html').body.textContent ?? '';
 }
+
+/** Un precio ("desde S/ 150") que, si no entra en una línea, baja entero: nunca separa "S/" de la cifra. */
+export function keepAmountTogether(price: string): string {
+  return price.replaceAll('S/ ', 'S/\u00a0');
+}

@@ -2,6 +2,7 @@ import type { Treatment } from '@/api/types';
 import { AppLink } from '@/components/ui/AppLink';
 import { TreatmentArt } from '@/components/ui/Art';
 import { paths } from '@/lib/paths';
+import { keepAmountTogether } from '@/lib/text';
 
 /** Los tratamientos del inicio: su imagen arriba, el nombre, el precio "desde" en su pastilla celeste y para qué sirve. */
 export function ServiceCards({ treatments }: { treatments: Treatment[] }) {
@@ -15,7 +16,7 @@ export function ServiceCards({ treatments }: { treatments: Treatment[] }) {
             </span>
             <span className="name">{treatment.name}</span>
             {treatment.price ? (
-              <span className="price">{treatment.price}</span>
+              <span className="price">{keepAmountTogether(treatment.price)}</span>
             ) : (
               <span className="price ask">Precio en la evaluación</span>
             )}

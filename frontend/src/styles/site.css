@@ -98,8 +98,9 @@ img { max-width: 100%; display: block; }
 .wrap { width: 100%; max-width: calc(var(--measure) + 2 * var(--gutter)); margin: 0 auto; padding: 0 var(--gutter); }
 .wrap.wide { max-width: calc(var(--wide) + 2 * var(--gutter)); }
 
-.skip { position: absolute; left: 8px; top: -60px; z-index: 40; background: var(--ink); color: #fff; padding: 10px 16px; border-radius: 999px; font-weight: 700; }
-.skip:focus { top: 8px; }
+/* Se esconde con su propio alto: con la letra grande ocupa dos o tres líneas, y con un alto fijo asomaba sobre el logo. */
+.skip { position: absolute; left: 8px; top: 0; z-index: 40; background: var(--ink); color: #fff; padding: 10px 16px; border-radius: 999px; font-weight: 700; transform: translateY(-110%); }
+.skip:focus { transform: translateY(8px); }
 
 .site-header { background: rgb(255 255 255 / .94); position: sticky; top: 0; z-index: 20; border-bottom: 1px solid var(--line); -webkit-backdrop-filter: saturate(1.4) blur(10px); backdrop-filter: saturate(1.4) blur(10px); }
 .site-header .wrap { display: flex; align-items: center; gap: 12px; min-height: 64px; max-width: calc(var(--wide) + 2 * var(--gutter)); position: relative; }
@@ -111,8 +112,27 @@ img { max-width: 100%; display: block; }
 .brand small { font-size: .75rem; font-weight: 500; letter-spacing: 0; line-height: 1.2; color: var(--muted); }
 /* En los celulares más angostos (320) el nombre baja a dos líneas y deja el sitio de "Menú". */
 @media (max-width: 379px) {
+    .wordmark .brand small { display: none; }
+}
+/* Con "Menú", si el nombre no entra en su línea (con la letra del celular más grande), baja a otra en vez de empujar
+   "Menú" fuera de la pantalla. */
+@media (max-width: 1079px) {
+    .wordmark .brand { white-space: normal; }
+}
+/*
+   Con la letra del celular muy grande (200 %), el nombre y "Menú" no entraban en la pantalla. La medida va en letras
+   (em), no en píxeles: cuenta el tamaño de la letra, y con la letra normal no pasa nunca. El diente se va, el nombre
+   baja de línea al lado de "Menú" y Reservar cita sale con solo su flecha; si aun así no entra, "Menú" baja a otra
+   línea en vez de salirse de la pantalla.
+*/
+.site-header { container-type: inline-size; }
+@container (max-width: 11.5em) {
+    .site-header .wrap { flex-wrap: wrap; justify-content: flex-end; row-gap: 4px; padding-block: 6px; }
+    .wordmark { flex: 1 1 0; }
+    .wordmark .mark { display: none; }
     .wordmark .brand { white-space: normal; }
     .wordmark .brand small { display: none; }
+    .header-back > span:last-child { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 }
 .wordmark .logo { display: block; height: 40px; width: auto; max-width: min(220px, 52vw); object-fit: contain; object-position: left center; }
 .site-nav { display: flex; align-items: center; gap: 2px; margin-right: auto; }
@@ -177,6 +197,18 @@ img { max-width: 100%; display: block; }
 .site-nav .more-panel a { border-radius: 10px; color: var(--ink); }
 
 main { padding: 24px 0 96px; flex: 1 0 auto; }
+/*
+   Con la letra del celular muy grande, una palabra larga ("odontología", "Blanqueamiento") o un precio no entraban
+   en la pantalla y se cortaban o se salían por la derecha: ahora se parten y su caja se achica. Como arriba, la
+   medida va en letras: con la letra normal no pasa nunca, ni en el celular más angosto.
+*/
+main, .site-footer { container-type: inline-size; }
+@container (max-width: 16em) {
+    main *, .site-footer * { min-width: 0; overflow-wrap: anywhere; }
+    /* Lo que de otro modo va en una sola línea: el nombre del pie y el precio, que baja entero ("desde" arriba y el
+       monto debajo: lib/text.ts no deja separar "S/" de la cifra). */
+    .site-footer .brand, main :is(.services-grid, .price-list) .price { white-space: normal; text-wrap: balance; }
+}
 /* El inicio empieza con la portada pegada al encabezado, sobre un fondo de niebla que se aclara al bajar. */
 main.with-hero { padding-top: 0; background: linear-gradient(180deg, var(--mist) 0, var(--mist) 45%, var(--ground) 100%) no-repeat top / 100% 2400px; }
 main.with-hero > .wrap:first-child .flash { margin: 16px 0; }
@@ -381,6 +413,8 @@ a.choice { text-decoration: none; }
 .chips::-webkit-scrollbar { display: none; }
 /* Donde ninguna opción puede quedar escondida a la derecha ("Otra persona"), bajan a otra línea. */
 .chips.wrap { flex-wrap: wrap; overflow: visible; }
+/* Un nombre que no entra en una línea (el de un doctor, con la letra grande) sigue abajo, dentro de su ficha. */
+.chips.wrap .chip { flex: 0 1 auto; max-width: 100%; }
 .chip {
     flex: none; border: 0; border-radius: 999px; padding: 10px 16px; min-height: 44px;
     background: var(--surface); color: var(--ink); font: 600 .9375rem/1.2 var(--font); cursor: pointer;
@@ -391,10 +425,11 @@ a.choice { text-decoration: none; }
 .chip:active, .day:active, .time:active { transform: scale(.96); }
 
 /* En el celular la tira se desliza: entran cuatro días y medio, y el último, cortado, avisa que siguen más a la derecha. */
-.days { display: grid; grid-auto-flow: column; grid-auto-columns: calc((100% - 4 * 8px) / 4.5); gap: 8px; overflow-x: auto; padding: 2px 2px 8px; margin: 0 -2px; scroll-snap-type: x proximity; scrollbar-width: none; }
+.days { display: grid; grid-auto-flow: column; grid-auto-columns: max(calc((100% - 4 * 8px) / 4.5), 3.5rem); gap: 8px; overflow-x: auto; padding: 2px 2px 8px; margin: 0 -2px; scroll-snap-type: x proximity; scrollbar-width: none; }
 .days::-webkit-scrollbar { display: none; }
-/* En los más angostos, tres y medio: con cuatro y medio, "Mañana" no entraría. */
-@media (max-width: 359px) { .days { grid-auto-columns: calc((100% - 3 * 8px) / 3.5); } }
+/* En los más angostos, tres y medio: con cuatro y medio, "Mañana" no entraría. Con la letra grande, cada día crece
+   con ella (rem): si no, "Mañana" se cortaba en "Mañar". */
+@media (max-width: 359px) { .days { grid-auto-columns: max(calc((100% - 3 * 8px) / 3.5), 3.5rem); } }
 /* Con mouse no hay cómo deslizar la tira: en pantallas anchas los días van en filas, todos a la vista. */
 @media (min-width: 600px) {
     .days { grid-auto-flow: row; grid-template-columns: repeat(6, 1fr); overflow: visible; }
@@ -561,7 +596,8 @@ details.more[open] > summary::after { transform: translateY(.06em) rotate(225deg
 .hero { display: grid; gap: 12px; padding: 12px 0 0; }
 /* Sin las frases montadas sobre el borde (no hay reserva en línea), la portada no les guarda sitio. */
 .hero.plain { margin-bottom: -32px; }
-.hero h1 { font-size: clamp(1.875rem, 8vw, 3.25rem); font-weight: 700; line-height: 1.12; letter-spacing: -.025em; }
+/* En un celular angosto con la letra grande, el título no pasa del tamaño en que "odontología" entra en la pantalla. */
+.hero h1 { font-size: clamp(min(1.875rem, 13.5vw), 8vw, 3.25rem); font-weight: 700; line-height: 1.12; letter-spacing: -.025em; }
 /* Lo que sigue a la coma, en letra delgada. */
 .hero h1 span { font-weight: 400; }
 /* La segunda mitad del título, en celeste, en cursiva y en su propia línea, con un trazo de pincel debajo. */
@@ -1551,6 +1587,10 @@ a.chip { text-decoration: none; display: inline-flex; align-items: center; }
     /* Cada botón toma el ancho de su texto y el resto se reparte: "Reservar cita" va con las dos palabras, como en
        el resto del sitio, y en los celulares más angostos queda en "Reservar". */
     .action-bar .btn { flex: 1 1 auto; padding: 10px 8px; font-size: 1rem; gap: 0; white-space: nowrap; }
+    /* Con la letra muy grande los tres no entran: la barra se desliza, como la tira de días, y ninguno queda fuera de alcance. */
+    .action-bar { container-type: inline-size; overflow-x: auto; scrollbar-width: none; }
+    .action-bar::-webkit-scrollbar { display: none; }
+    @container (max-width: 16em) { .action-bar .btn { flex: none; } }
     .action-bar ~ .wa-float { display: none; }
     /* La barra de abajo ya tiene Reservar y WhatsApp: arriba no se repiten. */
     /* Arriba, en vez del botón, los horarios libres: también son "reservar" y quedan a la vista sin bajar. */
