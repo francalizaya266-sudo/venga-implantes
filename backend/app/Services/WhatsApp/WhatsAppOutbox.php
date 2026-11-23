@@ -253,7 +253,7 @@ class WhatsAppOutbox
             'nombre' => $appointment->patient->first_name,
             'paciente' => $appointment->patient->full_name,
             'fecha' => $appointment->starts_at->translatedFormat('l j \d\e F'),
-            'hora' => $appointment->starts_at->format('g:i a'),
+            'hora' => Dates::time($appointment->starts_at),
             'doctor' => $appointment->doctor->name,
             'tratamiento' => mb_strtolower($appointment->treatment->name),
             // "Precio con la promoción …: desde S/ 120 (normal desde S/ 150). Pagas en el consultorio con …", o nada.

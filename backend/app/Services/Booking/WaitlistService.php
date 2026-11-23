@@ -16,6 +16,7 @@ use App\Models\WhatsappMessage;
 use App\Services\Agenda\AvailabilityService;
 use App\Services\Agenda\Slot;
 use App\Services\WhatsApp\WhatsAppOutbox;
+use App\Support\Dates;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
@@ -179,9 +180,9 @@ final class WaitlistService
             'paciente' => $patient->full_name,
             'tratamiento' => mb_strtolower($treatment->name),
             'fecha' => $startsAt->translatedFormat('l j \d\e F'),
-            'hora' => $startsAt->format('g:i a'),
+            'hora' => Dates::time($startsAt),
             'doctor' => $doctor->name,
-            'hasta' => $this->holdEndsAt($startsAt)->format('g:i a'),
+            'hasta' => Dates::time($this->holdEndsAt($startsAt)),
         ], $patient->getKey());
     }
 
@@ -242,7 +243,7 @@ final class WaitlistService
         }
 
         return [
-            'when' => ucfirst($startsAt->translatedFormat('D j M, g:i a'))." con {$doctor->name}",
+            'when' => ucfirst(Dates::shortDayAndTime($startsAt))." con {$doctor->name}",
             'next' => $this->freedSlotNotice($doctor, $startsAt, $entry->patient_id),
         ];
     }

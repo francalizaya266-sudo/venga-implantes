@@ -459,7 +459,7 @@ class AppointmentService
         if ($waitlist) {
             $this->alerts->toReception(
                 'Se liberó un horario',
-                ucfirst($waitlist['startsAt']->translatedFormat('D j M, g:i a'))." con {$previous->name}. {$waitlist['text']}",
+                ucfirst(Dates::shortDayAndTime($waitlist['startsAt']))." con {$previous->name}. {$waitlist['text']}",
                 link: $waitlist['link'],
             );
         }
@@ -664,7 +664,7 @@ class AppointmentService
         } elseif ($waitlist) {
             $this->alerts->toReception(
                 'Se liberó un horario',
-                ucfirst($freedAt->translatedFormat('D j M, g:i a'))." con {$freedDoctor->name}. {$waitlist['text']}",
+                ucfirst(Dates::shortDayAndTime($freedAt))." con {$freedDoctor->name}. {$waitlist['text']}",
                 link: $waitlist['link'],
             );
         }
@@ -1177,6 +1177,6 @@ class AppointmentService
 
     private function when(Appointment $appointment): string
     {
-        return $appointment->starts_at->translatedFormat('D j M, g:i a');
+        return Dates::shortDayAndTime($appointment->starts_at);
     }
 }

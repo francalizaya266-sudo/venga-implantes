@@ -76,7 +76,7 @@ class HandOverToAnotherDoctorTest extends TestCase
 
         // Su hora con la Dra. Torres quedó libre: desde cuando alguien de la lista alcanza a llegar, recepción se entera.
         $alert = $this->reception->notifications()->where('data->title', 'Se liberó un horario')->sole()->data;
-        $this->assertStringContainsString('10:45 a. m. con Dra. Ana Torres. Ana Soto, de la lista de espera, puede venir a esa hora.', $alert['body']);
+        $this->assertStringContainsString("10:45\u{00A0}a.\u{00A0}m. con Dra. Ana Torres. Ana Soto, de la lista de espera, puede venir a esa hora.", $alert['body']);
     }
 
     public function test_it_is_only_for_reception_while_the_patient_waits_in_the_room(): void

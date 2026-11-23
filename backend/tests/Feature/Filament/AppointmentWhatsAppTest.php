@@ -69,7 +69,7 @@ class AppointmentWhatsAppTest extends TestCase
         $page = Livewire::test(ViewAppointment::class, ['record' => $appointment->getKey()])
             ->mountAction('whatsapp')
             ->assertMountedActionModalSee('WhatsApp para '.$appointment->patient->full_name)
-            ->assertSchemaStateSet(fn (array $state) => $this->assertStringContainsString("Tu próxima cita de limpieza dental es el jueves 5 de noviembre a las 11:00 am con {$this->doctor->name}", $state['body']) ?? []);
+            ->assertSchemaStateSet(fn (array $state) => $this->assertStringContainsString("Tu próxima cita de limpieza dental es el jueves 5 de noviembre a las 11:00\u{00A0}a.\u{00A0}m. con {$this->doctor->name}", $state['body']) ?? []);
 
         // Solo se miró: en Avisos no queda nada ni se creó un enlace personal.
         $this->assertSame(0, WhatsappMessage::count());
@@ -130,7 +130,7 @@ class AppointmentWhatsAppTest extends TestCase
 
         Livewire::test(ViewAppointment::class, ['record' => $moved->getKey()])
             ->mountAction('whatsapp')
-            ->assertSchemaStateSet(fn (array $state) => $this->assertStringContainsString('cambió al viernes 6 de noviembre a las 4:00 pm', $state['body']) ?? [])
+            ->assertSchemaStateSet(fn (array $state) => $this->assertStringContainsString("cambió al viernes 6 de noviembre a las 4:00\u{00A0}p.\u{00A0}m.", $state['body']) ?? [])
             ->callMountedAction()
             ->assertHasNoFormErrors();
 

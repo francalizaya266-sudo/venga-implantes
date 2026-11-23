@@ -39,7 +39,7 @@ class PrepareRemindersTest extends TestCase
         $reminder = WhatsappMessage::sole();
         $this->assertSame(MessageTemplateKey::Reminder, $reminder->template_key);
         $this->assertTrue($reminder->appointment->is($tomorrow));
-        $this->assertStringContainsString('tu cita de mañana martes 3 de noviembre a las 10:00 am', app(WhatsAppOutbox::class)->draft($reminder));
+        $this->assertStringContainsString("tu cita de mañana martes 3 de noviembre a las 10:00\u{00A0}a.\u{00A0}m.", app(WhatsAppOutbox::class)->draft($reminder));
     }
 
     public function test_a_monday_appointment_is_reminded_on_saturday_because_nobody_is_there_on_sunday(): void
@@ -58,7 +58,7 @@ class PrepareRemindersTest extends TestCase
         $reminder = WhatsappMessage::sole();
         $this->assertTrue($reminder->appointment->is($monday));
         // El texto dice el día, no "mañana": se arma según cuándo se envía.
-        $this->assertStringContainsString('tu cita del lunes 9 de noviembre a las 10:00 am', app(WhatsAppOutbox::class)->draft($reminder));
+        $this->assertStringContainsString("tu cita del lunes 9 de noviembre a las 10:00\u{00A0}a.\u{00A0}m.", app(WhatsAppOutbox::class)->draft($reminder));
 
         $this->travelTo('2026-11-08 09:05');
         $this->artisan('citas:preparar-recordatorios')->assertSuccessful();

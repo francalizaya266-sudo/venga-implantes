@@ -165,7 +165,7 @@ class WaitlistServiceTest extends TestCase
 
         $this->assertSame(MessageTemplateKey::WaitlistOffer, $message->template_key);
         $this->assertFalse($message->exists, 'Se guarda recién al abrir WhatsApp.');
-        $this->assertStringContainsString('Hola Rosa, se liberó un horario para limpieza dental el miércoles 4 de noviembre a las 10:30 am con Dra. Ana Torres. Te lo guardamos hasta las 10:00 am', app(WhatsAppOutbox::class)->render($message));
+        $this->assertStringContainsString("Hola Rosa, se liberó un horario para limpieza dental el miércoles 4 de noviembre a las 10:30\u{00A0}a.\u{00A0}m. con Dra. Ana Torres. Te lo guardamos hasta las 10:00\u{00A0}a.\u{00A0}m.", app(WhatsAppOutbox::class)->render($message));
         $this->assertSame(WaitlistStatus::Offered, $entry->fresh()->status);
         $this->assertSame('2026-11-04 10:30', $entry->fresh()->offered_starts_at->format('Y-m-d H:i'));
         $this->assertTrue($entry->fresh()->offeredDoctor->is($doctor));
@@ -315,7 +315,7 @@ class WaitlistServiceTest extends TestCase
         $this->service()->markOffered($rosa, $doctor, $treatment, $startsAt);
 
         // Antes le decía "hasta las 9:05": cinco minutos después el horario ya se ofrecía a otro.
-        $this->assertStringContainsString('Te lo guardamos hasta las 9:15 am', app(WhatsAppOutbox::class)->render($message));
+        $this->assertStringContainsString("Te lo guardamos hasta las 9:15\u{00A0}a.\u{00A0}m.", app(WhatsAppOutbox::class)->render($message));
         $this->assertSame('09:15', $rosa->fresh()->held_until->format('H:i'));
     }
 

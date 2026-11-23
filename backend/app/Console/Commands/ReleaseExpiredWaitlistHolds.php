@@ -6,6 +6,7 @@ use App\Enums\WaitlistStatus;
 use App\Models\WaitlistEntry;
 use App\Services\Booking\WaitlistService;
 use App\Services\StaffAlerts;
+use App\Support\Dates;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
@@ -34,7 +35,7 @@ class ReleaseExpiredWaitlistHolds extends Command
 
             $alerts->toReception(
                 "{$entry->patient->full_name} no respondió al horario ofrecido",
-                ucfirst($entry->offered_starts_at->translatedFormat('D j M, g:i a'))." con {$entry->offeredDoctor->name} ya no está apartado."
+                ucfirst(Dates::shortDayAndTime($entry->offered_starts_at))." con {$entry->offeredDoctor->name} ya no está apartado."
                     .($next ? ' '.$next['text'] : ' Queda libre para la agenda y la web.'),
                 link: $next['link'] ?? null,
             );

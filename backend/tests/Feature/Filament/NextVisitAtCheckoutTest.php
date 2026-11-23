@@ -70,7 +70,7 @@ class NextVisitAtCheckoutTest extends TestCase
 
         $notice = $this->pay($booked);
 
-        $this->assertStringContainsString('Su próxima cita: jueves 5 de noviembre, 10:00 a. m. · Limpieza dental.', $notice['body']);
+        $this->assertStringContainsString("Su próxima cita: jueves 5 de noviembre, 10:00\u{00A0}a.\u{00A0}m. · Limpieza dental.", $notice['body']);
         $this->assertSame(['Ver constancia'], array_column($notice['actions'], 'label'));
         $this->assertSame(RegisterPaymentAction::NOTICE_SECONDS * 1000, $notice['duration']);
 

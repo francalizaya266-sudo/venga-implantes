@@ -32,7 +32,7 @@ class WhatsAppOutboxTest extends TestCase
         $this->assertStringStartsWith('https://wa.me/51987654321?text=', $url);
         $text = rawurldecode(substr($url, strpos($url, '=') + 1));
         $this->assertStringContainsString('Hola María', $text);
-        $this->assertStringContainsString('miércoles 4 de noviembre a las 10:30 am', $text);
+        $this->assertStringContainsString("miércoles 4 de noviembre a las 10:30\u{00A0}a.\u{00A0}m.", $text);
         $this->assertMatchesRegularExpression('#/c/[A-Za-z0-9]{32}#', $text, 'Lleva el enlace personal.');
         $this->assertSame(MessageStatus::Sent, $message->fresh()->status);
         $this->assertTrue($message->fresh()->sentBy->is($reception));
@@ -51,7 +51,7 @@ class WhatsAppOutboxTest extends TestCase
         $appointment->treatment->update(['show_price' => false]);
         $withoutPrice = $outbox->render($outbox->queueForAppointment($appointment->fresh(), MessageTemplateKey::BookingConfirmation));
         $this->assertStringNotContainsString('Precio', $withoutPrice);
-        $this->assertStringContainsString("10:30 am con {$appointment->doctor->name}.\n\nConfirma tu asistencia", $withoutPrice);
+        $this->assertStringContainsString("10:30\u{00A0}a.\u{00A0}m. con {$appointment->doctor->name}.\n\nConfirma tu asistencia", $withoutPrice);
     }
 
     public function test_uses_the_text_edited_by_the_clinic(): void
@@ -64,7 +64,7 @@ class WhatsAppOutboxTest extends TestCase
 
         $body = $outbox->render($outbox->queueForAppointment($appointment, MessageTemplateKey::Reminder));
 
-        $this->assertSame('Mañana a las 4:00 pm, Jorge.', $body);
+        $this->assertSame("Mañana a las 4:00\u{00A0}p.\u{00A0}m., Jorge.", $body);
         $this->assertSame(0, MagicLink::count(), 'Sin {enlace} no se genera enlace.');
     }
 

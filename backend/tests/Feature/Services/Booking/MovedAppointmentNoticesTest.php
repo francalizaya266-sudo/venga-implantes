@@ -24,6 +24,7 @@ use App\Services\Booking\AppointmentService;
 use App\Services\Booking\RescheduleRequestService;
 use App\Services\Booking\WebBookingData;
 use App\Services\WhatsApp\WhatsAppOutbox;
+use App\Support\Dates;
 use Carbon\CarbonImmutable;
 use Filament\Actions\Testing\TestAction;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
@@ -78,7 +79,7 @@ class MovedAppointmentNoticesTest extends TestCase
     /** La hora como la escribe el aviso. */
     private function hourOf(string $startsAt): string
     {
-        return CarbonImmutable::parse($startsAt)->format('g:i a');
+        return Dates::time($startsAt);
     }
 
     private function text(WhatsappMessage $message): string
