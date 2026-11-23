@@ -66,6 +66,8 @@ class StaffAlerts
         return DatabaseNotification::query()
             ->whereNull('read_at')
             ->where('created_at', '<', today())
+            // El reporte del mes espera una semana a que lo abran: el día 1 puede caer domingo.
+            ->where(fn ($query) => $query->whereNull('data->viewData->monthlyReport')->orWhere('created_at', '<', today()->subWeek()))
             ->update(['read_at' => now()]);
     }
 
