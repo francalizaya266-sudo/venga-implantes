@@ -24,6 +24,9 @@ import { ErrorPage } from '@/pages/ErrorPage';
 /** Junto al acceso rápido entran dos filas de tratamientos; el resto está en su página. */
 const SERVICES_SHOWN = 8;
 
+/** En el celular, dos filas de dos: con las ocho, la portada medía más de ocho pantallas (site.css). */
+const SERVICES_ON_PHONE = 4;
+
 /**
  * La portada, en azul noche a todo el ancho: si está abierto, la frase del consultorio, qué es y una imagen. La
  * imagen es una cara antes que un objeto: la foto del inicio (Página web › Puesta a punto) va a la derecha; sin
@@ -219,6 +222,14 @@ function Start({ clinic, home }: { clinic: Clinic; home: HomeData }) {
             ) : null}
           </div>
           <ServiceCards treatments={shown} />
+          {home.treatments_count > SERVICES_ON_PHONE ? (
+            <p className="services-all">
+              <AppLink href={paths.treatments} className="btn quiet block">
+                Ver todos los tratamientos
+                <Icon name="arrow-right" />
+              </AppLink>
+            </p>
+          ) : null}
         </section>
       ) : null}
     </div>

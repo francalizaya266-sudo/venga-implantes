@@ -32,6 +32,8 @@ describe('HomePage', () => {
     );
     expect(services.getByRole('link', { name: /Ortodoncia.*Precio en la evaluación/ })).toBeInTheDocument();
     expect(services.getByRole('link', { name: 'Ver los 12 servicios' })).toHaveAttribute('href', '/tratamientos');
+    // En el celular salen cuatro tarjetas y, debajo, el enlace a todos (site.css).
+    expect(services.getByRole('link', { name: 'Ver todos los tratamientos' })).toHaveAttribute('href', '/tratamientos');
     // El inicio ya muestra dónde queda y el horario: el pie no los repite.
     expect(within(screen.getByRole('contentinfo')).queryByText('Abierto ahora')).not.toBeInTheDocument();
   });
@@ -108,6 +110,8 @@ describe('HomePage', () => {
     openHome({ can_book: false, shows_prices: false });
 
     await title();
+    // Con un solo servicio, en el celular no hay nada más que ver.
+    expect(screen.queryByRole('link', { name: 'Ver todos los tratamientos' })).not.toBeInTheDocument();
     expect(screen.queryByText('Horarios libres de verdad')).not.toBeInTheDocument();
     expect(screen.queryByText('Precios a la vista')).not.toBeInTheDocument();
   });
