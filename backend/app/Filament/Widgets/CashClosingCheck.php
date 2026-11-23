@@ -155,7 +155,8 @@ class CashClosingCheck extends Widget implements HasActions, HasSchemas
             ])
             ->action(function (array $data) {
                 $record = $this->closing()->close((float) $data['opening_cash'], (float) $data['counted_cash'], $data['notes'] ?? null, self::user());
-                $summaries = app(DaySummary::class)->send($this->closing(), $record);
+                // El resumen es un extra: si algo falla al armarlo, el día queda cerrado igual (y el error, en el registro).
+                $summaries = rescue(fn () => app(DaySummary::class)->send($this->closing(), $record), 0);
 
                 Notification::make()
                     ->success()

@@ -10,6 +10,7 @@ use App\Filament\Resources\Users\Pages\ManageUsers;
 use App\Filament\Widgets\CashClosingCheck;
 use App\Models\Appointment;
 use App\Models\Charge;
+use App\Models\DailyClosing;
 use App\Models\Doctor;
 use App\Models\Patient;
 use App\Models\Payment;
@@ -17,12 +18,14 @@ use App\Models\Setting;
 use App\Models\Treatment;
 use App\Models\User;
 use App\Models\WhatsappMessage;
+use App\Services\Billing\DaySummary;
 use App\Services\WhatsApp\WhatsAppOutbox;
 use Carbon\CarbonImmutable;
 use Filament\Actions\Testing\TestAction;
 use Filament\Notifications\Notification;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Livewire\Livewire;
+use RuntimeException;
 use Tests\Concerns\CreatesAgenda;
 use Tests\TestCase;
 
@@ -132,6 +135,39 @@ class DaySummaryTest extends TestCase
         $this->assertSame(MessageStatus::Cancelled, $first->fresh()->status);
         $this->assertStringContainsString('Arqueo: cuadra · cerró Elena Ríos', app(WhatsAppOutbox::class)->draft(WhatsappMessage::query()->pending()->sole()));
         $this->assertSame(2, $owner->notifications()->count());
+    }
+
+    public function test_on_saturday_it_counts_the_unconfirmed_appointments_of_the_next_day_with_visits(): void
+    {
+        $owner = User::factory()->admin()->create(['phone' => '+51987654321']);
+        // El domingo no se atiende: lo que importa el sábado son las citas del lunes.
+        $this->visit('Sofía', '2026-11-09 10:00', AppointmentStatus::Pending);
+        $this->visit('Juan', '2026-11-09 11:00', AppointmentStatus::Pending);
+        $this->visit('Marta', '2026-11-09 12:00', AppointmentStatus::Confirmed);
+        $this->visit('Pedro', '2026-11-08 10:00', AppointmentStatus::Cancelled);
+        $this->travelTo(CarbonImmutable::parse('2026-11-07 14:00', 'America/Lima'));
+        $this->actingAs($this->reception);
+
+        Livewire::test(CashClosingCheck::class, ['pageFilters' => ['date' => '2026-11-07']])
+            ->callAction('closeDay', ['opening_cash' => 100, 'counted_cash' => 100])
+            ->assertHasNoErrors();
+
+        $this->assertStringEndsWith('Citas del lunes 9 sin confirmar: 2', app(WhatsAppOutbox::class)->draft(WhatsappMessage::sole()));
+        $this->assertStringEndsWith('Citas del lunes 9 sin confirmar: 2', $owner->notifications()->sole()->data['body']);
+    }
+
+    public function test_if_the_summary_fails_the_day_is_closed_anyway(): void
+    {
+        $this->mock(DaySummary::class)->shouldReceive('send')->andThrow(new RuntimeException('Sin conexión con la base'));
+        $this->travelTo(CarbonImmutable::parse('2026-11-02 19:30', 'America/Lima'));
+        $this->actingAs($this->reception);
+
+        Livewire::test(CashClosingCheck::class, ['pageFilters' => ['date' => '2026-11-02']])
+            ->callAction('closeDay', ['opening_cash' => 100, 'counted_cash' => 100])
+            ->assertHasNoErrors()
+            ->assertNotified(Notification::make()->success()->title('Día cerrado')->body('Cuadra: el efectivo contado es el que debía haber.'));
+
+        $this->assertTrue(DailyClosing::isClosed('2026-11-02'));
     }
 
     public function test_the_phone_of_whoever_runs_the_clinic_is_set_in_users(): void
