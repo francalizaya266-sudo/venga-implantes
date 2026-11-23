@@ -206,6 +206,30 @@ class PatientImportTest extends TestCase
         $this->assertTrue($son->is($account->patients()->where('first_name', 'Mateo')->sole()));
     }
 
+    public function test_the_summary_only_names_what_happened(): void
+    {
+        $import = Import::query()->create([
+            'file_name' => 'pacientes.csv', 'file_path' => 'pacientes.csv', 'importer' => PatientImporter::class,
+            'total_rows' => 3, 'processed_rows' => 3, 'successful_rows' => 3, 'user_id' => User::factory()->reception()->create()->id,
+        ]);
+
+        $this->assertSame('Se importaron 3 pacientes.', PatientImporter::getCompletedNotificationBody($import));
+
+        $import->failedRows()->create(['data' => [], 'validation_error' => 'El DNI tiene 8 dígitos.']);
+        $import->update(['total_rows' => 4, 'processed_rows' => 4]);
+
+        $this->assertSame('Se importaron 3 pacientes. 1 fila tiene datos por corregir. Descarga el archivo para ver cuál y por qué.', PatientImporter::getCompletedNotificationBody($import));
+
+        $import->failedRows()->delete();
+        $import->failedRows()->createMany([
+            ['data' => [], 'validation_error' => PatientImporter::ALREADY_REGISTERED.' (mismo DNI): Carla Ríos. No se cambió nada.'],
+            ['data' => [], 'validation_error' => PatientImporter::ALREADY_REGISTERED.' (mismo celular y nombre): Luis Torres. No se cambió nada.'],
+        ]);
+        $import->update(['total_rows' => 2, 'processed_rows' => 2, 'successful_rows' => 0]);
+
+        $this->assertSame('No se importó ningún paciente. 2 ya estaban registrados y quedaron como estaban. Descarga el archivo para ver cuáles y por qué.', PatientImporter::getCompletedNotificationBody($import));
+    }
+
     public function test_a_dni_that_belongs_to_someone_else_is_not_touched(): void
     {
         $pedro = Patient::factory()->create(['first_name' => 'Pedro', 'last_name' => 'Ramos', 'document_number' => '45678912', 'email' => null]);

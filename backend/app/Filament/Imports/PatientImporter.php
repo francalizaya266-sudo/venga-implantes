@@ -243,13 +243,16 @@ class PatientImporter extends Importer
             return $body;
         }
 
-        $reasons = array_filter([
-            $already > 0 ? ($already === 1 ? '1 ya estaba registrado' : number_format($already).' ya estaban registrados') : null,
-            $toFix > 0 ? ($toFix === 1 ? '1 tiene datos por corregir' : number_format($toFix).' tienen datos por corregir') : null,
-        ]);
+        $alreadyText = $already === 1 ? '1 ya estaba registrado' : number_format($already).' ya estaban registrados';
+        $toFixText = $toFix === 1 ? '1 tiene datos por corregir' : number_format($toFix).' tienen datos por corregir';
 
-        return $body.' '.($failed === 1 ? '1 fila no se importó' : number_format($failed).' filas no se importaron').': '
-            .implode(' y ', $reasons).'. Descarga el archivo para ver cuáles y por qué.';
+        $failures = match (true) {
+            $already > 0 && $toFix > 0 => number_format($failed).' filas no se importaron: '.$alreadyText.' y '.$toFixText.'.',
+            $already > 0 => $alreadyText.($already === 1 ? ' y quedó como estaba.' : ' y quedaron como estaban.'),
+            default => $toFix === 1 ? '1 fila tiene datos por corregir.' : number_format($toFix).' filas tienen datos por corregir.',
+        };
+
+        return $body.' '.$failures.' Descarga el archivo para ver '.($failed === 1 ? 'cuál' : 'cuáles').' y por qué.';
     }
 
     /**
