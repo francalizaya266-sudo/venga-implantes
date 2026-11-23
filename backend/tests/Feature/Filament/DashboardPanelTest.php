@@ -8,6 +8,7 @@ use App\Enums\MessageStatus;
 use App\Enums\MessageTemplateKey;
 use App\Enums\ScheduleBlockType;
 use App\Enums\TreatmentPlanStatus;
+use App\Filament\Pages\Agenda;
 use App\Filament\Pages\Dashboard;
 use App\Filament\Pages\Earnings;
 use App\Filament\Pages\Settings;
@@ -1302,6 +1303,23 @@ class DashboardPanelTest extends TestCase
         // Recepción no ve el estado del sistema.
         $this->actingAs(User::factory()->reception()->create());
         $this->assertFalse(SystemHealth::canView());
+    }
+
+    public function test_on_home_a_missing_backup_is_said_once_at_the_top_and_not_again_in_the_menu(): void
+    {
+        $this->actingAs(User::factory()->admin()->create());
+
+        // Sin copias: arriba, en rojo; el pie del menú no lo repite.
+        $this->get(Dashboard::getUrl())->assertOk()
+            ->assertSee('Todavía no hay copias de seguridad')
+            ->assertDontSee('backup-status is-', false);
+
+        // En las demás pantallas, el pie del menú es el único aviso.
+        $this->get(Agenda::getUrl())->assertOk()->assertSee('backup-status is-danger', false);
+
+        // Con la copia al día, el menú lo dice también en "Hoy": no hay nada repetido.
+        Storage::disk('local')->put('respaldos/respaldo_2026-11-02_030000.sql.gz', 'copia');
+        $this->get(Dashboard::getUrl())->assertOk()->assertSee('backup-status is-success', false);
     }
 
     public function test_the_admin_sets_a_monthly_goal_in_settings(): void
