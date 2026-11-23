@@ -426,7 +426,7 @@ class PatientsAndSetupPanelTest extends TestCase
         // Abren vacíos y dicen qué sale así, con la ciudad de Ajustes.
         Livewire::test(WebSetup::class)
             ->assertSchemaStateSet(['web.headline' => null, 'web.intro' => null])
-            ->assertSee(['Vacío = «Implantes y odontología en Juliaca».', 'Vacía = «Tu dentista en Juliaca. Reserva en 2 minutos.».'])
+            ->assertSee(['Vacío = «Implantes y odontología en Juliaca».', 'Vacía = «Tu dentista en Juliaca. Reserva en 2 minutos».'])
             ->fillForm(['web' => ['headline' => 'Tu sonrisa en Juliaca', 'intro' => '']])
             ->call('save')
             ->assertHasNoFormErrors();

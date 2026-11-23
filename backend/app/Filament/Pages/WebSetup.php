@@ -132,7 +132,7 @@ class WebSetup extends Page
                             ->rows(2)
                             ->maxLength(220)
                             ->placeholder(fn () => app(ClinicInfo::class)->defaultIntro())
-                            ->helperText(fn () => 'Vacía = «'.app(ClinicInfo::class)->defaultIntro().'».'),
+                            ->helperText(fn () => 'Vacía = «'.rtrim(app(ClinicInfo::class)->defaultIntro(), '.').'».'),
                         Textarea::make('web.about')
                             ->label('Sobre el consultorio')
                             ->rows(4)
