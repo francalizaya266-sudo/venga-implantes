@@ -83,6 +83,7 @@ final class ChangeHistory
         DatabaseBackup::KEEP_SETTING => 'Copias de los datos que se guardan',
         'reports.doctors_see_own' => 'Cada doctor ve sus propios ingresos y gráficos',
         'reports.monthly_goal' => 'Meta de cobro del mes',
+        'inventory.deduct_on_close' => 'Al terminar una atención, revisar y descontar los materiales usados',
         'web.tagline' => 'Frase arriba del título de la web',
         'web.headline' => 'Título del inicio de la web',
         'web.intro' => 'Frase bajo el título de la web',
@@ -189,7 +190,7 @@ final class ChangeHistory
     /** Datos que el sistema lleva por dentro: no son cambios que alguien hizo en una pantalla. */
     public const INTERNAL = ['id', 'key', 'doctor_id', 'created_by_user_id', 'last_login_at', 'email_verified_at', 'deleted_at'];
 
-    private const YES_NO = ['is_dentist', 'is_active', 'must_change_password', 'is_public', 'accepts_online_booking', 'show_price', 'is_evaluation', 'online_bookable', 'for_two', 'allows_upfront', 'allows_installments', 'reports.doctors_see_own'];
+    private const YES_NO = ['is_dentist', 'is_active', 'must_change_password', 'is_public', 'accepts_online_booking', 'show_price', 'is_evaluation', 'online_bookable', 'for_two', 'allows_upfront', 'allows_installments', 'reports.doctors_see_own', 'inventory.deduct_on_close'];
 
     private const MONEY = ['price_from', 'price', 'upfront_discount', 'down_payment', 'monthly_amount', 'reports.monthly_goal'];
 

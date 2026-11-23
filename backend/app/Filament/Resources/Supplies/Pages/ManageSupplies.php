@@ -9,6 +9,7 @@ use App\Filament\Resources\StockMovements\StockMovementResource;
 use App\Filament\Resources\Supplies\SupplyResource;
 use App\Models\PurchaseOrder;
 use App\Models\Supply;
+use App\Services\Inventory\InventoryService;
 use App\Services\Inventory\StarterCatalog;
 use App\Services\Inventory\SupplyForecast;
 use Filament\Actions\Action;
@@ -28,7 +29,10 @@ class ManageSupplies extends ManageRecords
 
     public function getSubheading(): ?string
     {
-        return 'Cada atención descuenta lo que usa su tratamiento. Si algo baja del mínimo o está por vencer, te avisa.';
+        return (InventoryService::deductsOnClose()
+            ? 'Cada atención descuenta lo que usa su tratamiento.'
+            : 'Las atenciones no descuentan nada (está apagado en Ajustes): lo que entra y sale se anota aquí y con el conteo.')
+            .' Si algo baja del mínimo o está por vencer, te avisa.';
     }
 
     protected function getHeaderActions(): array

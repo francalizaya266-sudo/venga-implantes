@@ -188,6 +188,12 @@ return [
             'monthly_goal' => null,
         ],
 
+        'inventory' => [
+            // Si al terminar una atención el doctor revisa los materiales que usó y salen del inventario.
+            // Apagado, el inventario se mueve solo con lo que se anota a mano: compras, bajas y el conteo.
+            'deduct_on_close' => true,
+        ],
+
         'links' => [
             'appointment_link_days_after' => 2,
             'access_link_hours' => 72,

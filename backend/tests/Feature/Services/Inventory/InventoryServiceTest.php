@@ -129,6 +129,33 @@ class InventoryServiceTest extends TestCase
         $this->assertSame(1, StockMovement::query()->where('appointment_id', $appointment->id)->count());
     }
 
+    public function test_with_the_deduction_turned_off_nothing_leaves_and_what_left_before_stays(): void
+    {
+        $treatment = Treatment::factory()->create();
+        $gauze = Supply::factory()->create(['name' => 'Gasas', 'min_stock' => 0]);
+        $treatment->supplies()->attach($gauze->id, ['quantity' => 4]);
+        $this->inventory()->receive($gauze, 100, $this->reception);
+        $doctor = $this->doctorOffering($treatment);
+        $closedBefore = $this->consultations()->startFromAppointment(Appointment::factory()->for($doctor)->for($treatment)->at('2026-11-02 09:00')->confirmed()->create(), $doctor->user);
+        $this->consultations()->close($closedBefore, $doctor->user);
+        $this->assertSame('96.00', $gauze->fresh()->stock);
+
+        Setting::set('inventory.deduct_on_close', false);
+
+        // Lo que salió con el descuento encendido se queda al reabrir: al volver a terminar no se descontaría de nuevo.
+        $this->consultations()->reopen($closedBefore->fresh(), $doctor->user);
+        $this->consultations()->close($closedBefore->fresh(), $doctor->user);
+        $this->assertSame('96.00', $gauze->fresh()->stock);
+
+        // Ni la atención del doctor (aunque llegue una lista) ni la cita que cierra recepción descuentan algo.
+        $consultation = $this->consultations()->startFromAppointment(Appointment::factory()->for($doctor)->for($treatment)->at('2026-11-02 10:00')->confirmed()->create(), $doctor->user);
+        $this->consultations()->close($consultation, $doctor->user, [['supply_id' => $gauze->id, 'quantity' => 2]]);
+        app(AppointmentService::class)->markCompleted(Appointment::factory()->for($doctor)->for($treatment)->at('2026-11-02 11:00')->confirmed()->create(), $this->reception);
+
+        $this->assertSame('96.00', $gauze->fresh()->stock);
+        $this->assertSame([$closedBefore->id], StockMovement::query()->used()->pluck('consultation_id')->all());
+    }
+
     public function test_using_more_than_registered_goes_negative_until_the_next_purchase_covers_it(): void
     {
         $gloves = Supply::factory()->create(['min_stock' => 0]);

@@ -153,7 +153,7 @@ final class ConsultationService
     /**
      * Termina la atención: queda cerrada, la cita pasa a "atendida", avanza el plan, se carga lo
      * realizado y salen del inventario los materiales usados (los que corrigió el doctor o, si no,
-     * la receta de lo trabajado).
+     * la receta de lo trabajado), salvo que ese descuento esté apagado en Ajustes.
      *
      * @param  list<array{supply_id: int|string|null, quantity: float|int|string|null, batch_id?: int|string|null}>|null  $suppliesUsed
      */

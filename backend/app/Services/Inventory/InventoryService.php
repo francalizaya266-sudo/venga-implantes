@@ -145,12 +145,26 @@ final class InventoryService
     }
 
     /**
+     * Si cada atención descuenta del inventario lo que usó. Se apaga en Ajustes › Inventario: entonces al terminar
+     * no se revisan materiales y el inventario se mueve solo con lo que se anota a mano (compras, bajas y el conteo).
+     */
+    public static function deductsOnClose(): bool
+    {
+        return (bool) Setting::get('inventory.deduct_on_close', true);
+    }
+
+    /**
      * Al terminar la atención sale lo que se usó: la receta de lo trabajado, corregida por el doctor.
+     * Con el descuento apagado en Ajustes no sale nada.
      *
      * @param  list<array{supply_id: int|string|null, quantity: float|int|string|null, batch_id?: int|string|null}>  $lines
      */
     public function useForConsultation(Consultation $consultation, array $lines, User $by): void
     {
+        if (! self::deductsOnClose()) {
+            return;
+        }
+
         DB::transaction(function () use ($consultation, $lines, $by) {
             // Si ya había algo registrado (no debería), se devuelve antes: nunca se descuenta dos veces.
             $this->revertConsultation($consultation, $by);
@@ -173,9 +187,16 @@ final class InventoryService
         });
     }
 
-    /** Al reabrir la atención, lo usado vuelve al stock (y a su lote) hasta que se vuelva a terminar. */
+    /**
+     * Al reabrir la atención, lo usado vuelve al stock (y a su lote) hasta que se vuelva a terminar.
+     * Con el descuento apagado se queda como está: al volver a terminar no se descontaría de nuevo.
+     */
     public function revertConsultation(Consultation $consultation, User $by): void
     {
+        if (! self::deductsOnClose()) {
+            return;
+        }
+
         DB::transaction(function () use ($consultation, $by) {
             $uses = StockMovement::query()->used()->where('consultation_id', $consultation->getKey())->with(['supply', 'batch'])->get();
             $now = now();
@@ -197,11 +218,11 @@ final class InventoryService
 
     /**
      * Cita marcada como atendida sin atención escrita (la cerró recepción): sale la receta de su
-     * tratamiento. Los implantes no, porque no se sabe qué unidad se usó.
+     * tratamiento. Los implantes no, porque no se sabe qué unidad se usó. Con el descuento apagado, nada.
      */
     public function useForAppointment(Appointment $appointment, User $by): void
     {
-        if ($appointment->consultation()->exists() || StockMovement::query()->where('appointment_id', $appointment->getKey())->exists()) {
+        if (! self::deductsOnClose() || $appointment->consultation()->exists() || StockMovement::query()->where('appointment_id', $appointment->getKey())->exists()) {
             return;
         }
 

@@ -6,6 +6,7 @@ use App\Enums\MessageChannel;
 use App\Filament\Concerns\HasSettingsMenuGroup;
 use App\Filament\Pages\Concerns\EditsSettings;
 use App\Filament\Resources\MessageTemplates\MessageTemplateResource;
+use App\Filament\Resources\Supplies\SupplyResource;
 use App\Models\Setting;
 use App\Services\WhatsApp\WhatsAppOutbox;
 use App\Support\Dates;
@@ -29,8 +30,8 @@ use Filament\Support\Enums\FontWeight;
 use Filament\Support\Icons\Heroicon;
 
 /**
- * Datos del consultorio, reglas de la agenda y de las reservas web, las horas de los avisos y lo de dinero
- * (presupuestos, meta y reportes).
+ * Datos del consultorio, reglas de la agenda y de las reservas web, las horas de los avisos, lo de dinero
+ * (presupuestos, meta y reportes) y si cada atención descuenta del inventario lo que usó.
  * Lo de la página web va en Página web › Puesta a punto. Lo que se guarda aquí reemplaza los valores de
  * config/consultorio.php.
  *
@@ -103,6 +104,7 @@ class Settings extends Page
             'plans.valid_days' => 'int',
             'reports.doctors_see_own' => 'bool',
             'reports.monthly_goal' => 'optional_int',
+            'inventory.deduct_on_close' => 'bool',
         ];
     }
 
@@ -311,6 +313,29 @@ class Settings extends Page
                                         Toggle::make('reports.doctors_see_own')
                                             ->label('Cada doctor ve sus propios ingresos y gráficos')
                                             ->helperText('Solo lo suyo: lo que atendió y lo que se cobró de sus citas. Recepción no ve reportes.')
+                                            ->inline(false),
+                                    ]),
+                            ]),
+                        // Antes, si había materiales cargados, al terminar cada atención siempre salía la lista de lo usado.
+                        Tab::make('Inventario')
+                            ->icon(Heroicon::OutlinedArchiveBox)
+                            ->schema([
+                                Section::make('Al terminar una atención')
+                                    ->headerActions([
+                                        Action::make('supplies')
+                                            ->label('Ir al inventario')
+                                            ->link()
+                                            ->icon(Heroicon::OutlinedArrowTopRightOnSquare)
+                                            ->url(fn () => SupplyResource::getUrl('index'))
+                                            ->visible(fn () => SupplyResource::canAccess()),
+                                    ])
+                                    ->schema([
+                                        Toggle::make('inventory.deduct_on_close')
+                                            ->label('Revisar y descontar los materiales usados')
+                                            ->live()
+                                            ->helperText(fn (Get $get) => $get('inventory.deduct_on_close')
+                                                ? 'Encendido: al terminar, el doctor ve la lista de materiales (ya llena con la receta de lo que hizo), borra o agrega lo que haga falta y eso sale del inventario. Lo mismo cuando recepción marca una cita como atendida.'
+                                                : 'Apagado: la atención se termina con una sola confirmación y no sale nada del inventario. Lo que entra y sale se anota a mano en Inventario y con el conteo del mes.')
                                             ->inline(false),
                                     ]),
                             ]),
