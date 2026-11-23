@@ -8,6 +8,7 @@
     preload: las respuestas de la API que el frontend usaría para pintar esta página, por su dirección.
     error: el estado, si Laravel está respondiendo con un error (403, 404, 429…).
     clinic: el nombre del consultorio.
+    contact: su teléfono con +51 (y el enlace para llamar) y su dirección, para quien abre la web sin JavaScript.
     module: el código de la página, si el frontend lo baja aparte (SpaController::MODULES).
 --}}
 <!DOCTYPE html>
@@ -57,6 +58,12 @@
 <noscript>
     <p style="max-width: 40rem; margin: 3rem auto; padding: 0 1.25rem; font: 1rem/1.5 system-ui, sans-serif;">
         Para ver {{ $clinic }} y reservar tu cita, activa JavaScript en tu navegador.
+        @if ($contact['phone'])
+            También puedes llamarnos al <a href="{{ $contact['phone_href'] }}">{{ $contact['phone'] }}</a>.
+        @endif
+        @if ($contact['address'])
+            Nos encuentras en {{ $contact['address'] }}.
+        @endif
     </p>
 </noscript>
 {{-- Los datos de la página: JSON_HEX_TAG no deja cerrar la etiqueta desde un texto. --}}

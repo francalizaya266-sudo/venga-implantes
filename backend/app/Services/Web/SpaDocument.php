@@ -35,7 +35,7 @@ final class SpaDocument
      * @param  string  $resource  El nombre de la ruta de la API que entrega los datos de la página.
      * @param  array<string, mixed>  $parameters  Los parámetros de la dirección ("slug", "token"…).
      * @param  array<string, string>  $query  Los parámetros de consulta que la página le pasa a la API.
-     * @return array{meta: array<string, mixed>, preload: array<string, array{status: int, body: mixed}>, status: int, error: int|null, clinic: string}
+     * @return array{meta: array<string, mixed>, preload: array<string, array{status: int, body: mixed}>, status: int, error: int|null, clinic: string, contact: array{phone: string|null, phone_href: string|null, address: string|null}}
      */
     public function forPage(Request $request, string $resource, array $parameters = [], array $query = []): array
     {
@@ -52,7 +52,7 @@ final class SpaDocument
     /**
      * El documento de un error (403, 404, 429…): la web, con su encabezado y su pie, diciendo qué pasó.
      *
-     * @return array{meta: array<string, mixed>, preload: array<string, array{status: int, body: mixed}>, status: int, error: int|null, clinic: string}
+     * @return array{meta: array<string, mixed>, preload: array<string, array{status: int, body: mixed}>, status: int, error: int|null, clinic: string, contact: array{phone: string|null, phone_href: string|null, address: string|null}}
      */
     public function forError(Request $request, int $status): array
     {
@@ -79,11 +79,12 @@ final class SpaDocument
     /**
      * @param  array<string, mixed>  $meta
      * @param  array<string, array{status: int, body: mixed}>  $preload
-     * @return array{meta: array<string, mixed>, preload: array<string, array{status: int, body: mixed}>, status: int, error: int|null, clinic: string}
+     * @return array{meta: array<string, mixed>, preload: array<string, array{status: int, body: mixed}>, status: int, error: int|null, clinic: string, contact: array{phone: string|null, phone_href: string|null, address: string|null}}
      */
     private function document(array $meta, array $preload, Request $request, int $status, ?int $error = null): array
     {
         $site = $this->call($request, self::SITE);
+        $phone = $this->clinic->internationalPhone();
 
         return [
             'meta' => $meta,
@@ -91,6 +92,12 @@ final class SpaDocument
             'status' => $status,
             'error' => $error,
             'clinic' => $this->clinic->name(),
+            // Para quien abre la web sin JavaScript (y para Google): cómo llamar y dónde queda.
+            'contact' => [
+                'phone' => $phone,
+                'phone_href' => $phone ? 'tel:'.preg_replace('/[^\d+]/', '', $phone) : null,
+                'address' => $this->clinic->fullAddress(),
+            ],
         ];
     }
 

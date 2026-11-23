@@ -15,13 +15,15 @@ final class PageMeta
     public function __construct(
         private readonly ClinicInfo $clinic,
         private readonly PageTexts $texts,
+        private readonly StructuredData $structuredData,
     ) {}
 
     /**
      * @param  string|null  $title  El título de la página, sin el nombre del consultorio. Null: el del inicio.
      * @param  string|null  $page  La página con encabezado editable (PageTexts): pone su título si no se dio otro.
      * @param  string|null  $image  La imagen al compartir. Null: la foto del consultorio o la de la marca.
-     * @param  list<array<string, mixed>>  $jsonLd  Datos estructurados de schema.org.
+     * @param  list<array<string, mixed>>  $jsonLd  Datos estructurados de schema.org. En una página que Google puede
+     *                                              mostrar se suma el consultorio, si no vienen ya sus datos completos.
      * @return array{title: string, og_title: string, description: string|null, image: string, noindex: bool, json_ld: list<array<string, mixed>>}
      */
     public function for(?string $title = null, ?string $page = null, ?string $description = null, ?string $image = null, bool $noindex = false, array $jsonLd = []): array
@@ -36,8 +38,22 @@ final class PageMeta
             'description' => $description ?? ($page !== null ? $this->pageDescription($page) : null) ?? $this->clinic->intro(),
             'image' => url($image ?? $this->clinic->heroImageUrl() ?? asset('imagen-al-compartir.jpg')),
             'noindex' => $noindex,
-            'json_ld' => array_values($jsonLd),
+            'json_ld' => $this->withClinic(array_values($jsonLd), $noindex),
         ];
+    }
+
+    /**
+     * Cada página que Google puede mostrar dice de quién es y cómo llamar (con el +51): Google no toma como teléfono del
+     * consultorio el que solo sale en los enlaces de la página. El inicio y Contacto ya traen el consultorio completo.
+     *
+     * @param  list<array<string, mixed>>  $jsonLd
+     * @return list<array<string, mixed>>
+     */
+    private function withClinic(array $jsonLd, bool $noindex): array
+    {
+        $hasClinic = collect($jsonLd)->contains(fn (array $data): bool => ($data['@type'] ?? null) === 'Dentist');
+
+        return $noindex || $hasClinic ? $jsonLd : [...$jsonLd, $this->structuredData->clinicReference()];
     }
 
     /**

@@ -86,6 +86,45 @@ class SpaControllerTest extends TestCase
         );
     }
 
+    public function test_every_page_google_can_show_says_whose_it_is_and_how_to_call_even_without_javascript(): void
+    {
+        Setting::set('clinic.name', 'Clínica Vega');
+        Setting::set('clinic.address', 'Jr. Apurímac 648');
+        Setting::set('clinic.district', 'Juliaca');
+        Setting::set('clinic.whatsapp', '918 874 568');
+        Treatment::factory()->create(['slug' => 'limpieza']);
+
+        foreach (['site.team', 'site.treatments', 'site.faq', 'site.privacy', 'site.booking', 'site.home', 'site.contact'] as $page) {
+            $clinics = $this->clinicsForGoogle($this->get(route($page))->assertOk());
+
+            // Una sola vez, y el mismo consultorio en todas: el teléfono con el código del país.
+            $this->assertCount(1, $clinics, $page);
+            $this->assertSame(url('/').'#consultorio', $clinics[0]['@id'], $page);
+            $this->assertSame('+51 918 874 568', $clinics[0]['telephone'], $page);
+            $this->assertSame('Jr. Apurímac 648', $clinics[0]['address']['streetAddress'], $page);
+        }
+        $this->assertCount(1, $this->clinicsForGoogle($this->get(route('site.treatment', 'limpieza'))));
+
+        // Lo que Google no muestra no lo necesita.
+        $this->assertSame([], $this->clinicsForGoogle($this->get(route('site.account'))));
+
+        $this->get(route('site.team'))
+            ->assertSee('También puedes llamarnos al <a href="tel:+51918874568">+51 918 874 568</a>.', false)
+            ->assertSee('Nos encuentras en Jr. Apurímac 648, Juliaca.', false);
+    }
+
+    /** @return list<array<string, mixed>> Los datos del consultorio (Dentist) que el documento le da a Google. */
+    private function clinicsForGoogle(TestResponse $response): array
+    {
+        preg_match_all('#<script type="application/ld\+json">(.*?)</script>#s', (string) $response->getContent(), $found);
+
+        return collect($found[1])
+            ->map(fn (string $json): array => json_decode($json, true, flags: JSON_THROW_ON_ERROR))
+            ->filter(fn (array $data): bool => $data['@type'] === 'Dentist')
+            ->values()
+            ->all();
+    }
+
     /**
      * La ruta de cada página de la web y el recurso de la API con que abre.
      *
