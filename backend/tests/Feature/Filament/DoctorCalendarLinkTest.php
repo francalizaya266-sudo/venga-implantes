@@ -37,8 +37,9 @@ class DoctorCalendarLinkTest extends TestCase
         $url = app(DoctorCalendarFeed::class)->url($doctor->refresh());
         $this->assertNotNull($url);
 
-        $page->assertSee([$url, 'Agregar al iPhone', 'Añadir calendario suscrito', 'calendar.google.com', 'Cambiar el enlace'])
+        $page->assertSee([$url, 'Copiar el enlace', 'Agregar al iPhone', 'Añadir calendario suscrito', 'calendar.google.com', 'Cambiar el enlace'])
             ->assertDontSee('Crear mi enlace')
+            ->assertActionVisible($this->action('copyCalendarLink'))
             ->assertActionHasUrl($this->action('addToIphone'), str_replace('http://', 'webcal://', $url));
 
         $this->get($url)->assertOk();

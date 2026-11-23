@@ -4,6 +4,7 @@ namespace App\Filament\Pages\Auth;
 
 use App\Filament\Forms\WebPhotoUpload;
 use App\Filament\Forms\WeeklySchedule;
+use App\Filament\Support\CopyLink;
 use App\Models\Doctor;
 use App\Models\DoctorSchedule;
 use App\Services\Agenda\DoctorCalendarFeed;
@@ -121,6 +122,11 @@ class EditProfile extends BaseEditProfile
 
                             Notification::make()->success()->title('Enlace creado')->body('Cópialo y agrégalo en tu celular.')->send();
                         }),
+                    Action::make('copyCalendarLink')
+                        ->label('Copiar el enlace')
+                        ->icon(Heroicon::OutlinedClipboardDocument)
+                        ->visible(fn () => $this->calendarUrl() !== null)
+                        ->alpineClickHandler(fn () => CopyLink::js((string) $this->calendarUrl())),
                     Action::make('addToIphone')
                         ->label('Agregar al iPhone')
                         ->icon(Heroicon::OutlinedDevicePhoneMobile)
