@@ -28,6 +28,9 @@ class PanelTypeScaleTest extends TestCase
         $loose = collect($rules)
             ->map(fn (array $rule): array => ['selector' => trim($rule[1]), 'size' => trim($rule[2])])
             ->reject(fn (array $rule): bool => Str::contains($rule['selector'], self::APART))
+            // Un 0 no es un tamaño: esconde el nombre de un botón que sigue leyendo el lector de pantalla (el paso de
+            // la cita en una columna angosta de la agenda, que ahí va solo con su ícono).
+            ->reject(fn (array $rule): bool => $rule['size'] === '0')
             ->reject(fn (array $rule): bool => in_array(self::pixels($rule['size']), self::SCALE, true))
             ->map(fn (array $rule): string => "{$rule['selector']}: {$rule['size']}")
             ->values()
