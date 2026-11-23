@@ -121,7 +121,7 @@ class UserResource extends Resource
                 TextColumn::make('role')
                     ->label('Rol')
                     ->badge()
-                    ->description(fn (User $record) => $record->isAdmin() && $record->is_dentist ? 'Odontólogo' : null),
+                    ->description(fn (User $record) => $record->isAdmin() && $record->is_dentist ? 'Dentista' : null),
                 TextColumn::make('last_login_at')
                     ->label('Último ingreso')
                     ->since()
