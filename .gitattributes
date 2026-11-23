@@ -1,4 +1,6 @@
 * text=auto eol=lf
+# Windows lee los .bat con saltos de línea CRLF: con LF fallan algunos bloques.
+*.bat text eol=crlf
 
 *.blade.php diff=html
 *.css diff=css

@@ -31,13 +31,7 @@ use Illuminate\Support\Collection;
 class AppointmentReminders
 {
     /** Avisos que ya le dicen al paciente cuándo es su cita: con uno de ese mismo día, el recordatorio sobra. */
-    private const TELLS_THE_DATE = [
-        MessageTemplateKey::Reminder,
-        MessageTemplateKey::BookingConfirmation,
-        MessageTemplateKey::AppointmentScheduled,
-        MessageTemplateKey::Rescheduled,
-        MessageTemplateKey::RescheduleApproved,
-    ];
+    private const TELLS_THE_DATE = MessageTemplateKey::TELLS_THE_DATE;
 
     /** Avisos que solo sirven antes de la cita: pasada la hora, salen de "Por enviar". */
     private const ONLY_BEFORE_THE_VISIT = [
@@ -87,7 +81,7 @@ class AppointmentReminders
         $appointments = $this->comingUp(Appointment::query()->upcoming())
             ->with(['patient.account', 'doctor', 'treatment'])
             ->get()
-            ->filter(fn (Appointment $appointment) => now()->gte($this->remindAt($appointment)));
+            ->filter(fn (Appointment $appointment) => $this->isTimeToRemind($appointment));
 
         $told = $this->lastTold($appointments);
 
@@ -153,6 +147,18 @@ class AppointmentReminders
             ->whereIn('template_key', self::ONLY_BEFORE_THE_VISIT)
             ->whereHas('appointment', fn (Builder $query) => $query->where('starts_at', '<', now()))
             ->update(['status' => MessageStatus::Cancelled]);
+    }
+
+    /**
+     * ¿A esta cita ya le toca tener listo su recordatorio? Es de mañana en adelante y ya pasó la hora en que se prepara.
+     * Cuando la cita cambia de horario, dice si su recordatorio sigue (con la hora nueva) o se retira hasta que le toque.
+     */
+    public function isTimeToRemind(Appointment $appointment): bool
+    {
+        /** @var CarbonInterface $startsAt */
+        $startsAt = $appointment->starts_at;
+
+        return $startsAt->gte(today()->addDay()) && now()->gte($this->remindAt($appointment));
     }
 
     /** El día (a las 00:00) en que se le recuerda la cita: el último en que el consultorio atiende antes de ella. */

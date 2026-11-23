@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Doctors\Pages;
 
 use App\Filament\Pages\Agenda;
 use App\Filament\Resources\Doctors\DoctorResource;
+use App\Filament\Resources\Doctors\RelationManagers\TreatmentsRelationManager;
 use App\Filament\Resources\Doctors\Schemas\DoctorForm;
 use App\Models\Appointment;
 use App\Services\Agenda\AvailabilityService;
@@ -14,6 +15,7 @@ use Filament\Actions\DeleteAction;
 use Filament\Actions\RestoreAction;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
+use Livewire\Attributes\On;
 
 class EditDoctor extends EditRecord
 {
@@ -70,6 +72,13 @@ class EditDoctor extends EditRecord
                     ->url(Agenda::getUrl(['date' => $first->starts_at->toDateString(), 'doctor' => $this->getRecord()->getKey()])),
             ])
             ->send();
+    }
+
+    /** Al agregar o quitar tratamientos abajo, el aviso de arriba ("Todavía no se le puede agendar") se pone al día sin recargar. */
+    #[On(TreatmentsRelationManager::CHANGED)]
+    public function refreshWhatIsMissing(): void
+    {
+        // Basta con recibir el aviso: Livewire vuelve a pintar la ficha y el aviso se calcula de nuevo.
     }
 
     protected function getSavedNotificationTitle(): ?string

@@ -23,4 +23,20 @@ class DatesTest extends TestCase
     {
         $this->assertSame($expected, Dates::duration($minutes));
     }
+
+    public static function times(): array
+    {
+        return [
+            'de mañana' => ['09:30', "9:30\u{00A0}a.\u{00A0}m."],
+            'de tarde' => ['15:00', "3:00\u{00A0}p.\u{00A0}m."],
+            'mediodía' => ['12:00', "12:00\u{00A0}p.\u{00A0}m."],
+        ];
+    }
+
+    /** Una sola forma de escribir la hora, la de la web: también la usan los avisos de WhatsApp y el panel. */
+    #[DataProvider('times')]
+    public function test_a_time_reads_like_on_the_website(string $time, string $expected): void
+    {
+        $this->assertSame($expected, Dates::time($time));
+    }
 }

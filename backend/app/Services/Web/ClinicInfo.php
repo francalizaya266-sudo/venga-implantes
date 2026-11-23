@@ -143,20 +143,34 @@ final class ClinicInfo
         return $this->text('clinic.hours_note');
     }
 
-    /** La frase corta de arriba del título del inicio ("Innovación y cuidado dental"), o null si la dejaron vacía. */
+    /** La frase corta de arriba del título del inicio, o null si está vacía (así viene: un lema no informa). */
     public function tagline(): ?string
     {
         return $this->text('web.tagline');
     }
 
+    /** El título del inicio: el que escribieron en la puesta a punto o, si lo dejaron vacío, el del sistema. */
     public function headline(): string
     {
-        return $this->text('web.headline') ?? $this->name();
+        return $this->text('web.headline') ?? $this->defaultHeadline();
     }
 
-    public function intro(): ?string
+    /** "Implantes y odontología en Juliaca": qué se atiende y dónde, con la ciudad de Ajustes. Sin ciudad, sin el "en". */
+    public function defaultHeadline(): string
     {
-        return $this->text('web.intro');
+        return 'Implantes y odontología'.($this->district() ? ' en '.$this->district() : '');
+    }
+
+    /** La frase bajo el título del inicio: la de la puesta a punto o, si la dejaron vacía, la del sistema. */
+    public function intro(): string
+    {
+        return $this->text('web.intro') ?? $this->defaultIntro();
+    }
+
+    /** "Tu dentista en Juliaca. Reserva en 2 minutos.", con la ciudad de Ajustes. */
+    public function defaultIntro(): string
+    {
+        return ($this->district() ? 'Tu dentista en '.$this->district().'. ' : '').'Reserva en 2 minutos.';
     }
 
     public function about(): ?string

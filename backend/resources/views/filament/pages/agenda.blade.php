@@ -50,10 +50,10 @@
                         <x-filament::icon icon="heroicon-m-chevron-right" class="agenda-nav-icon" />
                     </button>
                 </div>
-                <x-filament::input.wrapper class="agenda-date">
-                    {{-- Al escribir la fecha a mano se espera a que termine: cada tecla no recarga la agenda. --}}
-                    <x-filament::input type="date" wire:model.live.debounce.800ms="date" aria-label="Ir a la fecha" />
-                </x-filament::input.wrapper>
+                {{-- El calendario del panel: en español y dd/mm/aaaa, aunque la computadora esté en inglés. --}}
+                <div class="agenda-date">
+                    {{ $this->dateForm }}
+                </div>
             </div>
 
             <div class="agenda-toolbar-group">
@@ -460,7 +460,7 @@
                         @else
                             <span class="agenda-head-avatar" style="--doc: {{ $column['color'] }}" aria-hidden="true">{{ $column['initials'] }}</span>
                             <span class="agenda-head-text">
-                                <span class="agenda-head-title">{{ $column['title'] }}</span>
+                                <span class="agenda-head-title" title="{{ $column['title'] }}">{{ $column['title'] }}</span>
                                 <span class="agenda-head-sub">{{ collect([$column['subtitle'], $countLabel])->filter()->implode(' · ') }}</span>
                                 @if ($column['live'] ?? null)
                                     <span @class(['agenda-head-live', 'is-busy' => $column['live']['busy'], 'has-waiting' => $column['live']['waiting'] > 0])><i aria-hidden="true"></i>{{ $column['live']['text'] }}</span>

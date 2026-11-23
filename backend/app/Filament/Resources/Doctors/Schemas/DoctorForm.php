@@ -220,6 +220,27 @@ class DoctorForm
         ]));
     }
 
+    /**
+     * El aviso de lo que le falta, que se lee bien falte una cosa o varias: "Todavía no se le puede agendar. Falta
+     * agregar: su horario y los tratamientos que realiza." Null si ya se le puede agendar.
+     */
+    public static function notBookableYet(Doctor $doctor): ?string
+    {
+        $missing = self::missingToAttend($doctor);
+
+        return $missing === [] ? null : 'Todavía no se le puede agendar. '.self::missingInWords($missing);
+    }
+
+    /**
+     * "Falta agregar: su horario y los tratamientos que realiza.", con comas e "y" si son varias cosas.
+     *
+     * @param  list<string>  $missing
+     */
+    public static function missingInWords(array $missing): string
+    {
+        return 'Falta agregar: '.collect($missing)->join(', ', ' y ').'.';
+    }
+
     /** Lo que pasa al desactivar a un doctor, con las citas que le quedan por atender. */
     public static function deactivationWarning(Doctor $doctor): string
     {
@@ -245,11 +266,12 @@ class DoctorForm
         return $schema
             ->columns(1)
             ->components([
-                // Mientras le falte horario o tratamientos no se le puede dar citas: se dice arriba de su ficha.
-                Text::make(fn (?Doctor $record) => 'Todavía no se le puede agendar: falta '.implode(' y ', $record ? self::missingToAttend($record) : []).'.')
+                // Mientras le falte horario o tratamientos no se le puede dar citas: se dice arriba de su ficha. Se pone al
+                // día al guardar y al agregar o quitar tratamientos abajo (ver EditDoctor::refreshWhatIsMissing()).
+                Text::make(fn (?Doctor $record) => $record ? self::notBookableYet($record) : null)
                     ->color('warning')
                     ->weight(FontWeight::Medium)
-                    ->visible(fn (?Doctor $record) => $record !== null && self::missingToAttend($record) !== []),
+                    ->visible(fn (?Doctor $record) => $record !== null && self::notBookableYet($record) !== null),
                 Section::make('Perfil')
                     ->columns(2)
                     ->schema([
@@ -343,6 +365,7 @@ class DoctorForm
                     ->columns(2)
                     ->schema([
                         ToggleButtons::make('access')
+                            ->label('Acceso al panel')
                             ->hiddenLabel()
                             ->options(fn (?Doctor $record) => $record?->user_id
                                 ? [self::ACCESS_EXISTING => 'Entra con su usuario']
@@ -383,7 +406,7 @@ class DoctorForm
                             ->dehydrated(false),
                         Select::make('user_id')
                             ->label('Usuario del panel')
-                            ->helperText('Por ejemplo, la administradora que también atiende.')
+                            ->helperText('Por ejemplo, quien administra y también atiende.')
                             ->options(fn (?Doctor $record) => User::query()
                                 ->where(fn (Builder $q) => $q->where('role', UserRole::Doctor)->orWhere(fn (Builder $a) => $a->where('role', UserRole::Admin)->where('is_dentist', true)))
                                 ->where(fn (Builder $q) => $q->whereDoesntHave('doctor')->when($record, fn (Builder $w) => $w->orWhere('id', $record->user_id)))
@@ -408,6 +431,7 @@ class DoctorForm
                     ])
                     ->schema([
                         WeeklySchedule::make('schedules')
+                            ->label('Horario de atención')
                             ->hiddenLabel()
                             ->relationship(modifyQueryUsing: fn (Builder $query) => $query->orderBy('weekday')->orderBy('starts_at'))
                             ->schema([

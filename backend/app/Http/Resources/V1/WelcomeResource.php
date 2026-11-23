@@ -39,6 +39,7 @@ class WelcomeResource extends JsonResource
                     name: $isSelf($appointment->patient) && ! $guest ? null : $names[$appointment->patient_id],
                     guest: $guest,
                     askHealth: $askHealth,
+                    pendingRequest: $appointment->pendingRescheduleRequest,
                 );
             })->values(),
             'more' => $welcome['more'],

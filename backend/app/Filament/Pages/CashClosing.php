@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Widgets\CashClosingAdjustments;
 use App\Filament\Widgets\CashClosingCheck;
 use App\Filament\Widgets\CashClosingStats;
 use App\Filament\Widgets\CashClosingTables;
@@ -52,7 +53,7 @@ class CashClosing extends BaseDashboard
 
     public function getWidgets(): array
     {
-        return [CashClosingStats::class, CashClosingCheck::class, CashClosingTables::class];
+        return [CashClosingStats::class, CashClosingCheck::class, CashClosingAdjustments::class, CashClosingTables::class];
     }
 
     public function getColumns(): int|array

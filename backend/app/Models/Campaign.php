@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Str;
 
 /** Campaña o promoción; se publica y se retira sola según sus fechas. */
 #[Fillable(['name', 'slug', 'summary', 'description', 'image_path', 'treatment_id', 'treatment_package_id', 'discount_type', 'discount_value', 'starts_at', 'ends_at', 'promo_code', 'max_redemptions', 'show_on_home', 'whatsapp_text', 'views_count', 'is_active'])]
@@ -20,22 +21,60 @@ class Campaign extends Model
 {
     use Auditable, SoftDeletes;
 
-    /** El aviso de un código que no es de ninguna promoción vigente: se dice al escribirlo, no en el consultorio. */
-    public const UNKNOWN_CODE = 'Ese código no existe o ya no está disponible. Corrígelo o bórralo para reservar.';
+    /**
+     * El aviso de un código que no es de ninguna promoción vigente. No impide reservar: el código queda escrito en la
+     * cita y recepción lo revisa (antes el paciente que se equivocaba en una letra se quedaba sin poder reservar).
+     */
+    public static function unknownCodeNotice(string $promoCode): string
+    {
+        return 'No reconocimos el código '.self::writtenCode($promoCode).'. Igual reservamos tu cita; lo revisamos en el consultorio.';
+    }
+
+    /** Lo mismo mientras escribe el código, antes de reservar: puede corregirlo o seguir igual. */
+    public static function unknownCodeHint(string $promoCode): string
+    {
+        return 'No reconocimos el código '.self::writtenCode($promoCode).'. Puedes reservar igual; lo revisamos en el consultorio.';
+    }
+
+    /** El código como se guarda en la cita y se muestra: sin espacios a los lados y en mayúsculas, ñ y tildes incluidas. */
+    public static function writtenCode(string $promoCode): string
+    {
+        return Str::upper(trim($promoCode));
+    }
+
+    /** El código escrito no es el de esta campaña (o no hay campaña): no se aplicó y recepción lo revisa. */
+    public static function codeNotApplied(?string $promoCode, ?self $campaign): bool
+    {
+        return filled($promoCode) && ! self::sameCode($campaign?->promo_code, $promoCode);
+    }
+
+    /**
+     * El mismo código sin importar mayúsculas ni tildes ("añonuevo" y "anonuevo" son AÑONUEVO). Se compara aquí y no
+     * en la base: MySQL tampoco las distingue, pero SQLite sí, y el consultorio y las pruebas tienen que dar lo mismo.
+     */
+    private static function sameCode(?string $one, string $other): bool
+    {
+        return filled($one) && Str::upper(Str::ascii(trim($one))) === Str::upper(Str::ascii(trim($other)));
+    }
 
     /**
      * La campaña con que se reserva en la web: por el código que se escribió o por la página de la que se llegó.
-     * Null si no hay ninguna vigente o ya no le quedan cupos.
+     * Un código que no es de ninguna promoción vigente no quita la de la página. Null si no hay ninguna vigente o ya
+     * no le quedan cupos.
      */
     public static function forBooking(?string $promoCode, ?string $slug): ?self
     {
-        $campaign = match (true) {
-            filled($promoCode) => self::query()->published()->where('promo_code', strtoupper(trim($promoCode)))->first(),
-            filled($slug) => self::query()->published()->where('slug', $slug)->first(),
-            default => null,
-        };
+        $byCode = filled($promoCode)
+            ? self::query()->published()->whereNotNull('promo_code')->orderBy('id')->get()->first(fn (self $campaign) => self::sameCode($campaign->promo_code, $promoCode))
+            : null;
 
-        return $campaign?->hasSlotsLeft() ? $campaign : null;
+        if ($byCode?->hasSlotsLeft()) {
+            return $byCode;
+        }
+
+        $bySlug = filled($slug) ? self::query()->published()->where('slug', $slug)->first() : null;
+
+        return $bySlug?->hasSlotsLeft() ? $bySlug : null;
     }
 
     protected function casts(): array

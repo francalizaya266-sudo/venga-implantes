@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useAction } from '@/api/actions';
 import { apiUrl } from '@/api/client';
 import type { AccountData, Clinic, PlanCard } from '@/api/types';
@@ -165,19 +166,52 @@ export function AccountHome({ account, clinic, howToPay }: Props) {
           ) : (
             <>
               <p>Para cuidar tus datos, primero confirmamos que eres tú: te enviaremos un enlace por WhatsApp.</p>
-              <button
-                type="button"
-                className="btn quiet block"
-                disabled={busy}
-                onClick={() => void run(apiUrl('account/verification'))}
-              >
-                Enviarme el enlace
-              </button>
+              <SendLink />
             </>
           )}
         </section>
       </div>
     </div>
+  );
+}
+
+/**
+ * El enlace por WhatsApp que confirma que es el titular. Cómo salió se dice junto al botón, y no arriba de la
+ * página, lejos de lo que se tocó; una vez enviado, el botón dice que ya está.
+ */
+function SendLink() {
+  const { run, busy } = useAction();
+  const [note, setNote] = useState<{ tone: 'ok' | 'bad'; text: string } | null>(null);
+  const sent = note?.tone === 'ok';
+
+  const send = () =>
+    void run(
+      apiUrl('account/verification'),
+      {},
+      {
+        onDone: (message) => setNote({ tone: 'ok', text: message ?? 'Revisa tu WhatsApp: ahí te llega el enlace.' }),
+        onRejected: (problem) => setNote({ tone: 'bad', text: problem }),
+      },
+    );
+
+  return (
+    <>
+      <button type="button" className="btn quiet block" disabled={busy || sent} onClick={send}>
+        {sent ? (
+          <>
+            <Icon name="check" />
+            Listo, te lo enviamos
+          </>
+        ) : (
+          'Enviarme el enlace'
+        )}
+      </button>
+      {note ? (
+        <p className={`flash ${note.tone}`} role={sent ? 'status' : 'alert'}>
+          {note.text}
+        </p>
+      ) : null}
+    </>
   );
 }
 

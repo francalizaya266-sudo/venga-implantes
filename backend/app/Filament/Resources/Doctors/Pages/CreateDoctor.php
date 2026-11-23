@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Doctors\Pages;
 
 use App\Filament\Resources\Doctors\DoctorResource;
 use App\Filament\Resources\Doctors\Schemas\DoctorForm;
+use App\Models\Doctor;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\CreateRecord;
@@ -35,14 +36,14 @@ class CreateDoctor extends CreateRecord
     /** Recién creado casi siempre le falta algo para atender: se dice qué, en vez de un "Creado" a secas. */
     protected function getCreatedNotification(): ?Notification
     {
-        $missing = DoctorForm::missingToAttend($this->getRecord());
+        /** @var Doctor $doctor */
+        $doctor = $this->getRecord();
 
         return Notification::make()
             ->success()
             ->title('Doctor guardado')
-            ->body($missing === []
-                ? 'Cuando su ficha esté completa, elige en "Dónde aparece" si sale en la página web.'
-                : 'Para poder agendarle falta '.implode(' y ', $missing).'. Agrégalo aquí abajo.');
+            ->body(DoctorForm::notBookableYet($doctor)
+                ?? 'Cuando su ficha esté completa, elige en "Dónde aparece" si sale en la página web.');
     }
 
     /** Al crear, se sigue en la ficha para agregar sus tratamientos. */

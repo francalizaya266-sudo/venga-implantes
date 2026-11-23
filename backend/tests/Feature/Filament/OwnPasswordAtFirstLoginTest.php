@@ -39,16 +39,14 @@ class OwnPasswordAtFirstLoginTest extends TestCase
         // En la lista se ve quién todavía no la eligió.
         Livewire::test(ManageUsers::class)->assertTableColumnHasDescription('name', 'rosa@consultorio.test · Todavía no eligió su contraseña', $rosa);
 
-        // Entra con la temporal: cualquier pantalla la lleva a elegir la suya.
+        // Entra con la temporal: cualquier pantalla la lleva a elegir la suya, también la de la doble verificación.
         $this->actingAs($rosa);
         $this->get(Dashboard::getUrl())->assertRedirect(ChoosePassword::getUrl());
         $this->get(Filament::getPanel('admin')->route('agenda.print'))->assertRedirect(ChoosePassword::getUrl());
+        $this->get(route('filament.admin.auth.multi-factor-authentication.set-up-required'))->assertRedirect(ChoosePassword::getUrl());
 
-        // Antes de elegirla activa el segundo factor (el panel lo exige a todos); luego vuelve a esta pantalla.
-        $this->get(ChoosePassword::getUrl())->assertRedirect(route('filament.admin.auth.multi-factor-authentication.set-up-required'));
-        $rosa->saveAppAuthenticationSecret('JBSWY3DPEHPK3PXP');
-
-        $this->get(ChoosePassword::getUrl())->assertOk()->assertSee(['Elige tu contraseña', 'La contraseña con la que entraste te la puso otra persona.']);
+        // Primero su contraseña; después protege la cuenta con su celular.
+        $this->get(ChoosePassword::getUrl())->assertOk()->assertSee(['Elige tu contraseña', 'La contraseña con la que entraste te la puso otra persona.', 'Después protegerás tu cuenta con tu celular.', 'Guardar y seguir']);
 
         Livewire::test(ChoosePassword::class)
             // No vale repetir la que le dieron, ni una débil, ni escribirla distinto las dos veces.
@@ -72,7 +70,10 @@ class OwnPasswordAtFirstLoginTest extends TestCase
         $this->assertFalse($rosa->must_change_password);
         $this->assertTrue(Hash::check('Solo-mia-2026', $rosa->password));
 
-        // Ya entra a todo, y la pantalla de elegir la devuelve al panel.
+        // Lo siguiente es activar la doble verificación; con ella ya entra a todo y la pantalla de elegir la devuelve al panel.
+        $this->get(Dashboard::getUrl())->assertRedirect(route('filament.admin.auth.multi-factor-authentication.set-up-required'));
+        $rosa->saveAppAuthenticationSecret('JBSWY3DPEHPK3PXP');
+
         $this->get(Dashboard::getUrl())->assertOk();
         $this->get(ChoosePassword::getUrl())->assertRedirect(Filament::getPanel('admin')->getUrl());
 
@@ -154,7 +155,7 @@ class OwnPasswordAtFirstLoginTest extends TestCase
 
         Livewire::test(ManageUsers::class)
             ->mountAction('create')
-            ->assertMountedActionModalSee(['Administrador', 'Todo el panel: agenda, pacientes, caja, reportes, inventario y Configuración.', 'Recepción', 'No ve la historia clínica, los reportes ni Configuración.'])
+            ->assertMountedActionModalSee(['Administración', 'Todo el panel: agenda, pacientes, caja, reportes, inventario y Configuración.', 'Recepción', 'No ve la historia clínica, los reportes ni Configuración.'])
             // Aquí no se crea un doctor: va en Doctores, con su ficha.
             ->assertMountedActionModalDontSee('Su agenda, sus pacientes y la historia clínica')
             ->unmountAction()

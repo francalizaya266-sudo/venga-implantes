@@ -16,9 +16,13 @@ use Illuminate\Support\Facades\Cache;
 /**
  * Lo que la web ofrece para reservar o cambiar una cita: tratamientos, doctores, días y
  * horarios, respetando la anticipación mínima y el horizonte que define el consultorio.
+ * La web ofrece solo horas "redondas" (9:00, 9:15, 9:30…); el panel, cualquier hueco.
  */
 class WebAvailability
 {
+    /** Cada cuántos minutos puede ofrecer horas la web (Ajustes › Agenda y reservas). */
+    public const STEPS = [15, 30];
+
     public function __construct(private readonly AvailabilityService $availability) {}
 
     /** @return Collection<int, Treatment> Tratamientos que el paciente reserva solo (con algún doctor que los atienda). */
@@ -53,6 +57,14 @@ class WebAvailability
         return CarbonImmutable::today()->addDays((int) Setting::get('booking.horizon_days', 45));
     }
 
+    /** Cada cuántos minutos ofrece horas la web: cada 15 (9:00, 9:15…) o cada 30 (9:00, 9:30…). */
+    public function step(): int
+    {
+        $step = (int) Setting::get('booking.web_slot_step_minutes', 15);
+
+        return in_array($step, self::STEPS, true) ? $step : self::STEPS[0];
+    }
+
     /**
      * Los próximos días con algún horario libre.
      *
@@ -76,6 +88,9 @@ class WebAvailability
      * Horarios libres de un día. Con varios doctores, cada hora queda con el doctor
      * que la tiene pegada a otra cita (o el primero que la tenga libre).
      *
+     * Solo horas redondas según step(): un hueco que empieza a las 10:05 se ofrece desde las 10:15, si cabe. Si ese
+     * día no cabe ninguna hora redonda, se ofrece igual lo que hay: redondear no hace desaparecer un día.
+     *
      * @param  Collection<int, Doctor>  $doctors
      * @return Collection<int, array{time: string, doctor_id: int, recommended: bool, waste: int}>
      */
@@ -85,10 +100,11 @@ class WebAvailability
             return collect();
         }
 
-        return $doctors
+        $step = $this->step();
+        $slots = $doctors
             ->flatMap(fn (Doctor $doctor) => $this->availability
                 ->forPatient($moving?->patient_id)
-                ->slotsFor($doctor, $treatment, $date, earliest: $this->earliest(), ignoreAppointmentId: $moving?->getKey(), durationMinutes: $moving?->custom_duration ? $moving->durationMinutes() : null)
+                ->slotsFor($doctor, $treatment, $date, earliest: $this->earliest(), ignoreAppointmentId: $moving?->getKey(), durationMinutes: $moving?->custom_duration ? $moving->durationMinutes() : null, stepMinutes: $step)
                 ->map(fn (Slot $slot) => [
                     'time' => $slot->label(),
                     'doctor_id' => $doctor->getKey(),
@@ -98,6 +114,9 @@ class WebAvailability
             ->sortBy([['time', 'asc'], ['recommended', 'desc'], ['waste', 'asc']])
             ->unique('time')
             ->values();
+        $round = $slots->filter(fn (array $slot) => (int) substr($slot['time'], 3, 2) % $step === 0)->values();
+
+        return $round->isNotEmpty() ? $round : $slots;
     }
 
     /**

@@ -120,6 +120,7 @@ class ClinicalRecordInfolist
             ->visible(fn (Patient $record) => app(InventoryService::class)->implantsOf($record)->isNotEmpty())
             ->schema([
                 TextEntry::make('implants')
+                    ->label('Implantes colocados')
                     ->hiddenLabel()
                     ->state(fn (Patient $record) => app(InventoryService::class)->implantsOf($record)
                         ->map(fn (StockMovement $use) => collect([

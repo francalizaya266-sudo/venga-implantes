@@ -3,6 +3,7 @@
 namespace Tests\Feature\Http\Controllers\Api\V1;
 
 use App\Enums\AppointmentOrigin;
+use App\Enums\DayPeriod;
 use App\Enums\PatientRelationship;
 use App\Models\MedicalBackground;
 use App\Services\Web\PageTexts;
@@ -39,7 +40,7 @@ class OpenApiTest extends TestCase
             ->sortKeys()
             ->all();
 
-        $this->assertCount(36, $routes);
+        $this->assertCount(38, $routes);
         $this->assertSame($routes, $documented);
     }
 
@@ -56,6 +57,7 @@ class OpenApiTest extends TestCase
             $schemas['OriginRequest']['properties']['origin']['enum'],
         );
         $this->assertSame(array_keys(MedicalBackground::CONDITIONS), $schemas['Condition']['enum']);
+        $this->assertSame(array_map(fn (DayPeriod $period) => $period->value, DayPeriod::cases()), $schemas['WaitlistRequest']['properties']['preferred_period']['enum']);
         $this->assertSame(array_keys(PageTexts::PAGES), array_keys($schemas['Site']['properties']['pages']['properties']));
     }
 

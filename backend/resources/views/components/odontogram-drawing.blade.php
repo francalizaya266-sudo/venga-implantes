@@ -67,7 +67,7 @@
         .odv-svg [data-today] .odv-today { display: inline; }
     </style>
 @endonce
-<svg class="odv-svg{{ $editing ? ' is-editing' : '' }}" width="{{ $width }}" height="{{ $totalHeight }}" viewBox="0 0 {{ $width }} {{ $totalHeight }}" style="--odv-ratio: {{ round($width / max(1, $totalHeight), 3) }}" role="group" aria-label="Odontograma">
+<svg class="odv-svg{{ $editing ? ' is-editing' : '' }}" width="{{ $width }}" height="{{ $totalHeight }}" viewBox="0 0 {{ $width }} {{ $totalHeight }}" style="--odv-ratio: {{ round($width / max(1, $totalHeight), 3) }}; --odv-teeth: {{ $maxTeeth }}" role="group" aria-label="Odontograma">
     <line class="odv-midline" x1="{{ $width / 2 }}" x2="{{ $width / 2 }}" y1="2" y2="{{ $totalHeight - 2 }}" />
     @if ($biteLine)
         <line class="odv-bite" x1="4" x2="{{ $width - 4 }}" y1="{{ $biteLine['top'] + $biteLine['height'] + 1 }}" y2="{{ $biteLine['top'] + $biteLine['height'] + 1 }}" />

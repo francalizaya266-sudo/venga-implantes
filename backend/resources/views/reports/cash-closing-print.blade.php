@@ -1,5 +1,6 @@
 @use('App\Support\Money')
 @use('App\Filament\Widgets\CashClosingCheck')
+@use('App\Services\Billing\PriceAdjustments')
 <x-print-layout title="Cierre del día">
     <style>
         .period { font-size: 1rem; font-weight: 700; margin: -4px 0 12px; }
@@ -7,7 +8,7 @@
         .totals div { padding: 8px 10px; background: #f1f5f9; border-radius: 6px; }
         .totals span { display: block; font-size: .75rem; color: var(--muted); }
         .totals strong { font-size: 1.05rem; }
-        .tables { display: grid; grid-template-columns: 1fr 1fr; gap: 18px 24px; align-items: start; }
+        .tables { display: grid; grid-template-columns: 1fr 1fr; gap: 18px 24px; align-items: start; margin-top: 18px; }
         .tables section.wide { grid-column: 1 / -1; }
         h2 { font-size: .85rem; text-transform: uppercase; letter-spacing: .04em; color: var(--brand); margin: 0 0 4px; }
         .report-table td, .report-table th { padding: 4px 6px; font-variant-numeric: tabular-nums; }
@@ -35,15 +36,6 @@
         <div><span>Otros medios</span><strong>{{ Money::format($closing->total() - $closing->cash()) }}</strong></div>
     </div>
 
-    <div class="tables">
-        @foreach ($closing->tables() as $table)
-            <section @class(['wide' => in_array($table['key'], ['payments', 'voided'], true)])>
-                <h2>{{ $table['title'] }}</h2>
-                @include('reports.partials.table', ['table' => $table, 'empty' => 'Sin pagos este día.'])
-            </section>
-        @endforeach
-    </div>
-
     @if ($closing->receivedBy === null && $closing->pending()->isNotEmpty())
         <section class="owed">
             <h2>Se fueron debiendo · {{ Money::format($closing->pendingTotal()) }}</h2>
@@ -60,6 +52,38 @@
             </table>
         </section>
     @endif
+
+    {{-- Lo que se cambió al cobrar (otro precio, un descuento, un concepto agregado o quitado), con su motivo y quién. --}}
+    @php($adjustments = app(PriceAdjustments::class)->ofDay($closing->date, $closing->receivedBy))
+    <section class="owed">
+        @if ($adjustments->isEmpty())
+            <h2>Precios cambiados y descuentos</h2>
+            <p class="muted">Nadie cambió precios, puso descuentos ni anuló cargos.</p>
+        @else
+            @php($adjustmentTotals = PriceAdjustments::totals($adjustments))
+            <h2>Precios cambiados y descuentos · {{ $adjustmentTotals['count'] }} {{ $adjustmentTotals['count'] === 1 ? 'cambio' : 'cambios' }}{{ $adjustmentTotals['lowered'] > 0 ? ' · '.Money::format($adjustmentTotals['lowered']).' menos' : '' }}</h2>
+            <table class="report-table">
+                <tbody>
+                    @foreach ($adjustments as $row)
+                        <tr>
+                            <td>{{ $row['patient'] }} · {{ $row['concept'] }}</td>
+                            <td class="muted">{{ $row['change'] }} · {{ filled($row['reason']) ? 'Motivo: '.$row['reason'] : 'Sin motivo' }} · {{ $row['by'] }}, {{ $row['at']->format('H:i') }}</td>
+                            <td class="num">{{ abs($row['lowered']) >= 0.005 ? ($row['lowered'] > 0 ? '− ' : '+ ').Money::format(abs($row['lowered'])) : '' }}</td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        @endif
+    </section>
+
+    <div class="tables">
+        @foreach ($closing->tables() as $table)
+            <section @class(['wide' => in_array($table['key'], ['payments', 'voided'], true)]) tabindex="0" aria-label="{{ $table['title'] }}">
+                <h2>{{ $table['title'] }}</h2>
+                @include('reports.partials.table', ['table' => $table, 'empty' => 'Sin pagos este día.'])
+            </section>
+        @endforeach
+    </div>
 
     {{-- Con el día cerrado, el arqueo ya está hecho: se imprime lo que se contó. --}}
     @php($record = $closing->receivedBy === null ? $closing->record() : null)

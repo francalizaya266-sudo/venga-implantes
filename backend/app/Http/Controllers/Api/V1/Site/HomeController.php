@@ -19,6 +19,7 @@ use App\Models\SmileCase;
 use App\Models\Treatment;
 use App\Services\Access\PatientAccess;
 use App\Services\Booking\WebAvailability;
+use App\Services\Web\ClinicInfo;
 use App\Services\Web\PageMeta;
 use App\Services\Web\ReturningPatient;
 use App\Services\Web\StructuredData;
@@ -39,7 +40,7 @@ class HomeController extends Controller
     /**
      * @return array{data: array<string, mixed>, meta: array<string, mixed>}
      */
-    public function __invoke(Request $request, WebAvailability $availability, StructuredData $structuredData, PatientAccess $access, ReturningPatient $returning, PageMeta $meta): array
+    public function __invoke(Request $request, WebAvailability $availability, StructuredData $structuredData, PatientAccess $access, ReturningPatient $returning, PageMeta $meta, ClinicInfo $clinic): array
     {
         $device = $access->device($request);
 
@@ -49,6 +50,7 @@ class HomeController extends Controller
         // El primero es quien el inicio presenta: con el mismo orden, el que se registró antes.
         $doctors = Doctor::query()->active()->where('is_public', true)->orderBy('sort_order')->orderBy('id')->get();
         $specialty = $this->specialty($doctors, $treatments);
+        $showsPrices = $treatments->contains(fn (Treatment $treatment) => $treatment->webPrice() !== null);
 
         return [
             'data' => [
@@ -58,15 +60,52 @@ class HomeController extends Controller
                 'campaigns' => CampaignResource::collection(Campaign::query()->published()->where('show_on_home', true)->with('treatment')->latest('starts_at')->get()),
                 'treatments' => TreatmentResource::collection($treatments->take(self::SERVICES_SHOWN)),
                 'treatments_count' => $treatments->count(),
-                'shows_prices' => $treatments->contains(fn (Treatment $treatment) => $treatment->webPrice() !== null),
+                'shows_prices' => $showsPrices,
                 'specialty' => $specialty ? TreatmentResource::make($specialty) : null,
                 'doctor' => $doctors->isNotEmpty() ? DoctorResource::make($doctors->first()) : null,
                 'other_doctors' => max(0, $doctors->count() - 1),
                 'cases' => SmileCaseResource::collection(SmileCase::query()->published()->with('treatment')->limit(3)->get()),
                 'reviews' => ReviewResource::collection(Review::query()->published()->limit(3)->get()),
                 'faqs' => FaqResource::collection(Faq::query()->published()->whereNull('treatment_id')->limit(4)->get()),
+                'facts' => $this->facts($clinic, $treatments),
             ],
-            'meta' => $meta->for(jsonLd: [$structuredData->dentist()]),
+            'meta' => $meta->for(description: $this->description($clinic, $featured !== null, $showsPrices), jsonLd: [$structuredData->dentist()]),
+        ];
+    }
+
+    /** Lo que Google muestra del inicio: qué se atiende y dónde, y cómo se reserva. */
+    private function description(ClinicInfo $clinic, bool $canBook, bool $showsPrices): string
+    {
+        $place = $clinic->fullAddress();
+
+        return PageMeta::describe(
+            $clinic->name().': implantes y odontología'.($place ? ' en '.$place : '').'.',
+            match (true) {
+                $canBook && $showsPrices => 'Mira los precios y los horarios libres, y reserva tu cita en línea en 2 minutos.',
+                $canBook => 'Mira los horarios libres y reserva tu cita en línea en 2 minutos.',
+                default => 'Escríbenos por WhatsApp y te ayudamos a reservar tu cita.',
+            },
+            $canBook ? 'Te confirmamos por WhatsApp.' : null,
+            'Pagas en el consultorio.',
+        );
+    }
+
+    /**
+     * La línea bajo los botones de la portada, con lo que todos preguntan antes de ir: dónde queda, qué días atiende
+     * y desde cuánto cuesta la evaluación, que es por donde se empieza. Lo que no está configurado va en null.
+     *
+     * @param  Collection<int, Treatment>  $treatments
+     * @return array{address: string|null, days: string|null, price: string|null}
+     */
+    private function facts(ClinicInfo $clinic, Collection $treatments): array
+    {
+        $price = $treatments->firstWhere('is_evaluation', true)?->webPrice();
+
+        return [
+            'address' => $clinic->address(),
+            'days' => $clinic->hours()->openDays(),
+            // "desde S/ 50" o "Gratis".
+            'price' => $price !== null ? 'Evaluación '.lcfirst($price) : null,
         ];
     }
 

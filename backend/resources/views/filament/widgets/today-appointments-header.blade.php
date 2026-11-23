@@ -1,8 +1,14 @@
-{{-- El título de la agenda y, al lado, "Todos" y cada doctor: la elegida queda marcada y se recuerda. --}}
+{{-- El título de la agenda y, al lado, "Todos" y cada doctor: la elegida queda marcada y se recuerda. Si no entran,
+     se deslizan de lado y la elegida queda a la vista. --}}
 <div class="fi-ta-header dash-agenda-header">
     <h3 class="fi-ta-header-heading">Agenda de hoy</h3>
 
-    <nav class="dash-segmented dash-doctor-switch" aria-label="Ver la agenda de">
+    <nav
+        class="dash-segmented dash-doctor-switch"
+        aria-label="Ver la agenda de"
+        x-data
+        x-init="const chosen = $el.querySelector('.is-active'); if (chosen && chosen.offsetLeft + chosen.offsetWidth > $el.clientWidth) $el.scrollLeft = chosen.offsetLeft - 16"
+    >
         @foreach ($doctors as $doctor)
             <button
                 type="button"

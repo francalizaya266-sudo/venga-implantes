@@ -6,7 +6,10 @@ use App\Enums\PaymentMethod;
 use App\Filament\Actions\RegisterPaymentAction;
 use App\Models\Doctor;
 use App\Models\Payment;
+use App\Models\User;
+use App\Services\StaffAlerts;
 use Carbon\CarbonImmutable;
+use Carbon\CarbonInterface;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Forms\Components\DatePicker;
@@ -31,12 +34,20 @@ class PaymentsTable
 
         return $table
             ->stackedOnMobile()
+            // En el celular, cada pago en dos líneas (ver .pay-list en panel.css).
+            ->extraAttributes(['class' => 'pay-list'])
             // La búsqueda del paciente separa las palabras ella misma: así "987 654 321" encuentra el celular.
             ->splitSearchTerms(false)
             ->columns([
                 TextColumn::make('paid_at')
                     ->label('Fecha')
-                    ->dateTime('d/m/Y H:i')
+                    // El año solo si no es este: así, en el celular, cada pago entra en dos líneas.
+                    ->dateTime(function (Payment $record): string {
+                        /** @var CarbonInterface $paidAt */
+                        $paidAt = $record->paid_at;
+
+                        return $paidAt->isCurrentYear() ? 'd/m H:i' : 'd/m/Y H:i';
+                    })
                     ->sortable(),
                 TextColumn::make('patient.last_name')
                     ->label('Paciente')
@@ -80,8 +91,8 @@ class PaymentsTable
                     ])
                     ->columns(2)
                     ->query(fn (Builder $query, array $data) => $query
-                        ->when(self::day($data['from'] ?? null), fn (Builder $q, $date) => $q->whereDate('paid_at', '>=', $date))
-                        ->when(self::day($data['until'] ?? null), fn (Builder $q, $date) => $q->whereDate('paid_at', '<=', $date)))
+                        ->when(self::day($data['from'] ?? null), fn (Builder $q, $date) => $q->where('paid_at', '>=', $date))
+                        ->when(self::day($data['until'] ?? null), fn (Builder $q, $date) => $q->where('paid_at', '<', CarbonImmutable::parse($date)->addDay()->toDateString())))
                     ->indicateUsing(function (array $data): array {
                         $from = self::day($data['from'] ?? null);
                         $until = self::day($data['until'] ?? null);
@@ -144,7 +155,7 @@ class PaymentsTable
         return filled($value) ? CarbonImmutable::parse($value)->toDateString() : null;
     }
 
-    /** Anular un pago: queda registrado (no se borra) y deja de sumar. */
+    /** Anular un pago: queda registrado (no se borra), deja de sumar y quien administra recibe una alerta. */
     public static function voidAction(): Action
     {
         return Action::make('void')
@@ -162,11 +173,17 @@ class PaymentsTable
                 Textarea::make('reason')->label('Motivo')->required()->rows(2)->maxLength(250),
             ])
             ->action(function (array $data, Payment $record) {
+                /** @var User $user */
+                $user = auth()->user();
+
                 $record->update([
                     'voided_at' => now(),
-                    'voided_by_user_id' => auth()->id(),
+                    'voided_by_user_id' => $user->getKey(),
                     'void_reason' => $data['reason'],
                 ]);
+
+                // Quien administra lo sabe al momento, no recién en el cierre.
+                app(StaffAlerts::class)->paymentVoided($record, $user);
 
                 Notification::make()->success()->title('Pago anulado')->send();
             });

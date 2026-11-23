@@ -303,7 +303,7 @@ class FollowUpsToday extends Widget implements HasActions, HasSchemas
 
         $consents = app(ConsentService::class);
         $visits = Appointment::query()
-            ->whereDate('starts_at', today())
+            ->startsOn(today())
             ->whereIn('status', AppointmentStatus::open())
             ->whereIn('treatment_id', ConsentTemplate::query()->where('is_active', true)->whereNotNull('treatment_id')->select('treatment_id'))
             ->with(['patient', 'treatment'])

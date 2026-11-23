@@ -60,6 +60,7 @@ class ConsultationInfolist
                             ->placeholder('Sin diagnósticos')
                             ->schema([
                                 TextEntry::make('icd10Code.code')
+                                    ->label('Diagnóstico')
                                     ->hiddenLabel()
                                     ->formatStateUsing(fn (ConsultationDiagnosis $record) => collect([
                                         $record->icd10Code ? "{$record->icd10Code->code} · {$record->icd10Code->description}" : $record->description,
@@ -102,44 +103,43 @@ class ConsultationInfolist
                             ->columnSpanFull(),
                     ]),
 
-                Group::make([
-                    Section::make('Datos')
-                        ->schema([
-                            TextEntry::make('patient.first_name')
-                                ->label('Paciente')
-                                ->state(fn (Consultation $record) => $record->patient->full_name)
-                                ->url(fn (Consultation $record) => PatientResource::getUrl('clinical', ['record' => $record->patient]))
-                                ->color('primary')
-                                ->weight('bold'),
-                            TextEntry::make('attended_at')->label('Fecha')->dateTime('l d/m/Y · H:i'),
-                            TextEntry::make('doctor.name')->label('Doctor'),
-                            TextEntry::make('appointment.treatment.name')->label('Programado en la cita')->placeholder('Sin cita'),
-                            TextEntry::make('closed_at')
-                                ->label('Estado')
-                                ->state(fn (Consultation $record) => $record->closed_at ? 'Terminada el '.$record->closed_at->format('d/m/Y H:i') : 'Sin terminar')
-                                ->badge()
-                                ->color(fn (Consultation $record) => $record->closed_at ? 'success' : 'warning'),
-                        ]),
+                // Los datos van al costado. El plan, aparte: con cinco columnas, al lado de los datos; con tres, debajo de
+                // la atención, para que no quede un hueco grande bajo ella mientras el costado sigue.
+                Section::make('Datos')
+                    ->columnSpan(['default' => 'full', '@3xl' => 1, '!@lg' => 1])
+                    ->schema([
+                        TextEntry::make('patient.first_name')
+                            ->label('Paciente')
+                            ->state(fn (Consultation $record) => $record->patient->full_name)
+                            ->url(fn (Consultation $record) => PatientResource::getUrl('clinical', ['record' => $record->patient]))
+                            ->color('primary')
+                            ->weight('bold'),
+                        TextEntry::make('attended_at')->label('Fecha')->dateTime('l d/m/Y · H:i'),
+                        TextEntry::make('doctor.name')->label('Doctor'),
+                        TextEntry::make('appointment.treatment.name')->label('Programado en la cita')->placeholder('Sin cita'),
+                        TextEntry::make('closed_at')
+                            ->label('Estado')
+                            ->state(fn (Consultation $record) => $record->closed_at ? 'Terminada el '.$record->closed_at->format('d/m/Y H:i') : 'Sin terminar')
+                            ->badge()
+                            ->color(fn (Consultation $record) => $record->closed_at ? 'success' : 'warning'),
+                    ]),
 
-                    Section::make('Plan de tratamiento')
-                        ->description('Cómo va su plan hoy: cada procedimiento con su precio.')
-                        ->schema([
-                            View::make('filament.consultations.plans')
-                                ->viewData(fn (Consultation $record) => [
-                                    'plans' => $plans = self::plans($record),
-                                    'paymentOptions' => $plans->mapWithKeys(fn (TreatmentPlan $plan) => [$plan->getKey() => app(TreatmentPlanService::class)->paymentOptions($plan)])->all(),
-                                    // Lo que firmó: su pago único o su inicial y sus cuotas.
-                                    'payments' => $plans->filter(fn (TreatmentPlan $plan) => $plan->accepted_at !== null && $plan->included_in_plan_id === null)
-                                        ->mapWithKeys(fn (TreatmentPlan $plan) => [$plan->getKey() => app(TreatmentPlanService::class)->paymentText($plan)])
-                                        ->all(),
-                                    'url' => PatientResource::getUrl('clinical', ['record' => $record->patient_id, 'relation' => '1']),
-                                ]),
-                        ])
-                        ->visible(fn (Consultation $record) => self::plans($record)->isNotEmpty()),
-                ])
-                    // Con el menú cerrado o en un monitor grande, los datos y el plan quedan lado a lado: tres columnas.
-                    ->columns(PageLayout::SIDE_COLUMNS)
-                    ->columnSpan(PageLayout::SIDE),
+                Section::make('Plan de tratamiento')
+                    ->description('Cómo va su plan hoy: cada procedimiento con su precio.')
+                    ->columnSpan(['default' => 'full', '@3xl' => 2, '@6xl' => 1, '!@lg' => 2])
+                    ->schema([
+                        View::make('filament.consultations.plans')
+                            ->viewData(fn (Consultation $record) => [
+                                'plans' => $plans = self::plans($record),
+                                'paymentOptions' => $plans->mapWithKeys(fn (TreatmentPlan $plan) => [$plan->getKey() => app(TreatmentPlanService::class)->paymentOptions($plan)])->all(),
+                                // Lo que firmó: su pago único o su inicial y sus cuotas.
+                                'payments' => $plans->filter(fn (TreatmentPlan $plan) => $plan->accepted_at !== null && $plan->included_in_plan_id === null)
+                                    ->mapWithKeys(fn (TreatmentPlan $plan) => [$plan->getKey() => app(TreatmentPlanService::class)->paymentText($plan)])
+                                    ->all(),
+                                'url' => PatientResource::getUrl('clinical', ['record' => $record->patient_id, 'relation' => '1']),
+                            ]),
+                    ])
+                    ->visible(fn (Consultation $record) => self::plans($record)->isNotEmpty()),
 
                 Section::make('Odontograma de esta atención')
                     ->columnSpanFull()

@@ -8,12 +8,15 @@ use App\Filament\Pages\Concerns\EditsSettings;
 use App\Filament\Resources\MessageTemplates\MessageTemplateResource;
 use App\Filament\Resources\Supplies\SupplyResource;
 use App\Models\Setting;
+use App\Services\Booking\WebAvailability;
+use App\Services\Web\PublicImages;
 use App\Services\WhatsApp\WhatsAppOutbox;
 use App\Support\Dates;
 use App\Support\Phone;
 use BackedEnum;
 use Closure;
 use Filament\Actions\Action;
+use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -31,7 +34,7 @@ use Filament\Support\Icons\Heroicon;
 
 /**
  * Datos del consultorio, reglas de la agenda y de las reservas web, las horas de los avisos, lo de dinero
- * (presupuestos, meta y reportes) y si cada atención descuenta del inventario lo que usó.
+ * (presupuestos, meta, reportes y el QR de Yape y Plin para cobrar) y si cada atención descuenta del inventario lo que usó.
  * Lo de la página web va en Página web › Puesta a punto. Lo que se guarda aquí reemplaza los valores de
  * config/consultorio.php.
  *
@@ -93,6 +96,7 @@ class Settings extends Page
             'agenda.min_useful_gap_minutes' => 'int',
             'booking.min_lead_minutes' => 'int',
             'booking.horizon_days' => 'int',
+            'booking.web_slot_step_minutes' => 'int',
             'booking.max_web_appointments_per_patient' => 'int',
             'booking.max_web_appointments_per_phone' => 'int',
             'booking.self_reschedule_min_hours' => 'int',
@@ -104,6 +108,10 @@ class Settings extends Page
             'plans.valid_days' => 'int',
             'reports.doctors_see_own' => 'bool',
             'reports.monthly_goal' => 'optional_int',
+            'payments.yape_qr' => 'string',
+            'payments.yape_holder' => 'string',
+            'payments.plin_qr' => 'string',
+            'payments.plin_holder' => 'string',
             'inventory.deduct_on_close' => 'bool',
         ];
     }
@@ -191,7 +199,7 @@ class Settings extends Page
                                     ->headerActions([self::recommendedAction('recommendedAgenda', ['agenda.buffer_minutes', 'agenda.slot_step_minutes', 'agenda.min_useful_gap_minutes'])])
                                     ->columns(2)
                                     ->schema([
-                                        self::minutes('agenda.buffer_minutes', 'Limpieza y esterilización entre citas', 0, 60)
+                                        self::minutes('agenda.buffer_minutes', 'Tiempo para preparar el sillón entre citas', 0, 60)
                                             ->helperText('Cada tratamiento puede tener su propio tiempo.'),
                                         // Una lista en vez de un número libre: con "cada 7 minutos" los horarios salían a horas raras.
                                         Select::make('agenda.slot_step_minutes')
@@ -205,7 +213,7 @@ class Settings extends Page
                                     ]),
                                 Section::make('Reservas y cambios desde la web')
                                     ->headerActions([self::recommendedAction('recommendedBooking', [
-                                        'booking.min_lead_minutes', 'booking.horizon_days', 'booking.max_web_appointments_per_patient', 'booking.max_web_appointments_per_phone',
+                                        'booking.min_lead_minutes', 'booking.horizon_days', 'booking.web_slot_step_minutes', 'booking.max_web_appointments_per_patient', 'booking.max_web_appointments_per_phone',
                                         'booking.self_reschedule_min_hours', 'booking.self_cancel_min_hours', 'booking.max_reschedule_options',
                                     ])])
                                     ->columns(2)
@@ -226,6 +234,13 @@ class Settings extends Page
                                             ->helperText('La web no ofrece horarios que empiecen antes de ese tiempo.')
                                             ->rule(fn (Get $get) => self::lessThanTheHorizon($get, 60, 'Así la web no ofrece ningún horario: la anticipación mínima es mayor que los días que se puede reservar hacia adelante.')),
                                         self::number('booking.horizon_days', 'Hasta cuántos días adelante se puede reservar', 1, 180, 'días'),
+                                        // La web ofrecía 10:05 o 4:40 (justo al terminar otra cita): al paciente le parecía raro.
+                                        Select::make('booking.web_slot_step_minutes')
+                                            ->label('Horas que ofrece la web')
+                                            ->options(collect(WebAvailability::STEPS)->mapWithKeys(fn (int $minutes) => [$minutes => "Cada {$minutes} min"])->all())
+                                            ->selectablePlaceholder(false)
+                                            ->required()
+                                            ->helperText('Solo horas redondas: cada 15 min es 9:00, 9:15, 9:30…; cada 30 min, 9:00, 9:30, 10:00… En el panel se agenda a cualquier hora.'),
                                         self::number('booking.max_web_appointments_per_patient', 'Citas web futuras por paciente', 1, 10, 'citas'),
                                         self::number('booking.max_web_appointments_per_phone', 'Citas web futuras por celular (toda la familia)', 1, 30, 'citas')
                                             ->rule(fn (Get $get) => function (string $attribute, mixed $value, Closure $fail) use ($get): void {
@@ -314,6 +329,23 @@ class Settings extends Page
                                             ->label('Cada doctor ve sus propios ingresos y gráficos')
                                             ->helperText('Solo lo suyo: lo que atendió y lo que se cobró de sus citas. Recepción no ve reportes.')
                                             ->inline(false),
+                                    ]),
+                                // Al cobrar con Yape o Plin, la ventana muestra el QR para que el paciente lo escanee ahí mismo.
+                                Section::make('QR de Yape y Plin')
+                                    ->description('Al cobrar con Yape o Plin, la ventana de cobro muestra el QR para que el paciente lo escanee.')
+                                    ->columns(2)
+                                    ->schema([
+                                        self::qrUpload('payments.yape_qr', 'QR de Yape'),
+                                        self::qrUpload('payments.plin_qr', 'QR de Plin'),
+                                        TextInput::make('payments.yape_holder')
+                                            ->label('Titular de Yape')
+                                            ->placeholder('Por ejemplo: Ana Pérez R.')
+                                            ->maxLength(80)
+                                            ->helperText('Opcional. El nombre que le sale al paciente al pagar.'),
+                                        TextInput::make('payments.plin_holder')
+                                            ->label('Titular de Plin')
+                                            ->maxLength(80)
+                                            ->helperText('Opcional.'),
                                     ]),
                             ]),
                         // Antes, si había materiales cargados, al terminar cada atención siempre salía la lista de lo usado.
@@ -441,6 +473,20 @@ class Settings extends Page
 
                 Notification::make()->success()->title('Valores recomendados puestos')->body('Revisa y guarda los cambios.')->send();
             });
+    }
+
+    /** La imagen del QR tal como la da la app (PNG o JPG): no se pasa a JPG ni se achica, para que se pueda escanear. */
+    private static function qrUpload(string $key, string $label): FileUpload
+    {
+        return FileUpload::make($key)
+            ->label($label)
+            ->image()
+            ->acceptedFileTypes(['image/png', 'image/jpeg', 'image/webp'])
+            ->disk(PublicImages::DISK)
+            ->directory('cobros')
+            ->visibility('public')
+            ->maxSize(2 * 1024)
+            ->helperText('La imagen del QR que da la app: descárgala o haz una captura y súbela aquí. Si la quitas, ya no se muestra al cobrar.');
     }
 
     private static function number(string $key, string $label, int $min, int $max, string $suffix): TextInput

@@ -29,6 +29,22 @@ enum MessageTemplateKey: string implements HasLabel
     case CampaignAnnouncement = 'campaign_announcement';
     case Aftercare = 'aftercare';
     case MissedVisit = 'missed_visit';
+    case DaySummary = 'day_summary';
+
+    /** Avisos que le dicen al paciente cuándo es su cita y con quién. */
+    public const TELLS_THE_DATE = [
+        self::Reminder,
+        self::BookingConfirmation,
+        self::AppointmentScheduled,
+        self::Rescheduled,
+        self::RescheduleApproved,
+    ];
+
+    /** Avisos de que la cita cambió de horario: el nuevo reemplaza a los que todavía decían el horario anterior. */
+    public const CHANGE_NOTICES = [
+        self::Rescheduled,
+        self::RescheduleApproved,
+    ];
 
     public function getLabel(): string
     {
@@ -55,6 +71,7 @@ enum MessageTemplateKey: string implements HasLabel
             self::CampaignAnnouncement => 'Promoción a quien acepta recibirlas',
             self::Aftercare => 'Cuidados después de la atención',
             self::MissedVisit => 'Faltó o canceló y no tiene otra cita',
+            self::DaySummary => 'Resumen del día para quien administra',
         };
     }
 
@@ -85,6 +102,8 @@ enum MessageTemplateKey: string implements HasLabel
             // {que_paso}: "No pudimos verte en tu cita de…" si no vino, o "Se canceló tu cita de…" si se canceló.
             self::MissedVisit => "Hola {nombre}, te escribimos de {consultorio}.\n{que_paso} ¿Te reservamos otro horario? Respóndenos con el día y la hora que te acomodan.",
             self::Aftercare => "Hola {nombre}, gracias por venir hoy a {consultorio}. Para que tu {tratamiento} quede bien:\n\n{cuidados}\n\nSi tienes dolor fuerte, sangrado que no para o fiebre, escríbenos.",
+            // Al cerrar la caja, a quien administra (DaySummary): lo cobrado por medio, el arqueo y quién cerró, cómo fue el día, lo que se cambió al cobrar y lo que queda.
+            self::DaySummary => "Resumen del {fecha} en {consultorio}\nCobrado: {cobrado}\nArqueo: {arqueo} · cerró {cerro}\nPacientes atendidos: {atendidos} · Faltas: {faltas} · Citas sin cerrar: {sin_cerrar}\nDescuentos puestos antes de cobrar: {descuentos}\nPrecios cambiados y descuentos al cobrar: {precios}\nCitas del {siguiente} sin confirmar: {sin_confirmar}",
         };
     }
 }

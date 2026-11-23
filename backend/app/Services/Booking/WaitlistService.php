@@ -5,21 +5,32 @@ namespace App\Services\Booking;
 use App\Enums\AppointmentStatus;
 use App\Enums\DayPeriod;
 use App\Enums\MessageTemplateKey;
+use App\Enums\PatientRelationship;
 use App\Enums\WaitlistStatus;
+use App\Exceptions\BookingException;
 use App\Filament\Resources\WaitlistEntries\WaitlistEntryResource;
+use App\Models\Account;
 use App\Models\Appointment;
 use App\Models\Doctor;
+use App\Models\Patient;
+use App\Models\RememberedDevice;
 use App\Models\Treatment;
 use App\Models\User;
 use App\Models\WaitlistEntry;
 use App\Models\WhatsappMessage;
 use App\Services\Agenda\AvailabilityService;
 use App\Services\Agenda\Slot;
+use App\Services\StaffAlerts;
 use App\Services\WhatsApp\WhatsAppOutbox;
+use App\Support\Dates;
+use App\Support\FamilyNames;
+use App\Support\Phone;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Lista de espera: a quién ofrecerle un hueco, el aviso por WhatsApp con el horario (que queda apartado
@@ -43,6 +54,7 @@ final class WaitlistService
     public function __construct(
         private readonly AvailabilityService $availability,
         private readonly WhatsAppOutbox $outbox,
+        private readonly StaffAlerts $alerts,
     ) {}
 
     /**
@@ -179,9 +191,9 @@ final class WaitlistService
             'paciente' => $patient->full_name,
             'tratamiento' => mb_strtolower($treatment->name),
             'fecha' => $startsAt->translatedFormat('l j \d\e F'),
-            'hora' => $startsAt->format('g:i a'),
+            'hora' => Dates::time($startsAt),
             'doctor' => $doctor->name,
-            'hasta' => $this->holdEndsAt($startsAt)->format('g:i a'),
+            'hasta' => Dates::time($this->holdEndsAt($startsAt)),
         ], $patient->getKey());
     }
 
@@ -242,7 +254,7 @@ final class WaitlistService
         }
 
         return [
-            'when' => ucfirst($startsAt->translatedFormat('D j M, g:i a'))." con {$doctor->name}",
+            'when' => ucfirst(Dates::shortDayAndTime($startsAt))." con {$doctor->name}",
             'next' => $this->freedSlotNotice($doctor, $startsAt, $entry->patient_id),
         ];
     }
@@ -336,12 +348,148 @@ final class WaitlistService
         ]);
     }
 
+    /**
+     * "Avísame si se libera un horario" desde la web: quien no encontró un horario que le sirva queda en la lista de
+     * espera, marcado como anotado desde la web, y recepción recibe el aviso en la campana. Si ya esperaba lo mismo, se
+     * actualiza lo que pidió en vez de anotarlo dos veces (y no se vuelve a avisar). Como en la reserva, quien se anota
+     * con el número de otra familia sin su celular no cuenta como familia de ese número (Account::guestIds()).
+     *
+     * @throws BookingException|AuthorizationException
+     */
+    public function addFromWeb(WebWaitlistData $data, Treatment $treatment, ?Doctor $doctor = null, ?RememberedDevice $device = null): WaitlistEntry
+    {
+        $phone = Phone::normalize($data->phone);
+        /** @var Account|null $deviceAccount La familia del celular recordado, si lo hay. */
+        $deviceAccount = $device?->account;
+        $recognized = $device !== null && $deviceAccount?->phone === $phone;
+        $fromVerifiedDevice = $recognized && $device->isVerified();
+
+        return DB::transaction(function () use ($data, $treatment, $doctor, $phone, $recognized, $fromVerifiedDevice) {
+            $account = Account::withTrashed()->firstOrCreate(['phone' => $phone]);
+
+            if ($account->trashed()) {
+                $account->restore();
+            }
+
+            if ($account->isBlocked()) {
+                throw BookingException::accountBlocked();
+            }
+
+            $patient = $this->webPatient($account, $data, $recognized);
+
+            $account->forceFill([
+                'privacy_accepted_at' => $data->acceptsPrivacy ? ($account->privacy_accepted_at ?? now()) : $account->privacy_accepted_at,
+                'last_seen_at' => now(),
+            ])->save();
+
+            $entry = WaitlistEntry::query()
+                ->active()
+                ->whereBelongsTo($patient)
+                ->where('treatment_id', $treatment->getKey())
+                ->latest('id')
+                ->first() ?? new WaitlistEntry([
+                    'patient_id' => $patient->getKey(),
+                    'treatment_id' => $treatment->getKey(),
+                    'earliest_date' => today(),
+                    'status' => WaitlistStatus::Waiting,
+                    'from_web' => true,
+                ]);
+
+            $entry->fill([
+                'doctor_id' => $doctor?->getKey(),
+                'preferred_period' => $data->period,
+                'notes' => self::notesWithDays($entry->notes, $data->days),
+                'from_verified_device' => $entry->from_verified_device || $fromVerifiedDevice,
+            ])->save();
+
+            if ($entry->wasRecentlyCreated) {
+                $this->alerts->toReception(
+                    'Lista de espera desde la web',
+                    "{$patient->full_name} · {$treatment->name}".($doctor ? " con {$doctor->name}" : '').' · '.mb_strtolower($data->period->getLabel())
+                        .(filled($data->days) ? ' · '.trim($data->days) : '')
+                        .'. No encontró un horario que le sirva: ofrécele uno cuando se libere.',
+                    link: ['label' => 'Ver la lista de espera', 'url' => WaitlistEntryResource::getUrl()],
+                );
+            }
+
+            return $entry;
+        });
+    }
+
+    /**
+     * Quién espera: el familiar que eligió desde el celular recordado, o la persona que escribió (si el número ya tenía
+     * a alguien con ese nombre, es la misma persona).
+     */
+    private function webPatient(Account $account, WebWaitlistData $data, bool $recognized): Patient
+    {
+        if ($data->patientId !== null) {
+            if (! $recognized) {
+                throw new AuthorizationException('Para elegir a un familiar registrado, abre la web desde tu enlace de WhatsApp.');
+            }
+
+            // Como al reservar: quien está "por confirmar" en este número no es de la familia y no se puede elegir.
+            return Patient::query()->whereBelongsTo($account)->whereKeyNot($account->guestIds())->find($data->patientId)
+                ?? throw new BookingException('No encontramos a esa persona en este celular. Elige de nuevo para quién es.');
+        }
+
+        $existing = Patient::query()->whereBelongsTo($account)->get()->first(
+            fn (Patient $patient) => FamilyNames::comparable((string) $patient->first_name) === FamilyNames::comparable((string) $data->firstName)
+                && FamilyNames::comparable((string) $patient->last_name) === FamilyNames::comparable((string) $data->lastName)
+        );
+
+        return $existing ?? Patient::create([
+            'account_id' => $account->getKey(),
+            'first_name' => trim((string) $data->firstName),
+            'last_name' => trim((string) $data->lastName),
+            'relationship' => $account->patients()->where('relationship', PatientRelationship::Self)->exists()
+                ? PatientRelationship::Other
+                : PatientRelationship::Self,
+        ]);
+    }
+
+    /**
+     * La nota con los días que le sirven: los que escribe ahora reemplazan los que dejó la web la vez anterior (siempre
+     * al final), y lo que anotó recepción se conserva.
+     */
+    private static function notesWithDays(?string $notes, ?string $days): ?string
+    {
+        if (blank($days)) {
+            return $notes;
+        }
+
+        $kept = rtrim((string) preg_replace('/(?:\s*·\s*)?Días que le sirven: .*$/u', '', (string) $notes));
+
+        return self::noteEndingWith($kept, ' · ', 'Días que le sirven: '.trim($days));
+    }
+
+    /**
+     * La nota con algo nuevo al final. Guarda hasta WaitlistEntry::NOTES_LENGTH letras (MySQL no deja guardar más y
+     * daría un error): si no entra todo, se acorta lo que ya decía, que termina en "…", y lo nuevo entra completo.
+     */
+    private static function noteEndingWith(?string $note, string $glue, string $added): string
+    {
+        $note = trim((string) $note);
+        $added = trim($added);
+
+        if ($note === '') {
+            return $added;
+        }
+
+        $room = WaitlistEntry::NOTES_LENGTH - mb_strlen($glue.$added);
+
+        if (mb_strlen($note) > $room) {
+            $note = rtrim(mb_substr($note, 0, max(0, $room - 1))).'…';
+        }
+
+        return $note.$glue.$added;
+    }
+
     /** Ya no quiere esperar (consiguió otro horario, se atendió en otro lado...). */
     public function remove(WaitlistEntry $entry, ?string $reason = null): void
     {
         $entry->update([
             'status' => WaitlistStatus::Removed,
-            'notes' => trim(collect([$entry->notes, $reason ? 'Retirado: '.$reason : null])->filter()->implode("\n")) ?: null,
+            'notes' => $reason ? self::noteEndingWith($entry->notes, "\n", 'Retirado: '.$reason) : (trim((string) $entry->notes) ?: null),
         ]);
     }
 

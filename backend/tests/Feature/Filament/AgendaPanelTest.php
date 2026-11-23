@@ -18,6 +18,7 @@ use App\Filament\Resources\WhatsappMessages\Pages\ListWhatsappMessages;
 use App\Filament\Resources\WhatsappMessages\WhatsappMessageResource;
 use App\Filament\Widgets\TodayAppointments;
 use App\Filament\Widgets\TodayStats;
+use App\Livewire\WhatsappSentQuestion;
 use App\Models\Appointment;
 use App\Models\MagicLink;
 use App\Models\Patient;
@@ -32,12 +33,13 @@ use Filament\Actions\Testing\TestAction;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Support\Once;
 use Livewire\Livewire;
+use Tests\Concerns\AnswersWhatsAppQuestion;
 use Tests\Concerns\CreatesAgenda;
 use Tests\TestCase;
 
 class AgendaPanelTest extends TestCase
 {
-    use CreatesAgenda, LazilyRefreshDatabase;
+    use AnswersWhatsAppQuestion, CreatesAgenda, LazilyRefreshDatabase;
 
     protected function setUp(): void
     {
@@ -75,14 +77,15 @@ class AgendaPanelTest extends TestCase
 
         $this->actingAs(User::factory()->reception()->create());
 
-        Livewire::test(TodayAppointments::class)->assertTableColumnHidden('doctor.name');
+        // En Hoy el doctor va en la línea de abajo de cada cita ("Tratamiento · celular · Doctor").
+        Livewire::test(TodayAppointments::class)->assertDontSee($doctor->name);
         Livewire::test(ListAppointments::class)->assertTableColumnHidden('doctor.name')->assertTableFilterHidden('doctor_id');
 
         $this->doctorOffering($treatment);
         // Cada pedido cuenta los doctores una sola vez.
         Once::flush();
 
-        Livewire::test(TodayAppointments::class)->assertTableColumnVisible('doctor.name');
+        Livewire::test(TodayAppointments::class)->assertSee(' · '.$doctor->name);
         Livewire::test(ListAppointments::class)->assertTableColumnVisible('doctor.name')->assertTableFilterVisible('doctor_id');
     }
 
@@ -227,7 +230,7 @@ class AgendaPanelTest extends TestCase
             ->assertActionVisible(TestAction::make('patientProfile')->table($appointment));
     }
 
-    public function test_sending_a_notice_opens_whatsapp_and_marks_it_sent(): void
+    public function test_sending_a_notice_opens_whatsapp_and_asks_on_return_if_it_was_sent(): void
     {
         $treatment = Treatment::factory()->create();
         $doctor = $this->doctorOffering($treatment);
@@ -246,9 +249,12 @@ class AgendaPanelTest extends TestCase
 
         $list->callMountedAction()
             ->assertHasNoFormErrors()
-            ->assertNotified('Aviso para '.$appointment->patient->full_name.' abierto en WhatsApp');
+            ->assertDispatched(WhatsappSentQuestion::OPENED, message: $message->id);
 
+        // Abrirlo no es enviarlo: pasa a "Enviados" cuando, al volver, quien lo abrió dice que sí.
         $this->assertSame(1, MagicLink::count());
+        $this->assertSame(MessageStatus::Pending, $message->fresh()->status);
+        $this->answerWhatsApp($list);
         $this->assertSame(MessageStatus::Sent, $message->fresh()->status);
         $this->assertTrue($message->fresh()->sentBy->is($reception));
 

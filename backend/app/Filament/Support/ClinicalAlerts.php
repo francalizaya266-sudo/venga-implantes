@@ -103,12 +103,14 @@ final class ClinicalAlerts
                 ->actions($link);
         }
 
-        $callout = Callout::make('Atención: '.implode(' · ', $alerts))
+        // Un lector de pantalla la anuncia como "Alerta médica" (con el rojo o el ámbar de fábrica decía "Error" o
+        // "Advertencia"): el estado es propio y el color se pone aparte.
+        return Callout::make('Atención: '.implode(' · ', $alerts))
             ->description($filledByPatient)
             ->icon(Heroicon::OutlinedExclamationTriangle)
+            ->status('medical_alert')
+            ->color(self::isSevere($patient) ? 'danger' : 'warning')
             ->actions($link);
-
-        return self::isSevere($patient) ? $callout->danger() : $callout->warning();
     }
 
     /** Si los antecedentes los llenó el paciente desde la web y nadie del equipo los confirmó todavía. */

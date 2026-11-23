@@ -31,7 +31,7 @@
 
     <div class="tables">
         @foreach ($tables as $table)
-            <section @class(['wide' => $table['key'] === 'period'])>
+            <section @class(['wide' => $table['key'] === 'period']) tabindex="0" aria-label="{{ $table['title'] }}">
                 <h2>{{ $table['title'] }}</h2>
                 @include('reports.partials.table', ['table' => $table])
             </section>

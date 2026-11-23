@@ -6,9 +6,11 @@ use App\Enums\MessageStatus;
 use App\Enums\MessageTemplateKey;
 use App\Filament\Actions\SendWhatsAppAction;
 use App\Filament\Resources\Appointments\Tables\AppointmentsTable;
+use App\Filament\Support\WhatsAppQueue;
 use App\Models\WhatsappMessage;
 use App\Services\WhatsApp\WhatsAppOutbox;
 use App\Support\Phone;
+use Carbon\CarbonInterface;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
@@ -32,7 +34,17 @@ class WhatsappMessagesTable
                     ->label('Aviso')
                     ->badge()
                     ->color('gray')
-                    ->description(fn (WhatsappMessage $record) => 'Preparado '.$record->created_at->diffForHumans()),
+                    // Abierto en WhatsApp sin que nadie dijera si se envió: se pregunta aquí, para no mandarlo dos veces.
+                    ->description(function (WhatsappMessage $record): string {
+                        if (! WhatsAppOutbox::isOpenedUnconfirmed($record)) {
+                            return 'Preparado '.$record->created_at->diffForHumans();
+                        }
+
+                        /** @var CarbonInterface $openedAt */
+                        $openedAt = $record->opened_at;
+
+                        return 'Se abrió en WhatsApp '.$openedAt->diffForHumans().': ¿se envió?';
+                    }),
                 // El mensaje a la vista, para saber qué se manda sin abrirlo.
                 TextColumn::make('preview')
                     ->label('Mensaje')
@@ -76,7 +88,7 @@ class WhatsappMessagesTable
             // Por enviar: primero lo de la cita más próxima (lo que no es de una cita, por cuándo se preparó).
             // En Enviados y Todos, el último arriba.
             ->defaultSort(fn (Builder $query, $livewire) => in_array($livewire->activeTab ?? null, self::TO_SEND, true)
-                ? $query->orderByRaw('coalesce((select a.starts_at from appointments a where a.id = whatsapp_messages.appointment_id), whatsapp_messages.created_at)')->orderBy('id')
+                ? WhatsAppQueue::soonestFirst($query)
                 : $query->orderByDesc('created_at')->orderByDesc('id'))
             ->filters([
                 SelectFilter::make('template_key')
@@ -88,6 +100,8 @@ class WhatsappMessagesTable
                     ->label(fn (WhatsappMessage $record) => $record->status === MessageStatus::Sent ? 'Reenviar' : 'Enviar por WhatsApp')
                     ->button()
                     ->visible(fn (WhatsappMessage $record) => $record->status !== MessageStatus::Cancelled)
+                    ->authorize('update'),
+                SendWhatsAppAction::confirmSent()
                     ->authorize('update'),
                 SendWhatsAppAction::notSent()
                     ->authorize('update'),

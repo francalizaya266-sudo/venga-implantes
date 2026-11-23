@@ -336,6 +336,16 @@
               }
             }
           },
+          "404": {
+            "description": "Todavía no hay casos publicados: la página no existe.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "422": {
             "description": "Datos que no pasaron la validación.",
             "content": {
@@ -376,6 +386,16 @@
                     }
                   },
                   "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Todavía no hay opiniones publicadas: la página no existe.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
                 }
               }
             }
@@ -822,7 +842,7 @@
             }
           },
           "422": {
-            "description": "Validación, o una regla del consultorio (tratamiento que no se reserva en la web, familiar que no es de este celular, código que no existe…).",
+            "description": "Validación, o una regla del consultorio (tratamiento que no se reserva en la web, familiar que no es de este celular…). Un código de promoción que no existe no impide reservar: la respuesta lo dice en promo_notice.",
             "content": {
               "application/json": {
                 "schema": {
@@ -833,6 +853,74 @@
           },
           "429": {
             "description": "Varias reservas seguidas desde la misma conexión.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/booking/appointments/{appointment}": {
+      "get": {
+        "operationId": "booking.show",
+        "tags": [
+          "Reserva"
+        ],
+        "summary": "La cita recién reservada, con su propia dirección",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Appointment"
+          },
+          {
+            "name": "signature",
+            "in": "query",
+            "required": true,
+            "description": "La firma de la página /reservar/cita/{id}: viene en page_url de la reserva.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lo mismo que respondió la reserva.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/BookedAppointment"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PageMeta"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "La firma no vale, la cita no existe o ya no está activa (se canceló o ya se atendió).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Demasiados pedidos seguidos.",
             "content": {
               "application/json": {
                 "schema": {
@@ -931,6 +1019,83 @@
           },
           "429": {
             "description": "Demasiados pedidos seguidos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/booking/waitlist": {
+      "post": {
+        "operationId": "booking.waitlist",
+        "tags": [
+          "Reserva"
+        ],
+        "summary": "Avísame si se libera un horario",
+        "description": "Quien no encuentra un horario que le sirva queda en la lista de espera del consultorio, marcado como anotado desde la web, y recepción recibe el aviso. Si ya esperaba el mismo tratamiento, se actualiza lo que pidió. Con celular recordado no pide el número y puede ser para un familiar.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Xsrf"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WaitlistRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Quedó en la lista de espera.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Message"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Elegir a un familiar registrado desde un celular que no está recordado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "419": {
+            "description": "La sesión venció y la cabecera X-XSRF-TOKEN ya no vale: la web pide /site para renovarla y reintenta una vez.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validación, o una regla del consultorio (tratamiento que no se reserva en la web, familiar que no es de este celular, número bloqueado).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rejected"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Varias anotaciones seguidas desde la misma conexión.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2759,6 +2924,7 @@
       "BookedAppointment": {
         "type": "object",
         "required": [
+          "page_url",
           "treatment",
           "when",
           "who",
@@ -2768,9 +2934,14 @@
           "calendar_url",
           "whatsapp_message",
           "origins",
-          "origin_url"
+          "origin_url",
+          "promo_notice"
         ],
         "properties": {
+          "page_url": {
+            "type": "string",
+            "description": "La dirección propia de \"¡Tu cita quedó reservada!\" (/reservar/cita/{id}?signature=…): recargarla no la pierde."
+          },
           "treatment": {
             "type": "string"
           },
@@ -2826,6 +2997,13 @@
               "null"
             ],
             "description": "Dirección firmada para responder \"¿Cómo nos conociste?\"."
+          },
+          "promo_notice": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Escribió un código que no es de ninguna promoción: la cita quedó reservada igual y recepción lo revisa."
           }
         },
         "additionalProperties": false
@@ -3040,7 +3218,8 @@
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "description": "Aviso del código que no es de ninguna promoción vigente. No impide reservar."
           },
           "campaign_slug": {
             "type": [
@@ -4191,7 +4370,8 @@
           "other_doctors",
           "cases",
           "reviews",
-          "faqs"
+          "faqs",
+          "facts"
         ],
         "properties": {
           "welcome": {
@@ -4275,6 +4455,39 @@
             "items": {
               "$ref": "#/components/schemas/Faq"
             }
+          },
+          "facts": {
+            "type": "object",
+            "description": "La línea bajo los botones de la portada: dónde queda, qué días atiende y desde cuánto cuesta la evaluación. Lo que no está configurado va en null y no sale.",
+            "required": [
+              "address",
+              "days",
+              "price"
+            ],
+            "properties": {
+              "address": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "\"Jr. Apurímac 648\", sin la ciudad (va en el título)."
+              },
+              "days": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "\"Lunes a sábado\", \"Lunes, miércoles y viernes\" o \"Todos los días\"."
+              },
+              "price": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "\"Evaluación desde S/ 50\" o \"Evaluación gratis\"."
+              }
+            },
+            "additionalProperties": false
           }
         },
         "additionalProperties": false
@@ -5759,6 +5972,78 @@
             }
           }
         }
+      },
+      "WaitlistRequest": {
+        "type": "object",
+        "required": [
+          "treatment_id",
+          "preferred_period"
+        ],
+        "properties": {
+          "treatment_id": {
+            "type": "integer"
+          },
+          "doctor_id": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "El doctor que eligió al ver los horarios; vacío: cualquiera."
+          },
+          "patient_id": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Un familiar del celular recordado; vacío para una persona nueva."
+          },
+          "phone": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 20,
+            "description": "Obligatorio sin celular recordado. Celular peruano de 9 dígitos."
+          },
+          "first_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 80,
+            "description": "Obligatorio para una persona nueva."
+          },
+          "last_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 80,
+            "description": "Obligatorio para una persona nueva."
+          },
+          "preferred_period": {
+            "type": "string",
+            "enum": [
+              "any",
+              "morning",
+              "afternoon"
+            ],
+            "description": "A qué hora puede venir (App\\Enums\\DayPeriod)."
+          },
+          "days": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 120,
+            "description": "Qué días le sirven, con sus palabras (\"lunes o sábados\")."
+          },
+          "accepts_privacy": {
+            "type": "boolean",
+            "description": "Debe ser true la primera vez (Ley N.º 29733)."
+          }
+        },
+        "additionalProperties": false
       },
       "Welcome": {
         "type": "object",

@@ -3,8 +3,11 @@
 namespace App\Providers\Filament;
 
 use App\Filament\Pages\Auth\EditProfile;
+use App\Filament\Pages\Auth\Login;
 use App\Filament\Pages\Auth\RequestPasswordReset;
+use App\Filament\Pages\Auth\SetUpTwoFactor;
 use App\Filament\Pages\Backups;
+use App\Filament\Pages\ClinicSetup;
 use App\Filament\Pages\Dashboard;
 use App\Filament\Pages\Settings;
 use App\Filament\Pages\WebPages;
@@ -23,6 +26,7 @@ use App\Filament\Resources\Users\UserResource;
 use App\Filament\Support\InitialsAvatarProvider;
 use App\Filament\Support\MobileBar;
 use App\Filament\Support\PanelSearch;
+use App\Filament\Support\PhoneAuthentication;
 use App\Http\Controllers\Backup\BackupDownloadController;
 use App\Http\Controllers\Backup\BackupFilesDownloadController;
 use App\Http\Controllers\Billing\PaymentReceiptController;
@@ -37,7 +41,6 @@ use App\Models\Setting;
 use App\Services\Backup\FilesBackup;
 use App\Services\Web\ClinicInfo;
 use Filament\Actions\CreateAction;
-use Filament\Auth\MultiFactor\App\AppAuthentication;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\TimePicker;
@@ -68,9 +71,11 @@ class AdminPanelProvider extends PanelProvider
     /**
      * @var list<class-string> Páginas y secciones que van dentro de "Configuración", en el orden del menú:
      *                         Consultorio (Ajustes, Copias, Historial), Catálogo (Tratamientos, Paquetes), Equipo (Doctores, Usuarios) y Textos.
+     *                         La puesta a punto va arriba de todo en el menú, pero "Configuración" sigue abriendo Ajustes.
      */
     private const SETTINGS = [
         Settings::class,
+        ClinicSetup::class,
         Backups::class,
         AuditLogResource::class,
         TreatmentResource::class,
@@ -149,7 +154,7 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('panel')
             ->unsavedChangesAlerts()
-            ->login()
+            ->login(Login::class)
             // "¿Olvidaste tu contraseña?": el enlace llega por correo cuando el hosting ya tiene uno configurado.
             ->passwordReset(RequestPasswordReset::class)
             // "Mi perfil" en el menú del usuario: cada uno cambia su propia clave sin pedírsela al administrador,
@@ -157,8 +162,8 @@ class AdminPanelProvider extends PanelProvider
             ->profile(EditProfile::class, isSimple: false)
             // El panel se abre desde internet (el doctor de viaje, la recepción desde casa): además de la contraseña
             // pide el código de la app autenticadora. Es obligatorio: quien aún no lo tiene solo ve la pantalla para
-            // activarlo. Los códigos de recuperación sirven si pierde el celular.
-            ->multiFactorAuthentication([AppAuthentication::make()->recoverable()], isRequired: true)
+            // activarlo, en tres pasos. Los códigos de recuperación sirven si pierde el celular.
+            ->multiFactorAuthentication([PhoneAuthentication::make()->recoverable()], setUpRequiredAction: SetUpTwoFactor::class, isRequired: true)
             ->brandName(fn () => Setting::get('clinic.name'))
             // Con logo subido en la puesta a punto de la web, el panel lo muestra; si no, el diente de la web junto al nombre.
             ->brandLogo(fn () => app(ClinicInfo::class)->logoUrl() ?? view('filament.brand', ['name' => Setting::get('clinic.name')]))
@@ -209,9 +214,11 @@ class AdminPanelProvider extends PanelProvider
             ->renderHook(PanelsRenderHook::USER_MENU_PROFILE_BEFORE, fn () => auth()->check() ? view('filament.user-menu-header', ['user' => auth()->user()]) : '')
             ->renderHook(PanelsRenderHook::BODY_END, fn () => auth()->check() ? view('filament.mobile-bar', ['items' => MobileBar::items()]) : '')
             // Para el administrador: si el respaldo está al día, sin entrar a Copias de seguridad.
-            ->renderHook(PanelsRenderHook::SIDEBAR_FOOTER, fn () => auth()->check() ? view('filament.backup-status', ['status' => Backups::sidebarStatus()]) : '')
+            ->renderHook(PanelsRenderHook::SIDEBAR_FOOTER, fn () => auth()->check() ? view('filament.backup-status', ['status' => self::backupStatus()]) : '')
             // En todas las pantallas: lo que guarda otra persona se ve en pocos segundos, sin recargar.
             ->renderHook(PanelsRenderHook::BODY_END, fn () => auth()->check() ? Blade::render('<livewire:panel-pulse />') : '')
+            // En todas las pantallas: después de abrir WhatsApp, al volver se pregunta si el mensaje se envió.
+            ->renderHook(PanelsRenderHook::BODY_END, fn () => auth()->check() ? Blade::render('<livewire:whatsapp-sent-question />') : '')
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')
             ->pages([
@@ -272,5 +279,18 @@ class AdminPanelProvider extends PanelProvider
         }
 
         return null;
+    }
+
+    /**
+     * El respaldo al pie del menú. En "Hoy", si falta la copia o toca bajarla, ya lo dice en rojo el aviso de arriba
+     * (SystemHealth): el menú no lo repite. En las demás pantallas sigue siendo el único aviso.
+     *
+     * @return array{tone: 'success'|'warning'|'danger', text: string, detail: string, url: string}|null
+     */
+    private static function backupStatus(): ?array
+    {
+        $status = Backups::sidebarStatus();
+
+        return $status !== null && $status['tone'] !== 'success' && request()->routeIs(Dashboard::getRouteName()) ? null : $status;
     }
 }

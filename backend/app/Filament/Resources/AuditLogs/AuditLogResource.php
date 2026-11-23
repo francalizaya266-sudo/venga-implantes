@@ -20,7 +20,8 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 /**
  * Historial de cambios de Configuración: quién cambió qué y cuándo, en Ajustes, la página web, usuarios, doctores,
- * tratamientos, paquetes y textos, y quién descargó o borró cada copia de seguridad. Solo se lee.
+ * tratamientos, paquetes y textos, quién descargó o borró cada copia de seguridad y los precios cambiados al cobrar.
+ * Solo se lee.
  */
 class AuditLogResource extends Resource
 {
@@ -49,7 +50,7 @@ class AuditLogResource extends Resource
     {
         return $table
             ->stackedOnMobile()
-            ->modifyQueryUsing(fn (Builder $query) => $query
+            ->modifyQueryUsing(fn (Builder $query) => ChangeHistory::withoutRoutineCharges($query)
                 ->whereIn('auditable_type', array_keys(ChangeHistory::SECTIONS))
                 // Al restaurar algo borrado quedan dos registros: basta el que dice "Se restauró".
                 ->whereNot(fn (Builder $twice) => $twice->where('event', 'updated')->where('new_values', '{"deleted_at":null}'))
@@ -105,7 +106,7 @@ class AuditLogResource extends Resource
             ])
             ->defaultSort('id', 'desc')
             ->emptyStateHeading('Todavía no hay cambios')
-            ->emptyStateDescription('Aquí queda cada cambio que se haga en Configuración y en la página web.')
+            ->emptyStateDescription('Aquí queda cada cambio que se haga en Configuración y en la página web, y cada precio cambiado al cobrar.')
             ->defaultPaginationPageOption(25);
     }
 

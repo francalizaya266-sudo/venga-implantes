@@ -21,12 +21,13 @@ use App\Models\WhatsappMessage;
 use App\Services\Clinical\TreatmentPlanService;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Livewire\Livewire;
+use Tests\Concerns\AnswersWhatsAppQuestion;
 use Tests\Concerns\CreatesAgenda;
 use Tests\TestCase;
 
 class TreatmentPlansListPanelTest extends TestCase
 {
-    use CreatesAgenda, LazilyRefreshDatabase;
+    use AnswersWhatsAppQuestion, CreatesAgenda, LazilyRefreshDatabase;
 
     private Doctor $torres;
 
@@ -103,12 +104,12 @@ class TreatmentPlansListPanelTest extends TestCase
 
         $this->actingAs(User::factory()->reception()->create());
 
-        Livewire::test(ListTreatmentPlans::class)
+        $list = Livewire::test(ListTreatmentPlans::class)
             ->mountTableAction('whatsapp', $plan)
             ->assertSet('mountedActions.0.data.body', fn (string $body) => str_contains($body, 'tu plan de tratamiento con Dr. Luis Ramos'))
             ->callMountedTableAction()
-            ->assertHasNoTableActionErrors()
-            ->assertSee('Hace 9 días sin respuesta · le escribiste hace 0 segundos');
+            ->assertHasNoTableActionErrors();
+        $this->answerWhatsApp($list)->assertSee('Hace 9 días sin respuesta · le escribiste hace 0 segundos');
 
         $message = WhatsappMessage::sole();
         $this->assertSame(MessageTemplateKey::PlanFollowUp, $message->template_key);

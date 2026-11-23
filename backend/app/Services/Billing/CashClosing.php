@@ -2,7 +2,6 @@
 
 namespace App\Services\Billing;
 
-use App\Enums\AppointmentStatus;
 use App\Enums\PaymentMethod;
 use App\Models\Appointment;
 use App\Models\DailyClosing;
@@ -39,14 +38,15 @@ final class CashClosing
     ) {}
 
     /**
-     * El día y la persona elegidos en el panel. Un día que no es válido o que todavía no llega es hoy.
+     * El día y la persona elegidos en el panel. Un día que no es válido o que todavía no llega es hoy. El calendario
+     * del panel deja el día con la hora ("2026-11-01 00:00:00"); la hora no cuenta.
      *
      * @param  array<string, mixed>  $filters
      */
     public static function fromFilters(array $filters): self
     {
         $date = (string) ($filters['date'] ?? '');
-        $day = preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) ? CarbonImmutable::parse($date) : null;
+        $day = preg_match('/^(\d{4}-\d{2}-\d{2})(?: \d{2}:\d{2}(?::\d{2})?)?$/', $date, $match) ? CarbonImmutable::parse($match[1]) : null;
 
         return new self(
             $day && $day->lte(today()) ? $day : CarbonImmutable::today(),
@@ -62,7 +62,7 @@ final class CashClosing
     public static function receivers(CarbonImmutable $date): array
     {
         return User::query()
-            ->whereIn('id', Payment::query()->whereDate('paid_at', $date)->whereNotNull('received_by_user_id')->select('received_by_user_id'))
+            ->whereIn('id', Payment::query()->whereBetween('paid_at', [$date->startOfDay(), $date->endOfDay()])->whereNotNull('received_by_user_id')->select('received_by_user_id'))
             ->orderBy('name')
             ->pluck('name', 'id')
             ->all();
@@ -164,18 +164,34 @@ final class CashClosing
     }
 
     /**
-     * Las citas de ese día que ya pasaron y siguen sin cerrar: no se sabe si vino, y si vino, no se cobró.
+     * Las citas de ese día que quedaron sin cerrar, con la misma regla que Hoy y Citas (Appointment::unclosed): ya
+     * pasó su hora y no se sabe si vino, o vino y su atención no se cerró (y entonces no se cobró).
      *
      * @return Collection<int, Appointment>
      */
     public function unclosedAppointments(): Collection
     {
-        return Appointment::query()
-            ->with(['patient', 'treatment', 'doctor'])
-            ->whereBetween('starts_at', [$this->date->startOfDay(), min($this->date->endOfDay(), now())])
-            ->whereIn('status', AppointmentStatus::open())
-            ->orderBy('starts_at')
-            ->get();
+        return $this->appointmentsOfTheDay()->unclosed()->get();
+    }
+
+    /**
+     * Las de ese día que siguen en curso: el paciente está en sala o en atención. No son un olvido, pero lo suyo
+     * todavía no se cobra: conviene verlas antes de cerrar la caja.
+     *
+     * @return Collection<int, Appointment>
+     */
+    public function inCourseAppointments(): Collection
+    {
+        return $this->appointmentsOfTheDay()->inCourse()->get();
+    }
+
+    /**
+     * Cuántas citas de días anteriores siguen sin cerrar. "Citas sin cerrar" de Hoy las suma a las de este día: el
+     * cierre de hoy las nombra aparte, para que las dos cuentas se entiendan.
+     */
+    public function earlierUnclosedCount(): int
+    {
+        return Appointment::query()->unclosed()->where('starts_at', '<', $this->date->startOfDay())->count();
     }
 
     /** El cierre ya hecho de ese día, si lo hay. */
@@ -343,6 +359,21 @@ final class CashClosing
         }
 
         return $tables;
+    }
+
+    /**
+     * Las citas de ese día, por hora, con lo que muestran sus filas. Las de la misma hora van en el orden en que se
+     * agendaron: si no, cada base de datos las daría en otro orden.
+     *
+     * @return Builder<Appointment>
+     */
+    private function appointmentsOfTheDay(): Builder
+    {
+        return Appointment::query()
+            ->with(['patient', 'treatment', 'doctor'])
+            ->whereBetween('starts_at', [$this->date->startOfDay(), $this->date->endOfDay()])
+            ->orderBy('starts_at')
+            ->orderBy('id');
     }
 
     /** @return Builder<Payment> */

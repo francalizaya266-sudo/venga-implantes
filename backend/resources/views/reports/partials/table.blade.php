@@ -1,6 +1,6 @@
 @use('App\Services\Reports\EarningsTables')
-{{-- Una tabla con la forma de EarningsTables (Ingresos o el cierre de caja). La usan el panel y la hoja para imprimir, cada uno con sus estilos. $empty: el texto si no hay filas. --}}
-<table class="report-table">
+{{-- Una tabla con la forma de EarningsTables (Ingresos o el cierre de caja). La usan el panel y la hoja para imprimir, cada uno con sus estilos. $empty: el texto si no hay filas; $tableClass: una clase más (las tarjetas del celular). Cada celda lleva el título de su columna (data-label) para cuando se muestra como tarjeta. --}}
+<table class="{{ trim('report-table '.($tableClass ?? '')) }}">
     <thead>
         <tr>
             @foreach ($table['columns'] as $column)
@@ -12,7 +12,7 @@
         @forelse ($table['rows'] as $row)
             <tr>
                 @foreach ($row as $i => $value)
-                    <td @class(['num' => $table['columns'][$i]['type'] !== EarningsTables::TEXT])>{{ EarningsTables::format($value, $table['columns'][$i]['type']) }}</td>
+                    <td @class(['num' => $table['columns'][$i]['type'] !== EarningsTables::TEXT]) data-label="{{ $table['columns'][$i]['label'] }}">{{ EarningsTables::format($value, $table['columns'][$i]['type']) }}</td>
                 @endforeach
             </tr>
         @empty
@@ -25,7 +25,7 @@
         <tfoot>
             <tr>
                 @foreach ($table['total'] as $i => $value)
-                    <td @class(['num' => $table['columns'][$i]['type'] !== EarningsTables::TEXT])>{{ EarningsTables::format($value, $table['columns'][$i]['type']) }}</td>
+                    <td @class(['num' => $table['columns'][$i]['type'] !== EarningsTables::TEXT]) data-label="{{ $table['columns'][$i]['label'] }}">{{ EarningsTables::format($value, $table['columns'][$i]['type']) }}</td>
                 @endforeach
             </tr>
         </tfoot>

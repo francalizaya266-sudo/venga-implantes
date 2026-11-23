@@ -213,7 +213,7 @@ class PanelAccessTest extends TestCase
 
         $this->actingAs(User::factory()->doctor()->create(['name' => 'Elena Ríos']));
 
-        $this->get(Filament::getProfileUrl())->assertSeeInOrder(['Sesión iniciada como', 'Elena Ríos', 'Doctor']);
+        $this->get(Filament::getProfileUrl())->assertSeeInOrder(['Sesión iniciada como', 'Elena Ríos', 'Odontología']);
     }
 
     public function test_each_person_changes_their_own_password_from_my_profile(): void
@@ -277,6 +277,7 @@ class PanelAccessTest extends TestCase
             ->assertHeader('X-Frame-Options', 'SAMEORIGIN')
             ->assertHeader('X-Content-Type-Options', 'nosniff')
             ->assertHeader('Referrer-Policy', 'strict-origin-when-cross-origin')
+            ->assertHeaderMissing('X-Powered-By')
             ->assertHeaderMissing('Strict-Transport-Security');
 
         $this->get('https://localhost/panel/login')

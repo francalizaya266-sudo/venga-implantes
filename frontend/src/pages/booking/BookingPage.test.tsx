@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import type { BookingOptions } from '@/api/types';
+import type { BookedAppointment, BookingOptions } from '@/api/types';
 import { mockApi, offline, renderApp } from '@/test/app';
 import {
   bookedAppointment,
@@ -8,6 +8,7 @@ import {
   bookingDevice,
   bookingOptions,
   bookingTreatment,
+  meta,
   page,
   slot,
 } from '@/test/fixtures';
@@ -19,6 +20,13 @@ const DAYS = '/api/v1/booking/days?treatment=3';
 const BOOK = 'POST /api/v1/booking/appointments';
 /** La dirección del último paso: el servicio, el día y la hora ya elegidos. */
 const DETAILS = '/reservar?tratamiento=limpieza-dental&fecha=2026-11-04&hora=09:00';
+/** La cita reservada, en su propia dirección firmada. */
+const BOOKED = '/api/v1/booking/appointments/9?signature=abc';
+
+/** La reserva hecha: lo que responde la API al reservar y lo que muestra después su propia dirección. */
+function booked(appointment: BookedAppointment = bookedAppointment()) {
+  return { [BOOK]: { status: 201, body: { data: appointment } }, [BOOKED]: page(appointment) };
+}
 
 /** La API de una reserva sencilla; cada prueba cambia lo que le importa. */
 function bookingApi(options: Partial<BookingOptions> = {}, answers: Parameters<typeof mockApi>[0] = {}) {
@@ -35,7 +43,7 @@ const summary = () => within(screen.getByRole('complementary', { name: 'Resumen 
 
 describe('BookingPage', () => {
   it('books an appointment in three steps', async () => {
-    const calls = bookingApi({}, { [BOOK]: { status: 201, body: { data: bookedAppointment() } } });
+    const calls = bookingApi({}, booked());
     const { user, router } = renderApp('/reservar');
 
     await step('¿Qué necesitas?');
@@ -88,8 +96,35 @@ describe('BookingPage', () => {
       '/reservar/cita/9/calendario?signature=abc',
     );
     expect(screen.queryByRole('list', { name: /Paso/ })).not.toBeInTheDocument();
-    // La dirección ya no lleva lo elegido: recargar o retroceder no vuelve al formulario enviado.
-    expect(router.state.location.search).toBe('');
+    // La pantalla tiene su propia dirección (firmada): recargar no la pierde, y retroceder no vuelve al formulario.
+    expect(router.state.location.pathname).toBe('/reservar/cita/9');
+    expect(router.state.location.search).toBe('?signature=abc');
+    expect(router.state.historyAction).toBe('REPLACE');
+  });
+
+  it('opens the booked screen again from its own address, as after reloading the page', async () => {
+    const calls = mockApi({ [BOOKED]: page(bookedAppointment({ remembered: true })) });
+    renderApp('/reservar/cita/9?signature=abc');
+
+    expect(await step('¡Tu cita quedó reservada!')).toHaveFocus();
+    expect(screen.getByText('Miércoles 4 de noviembre, 9:00 a. m.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Mi cuenta' })).toHaveAttribute('href', '/mi-cuenta');
+    expect(calls.map((call) => call.url)).toContain(BOOKED);
+  });
+
+  it('says it when the address of a booked appointment is not valid or the appointment was cancelled', async () => {
+    mockApi({
+      '/api/v1/booking/appointments/9?signature=otra': {
+        status: 404,
+        body: {
+          message: 'No encontramos esta página',
+          meta: meta({ title: 'No encontramos esta página', noindex: true }),
+        },
+      },
+    });
+    renderApp('/reservar/cita/9?signature=otra');
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'No encontramos esta página' })).toBeInTheDocument();
   });
 
   it('marks what the API did not accept, names it by the button and forgets it as it gets fixed', async () => {
@@ -265,12 +300,135 @@ describe('BookingPage', () => {
     ).toHaveAttribute('aria-pressed', 'true');
   });
 
-  it('says it when the treatment has no free times', async () => {
+  it('says it when the treatment has no free times, and offers to tell the patient when one frees up', async () => {
     bookingApi({}, { [DAYS]: { data: bookingDays({ days: [], date: null, day: null, slots: [] }) } });
     renderApp('/reservar?tratamiento=limpieza-dental');
 
     await step('Elige día y hora');
     expect(screen.getByText(/No encontramos horarios libres en las próximas semanas\./)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '¿Te avisamos cuando haya uno?' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Avísame si se libera un horario' })).toBeInTheDocument();
+  });
+
+  it('lets whoever finds no time that suits them join the waiting list', async () => {
+    const calls = bookingApi(
+      {},
+      {
+        'POST /api/v1/booking/waitlist': {
+          status: 201,
+          body: { message: 'Listo, te anotamos. Si se libera un horario, te escribimos por WhatsApp al 987 654 321.' },
+        },
+      },
+    );
+    const { user } = renderApp('/reservar?tratamiento=limpieza-dental');
+
+    await step('Elige día y hora');
+    const ask = within(screen.getByRole('region', { name: '¿Ningún horario te sirve?' }));
+    await user.click(ask.getByRole('button', { name: 'Avísame si se libera un horario' }));
+
+    expect(ask.getByLabelText('Tu celular')).toHaveFocus();
+    await user.type(ask.getByLabelText('Tu celular'), '987654321');
+    await user.type(ask.getByLabelText('Nombres'), 'Rosa');
+    await user.type(ask.getByLabelText('Apellidos'), 'Quispe');
+    await user.click(ask.getByRole('button', { name: 'En la tarde' }));
+    await user.type(ask.getByLabelText('¿Qué días te sirven? (opcional)'), 'lunes o sábados');
+    await user.click(ask.getByRole('checkbox', { name: /Acepto la política de privacidad/ }));
+    await user.click(ask.getByRole('button', { name: 'Avísame' }));
+
+    expect(
+      await ask.findByText('Listo, te anotamos. Si se libera un horario, te escribimos por WhatsApp al 987 654 321.'),
+    ).toBeInTheDocument();
+    expect(calls.find((call) => call.method === 'POST')?.body).toEqual({
+      treatment_id: 3,
+      doctor_id: null,
+      patient_id: null,
+      phone: '987654321',
+      first_name: 'Rosa',
+      last_name: 'Quispe',
+      preferred_period: 'afternoon',
+      days: 'lunes o sábados',
+      accepts_privacy: true,
+    });
+    // Sigue en el paso de horarios, por si igual encuentra uno.
+    expect(screen.getByRole('button', { name: '9:00 a. m.' })).toBeInTheDocument();
+  });
+
+  it('marks what the waiting list did not accept next to each field', async () => {
+    bookingApi(
+      {},
+      {
+        'POST /api/v1/booking/waitlist': {
+          status: 422,
+          body: {
+            message: 'Revisa tu celular.',
+            errors: {
+              phone: ['Revisa tu celular: debe tener 9 dígitos y empezar con 9.'],
+              accepts_privacy: ['Para anotarte, acepta la política de privacidad.'],
+            },
+          },
+        },
+      },
+    );
+    const { user } = renderApp('/reservar?tratamiento=limpieza-dental');
+
+    await step('Elige día y hora');
+    await user.click(screen.getByRole('button', { name: 'Avísame si se libera un horario' }));
+    await user.type(screen.getByLabelText('Tu celular'), '12345');
+    await user.click(screen.getByRole('button', { name: 'Avísame' }));
+
+    expect(await screen.findByText('Revisa tu celular: debe tener 9 dígitos y empezar con 9.')).toBeInTheDocument();
+    expect(screen.getByText('Para anotarte, acepta la política de privacidad.')).toBeInTheDocument();
+    const phone = screen.getByLabelText('Tu celular');
+    expect(phone).toHaveAttribute('aria-invalid', 'true');
+    // El primer campo por revisar queda listo, y el lector de pantalla dice qué pasó al llegar a él.
+    await waitFor(() => expect(phone).toHaveFocus());
+    expect(phone).toHaveAccessibleDescription('Revisa tu celular: debe tener 9 dígitos y empezar con 9.');
+    expect(screen.getByRole('checkbox', { name: /Acepto la política de privacidad/ })).toHaveAccessibleDescription(
+      'Para anotarte, acepta la política de privacidad.',
+    );
+  });
+
+  it('from a remembered phone the waiting list does not ask the number and can be for a relative', async () => {
+    const doctors = [
+      { id: 1, name: 'Dra. Vega' },
+      { id: 2, name: 'Dr. Ramos' },
+    ];
+    const calls = bookingApi(
+      { device: bookingDevice() },
+      {
+        [DAYS]: { data: bookingDays({ doctors }) },
+        [`${DAYS}&doctor=2`]: { data: bookingDays({ doctors, doctor_id: 2 }) },
+        'POST /api/v1/booking/waitlist': {
+          status: 201,
+          body: { message: 'Listo, te anotamos. Si se libera un horario, te escribimos por WhatsApp al 987 654 321.' },
+        },
+      },
+    );
+    const { user } = renderApp('/reservar?tratamiento=limpieza-dental');
+
+    await step('Elige día y hora');
+    await user.click(screen.getByRole('button', { name: 'Dr. Ramos' }));
+    expect(await screen.findByText(/si se libera un horario con Dr\. Ramos\./)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Avísame si se libera un horario' }));
+
+    expect(screen.queryByLabelText('Tu celular')).not.toBeInTheDocument();
+    expect(screen.queryByRole('checkbox', { name: /política de privacidad/ })).not.toBeInTheDocument();
+    expect(screen.getByText('Te escribimos al 987 654 321.')).toBeInTheDocument();
+    const who = within(screen.getByRole('group', { name: '¿Para quién es?' }));
+    expect(who.getByRole('button', { name: 'Rosa Quispe' })).toHaveAttribute('aria-pressed', 'true');
+    await user.click(who.getByRole('button', { name: 'Luis Quispe' }));
+    await user.click(screen.getByRole('button', { name: 'Avísame' }));
+
+    await screen.findByText('Listo, te anotamos. Si se libera un horario, te escribimos por WhatsApp al 987 654 321.');
+    expect(calls.find((call) => call.method === 'POST')?.body).toMatchObject({
+      treatment_id: 3,
+      doctor_id: 2,
+      patient_id: 22,
+      phone: null,
+      first_name: null,
+      last_name: null,
+      preferred_period: 'any',
+    });
   });
 
   it('says it when nothing can be booked on the web, and still offers WhatsApp to whoever is in pain', async () => {
@@ -327,7 +485,16 @@ describe('BookingPage', () => {
           }),
         ),
         [`${OPTIONS}?codigo=NOEXISTE&tratamiento=limpieza-dental`]: page(
-          bookingOptions({ promo_code: 'NOEXISTE', promo_problem: 'Ese código no es de una promoción vigente.' }),
+          bookingOptions({
+            promo_code: 'NOEXISTE',
+            promo_problem: 'No reconocimos el código NOEXISTE. Puedes reservar igual; lo revisamos en el consultorio.',
+          }),
+        ),
+        ...booked(
+          bookedAppointment({
+            promo_notice:
+              'No reconocimos el código NOEXISTE. Igual reservamos tu cita; lo revisamos en el consultorio.',
+          }),
         ),
       },
     );
@@ -349,16 +516,29 @@ describe('BookingPage', () => {
     await user.type(code, 'noexiste');
     await user.tab();
 
-    expect(await screen.findByText('Ese código no es de una promoción vigente.')).toBeInTheDocument();
-    expect(code).toHaveAttribute('aria-invalid', 'true');
+    // Un código mal escrito se avisa, pero no impide reservar: queda en la cita y recepción lo revisa.
+    expect(
+      await screen.findByText(
+        'No reconocimos el código NOEXISTE. Puedes reservar igual; lo revisamos en el consultorio.',
+      ),
+    ).toBeInTheDocument();
+    expect(code).not.toHaveAttribute('aria-invalid');
     expect(screen.queryByText(/Reservas con la promoción/)).not.toBeInTheDocument();
+
+    await user.type(screen.getByLabelText('Tus nombres'), 'Rosa');
+    await user.type(screen.getByLabelText('Tus apellidos'), 'Quispe');
+    await user.click(screen.getByRole('checkbox', { name: /Acepto la política de privacidad/ }));
+    await user.click(screen.getByRole('button', { name: 'Reservar cita' }));
+
+    await step('¡Tu cita quedó reservada!');
+    expect(
+      screen.getByText('No reconocimos el código NOEXISTE. Igual reservamos tu cita; lo revisamos en el consultorio.'),
+    ).toBeInTheDocument();
+    expect(calls.find((call) => call.method === 'POST')?.body).toMatchObject({ promo_code: 'noexiste' });
   });
 
   it('from a remembered phone it asks who the appointment is for, not the number', async () => {
-    const calls = bookingApi(
-      { device: bookingDevice() },
-      { [BOOK]: { status: 201, body: { data: bookedAppointment({ remembered: true }) } } },
-    );
+    const calls = bookingApi({ device: bookingDevice() }, booked(bookedAppointment({ remembered: true })));
     const { user } = renderApp(DETAILS);
 
     await step('Tus datos');
@@ -378,10 +558,7 @@ describe('BookingPage', () => {
   });
 
   it('from a remembered phone another person is a relative of the holder', async () => {
-    const calls = bookingApi(
-      { device: bookingDevice() },
-      { [BOOK]: { status: 201, body: { data: bookedAppointment({ remembered: true }) } } },
-    );
+    const calls = bookingApi({ device: bookingDevice() }, booked(bookedAppointment({ remembered: true })));
     const { user } = renderApp(DETAILS);
 
     await step('Tus datos');
@@ -455,7 +632,7 @@ describe('BookingPage', () => {
     const calls = bookingApi(
       {},
       {
-        [BOOK]: { status: 201, body: { data: bookedAppointment() } },
+        ...booked(),
         'POST /api/v1/booking/appointments/9/origin?signature=abc': { message: '¡Gracias por contarnos!' },
       },
     );

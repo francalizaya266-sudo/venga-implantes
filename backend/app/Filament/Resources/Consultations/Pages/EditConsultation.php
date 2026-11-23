@@ -27,6 +27,7 @@ use Filament\Resources\Pages\EditRecord;
 use Filament\Support\Enums\Width;
 use Filament\Support\Exceptions\Halt;
 use Filament\Support\Icons\Heroicon;
+use Illuminate\Auth\Access\Response;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Support\Arr;
@@ -52,6 +53,46 @@ class EditConsultation extends EditRecord
         parent::mount($record);
 
         $this->savedFingerprint = $this->fingerprint();
+    }
+
+    /** La atención ya no se podía editar cuando llegó este pedido (se terminó aquí o en otra pestaña): la pantalla quedó atrás. */
+    private bool $isStale = false;
+
+    /**
+     * Si la atención deja de poder editarse con la pantalla abierta, lo que esta pantalla todavía pida (un segundo toque
+     * mientras carga, el guardado automático, otra pestaña) no se hace ni rebota con un cuadro de error: la pantalla pasa
+     * a la atención terminada, en modo lectura, como al abrirla. El paso lo da Livewire y no una redirección del
+     * servidor, porque el navegador la seguiría como un pedido de Livewire y el panel la rechazaría.
+     */
+    public function hydrate(): void
+    {
+        $consultation = $this->getConsultation();
+
+        if (! auth()->user()->can('update', $consultation) && auth()->user()->can('view', $consultation)) {
+            $this->isStale = true;
+            $this->redirect(ConsultationResource::getUrl('view', ['record' => $consultation]));
+            $this->skipRender();
+
+            return;
+        }
+
+        parent::hydrate();
+    }
+
+    /** En la pantalla que quedó atrás, sus acciones (terminar, plantilla, descartar) ya no se abren ni se hacen. */
+    public function getDefaultActionAuthorizationResponse(Action $action): ?Response
+    {
+        return $this->isStale ? Response::deny() : parent::getDefaultActionAuthorizationResponse($action);
+    }
+
+    /** En la pantalla que quedó atrás, "Guardar ahora" tampoco guarda ni rebota: la pantalla ya pasa a la atención terminada. */
+    public function save(bool $shouldRedirect = true, bool $shouldSendSavedNotification = true): void
+    {
+        if ($this->isStale) {
+            return;
+        }
+
+        parent::save($shouldRedirect, $shouldSendSavedNotification);
     }
 
     /** Hora del último guardado automático, para mostrarla en la barra fija. */
@@ -352,6 +393,13 @@ class EditConsultation extends EditRecord
                     ->send();
 
                 $this->redirect(ConsultationResource::getUrl('view', ['record' => $consultation]));
+
+                // Con materiales, la ventana queda abierta, tal cual, hasta que se abre la atención terminada: cerrarla
+                // vaciaría sus listas, que volverían a pedir sus nombres a una atención que ya no se puede editar.
+                if (array_key_exists('supplies_used', $data)) {
+                    $this->skipRender();
+                    $action->halt();
+                }
             });
     }
 

@@ -4,7 +4,7 @@ import { createRoot } from 'react-dom/client';
 import { RouterProvider } from 'react-router/dom';
 import { preloadedData } from '@/api/client';
 import { retry } from '@/api/queries';
-import { createAppRouter } from '@/app/router';
+import { createAppRouter, loadPage, prefetchPages } from '@/app/router';
 import '@/styles/site.css';
 
 const container = document.getElementById('app');
@@ -28,10 +28,19 @@ for (const [key, body] of preloadedData()) {
 // Si Laravel respondió con un error (403, 429…), la página lo dice en vez de intentar pintar otra cosa.
 const documentError = Number(container.dataset.error) || null;
 
-createRoot(container).render(
-  <StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <RouterProvider router={createAppRouter(documentError)} />
-    </QueryClientProvider>
-  </StrictMode>,
-);
+// La página con que se abrió la web se pinta con su código ya en el navegador (el documento lo pidió junto con
+// este archivo): sale completa de una vez, sin mostrar antes el hueco de la página.
+const firstPage = documentError === null ? loadPage(window.location.pathname) : Promise.resolve();
+
+firstPage.then(() => {
+  createRoot(container).render(
+    <StrictMode>
+      <QueryClientProvider client={queryClient}>
+        <RouterProvider router={createAppRouter(documentError)} />
+      </QueryClientProvider>
+    </StrictMode>,
+  );
+
+  // Las demás páginas se bajan en un rato libre, después de pintar la primera.
+  prefetchPages();
+});

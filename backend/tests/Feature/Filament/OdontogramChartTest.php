@@ -191,6 +191,15 @@ class OdontogramChartTest extends TestCase
         $this->assertEqualsCanonicalizing([14, 15, 16, 36], $preview);
     }
 
+    public function test_the_drawing_that_slides_sideways_on_a_phone_is_reached_with_the_keyboard_and_has_a_name(): void
+    {
+        [$doctor, $consultation] = $this->consultation();
+        $this->actingAs($doctor->user);
+
+        Livewire::test(OdontogramChart::class, ['record' => $consultation, 'editable' => true])
+            ->assertSeeHtml('<div class="odv-scroll" tabindex="0" role="region" aria-label="Dibujo de los dientes, se desliza de lado">');
+    }
+
     public function test_the_findings_fit_one_row_and_a_child_gets_the_sealant_before_the_implant(): void
     {
         [$doctor, $consultation] = $this->consultation();
@@ -205,6 +214,22 @@ class OdontogramChartTest extends TestCase
 
         app(OdontogramService::class)->changeDentition($odontogram->fresh(), Dentition::Mixed);
         $this->assertSame(['caries', 'restauracion', 'extraccion_indicada', 'ausente', 'sellante', 'corona', 'tratamiento_pulpar'], $inView());
+    }
+
+    public function test_on_a_phone_the_drawing_opens_enlarged_by_the_teeth_of_its_longest_row(): void
+    {
+        [$doctor, $consultation] = $this->consultation();
+        $this->actingAs($doctor->user);
+        $odontogram = Odontogram::where('consultation_id', $consultation->id)->sole();
+
+        // En el celular cada pieza mide lo mismo (panel.css): el dibujo sabe cuántas van en su fila más larga.
+        app(OdontogramService::class)->changeDentition($odontogram, Dentition::Permanent);
+        Livewire::test(OdontogramChart::class, ['record' => $consultation, 'editable' => true])
+            ->assertSeeHtml('--odv-teeth: 16"');
+
+        app(OdontogramService::class)->changeDentition($odontogram->fresh(), Dentition::Primary);
+        Livewire::test(OdontogramChart::class, ['record' => $consultation, 'editable' => true])
+            ->assertSeeHtml('--odv-teeth: 10"');
     }
 
     /** @return array{0: Doctor, 1: Consultation} */

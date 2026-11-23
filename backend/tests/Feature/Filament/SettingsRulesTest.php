@@ -141,6 +141,24 @@ class SettingsRulesTest extends TestCase
         $this->assertSame(20, (int) Setting::get('agenda.slot_step_minutes'));
     }
 
+    public function test_the_web_offers_hours_every_15_or_30_minutes(): void
+    {
+        $this->assertSame(15, (int) Setting::get('booking.web_slot_step_minutes'));
+
+        Livewire::test(Settings::class)
+            ->fillForm(['booking' => ['web_slot_step_minutes' => 20]])
+            ->call('save')
+            ->assertHasFormErrors(['booking.web_slot_step_minutes']);
+
+        Livewire::test(Settings::class)
+            ->assertSee('Horas que ofrece la web')
+            ->fillForm(['booking' => ['web_slot_step_minutes' => 30]])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $this->assertSame(30, (int) Setting::get('booking.web_slot_step_minutes'));
+    }
+
     public function test_the_landline_must_be_a_phone_number(): void
     {
         Livewire::test(Settings::class)

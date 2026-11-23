@@ -24,7 +24,7 @@ class UserAccessSafeguardsTest extends TestCase
 
         Livewire::test(ManageUsers::class)
             ->mountAction(TestAction::make('edit')->table($admin))
-            ->assertMountedActionModalSee('Tu propio acceso y tu rol solo los puede cambiar otro administrador.')
+            ->assertMountedActionModalSee('Tu propio acceso y tu rol solo los puede cambiar otra persona que administre el panel.')
             ->setActionData(['name' => 'Ana Admin', 'role' => UserRole::Reception->value, 'is_active' => false])
             ->callMountedAction()
             ->assertHasNoActionErrors();
@@ -36,7 +36,7 @@ class UserAccessSafeguardsTest extends TestCase
         // A otro administrador sí se los puede cambiar.
         Livewire::test(ManageUsers::class)
             ->mountAction(TestAction::make('edit')->table($colleague))
-            ->assertMountedActionModalDontSee('Tu propio acceso y tu rol solo los puede cambiar otro administrador.')
+            ->assertMountedActionModalDontSee('Tu propio acceso y tu rol solo los puede cambiar otra persona que administre el panel.')
             ->setActionData(['role' => UserRole::Reception->value, 'is_active' => false])
             ->callMountedAction()
             ->assertHasNoActionErrors();

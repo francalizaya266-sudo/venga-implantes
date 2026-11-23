@@ -348,4 +348,23 @@ class AgendaFindAndListTest extends TestCase
             ->assertSeeHtml('wire:key="agenda-frame"')
             ->assertDontSeeHtml('wire:key="agenda-list"');
     }
+
+    public function test_a_long_name_cut_with_an_ellipsis_is_read_whole_on_hover(): void
+    {
+        $long = ['first_name' => 'Aleksandra María José', 'last_name' => 'Wiśniewska-Kowalczyk de la Santísima Trinidad'];
+        $name = 'Aleksandra María José Wiśniewska-Kowalczyk de la Santísima Trinidad';
+        $treatment = Treatment::factory()->create(['duration_minutes' => 30]);
+        $doctor = $this->doctorOffering($treatment);
+        $doctor->update(['name' => 'Dr. Jassmanny Neil Vega Jaen de los Santos']);
+        Appointment::factory()->for($doctor)->for($treatment)->for(Patient::factory()->state($long))->at('2026-11-02 09:00')->create();
+        WaitlistEntry::factory()->for(Patient::factory()->state(['first_name' => 'Carmen Rosa del Pilar', 'last_name' => 'Rojas Villanueva de la Cruz']))->for($treatment)->create();
+        $this->actingAs(User::factory()->reception()->create());
+
+        // En la grilla, el globo de la cita trae el nombre entero; arriba, el del doctor; en la lista de espera, el suyo.
+        Livewire::test(Agenda::class)
+            ->assertSeeHtml([$name.' · ', 'title="Dr. Jassmanny Neil Vega Jaen de los Santos"', 'title="Carmen Rosa del Pilar Rojas Villanueva de la Cruz"'])
+            // En la lista del día, el nombre lleva el suyo.
+            ->set('mode', 'list')
+            ->assertSeeHtml('class="agenda-item-name" title="'.$name.'"');
+    }
 }

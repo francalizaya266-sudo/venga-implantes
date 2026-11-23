@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Str;
 
 /**
  * Configuración del consultorio editable desde el panel.
@@ -21,11 +22,14 @@ class Setting extends Model
 
     private const CACHE_KEY = 'settings.all';
 
-    /** Lo que el sistema anota solo (cuándo fue la última copia de seguridad): no es un cambio hecho por alguien. */
-    private const SYSTEM_STATE = 'backups.';
+    /** Lo que el sistema anota solo (cuándo fue la última copia de seguridad, de qué mes ya avisó el reporte): no es un cambio hecho por alguien. */
+    private const SYSTEM_STATE = ['backups.', 'reports.monthly_ready'];
 
-    /** Cuántas copias se guardan sí lo decide alguien, aunque sea de las copias: queda en el historial. */
-    private const DECIDED_BY_SOMEONE = ['backups.keep'];
+    /**
+     * Cuántas copias se guardan y en qué otra carpeta va la copia extra sí lo decide alguien, aunque sea de las copias:
+     * queda en el historial.
+     */
+    private const DECIDED_BY_SOMEONE = ['backups.keep', 'backups.extra_folder', 'backups.extra_keep'];
 
     protected function casts(): array
     {
@@ -75,7 +79,7 @@ class Setting extends Model
      */
     protected function writeAudit(string $event, array $old, array $new): void
     {
-        if (str_starts_with((string) $this->key, self::SYSTEM_STATE) && ! in_array($this->key, self::DECIDED_BY_SOMEONE, true)) {
+        if (Str::startsWith((string) $this->key, self::SYSTEM_STATE) && ! in_array($this->key, self::DECIDED_BY_SOMEONE, true)) {
             return;
         }
 

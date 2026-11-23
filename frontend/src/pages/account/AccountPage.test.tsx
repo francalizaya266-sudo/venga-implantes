@@ -151,8 +151,32 @@ describe('Mi cuenta from the remembered phone', () => {
     const private_ = within(screen.getByRole('region', { name: 'Planes, pagos, citas anteriores y datos' }));
     await user.click(private_.getByRole('button', { name: 'Enviarme el enlace' }));
 
-    expect(await screen.findByRole('status')).toHaveTextContent('Te enviaremos el enlace por WhatsApp al 987 654 321.');
+    // El aviso sale junto al botón, que ya dice que está hecho, y no arriba de la página.
+    expect(await private_.findByRole('status')).toHaveTextContent(
+      'Te enviaremos el enlace por WhatsApp al 987 654 321.',
+    );
+    expect(private_.getByRole('button', { name: 'Listo, te lo enviamos' })).toBeDisabled();
+    expect(screen.getAllByRole('status')).toHaveLength(1);
     expect(calls.filter((call) => call.method === 'POST')).toMatchObject([{ url: '/api/v1/account/verification' }]);
+  });
+
+  it('says next to the button why the link could not be sent, and lets it be asked again', async () => {
+    mockApi({
+      [ACCOUNT]: page(account()),
+      'POST /api/v1/account/verification': {
+        status: 429,
+        body: { message: 'Demasiados intentos. Espera unos minutos y vuelve a intentarlo.' },
+      },
+    });
+    const { user } = renderApp('/mi-cuenta');
+
+    const private_ = within(await screen.findByRole('region', { name: 'Planes, pagos, citas anteriores y datos' }));
+    await user.click(private_.getByRole('button', { name: 'Enviarme el enlace' }));
+
+    expect(await private_.findByRole('alert')).toHaveTextContent(
+      'Demasiados intentos. Espera unos minutos y vuelve a intentarlo.',
+    );
+    expect(private_.getByRole('button', { name: 'Enviarme el enlace' })).toBeEnabled();
   });
 
   it('after the verification shows the plans, what is owed, the past appointments and the family', async () => {

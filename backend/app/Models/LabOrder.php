@@ -253,7 +253,7 @@ class LabOrder extends Model
         return Appointment::query()
             ->where('patient_id', $this->patient_id)
             ->where('status', AppointmentStatus::Completed)
-            ->whereDate('starts_at', '>=', $this->received_on)
+            ->where('starts_at', '>=', $this->received_on)
             ->exists();
     }
 

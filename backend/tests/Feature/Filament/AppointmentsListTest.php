@@ -46,25 +46,29 @@ class AppointmentsListTest extends TestCase
         $leftInTheRoom = $this->visit('Carla', '2026-10-30 10:00', ['status' => AppointmentStatus::CheckedIn, 'checked_in_at' => '2026-10-30 09:55']);
         $happeningNow = $this->visit('Diego', '2026-11-02 10:45');
         $later = $this->visit('Elena', '2026-11-02 16:00');
+        // Pasó a consulta a las 7 y nadie cerró su atención: horas después ya no está en curso.
+        $forgottenInTheChair = $this->visit('Fabio', '2026-11-02 07:00', ['status' => AppointmentStatus::InProgress, 'checked_in_at' => '2026-11-02 06:55']);
         $this->travelTo('2026-11-02 11:00');
 
-        // La de hoy que nadie marcó y la que llegó otro día y nunca se cerró. Quien está en sala hoy sigue su curso.
+        // La de hoy que nadie marcó, la que llegó otro día y nunca se cerró, y la que sigue en atención horas después de
+        // su hora. Quien está en sala hoy sigue su curso.
         $list = Livewire::test(ListAppointments::class, ['activeTab' => 'unclosed'])
-            ->assertCanSeeTableRecords([$unmarked, $leftInTheRoom])
+            ->assertCanSeeTableRecords([$unmarked, $leftInTheRoom, $forgottenInTheChair])
             ->assertCanNotSeeTableRecords([$inTheRoom, $happeningNow, $later]);
-        $this->assertSame('2', (string) $list->instance()->getTabs()['unclosed']->getBadge());
+        $this->assertSame('3', (string) $list->instance()->getTabs()['unclosed']->getBadge());
 
         Livewire::test(FollowUpsToday::class)
-            ->assertSeeHtmlInOrder(['Citas sin cerrar', '<span class="dash-count is-warning">2</span>']);
+            ->assertSeeHtmlInOrder(['Citas sin cerrar', '<span class="dash-count is-warning">3</span>']);
 
         $agenda = Livewire::test(Agenda::class)->set('mode', 'list');
-        $this->assertSame(1, substr_count($agenda->html(), 'class="tag tag-unclosed"'));
-        $agenda->assertSeeHtmlInOrder(['Lucía', 'Sin cerrar', 'Bruno', 'En sala', 'Diego']);
+        $this->assertSame(2, substr_count($agenda->html(), 'class="tag tag-unclosed"'));
+        $agenda->assertSeeHtmlInOrder(['Fabio', 'Sin cerrar', 'Lucía', 'Sin cerrar', 'Bruno', 'En sala', 'Diego']);
 
-        // Cada cita por venir o sin marcar está en una sola pestaña. Quien está en sala hoy sigue en Próximas.
+        // Cada cita por venir o sin marcar está en una sola pestaña. Quien está en sala hoy sigue en Próximas; la que
+        // quedó en atención desde temprano ya está en "Sin cerrar".
         Livewire::test(ListAppointments::class, ['activeTab' => 'upcoming'])
             ->assertCanSeeTableRecords([$inTheRoom, $happeningNow, $later], inOrder: true)
-            ->assertCanNotSeeTableRecords([$unmarked, $leftInTheRoom]);
+            ->assertCanNotSeeTableRecords([$unmarked, $leftInTheRoom, $forgottenInTheChair]);
     }
 
     public function test_a_patient_who_arrives_stays_in_upcoming_until_the_visit_is_closed(): void
@@ -123,6 +127,22 @@ class AppointmentsListTest extends TestCase
         // El doctor no ve cuánto debe el paciente.
         $this->actingAs($this->doctor->user);
         Livewire::test(ListAppointments::class)->assertTableColumnStateNotSet('flags', ['Debe S/ 120'], $owing);
+    }
+
+    public function test_a_visit_without_flags_still_names_its_link_for_a_screen_reader(): void
+    {
+        $plain = $this->visit('Lucía', '2026-11-05 10:00', ['is_new_patient' => false]);
+
+        // Cada celda abre la cita: la de Avisos vacía dice "Sin avisos" (solo para el lector de pantalla).
+        Livewire::test(ListAppointments::class)
+            ->assertTableColumnStateNotSet('flags', ['Nuevo'], $plain)
+            ->assertSeeHtml('<span class="fi-sr-only">Sin avisos</span>');
+
+        $plain->update(['is_new_patient' => true]);
+
+        Livewire::test(ListAppointments::class)
+            ->assertTableColumnStateSet('flags', ['Nuevo'], $plain)
+            ->assertDontSeeHtml('Sin avisos');
     }
 
     public function test_the_number_on_to_confirm_is_the_number_of_rows_and_turns_to_warning_when_someone_must_be_called(): void

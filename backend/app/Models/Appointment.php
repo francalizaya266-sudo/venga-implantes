@@ -7,7 +7,9 @@ use App\Enums\AppointmentStatus;
 use App\Enums\BookingChannel;
 use App\Enums\CancelledBy;
 use App\Enums\ConfirmationChannel;
+use App\Enums\RescheduleRequestStatus;
 use App\Models\Concerns\Auditable;
+use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Database\Factories\AppointmentFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -104,6 +106,16 @@ class Appointment extends Model
         return $this->hasMany(RescheduleRequest::class);
     }
 
+    /**
+     * El pedido de cambio de horario que todavía espera respuesta (hay uno vivo por cita).
+     *
+     * @return HasOne<RescheduleRequest, $this>
+     */
+    public function pendingRescheduleRequest(): HasOne
+    {
+        return $this->hasOne(RescheduleRequest::class)->ofMany(['id' => 'max'], fn (Builder $query) => $query->where('status', RescheduleRequestStatus::Pending));
+    }
+
     public function messages(): HasMany
     {
         return $this->hasMany(WhatsappMessage::class);
@@ -150,8 +162,24 @@ class Appointment extends Model
     }
 
     /**
-     * "Sin cerrar", con una sola regla para todo el panel: ya pasó su hora y nadie marcó si vino o si faltó, o
-     * llegó otro día y su atención nunca se cerró. La de hoy que está en sala o en consulta no cuenta: sigue su curso.
+     * Las citas de un día: desde las 00:00 hasta antes de las 00:00 del siguiente. Va por rango y no con whereDate():
+     * date(starts_at) recorre la tabla entera, y el rango usa el índice de starts_at en MySQL, MariaDB y SQLite.
+     */
+    #[Scope]
+    protected function startsOn(Builder $query, CarbonInterface|string $day): Builder
+    {
+        $from = CarbonImmutable::parse($day)->startOfDay();
+
+        return $query
+            ->where($query->qualifyColumn('starts_at'), '>=', $from)
+            ->where($query->qualifyColumn('starts_at'), '<', $from->addDay());
+    }
+
+    /**
+     * "Sin cerrar", con una sola regla para todo el panel (Hoy, Citas, la agenda y el cierre del día): ya pasó su hora
+     * y nadie marcó si vino o si faltó, o vino y su atención nunca se cerró (llegó otro día, o sigue "en sala" o "en
+     * atención" horas después de su hora, WAIT_EXPIRES_HOURS). La de hoy que está en sala o en consulta no cuenta:
+     * sigue su curso (inCourse).
      */
     #[Scope]
     protected function unclosed(Builder $query): Builder
@@ -161,8 +189,23 @@ class Appointment extends Model
                 ->whereIn('status', AppointmentStatus::changeable())
                 ->where('ends_at', '<', now()))
             ->orWhere(fn (Builder $unfinished) => $unfinished
-                ->whereIn('status', [AppointmentStatus::CheckedIn, AppointmentStatus::InProgress])
-                ->where('starts_at', '<', today())));
+                ->whereIn('status', AppointmentStatus::inClinic())
+                ->where(fn (Builder $forgotten) => $forgotten
+                    ->where('starts_at', '<', today())
+                    ->orWhere('ends_at', '<=', now()->subHours(self::WAIT_EXPIRES_HOURS)))));
+    }
+
+    /**
+     * "En curso": llegó hoy y sigue en sala o en atención. Todavía no se cobra, pero no es un olvido: lo es recién
+     * cuando pasan horas desde su hora, y entonces cuenta como "sin cerrar" (unclosed).
+     */
+    #[Scope]
+    protected function inCourse(Builder $query): Builder
+    {
+        return $query
+            ->whereIn('status', AppointmentStatus::inClinic())
+            ->where('starts_at', '>=', today())
+            ->where('ends_at', '>', now()->subHours(self::WAIT_EXPIRES_HOURS));
     }
 
     /**
@@ -210,12 +253,15 @@ class Appointment extends Model
     /**
      * En sala de verdad: llegó hoy y su cita no terminó hace horas. Quien sigue "en sala" mucho después es una
      * cita que nadie cerró, no alguien esperando.
+     *
+     * @param  Builder<self>  $query
+     * @return Builder<self>
      */
     #[Scope]
     protected function waitingNow(Builder $query): Builder
     {
         return $query
-            ->whereDate('starts_at', today())
+            ->startsOn(today())
             ->where('status', AppointmentStatus::CheckedIn)
             ->where('ends_at', '>', now()->subHours(self::WAIT_EXPIRES_HOURS));
     }
@@ -223,12 +269,15 @@ class Appointment extends Model
     /**
      * En el sillón sin atención escrita: recepción tocó "Pasó a consulta" y el doctor todavía no abrió la atención.
      * Como en "waitingNow", si su cita terminó hace horas ya no cuenta: es una cita que nadie cerró.
+     *
+     * @param  Builder<self>  $query
+     * @return Builder<self>
      */
     #[Scope]
     protected function inChairWithoutConsultation(Builder $query): Builder
     {
         return $query
-            ->whereDate('starts_at', today())
+            ->startsOn(today())
             ->where('status', AppointmentStatus::InProgress)
             ->whereDoesntHave('consultation')
             ->where('ends_at', '>', now()->subHours(self::WAIT_EXPIRES_HOURS));
@@ -284,6 +333,15 @@ class Appointment extends Model
         return (int) $this->starts_at->diffInMinutes($this->ends_at, true);
     }
 
+    /** Al reservar escribió un código de promoción que no se aplicó (no es de ninguna vigente): recepción lo revisa. */
+    public function hasUnknownPromoCode(): bool
+    {
+        /** @var Campaign|null $campaign */
+        $campaign = $this->campaign;
+
+        return Campaign::codeNotApplied($this->promo_code, $campaign);
+    }
+
     /** Ya pasó su hora y nadie anotó que llegó: o vino y se atendió, o no asistió. */
     public function endedWithoutArriving(): bool
     {
@@ -302,10 +360,13 @@ class Appointment extends Model
         return $this->isFromAnEarlierDay() && in_array($this->status, AppointmentStatus::open(), true);
     }
 
-    /** Como en "unclosed": ya pasó su hora sin que nadie marcara si vino, o llegó otro día y no se cerró su atención. */
+    /**
+     * Como en "unclosed" (la misma regla en todo el panel): ya pasó su hora sin que nadie marcara si vino, o su
+     * atención no se cerró (llegó otro día, o sigue en sala o en atención horas después de su hora).
+     */
     public function isUnclosed(): bool
     {
-        return $this->endedWithoutArriving() || $this->isLeftOpen();
+        return $this->endedWithoutArriving() || $this->isLeftOpen() || $this->isForgottenInClinic();
     }
 
     /**

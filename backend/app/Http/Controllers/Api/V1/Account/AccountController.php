@@ -82,7 +82,7 @@ class AccountController extends Controller
             ->whereHas('patient', fn ($query) => $query->whereBelongsTo($account))
             ->with(['patient', 'doctor', 'treatment']);
         $upcoming = $appointments()
-            ->with('patient.medicalBackground')
+            ->with(['patient.medicalBackground', 'pendingRescheduleRequest.options'])
             ->where('starts_at', '>=', now()->startOfDay())
             ->whereIn('status', [AppointmentStatus::Pending, AppointmentStatus::Confirmed, AppointmentStatus::CheckedIn, AppointmentStatus::InProgress])
             ->oldest('starts_at')
@@ -106,6 +106,8 @@ class AccountController extends Controller
                     name: $appointment->patient->is($holder) ? null : $names[$appointment->patient_id],
                     guest: in_array((int) $appointment->patient_id, $guests, true),
                     askHealth: in_array($appointment->id, $askHealth, true),
+                    // Pidió cambiarla y espera respuesta: se le recuerda y no se le ofrece pedirlo otra vez.
+                    pendingRequest: $appointment->pendingRescheduleRequest,
                 ))->values(),
                 'plans' => $elevated ? $this->plansOf($account, $names) : null,
                 'balances' => $elevated ? $this->balancesOf($patients) : null,

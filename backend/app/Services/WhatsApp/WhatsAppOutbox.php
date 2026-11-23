@@ -43,8 +43,9 @@ class WhatsAppOutbox
             return null; // paciente sin celular registrado
         }
 
-        // Un solo aviso pendiente por tipo y cita (si la mueven dos veces, vale el último).
-        $this->discardPending($appointment, $key);
+        // Un solo aviso pendiente por tipo y cita (si la mueven dos veces, vale el último). El de un cambio de horario
+        // reemplaza además a los que todavía decían el horario anterior: la confirmación, el recordatorio, otro cambio.
+        $this->discardPending($appointment, in_array($key, MessageTemplateKey::CHANGE_NOTICES, true) ? MessageTemplateKey::TELLS_THE_DATE : $key);
 
         $message->fill(['due_at' => $dueAt])->save();
 
@@ -95,23 +96,55 @@ class WhatsAppOutbox
         ]);
     }
 
-    /** Descarta avisos pendientes de una cita (por ejemplo, al cancelarla o moverla). */
-    public function discardPending(Appointment $appointment, ?MessageTemplateKey $key = null): void
+    /**
+     * Aviso a un celular del equipo y no de un paciente, como el resumen del día para quien administra. Queda en
+     * "Por enviar" como los demás y se envía igual.
+     *
+     * @param  array<string, string>  $params
+     */
+    public function queueForPhone(string $phone, MessageTemplateKey $key, array $params = []): WhatsappMessage
+    {
+        return WhatsappMessage::create([
+            'template_key' => $key,
+            'phone' => Phone::normalize($phone),
+            'params' => $params + ['consultorio' => Setting::get('clinic.name')],
+            'status' => MessageStatus::Pending,
+            'channel' => $this->channel(),
+        ]);
+    }
+
+    /**
+     * Descarta avisos pendientes de una cita (por ejemplo, al cancelarla o moverla): todos, los de un tipo o los de
+     * varios.
+     *
+     * @param  MessageTemplateKey|list<MessageTemplateKey>|null  $key
+     */
+    public function discardPending(Appointment $appointment, MessageTemplateKey|array|null $key = null): void
     {
         WhatsappMessage::query()
             ->where('appointment_id', $appointment->getKey())
-            ->when($key, fn ($q) => $q->where('template_key', $key))
+            ->when($key !== null, fn ($q) => $q->whereIn('template_key', is_array($key) ? $key : [$key]))
             ->pending()
             ->update(['status' => MessageStatus::Cancelled]);
     }
 
     /**
+     * La cita cambió de horario o de doctor: lo que todavía no se envió vuelve a armarse con la fecha, la hora y el
+     * doctor nuevos, y sale el aviso de que la cita seguía como estaba (ya no es cierto).
+     */
+    public function rebuildPending(Appointment $appointment): void
+    {
+        $this->discardPending($appointment, MessageTemplateKey::RescheduleRejected);
+        $this->refreshPending($appointment);
+    }
+
+    /**
      * Los avisos de la cita que todavía no se enviaron vuelven a tomar sus datos (por ejemplo, cuando le cambian el
-     * tratamiento): así no sale un mensaje con lo que ya no es.
+     * tratamiento, el horario o el doctor): así no sale un mensaje con lo que ya no es.
      */
     public function refreshPending(Appointment $appointment): void
     {
-        $appointment->unsetRelation('treatment');
+        $appointment->unsetRelation('treatment')->unsetRelation('doctor');
         $params = $this->appointmentParams($appointment->loadMissing('patient', 'doctor', 'treatment', 'campaign'));
 
         WhatsappMessage::query()
@@ -166,8 +199,11 @@ class WhatsAppOutbox
     /**
      * Enlace wa.me con el mensaje ya escrito. Quien lo abre es quien lo envía:
      * en WhatsApp solo falta presionar Enviar.
+     *
+     * @param  bool  $markSent  Lo da por enviado al abrirlo. Sin eso queda abierto y en "Por enviar" hasta que
+     *                          quien lo abrió diga si se envió (markSent o markNotSent).
      */
-    public function clickToChatUrl(WhatsappMessage $message, User $by, ?string $body = null): string
+    public function clickToChatUrl(WhatsappMessage $message, User $by, ?string $body = null, bool $markSent = true): string
     {
         $body ??= $this->render($message, $by);
 
@@ -176,21 +212,36 @@ class WhatsAppOutbox
             $body = str_replace('{enlace}', $link, $body);
         }
 
-        $message->forceFill([
-            'status' => MessageStatus::Sent,
-            'opened_at' => now(),
-            'opened_by_user_id' => $by->getKey(),
-            'sent_at' => now(),
-            'sent_by_user_id' => $by->getKey(),
-        ])->save();
+        $message->forceFill(['opened_at' => now(), 'opened_by_user_id' => $by->getKey()]);
+
+        if ($markSent) {
+            $message->forceFill(['status' => MessageStatus::Sent, 'sent_at' => now(), 'sent_by_user_id' => $by->getKey()]);
+        }
+
+        $message->save();
 
         return 'https://wa.me/'.Phone::forWhatsApp($message->phone).'?text='.rawurlencode($body);
     }
 
-    /** Se abrió WhatsApp pero el mensaje no llegó a enviarse: vuelve a "Por enviar". */
+    /** Se abrió WhatsApp pero el mensaje no llegó a enviarse: vuelve a "Por enviar", como si no se hubiera abierto. */
     public function markNotSent(WhatsappMessage $message): void
     {
-        $message->forceFill(['status' => MessageStatus::Pending, 'sent_at' => null, 'sent_by_user_id' => null])->save();
+        $message->forceFill([
+            'status' => MessageStatus::Pending,
+            'opened_at' => null,
+            'opened_by_user_id' => null,
+            'sent_at' => null,
+            'sent_by_user_id' => null,
+        ])->save();
+    }
+
+    /** Se abrió en WhatsApp y nadie dijo todavía si se envió: sigue en "Por enviar", con la pregunta pendiente. */
+    public static function isOpenedUnconfirmed(WhatsappMessage $message): bool
+    {
+        /** @var MessageStatus $status */
+        $status = $message->status;
+
+        return $status === MessageStatus::Pending && $message->opened_at !== null;
     }
 
     /** Lo abrió una persona con WhatsApp hace poco: todavía puede decir que no llegó a enviarse. */
@@ -237,7 +288,7 @@ class WhatsAppOutbox
             'nombre' => $appointment->patient->first_name,
             'paciente' => $appointment->patient->full_name,
             'fecha' => $appointment->starts_at->translatedFormat('l j \d\e F'),
-            'hora' => $appointment->starts_at->format('g:i a'),
+            'hora' => Dates::time($appointment->starts_at),
             'doctor' => $appointment->doctor->name,
             'tratamiento' => mb_strtolower($appointment->treatment->name),
             // "Precio con la promoción …: desde S/ 120 (normal desde S/ 150). Pagas en el consultorio con …", o nada.

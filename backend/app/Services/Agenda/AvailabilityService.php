@@ -39,6 +39,7 @@ class AvailabilityService
      * @param  CarbonInterface|null  $earliest  No ofrecer horarios antes de este momento (anticipación mínima).
      * @param  int|null  $ignoreAppointmentId  Cita que se está moviendo (no cuenta como ocupada).
      * @param  int|null  $durationMinutes  Duración puesta a mano para esta cita; null, lo que ese doctor tarda en el tratamiento.
+     * @param  int|null  $stepMinutes  Cada cuántos minutos se buscan horarios; null, lo de Ajustes › Agenda (la web usa el suyo).
      * @return Collection<int, Slot>
      */
     public function slotsFor(
@@ -48,10 +49,11 @@ class AvailabilityService
         ?CarbonInterface $earliest = null,
         ?int $ignoreAppointmentId = null,
         ?int $durationMinutes = null,
+        ?int $stepMinutes = null,
     ): Collection {
         $duration = $durationMinutes ?? $doctor->durationFor($treatment);
         $buffer = $treatment->bufferMinutes();
-        $step = max(5, (int) Setting::get('agenda.slot_step_minutes', 15));
+        $step = max(5, $stepMinutes ?? (int) Setting::get('agenda.slot_step_minutes', 15));
         $minUsefulGap = (int) Setting::get('agenda.min_useful_gap_minutes', 30);
         $earliest = $earliest ? CarbonImmutable::instance($earliest) : null;
 

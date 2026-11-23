@@ -2,7 +2,7 @@
 <div class="ap-details">
     <ol class="ap-steps" aria-label="En qué va la cita">
         @foreach ($steps as $step)
-            <li @class(['ap-step', 'is-'.$step['state']]) @if ($step['state'] === 'current') aria-current="step" @endif>
+            <li @class(['ap-step', 'is-'.$step['state'], 'is-shown' => $step['shown']]) @if ($step['state'] === 'current') aria-current="step" @endif>
                 <span class="ap-step-dot" aria-hidden="true">
                     @if ($step['state'] === 'done')
                         <x-filament::icon icon="heroicon-m-check" class="ap-step-check" />
@@ -27,17 +27,20 @@
         <p class="ap-closed is-warning"><strong>{{ $warning }}</strong></p>
     @endif
 
+    {{-- Cada dato es un par etiqueta (con su ícono) y valor (con su aclaración), sin nada más en medio: así un lector de pantalla los lee juntos. --}}
     <dl class="ap-facts">
         @foreach ($facts as $fact)
             <div class="ap-fact">
-                <span class="ap-fact-icon" aria-hidden="true"><x-filament::icon :icon="$fact['icon']" /></span>
-                <div class="ap-fact-text">
-                    <dt>{{ $fact['label'] }}</dt>
-                    <dd>{{ $fact['value'] }}</dd>
+                <dt>
+                    <span class="ap-fact-icon" aria-hidden="true"><x-filament::icon :icon="$fact['icon']" /></span>
+                    {{ $fact['label'] }}
+                </dt>
+                <dd>
+                    {{ $fact['value'] }}
                     @if ($fact['hint'])
                         <small>{{ $fact['hint'] }}</small>
                     @endif
-                </div>
+                </dd>
             </div>
         @endforeach
     </dl>

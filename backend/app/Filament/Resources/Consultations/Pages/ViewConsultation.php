@@ -16,6 +16,7 @@ use App\Models\Consultation;
 use App\Services\Clinical\ConsultationService;
 use App\Services\Clinical\PrescriptionService;
 use App\Services\Clinical\TreatmentPlanService;
+use Carbon\CarbonInterface;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
@@ -36,9 +37,17 @@ class ViewConsultation extends ViewRecord
         return $this->getConsultation()->attended_at->format('d/m/Y');
     }
 
+    /**
+     * El día en que se terminó, cobrar y agendar la próxima cita están en las franjas de arriba ("Cobrar ahora",
+     * "Agendar"), junto a su explicación: no se repiten entre los botones. Después, sin franjas, quedan aquí.
+     */
     protected function getHeaderActions(): array
     {
-        return [
+        /** @var CarbonInterface|null $closedAt */
+        $closedAt = $this->getConsultation()->closed_at;
+        $showsCloseOut = $closedAt?->isToday() ?? false;
+
+        return array_values(array_filter([
             Action::make('continue')
                 ->label('Continuar')
                 ->icon(Heroicon::OutlinedPencilSquare)
@@ -64,11 +73,7 @@ class ViewConsultation extends ViewRecord
 
                     $this->redirect(ConsultationResource::getUrl('edit', ['record' => $this->getConsultation()]));
                 }),
-            // Una atención sin cita también se cobra desde aquí.
-            RegisterPaymentAction::make(fn () => $this->getConsultation()->patient)
-                ->name('collect')
-                ->label('Cobrar')
-                ->hidden(fn () => $this->getConsultation()->closed_at === null),
+            $showsCloseOut ? null : $this->collectAction(),
             Action::make('printPrescription')
                 ->label('Imprimir receta')
                 ->icon(Heroicon::OutlinedPrinter)
@@ -79,7 +84,7 @@ class ViewConsultation extends ViewRecord
             SendWhatsAppAction::compose('sendPrescription', fn () => app(PrescriptionService::class)->whatsappDraft($this->getConsultation()->prescription))
                 ->label('Enviar receta por WhatsApp')
                 ->visible(fn () => $this->getConsultation()->prescription !== null && $this->getConsultation()->patient->account_id !== null),
-            Action::make('book')
+            $showsCloseOut ? null : Action::make('book')
                 ->label('Programar cita')
                 ->icon(Heroicon::OutlinedCalendarDays)
                 ->color('gray')
@@ -91,7 +96,16 @@ class ViewConsultation extends ViewRecord
                 ->icon(Heroicon::OutlinedFolderOpen)
                 ->color('gray')
                 ->url(fn () => PatientResource::getUrl('clinical', ['record' => $this->getConsultation()->patient])),
-        ];
+        ]));
+    }
+
+    /** Cobrar: "Cobrar ahora" en la franja del cobro o, en una atención de otro día, arriba. Una atención sin cita también se cobra desde aquí. */
+    public function collectAction(): Action
+    {
+        return RegisterPaymentAction::make(fn () => $this->getConsultation()->patient)
+            ->name('collect')
+            ->label('Cobrar')
+            ->hidden(fn () => $this->getConsultation()->closed_at === null);
     }
 
     /** Le pasa el cobro a recepción: el doctor, que no maneja la caja, o la administradora que prefiere no cobrar ella. */

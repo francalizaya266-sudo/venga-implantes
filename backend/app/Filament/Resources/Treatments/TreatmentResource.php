@@ -106,7 +106,7 @@ class TreatmentResource extends Resource
                             ->required()
                             ->helperText(fn (?Treatment $record) => self::durationHelp($record)),
                         TextInput::make('buffer_minutes')
-                            ->label('Limpieza y esterilización')
+                            ->label('Tiempo para preparar el sillón')
                             ->suffix('min')
                             ->numeric()
                             ->minValue(0)
@@ -273,7 +273,7 @@ class TreatmentResource extends Resource
 
     /**
      * Qué se ofrece, a qué precio, con quién y dónde aparece lo decide el administrador. Un doctor abre la ficha para
-     * ajustar lo clínico: la duración, la limpieza, las sesiones, el tipo, el seguimiento y las indicaciones.
+     * ajustar lo clínico: la duración, el tiempo para preparar el sillón, las sesiones, el tipo, el seguimiento y las indicaciones.
      */
     private static function decidesTheOffer(): bool
     {
@@ -390,30 +390,37 @@ class TreatmentResource extends Resource
                     ->description(fn (Treatment $record) => $record->is_active && ! $record->has_doctor
                         ? new HtmlString(e(self::typeAndSessions($record)).' <span class="help-warning">Nadie lo atiende: no se puede agendar. Edítalo y marca quién lo atiende.</span>')
                         : self::typeAndSessions($record))
+                    // El nombre con su ancho, en una línea: la duración (larga) se quedaba con el espacio y lo partía en
+                    // tres. Para que la lista siga entrando en una laptop, los títulos de las otras columnas bajan de línea.
+                    ->extraCellAttributes(['style' => 'min-width: 15rem'])
                     ->wrap(),
                 TextColumn::make('attended_by')
                     ->label('Quién lo atiende')
+                    ->wrapHeader()
                     ->state(fn (Treatment $record) => self::whoAttends($record))
                     ->placeholder('Nadie')
                     ->wrap(),
-                // El tiempo que de verdad se usa y de dónde viene: la limpieza propia o la general, y los doctores
-                // a los que se les reserva otra duración.
+                // El tiempo que de verdad se usa y de dónde viene: el propio para preparar el sillón o el general, y los
+                // doctores a los que se les reserva otra duración.
                 TextColumn::make('duration_minutes')
                     ->label('Duración de la cita')
+                    ->wrapHeader()
                     ->suffix(' min')
                     ->description(fn (Treatment $record) => collect([
-                        '+'.$record->bufferMinutes().' de limpieza'.($record->buffer_minutes === null ? ' (la general)' : ' (propia)'),
+                        '+'.$record->bufferMinutes().' min para preparar el sillón'.($record->buffer_minutes === null ? ' (tiempo general)' : ' (tiempo propio)'),
                         ...array_map(fn (array $duration) => "{$duration['doctor']}: {$duration['minutes']} min", $record->ownDurations()),
                     ])->implode(' · '))
                     ->wrap(),
                 TextColumn::make('price_from')
                     ->label('Precio normal')
+                    ->wrapHeader()
                     ->money('PEN', locale: 'es_PE')
                     ->placeholder('—'),
                 // En palabras, no con una X roja que parecía un error. Marcado para la reserva pero sin un doctor que
                 // lo atienda por la web: no aparece en la reserva, y se avisa.
                 TextColumn::make('presence')
                     ->label('Dónde aparece')
+                    ->wrapHeader()
                     ->state(fn (Treatment $record) => $record->is_active ? $record->webPresence()->shortLabel() : null)
                     ->placeholder('—')
                     ->color(fn (Treatment $record) => match (true) {
@@ -432,6 +439,7 @@ class TreatmentResource extends Resource
                     ->state(fn (Treatment $record) => $record->supplies->count() ?: null)
                     ->description(fn (Treatment $record) => $record->supplies->isNotEmpty() && auth()->user()->can('viewCosts', Supply::class) ? Money::format(app(InventoryService::class)->recipeCost($record)).' por atención' : null)
                     ->placeholder('Sin receta')
+                    ->wrap()
                     ->visible(fn () => Supply::query()->exists()),
                 ToggleColumn::make('is_active')
                     ->label('Activo')
@@ -477,7 +485,7 @@ class TreatmentResource extends Resource
                     ->iconButton()
                     ->tooltip('Editar')
                     ->mutateDataUsing(fn (array $data) => self::withPresence($data))
-                    ->modalDescription(fn () => self::decidesTheOffer() ? null : 'Puedes cambiar la duración, la limpieza, las sesiones, el tipo, el seguimiento y las indicaciones. El nombre, el precio, quién lo atiende y dónde aparece los cambia el administrador.')
+                    ->modalDescription(fn () => self::decidesTheOffer() ? null : 'Puedes cambiar la duración, el tiempo para preparar el sillón, las sesiones, el tipo, el seguimiento y las indicaciones. El nombre, el precio, quién lo atiende y dónde aparece los cambia quien administra el panel.')
                     ->successNotificationTitle('Tratamiento guardado'),
                 // Borrar va en el menú para que la fila entre entera. Con citas o cobros no se borra: avisa que se apaga "Activo".
                 ActionGroup::make([

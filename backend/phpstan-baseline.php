@@ -31,11 +31,6 @@ $ignoreErrors[] = [
     'path' => __DIR__.'/app/Console/Commands/ReleaseExpiredWaitlistHolds.php',
 ];
 $ignoreErrors[] = [
-    'rawMessage' => 'Cannot call method translatedFormat() on string.',
-    'count' => 1,
-    'path' => __DIR__.'/app/Console/Commands/ReleaseExpiredWaitlistHolds.php',
-];
-$ignoreErrors[] = [
     'rawMessage' => 'Parameter #1 $doctor of method App\\Services\\Booking\\WaitlistService::freedSlotNotice() expects App\\Models\\Doctor, Illuminate\\Database\\Eloquent\\Model given.',
     'count' => 1,
     'path' => __DIR__.'/app/Console/Commands/ReleaseExpiredWaitlistHolds.php',
@@ -712,12 +707,7 @@ $ignoreErrors[] = [
 ];
 $ignoreErrors[] = [
     'rawMessage' => 'Access to an undefined property Illuminate\\Database\\Eloquent\\Model::$name.',
-    'count' => 9,
-    'path' => __DIR__.'/app/Filament/Resources/Appointments/Schemas/AppointmentInfolist.php',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Access to an undefined property Illuminate\\Database\\Eloquent\\Model::$promo_code.',
-    'count' => 1,
+    'count' => 8,
     'path' => __DIR__.'/app/Filament/Resources/Appointments/Schemas/AppointmentInfolist.php',
 ];
 $ignoreErrors[] = [
@@ -1394,11 +1384,6 @@ $ignoreErrors[] = [
     'rawMessage' => 'Using nullsafe property access "?->code" on left side of ?? is unnecessary. Use -> instead.',
     'count' => 1,
     'path' => __DIR__.'/app/Filament/Resources/Consultations/Tables/ConsultationsTable.php',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Parameter #1 $doctor of static method App\\Filament\\Resources\\Doctors\\Schemas\\DoctorForm::missingToAttend() expects App\\Models\\Doctor, Illuminate\\Database\\Eloquent\\Model|null given.',
-    'count' => 1,
-    'path' => __DIR__.'/app/Filament/Resources/Doctors/Pages/CreateDoctor.php',
 ];
 $ignoreErrors[] = [
     'rawMessage' => 'Access to an undefined property Illuminate\\Database\\Eloquent\\Model::$full_name.',
@@ -3211,11 +3196,6 @@ $ignoreErrors[] = [
     'path' => __DIR__.'/app/Filament/Support/VisitCloseOut.php',
 ];
 $ignoreErrors[] = [
-    'rawMessage' => 'Cannot call method translatedFormat() on string.',
-    'count' => 1,
-    'path' => __DIR__.'/app/Filament/Support/VisitCloseOut.php',
-];
-$ignoreErrors[] = [
     'rawMessage' => 'Parameter #1 $patient of method App\\Services\\Patients\\PatientInsights::suggestedNextVisit() expects App\\Models\\Patient, Illuminate\\Database\\Eloquent\\Model|null given.',
     'count' => 1,
     'path' => __DIR__.'/app/Filament/Support/VisitCloseOut.php',
@@ -3266,27 +3246,7 @@ $ignoreErrors[] = [
     'path' => __DIR__.'/app/Filament/Widgets/CashClosingCheck.php',
 ];
 $ignoreErrors[] = [
-    'rawMessage' => 'Access to an undefined property Illuminate\\Database\\Eloquent\\Model::$name.',
-    'count' => 1,
-    'path' => __DIR__.'/app/Filament/Widgets/CashClosingCheck.php',
-];
-$ignoreErrors[] = [
     'rawMessage' => 'Cannot call method format() on string.',
-    'count' => 1,
-    'path' => __DIR__.'/app/Filament/Widgets/CashClosingCheck.php',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Cannot call method getLabel() on string.',
-    'count' => 1,
-    'path' => __DIR__.'/app/Filament/Widgets/CashClosingCheck.php',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Parameter #1 $callback of method Illuminate\\Support\\Collection<int,App\\Models\\Appointment>::map() contains unresolvable type.',
-    'count' => 1,
-    'path' => __DIR__.'/app/Filament/Widgets/CashClosingCheck.php',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Parameter #1 $status of static method App\\Filament\\Widgets\\CashClosingCheck::unclosedHint() expects App\\Enums\\AppointmentStatus, string given.',
     'count' => 1,
     'path' => __DIR__.'/app/Filament/Widgets/CashClosingCheck.php',
 ];
@@ -3489,11 +3449,6 @@ $ignoreErrors[] = [
     'rawMessage' => 'Parameter #1 $array (array{0: Filament\\Widgets\\StatsOverviewWidget\\Stat, 1: Filament\\Widgets\\StatsOverviewWidget\\Stat, 2: Filament\\Widgets\\StatsOverviewWidget\\Stat, 3?: Filament\\Widgets\\StatsOverviewWidget\\Stat}) of array_values is already a list, call has no effect.',
     'count' => 1,
     'path' => __DIR__.'/app/Filament/Widgets/Reports/EarningsStats.php',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Access to an undefined property Illuminate\\Database\\Eloquent\\Model::$account.',
-    'count' => 1,
-    'path' => __DIR__.'/app/Filament/Widgets/TodayAppointments.php',
 ];
 $ignoreErrors[] = [
     'rawMessage' => 'Call to an undefined method Illuminate\\Database\\Eloquent\\Builder<Illuminate\\Database\\Eloquent\\Model>::withBalance().',
@@ -5446,11 +5401,6 @@ $ignoreErrors[] = [
     'path' => __DIR__.'/app/Services/Booking/AppointmentService.php',
 ];
 $ignoreErrors[] = [
-    'rawMessage' => 'Cannot call method translatedFormat() on string.',
-    'count' => 2,
-    'path' => __DIR__.'/app/Services/Booking/AppointmentService.php',
-];
-$ignoreErrors[] = [
     'rawMessage' => 'Match arm comparison between string and App\\Enums\\AppointmentStatus::Cancelled is always false.',
     'count' => 1,
     'path' => __DIR__.'/app/Services/Booking/AppointmentService.php',
@@ -6936,11 +6886,6 @@ $ignoreErrors[] = [
     'path' => __DIR__.'/app/Services/WhatsApp/WhatsAppOutbox.php',
 ];
 $ignoreErrors[] = [
-    'rawMessage' => 'Cannot call method format() on string.',
-    'count' => 1,
-    'path' => __DIR__.'/app/Services/WhatsApp/WhatsAppOutbox.php',
-];
-$ignoreErrors[] = [
     'rawMessage' => 'Cannot call method gt() on string.',
     'count' => 1,
     'path' => __DIR__.'/app/Services/WhatsApp/WhatsAppOutbox.php',
@@ -7039,11 +6984,6 @@ $ignoreErrors[] = [
     'rawMessage' => 'Strict comparison using === between string and App\\Enums\\DiscountType::Percent will always evaluate to false.',
     'count' => 1,
     'path' => __DIR__.'/app/Support/CampaignText.php',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Access to an undefined property App\\Models\\Patient::$short_name.',
-    'count' => 1,
-    'path' => __DIR__.'/app/Support/FamilyNames.php',
 ];
 $ignoreErrors[] = [
     'rawMessage' => 'Parameter #1 $array (list<mixed>) of array_values is already a list, call has no effect.',

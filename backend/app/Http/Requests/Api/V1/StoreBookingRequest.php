@@ -39,12 +39,6 @@ class StoreBookingRequest extends FormRequest
         return $this->device;
     }
 
-    /** La campaña con que reserva: por el código que escribió o por la página de la que llegó. */
-    public function campaign(): ?Campaign
-    {
-        return Campaign::forBooking($this->input('promo_code'), $this->input('campaign_slug'));
-    }
-
     public function privacyAlreadyAccepted(): bool
     {
         return $this->device()?->account->privacy_accepted_at !== null;
@@ -54,7 +48,7 @@ class StoreBookingRequest extends FormRequest
     {
         $this->merge([
             'birth_date' => $this->composedBirthDate(),
-            'promo_code' => strtoupper(trim((string) $this->input('promo_code'))) ?: null,
+            'promo_code' => Campaign::writtenCode((string) $this->input('promo_code')) ?: null,
         ]);
     }
 
@@ -85,11 +79,8 @@ class StoreBookingRequest extends FormRequest
             'origin' => ['nullable', Rule::enum(AppointmentOrigin::class)],
             'accepts_privacy' => [$this->privacyAlreadyAccepted() ? 'boolean' : 'accepted'],
             'accepts_promotions' => ['nullable', 'boolean'],
-            'promo_code' => ['nullable', 'string', 'max:30', function (string $attribute, mixed $value, Closure $fail) {
-                if (filled($value) && $this->campaign() === null) {
-                    $fail(Campaign::UNKNOWN_CODE);
-                }
-            }],
+            // Un código que no es de ninguna promoción no impide reservar: queda en la cita y recepción lo revisa.
+            'promo_code' => ['nullable', 'string', 'max:30'],
             'campaign_slug' => ['nullable', 'string', 'max:120'],
             'note' => ['nullable', 'string', 'max:300'],
         ];

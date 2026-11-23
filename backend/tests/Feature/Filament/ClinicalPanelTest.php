@@ -282,6 +282,14 @@ class ClinicalPanelTest extends TestCase
         $this->assertSame(['Toma: Warfarina 5 mg', 'Hipertensión'], ClinicalAlerts::for($patient->fresh()));
         $this->assertSame('danger', ClinicalAlerts::callout($patient->fresh())->getColor());
 
+        // Un lector de pantalla la anuncia como lo que es, en la ficha y en la historia: no como "Error".
+        foreach (['view', 'clinical'] as $page) {
+            $this->get(PatientResource::getUrl($page, ['record' => $patient]))
+                ->assertOk()
+                ->assertSee('<span class="fi-sr-only">Alerta médica: </span>Atención: Toma: Warfarina 5 mg · Hipertensión', false)
+                ->assertDontSee('Error:');
+        }
+
         // Recepción no puede tocar los antecedentes.
         $this->actingAs(User::factory()->reception()->create());
         $this->assertFalse(auth()->user()->can('updateClinical', $patient));

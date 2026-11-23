@@ -68,6 +68,8 @@ class BillingPanelTest extends TestCase
                     ['id' => $charge->id, 'description' => 'Limpieza dental', 'amount' => 150, 'discount' => 0],
                     ['id' => null, 'description' => 'Flúor', 'amount' => 30, 'discount' => 0],
                 ],
+                // Otro precio y un concepto agregado: se dice por qué.
+                'adjustment_reason' => 'Limpieza profunda',
                 'amount' => 180,
                 'method' => PaymentMethod::Yape->value,
                 'reference' => '004512',
@@ -78,11 +80,30 @@ class BillingPanelTest extends TestCase
             // Pagado todo, el botón ya no aparece.
             ->assertActionHidden(TestAction::make('checkout')->table($appointment));
 
-        $this->assertSame('150.00', $charge->fresh()->amount);
+        $this->assertSame(['150.00', '120.00', 'Limpieza profunda'], [$charge->fresh()->amount, $charge->fresh()->original_amount, $charge->fresh()->adjustment_reason]);
         $payment = Payment::sole();
         $this->assertSame(['180.00', PaymentMethod::Yape, '004512'], [$payment->amount, $payment->method, $payment->reference]);
         $this->assertTrue($payment->receivedBy->is($reception));
         $this->assertSame(0.0, $appointment->patient->balance());
+    }
+
+    public function test_the_checkout_window_starts_on_the_amount_and_not_on_the_concept(): void
+    {
+        $this->freezeMonday();
+        $appointment = $this->completedCleaning();
+        $this->actingAs(User::factory()->reception()->create());
+        Repeater::fake();
+
+        // Antes el cursor caía en "Concepto" con el texto marcado: una tecla borraba "Limpieza dental".
+        $html = Livewire::test(TodayAppointments::class)
+            ->mountAction(TestAction::make('checkout')->table($appointment))
+            ->getMountedActionModalHtml();
+
+        preg_match_all('/<input\b[^>]*>/', $html, $inputs);
+        $autofocused = array_values(array_filter($inputs[0], fn (string $input) => str_contains($input, 'autofocus')));
+        $this->assertCount(1, $autofocused);
+        $this->assertStringContainsString('.amount"', $autofocused[0]);
+        $this->assertStringNotContainsString('lines', $autofocused[0]);
     }
 
     public function test_a_discount_cannot_be_larger_than_the_price(): void
@@ -200,7 +221,7 @@ class BillingPanelTest extends TestCase
             ->assertSee('S/ 80.00 · Plin')
             ->mountAction('registerPayment')
             ->assertSchemaStateSet(['amount' => 120.0])
-            ->fillForm(['amount' => 100, 'notes' => 'Cuota 1'])
+            ->fillForm(['amount' => 100, 'reference' => '7781', 'notes' => 'Cuota 1'])
             ->callMountedAction()
             ->assertHasNoFormErrors()
             ->assertNotified('Pago registrado');
@@ -238,6 +259,7 @@ class BillingPanelTest extends TestCase
             ->mountAction('registerPayment')
             ->setActionData(['patient_id' => $patient->id])
             ->assertActionDataSet(['amount' => 90.0, 'method' => PaymentMethod::Yape])
+            ->fillForm(['reference' => '0045'])
             ->callMountedAction()
             ->assertHasNoFormErrors()
             ->assertNotified('Pago registrado');
@@ -250,6 +272,60 @@ class BillingPanelTest extends TestCase
             ->assertActionHidden('registerPayment')
             ->mountAction('registerAdvance')
             ->assertSchemaStateSet(['method' => PaymentMethod::Yape]);
+    }
+
+    public function test_yape_plin_and_transfer_ask_for_the_operation_number(): void
+    {
+        $patient = Patient::factory()->create();
+        Charge::factory()->for($patient)->create(['amount' => 200]);
+        $this->actingAs(User::factory()->reception()->create());
+
+        $window = Livewire::test(ManagePayments::class)
+            ->mountAction('registerPayment')
+            ->setActionData(['patient_id' => $patient->id]);
+
+        foreach ([PaymentMethod::Yape, PaymentMethod::Plin, PaymentMethod::Transfer] as $method) {
+            $window->fillForm(['amount' => 50, 'method' => $method->value, 'reference' => null])
+                ->callMountedAction()
+                ->assertHasFormErrors(['reference' => 'required']);
+        }
+
+        // Basta con los últimos 4 números; menos no alcanza para cuadrar el cierre.
+        $window->fillForm(['method' => PaymentMethod::Yape->value, 'reference' => '12'])
+            ->callMountedAction()
+            ->assertHasFormErrors(['reference']);
+        $window->fillForm(['reference' => '4512'])
+            ->callMountedAction()
+            ->assertHasNoFormErrors()
+            ->assertNotified('Pago registrado');
+
+        // En efectivo no se pide, y con tarjeta queda opcional.
+        foreach ([PaymentMethod::Cash, PaymentMethod::Card] as $method) {
+            Livewire::test(ManagePayments::class)
+                ->mountAction('registerPayment')
+                ->setActionData(['patient_id' => $patient->id])
+                ->fillForm(['amount' => 10, 'method' => $method->value])
+                ->callMountedAction()
+                ->assertHasNoFormErrors();
+        }
+
+        $this->assertSame(['4512', null, null], Payment::query()->orderBy('id')->pluck('reference')->all());
+    }
+
+    public function test_caja_shows_each_payment_in_two_lines_on_a_phone_with_a_short_date(): void
+    {
+        $this->freezeMonday();
+        $patient = Patient::factory()->create();
+        $thisYear = Payment::factory()->for($patient)->create(['amount' => 80, 'paid_at' => '2026-11-02 10:40']);
+        $lastYear = Payment::factory()->for($patient)->create(['amount' => 60, 'paid_at' => '2025-12-30 17:15']);
+        $this->actingAs(User::factory()->reception()->create());
+
+        // La tarjeta compacta del celular sale de la clase de la lista (ver .pay-list en panel.css); el año, solo si no es este.
+        Livewire::test(ManagePayments::class)
+            ->removeTableFilter('paid_at')
+            ->assertSeeHtml('pay-list')
+            ->assertTableColumnFormattedStateSet('paid_at', '02/11 10:40', $thisYear)
+            ->assertTableColumnFormattedStateSet('paid_at', '30/12/2025 17:15', $lastYear);
     }
 
     public function test_owing_balances_are_collected_from_caja_with_who_owes_most_first(): void
@@ -327,6 +403,7 @@ class BillingPanelTest extends TestCase
             ->mountAction(TestAction::make('checkout')->table($appointment))
             ->assertSchemaStateSet(['lines' => [], 'previous' => 500.0, 'amount' => 500.0])
             ->assertMountedActionModalSee(['Total a pagar', 'S/ 500.00', 'Incluye el saldo anterior de S/ 500.00 (Ortodoncia · cuota 1 de 3 S/ 500.00)'])
+            ->fillForm(['reference' => '8812'])
             ->callMountedAction()
             ->assertHasNoFormErrors()
             ->assertNotified('Pago registrado');

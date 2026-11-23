@@ -10,6 +10,7 @@ use App\Filament\Support\PageLayout;
 use App\Filament\Support\PatientSummary;
 use App\Models\Appointment;
 use App\Models\AppointmentEvent;
+use App\Models\Campaign;
 use App\Models\Charge;
 use App\Models\Payment;
 use App\Models\WhatsappMessage;
@@ -78,7 +79,7 @@ class AppointmentInfolist
      * El camino de la cita (reservada, confirmada, llegó, en atención, atendida), con la hora de cada paso,
      * y sus datos con un ícono cada uno.
      *
-     * @return array{steps: list<array{label: string, at: string|null, state: 'done'|'current'|'skipped'|'todo'}>, closed: array{label: string, detail: string|null, color: string}|null, warning: string|null, facts: list<array{icon: Heroicon, label: string, value: string, hint: string|null}>, notes: list<array{label: string, text: string}>}
+     * @return array{steps: list<array{label: string, at: string|null, state: 'done'|'current'|'skipped'|'todo', shown: bool}>, closed: array{label: string, detail: string|null, color: string}|null, warning: string|null, facts: list<array{icon: Heroicon, label: string, value: string, hint: string|null}>, notes: list<array{label: string, text: string}>}
      */
     public static function detailsData(Appointment $appointment): array
     {
@@ -98,8 +99,10 @@ class AppointmentInfolist
 
     /**
      * Cada paso con su estado: hecho, el de ahora, saltado (por ejemplo, llegó sin haber confirmado) o por venir.
+     * En el celular no caben los cinco nombres: solo lleva el suyo el paso en que va la cita (o el último al que
+     * llegó, si ya terminó o no se dio), "shown"; los demás quedan como puntos.
      *
-     * @return list<array{label: string, at: string|null, state: 'done'|'current'|'skipped'|'todo'}>
+     * @return list<array{label: string, at: string|null, state: 'done'|'current'|'skipped'|'todo', shown: bool}>
      */
     private static function steps(Appointment $appointment): array
     {
@@ -125,6 +128,7 @@ class AppointmentInfolist
                     $index > 0 && $at === null => 'skipped',
                     default => 'done',
                 },
+                'shown' => $index === $current,
             ];
         })->all();
     }
@@ -180,7 +184,9 @@ class AppointmentInfolist
     {
         $minutes = (int) $appointment->starts_at->diffInMinutes($appointment->ends_at, true);
         $phone = $appointment->patient->account?->phone;
-        $promoCode = $appointment->promo_code ?? $appointment->campaign?->promo_code;
+        /** @var Campaign|null $campaign */
+        $campaign = $appointment->campaign;
+        $promoCode = $appointment->promo_code ?? $campaign?->promo_code;
 
         return array_values(array_filter([
             [
@@ -193,7 +199,7 @@ class AppointmentInfolist
                 'icon' => Heroicon::OutlinedClock,
                 'label' => 'Hora',
                 'value' => $appointment->starts_at->format('H:i').' – '.$appointment->ends_at->format('H:i'),
-                'hint' => $minutes.' min (+'.$appointment->buffer_minutes.' de esterilización)',
+                'hint' => $minutes.' min'.($appointment->buffer_minutes > 0 ? ' (+'.$appointment->buffer_minutes.' min para preparar el sillón)' : ''),
             ],
             [
                 'icon' => Heroicon::OutlinedSparkles,
@@ -229,7 +235,10 @@ class AppointmentInfolist
                 'icon' => Heroicon::OutlinedTicket,
                 'label' => 'Código de campaña',
                 'value' => (string) $promoCode,
-                'hint' => $appointment->campaign?->name,
+                // Lo escribió el paciente en la web y no es de ninguna promoción vigente: la cita se reservó igual.
+                'hint' => $appointment->hasUnknownPromoCode()
+                    ? collect([$campaign?->name, 'No es de ninguna promoción vigente: revísalo con el paciente'])->filter()->implode(' · ')
+                    : $campaign?->name,
             ] : null,
             $appointment->fixed_date ? [
                 'icon' => Heroicon::OutlinedLockClosed,

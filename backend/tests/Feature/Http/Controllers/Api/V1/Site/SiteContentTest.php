@@ -71,6 +71,67 @@ class SiteContentTest extends TestCase
         $this->assertSame(['strong' => 'Sonrisas sanas,', 'thin' => '', 'accent' => 'siempre'], $title('Sonrisas sanas, siempre'));
     }
 
+    public function test_the_cover_says_what_and_where_with_the_city_of_the_settings_unless_the_clinic_wrote_its_own(): void
+    {
+        $cover = fn (): array => $this->getJson(route('api.v1.site'))->assertOk()->json('data.home');
+
+        // Sin nada escrito en la puesta a punto: qué se atiende y dónde, sin lema encima ni promesas de "sin esperas".
+        Setting::set('clinic.district', 'Juliaca');
+        $this->assertSame(['strong' => 'Implantes y odontología', 'thin' => '', 'accent' => 'en Juliaca'], $cover()['title']);
+        $this->assertSame('Tu dentista en Juliaca. Reserva en 2 minutos.', $cover()['intro']);
+        $this->assertNull($cover()['tagline']);
+
+        // La ciudad sale de Ajustes: si cambia, la portada cambia sola.
+        Setting::set('clinic.district', 'Puno');
+        $this->assertSame('en Puno', $cover()['title']['accent']);
+        $this->assertSame('Tu dentista en Puno. Reserva en 2 minutos.', $cover()['intro']);
+
+        // Sin ciudad no queda un "en" colgando.
+        Setting::set('clinic.district', null);
+        $this->assertSame(['strong' => 'Implantes y', 'thin' => '', 'accent' => 'odontología'], $cover()['title']);
+        $this->assertSame('Reserva en 2 minutos.', $cover()['intro']);
+
+        // Lo que el consultorio escribe manda.
+        Setting::set('web.headline', 'Sonrisas sanas siempre');
+        Setting::set('web.intro', 'Atendemos a toda la familia.');
+        $this->assertSame('Sonrisas sanas', $cover()['title']['strong']);
+        $this->assertSame('Atendemos a toda la familia.', $cover()['intro']);
+    }
+
+    public function test_the_texts_saved_as_they_came_give_way_to_the_new_ones_but_what_the_clinic_wrote_stays(): void
+    {
+        $migration = require database_path('migrations/2026_11_22_214735_web_texts_say_what_and_where_instead_of_slogans.php');
+        Setting::set('clinic.district', 'Juliaca');
+        // Al guardar la puesta a punto y los textos de las páginas sin tocarlos, quedaron guardados los de antes.
+        Setting::set('web.tagline', 'Innovación y cuidado dental');
+        Setting::set('web.headline', 'Atención dental sin esperas');
+        Setting::set('web.intro', 'Evaluaciones, limpiezas, implantes y más. Elige tu horario aquí mismo y te confirmamos por WhatsApp.');
+        Setting::set('web.pages.servicios.kicker', 'Tu sonrisa, nuestra prioridad');
+        Setting::set('web.pages.equipo.value1_title', 'Colegiados');
+        Setting::set('web.pages.equipo.value1_text', 'Cada doctor con su número de colegiatura');
+        // Lo que el consultorio escribió.
+        Setting::set('web.pages.contacto.kicker', 'A media cuadra de la plaza');
+        Setting::set('web.pages.equipo.value2_title', 'Atención en quechua');
+        $this->getJson(route('api.v1.site'))->assertJsonPath('data.home.title.accent', 'sin esperas');
+
+        $migration->up();
+
+        $this->getJson(route('api.v1.site'))
+            ->assertOk()
+            ->assertJsonPath('data.home.tagline', null)
+            ->assertJsonPath('data.home.title', ['strong' => 'Implantes y odontología', 'thin' => '', 'accent' => 'en Juliaca'])
+            ->assertJsonPath('data.home.intro', 'Tu dentista en Juliaca. Reserva en 2 minutos.')
+            ->assertJsonPath('data.pages.servicios.kicker', null)
+            ->assertJsonPath('data.pages.contacto.kicker', 'A media cuadra de la plaza')
+            ->assertJsonPath('data.team_values', [['icon' => 'chat-check', 'title' => 'Atención en quechua', 'text' => null]]);
+
+        // Al volver atrás, el título y la frase (que eran obligatorios) vuelven a ser los de antes.
+        $migration->down();
+
+        $this->assertSame('Atención dental sin esperas', Setting::get('web.headline'));
+        $this->assertSame('Evaluaciones, limpiezas, implantes y más. Elige tu horario aquí mismo y te confirmamos por WhatsApp.', Setting::get('web.intro'));
+    }
+
     public function test_the_home_gives_the_next_free_times_the_first_eight_treatments_and_the_main_questions(): void
     {
         $this->freezeMonday();
@@ -102,6 +163,30 @@ class SiteContentTest extends TestCase
             ->assertJsonPath('meta.title', 'Clínica Vega · Dentistas en Juliaca')
             ->assertJsonPath('meta.noindex', false)
             ->assertJsonPath('meta.json_ld.0.@type', 'Dentist');
+    }
+
+    public function test_under_the_buttons_the_cover_says_where_which_days_and_from_how_much(): void
+    {
+        $facts = fn (): array => $this->getJson(route('api.v1.home'))->assertOk()->json('data.facts');
+        Setting::set('clinic.address', 'Jr. Apurímac 648');
+        Doctor::factory()->withSchedule()->create();
+        $evaluation = Treatment::factory()->evaluation()->create(['price_from' => 50]);
+
+        $this->assertSame(['address' => 'Jr. Apurímac 648', 'days' => 'Lunes a sábado', 'price' => 'Evaluación desde S/ 50'], $facts());
+
+        $evaluation->update(['price_from' => 0]);
+        $this->assertSame('Evaluación gratis', $facts()['price']);
+    }
+
+    public function test_what_is_not_set_up_stays_out_of_the_line_under_the_buttons(): void
+    {
+        // Sin dirección, sin horarios y con la evaluación sin precio publicado, la línea no tiene nada que decir.
+        Setting::set('clinic.address', null);
+        Treatment::factory()->evaluation()->create(['price_from' => 50, 'show_price' => false]);
+
+        $this->getJson(route('api.v1.home'))
+            ->assertOk()
+            ->assertJsonPath('data.facts', ['address' => null, 'days' => null, 'price' => null]);
     }
 
     public function test_without_online_booking_the_home_promises_no_free_times(): void
@@ -330,12 +415,44 @@ class SiteContentTest extends TestCase
         $this->getJson(route('api.v1.pages.contact'))
             ->assertOk()
             ->assertJsonPath('meta.title', 'Contacto y cómo llegar · Clínica Vega')
-            ->assertJsonPath('meta.description', 'Dirección, horario de atención, WhatsApp y mapa: Jr. Apurímac 648, Juliaca.')
-            ->assertJsonPath('meta.json_ld.0.@type', 'Dentist');
+            ->assertJsonPath('meta.description', 'Cómo llegar a Clínica Vega: Jr. Apurímac 648, Juliaca. Horario de atención, WhatsApp y mapa. Escríbenos o reserva tu cita en línea. Te esperamos.')
+            ->assertJsonPath('meta.json_ld.0.@type', 'Dentist')
+            // Para Google, el teléfono va con el código del país.
+            ->assertJsonPath('meta.json_ld.0.telephone', '+51 912 345 678');
+
+        Setting::set('clinic.phone', '051 321456');
+        $this->getJson(route('api.v1.pages.contact'))->assertJsonPath('meta.json_ld.0.telephone', '+51 51 321456');
 
         $this->getJson(route('api.v1.pages.privacy'))
             ->assertOk()
             ->assertJsonPath('data', ['clinic' => 'Clínica Vega', 'address' => 'Jr. Apurímac 648', 'whatsapp' => '912 345 678'])
-            ->assertJsonPath('meta.title', 'Política de privacidad · Clínica Vega');
+            ->assertJsonPath('meta.title', 'Política de privacidad · Clínica Vega')
+            ->assertJsonPath('meta.description', 'Cómo Clínica Vega cuida tus datos personales y de salud (Ley N.º 29733): qué datos usamos, para qué, quién los ve, cuánto los guardamos y tus derechos.');
+    }
+
+    public function test_each_page_tells_google_what_it_has_whose_it_is_and_where_in_150_to_160_letters(): void
+    {
+        Setting::set('clinic.name', 'Clínica Vega Implant');
+        Setting::set('clinic.address', 'Jr. Apurímac 648');
+        Setting::set('clinic.district', 'Juliaca');
+        Treatment::factory()->evaluation()->create([
+            'name' => 'Evaluación o primera consulta',
+            'slug' => 'evaluacion',
+            'summary' => 'Revisión completa, diagnóstico y presupuesto. Si no sabes qué necesitas, empieza aquí.',
+            'price_from' => 50,
+        ]);
+        Treatment::factory()->create(['name' => 'Limpieza dental', 'slug' => 'limpieza-dental', 'summary' => 'Quita el sarro y las manchas.', 'price_from' => 120]);
+        $this->doctorOffering(...Treatment::all());
+
+        $description = fn (string $route, mixed ...$parameters): string => $this->getJson(route($route, $parameters))->assertOk()->json('meta.description');
+
+        $this->assertSame('Clínica Vega Implant: implantes y odontología en Jr. Apurímac 648, Juliaca. Mira los precios y los horarios libres, y reserva tu cita en línea en 2 minutos.', $description('api.v1.home'));
+        $this->assertSame('Limpieza dental en Juliaca. Quita el sarro y las manchas. Precio referencial: desde S/ 120. Reserva en línea en Clínica Vega Implant.', $description('api.v1.treatments.show', 'limpieza-dental'));
+        // Con un resumen largo, el precio y la reserva entran en su versión corta: el precio no se cae.
+        $this->assertSame('Evaluación o primera consulta en Juliaca. Revisión completa, diagnóstico y presupuesto. Si no sabes qué necesitas, empieza aquí. Desde S/ 50. Reserva en línea.', $description('api.v1.treatments.show', 'evaluacion'));
+
+        foreach (['api.v1.home', 'api.v1.treatments.index', 'api.v1.team', 'api.v1.faqs', 'api.v1.promotions.index', 'api.v1.booking.options'] as $route) {
+            $this->assertThat(mb_strlen($description($route)), $this->logicalAnd($this->greaterThanOrEqual(150), $this->lessThanOrEqual(160)), $route);
+        }
     }
 }

@@ -109,7 +109,9 @@ export function StepDetails({
   const self = details.relationship === 'self';
   const newPerson = details.patient_id === null;
   const current = device?.family.find((person) => person.id === details.patient_id && person.in_treatment);
-  const promoProblem = errors.promo_code ?? (details.promo_code.trim() !== '' ? options.promo_problem : null);
+  const promoError = errors.promo_code ?? null;
+  // Un código que no es de ninguna promoción vigente no impide reservar: se avisa por si quiere corregirlo.
+  const promoHint = !promoError && details.promo_code.trim() !== '' ? options.promo_problem : null;
   const toReview = FIELD_NAMES.filter(([field]) => errors[field]).map(([, name]) => name);
 
   /** Lo que ya corrigió deja de marcarse en rojo y de nombrarse junto al botón; al reservar se revisa de nuevo. */
@@ -365,12 +367,13 @@ export function StepDetails({
                 onChange={(event) => change('promo_code', event.target.value)}
                 onBlur={() => onPromoCode(details.promo_code)}
                 aria-describedby="promoCode-status"
-                aria-invalid={promoProblem ? true : undefined}
+                aria-invalid={promoError ? true : undefined}
               />
-              {/* Un código que no es de ninguna promoción vigente se avisa al escribirlo, no en el consultorio. */}
               <span id="promoCode-status" role="status">
-                {promoProblem ? (
-                  <span className="error">{promoProblem}</span>
+                {promoError ? (
+                  <span className="error">{promoError}</span>
+                ) : promoHint ? (
+                  <span className="hint">{promoHint}</span>
                 ) : details.promo_code.trim() !== '' && campaign ? (
                   <span className="hint ok">Código aplicado: {campaign.name}.</span>
                 ) : null}

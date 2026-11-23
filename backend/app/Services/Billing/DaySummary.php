@@ -1,0 +1,251 @@
+<?php
+
+namespace App\Services\Billing;
+
+use App\Enums\AppointmentStatus;
+use App\Enums\MessageStatus;
+use App\Enums\MessageTemplateKey;
+use App\Enums\PaymentMethod;
+use App\Enums\UserRole;
+use App\Models\Appointment;
+use App\Models\Charge;
+use App\Models\DailyClosing;
+use App\Models\Patient;
+use App\Models\Setting;
+use App\Models\User;
+use App\Models\WhatsappMessage;
+use App\Services\StaffAlerts;
+use App\Services\WhatsApp\WhatsAppOutbox;
+use App\Support\Money;
+use App\Support\Phone;
+use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Str;
+
+/**
+ * El resumen del día para quien administra, al cerrar la caja: lo cobrado por medio de pago, el arqueo, los pacientes
+ * atendidos, las faltas, las citas que quedaron sin cerrar, los descuentos puestos antes de cobrar, los precios y
+ * descuentos cambiados al cobrar y cuántas citas del día siguiente siguen sin confirmar. Cada sol de descuento sale en
+ * una sola de esas dos líneas. Llega a la campana de quien administra y queda en Avisos, listo para enviarlo por
+ * WhatsApp a su celular (o, si nadie que administra tiene uno, al del consultorio).
+ */
+class DaySummary
+{
+    /** Cuántos descuentos (y cambios al cobrar) se nombran uno por uno; del resto se dice cuántos más hubo. */
+    private const NAMED_DISCOUNTS = 3;
+
+    public function __construct(
+        private readonly StaffAlerts $alerts,
+        private readonly WhatsAppOutbox $outbox,
+    ) {}
+
+    /** @return int Cuántos avisos de WhatsApp quedaron en Avisos para enviar. */
+    public function send(CashClosing $closing, DailyClosing $record): int
+    {
+        $figures = self::figures($closing, $record);
+        // En la campana, un monto no se parte en dos líneas ("S/" al final de una y "240.00" en la otra).
+        $body = collect(self::lines($figures))->map(fn (string $line) => str_replace('S/ ', "S/\u{00A0}", e($line)))->implode('<br>');
+
+        $this->alerts->toAdmins('Resumen del '.$figures['fecha'], $body);
+
+        // Si el día se reabrió y se volvió a cerrar, el resumen anterior que no se envió ya no vale.
+        WhatsappMessage::query()
+            ->pending()
+            ->where('template_key', MessageTemplateKey::DaySummary)
+            ->where('params->dia', $figures['dia'])
+            ->update(['status' => MessageStatus::Cancelled]);
+
+        $phones = self::phones(User::query()->where('is_active', true)->where('role', UserRole::Admin)->get());
+
+        foreach ($phones as $phone) {
+            $this->outbox->queueForPhone($phone, MessageTemplateKey::DaySummary, $figures);
+        }
+
+        return count($phones);
+    }
+
+    /**
+     * Los datos del resumen, con el nombre que usa el texto del aviso ({cobrado}, {arqueo}…).
+     *
+     * @return array<string, string>
+     */
+    public static function figures(CashClosing $closing, DailyClosing $record): array
+    {
+        $date = $closing->date;
+        $day = [$date->startOfDay(), $date->endOfDay()];
+        $appointments = Appointment::query()->whereBetween('starts_at', $day)->get(['patient_id', 'status']);
+        // El día que sigue al cerrado (si se cierra un día pasado, desde hoy) y que tiene citas: el sábado importa el
+        // lunes, no el domingo sin atención.
+        $next = self::nextDayWithAppointments($date->addDay()->max(CarbonImmutable::today()));
+        /** @var User|null $closedBy */
+        $closedBy = $record->closedBy;
+
+        return [
+            'dia' => $date->toDateString(),
+            'fecha' => $date->translatedFormat('l j \d\e F'),
+            'cobrado' => self::collected($closing),
+            'arqueo' => self::cashCount($record),
+            'cerro' => $closedBy->name ?? 'alguien que ya no está',
+            'atendidos' => (string) $appointments->where('status', AppointmentStatus::Completed)->pluck('patient_id')->unique()->count(),
+            'faltas' => (string) $appointments->where('status', AppointmentStatus::NoShow)->count(),
+            'sin_cerrar' => (string) $closing->unclosedAppointments()->count(),
+            'descuentos' => self::discounts($day),
+            'precios' => self::priceChanges($date),
+            'siguiente' => $next->translatedFormat('l j'),
+            'sin_confirmar' => (string) Appointment::query()->awaitingConfirmation()->startsOn($next)->count(),
+        ];
+    }
+
+    /**
+     * Lo mismo que el aviso de WhatsApp, línea por línea, para la campana.
+     *
+     * @param  array<string, string>  $figures
+     * @return list<string>
+     */
+    public static function lines(array $figures): array
+    {
+        return [
+            'Cobrado: '.$figures['cobrado'],
+            'Arqueo: '.$figures['arqueo'].' · cerró '.$figures['cerro'],
+            'Pacientes atendidos: '.$figures['atendidos'].' · Faltas: '.$figures['faltas'].' · Citas sin cerrar: '.$figures['sin_cerrar'],
+            'Descuentos puestos antes de cobrar: '.$figures['descuentos'],
+            'Precios cambiados y descuentos al cobrar: '.$figures['precios'],
+            'Citas del '.$figures['siguiente'].' sin confirmar: '.$figures['sin_confirmar'],
+        ];
+    }
+
+    /** "S/ 290.00 (Efectivo S/ 50.00 · Yape S/ 240.00)". */
+    private static function collected(CashClosing $closing): string
+    {
+        $byMethod = collect(PaymentMethod::cases())
+            ->filter(fn (PaymentMethod $method) => $closing->totalFor($method) > 0)
+            ->map(fn (PaymentMethod $method) => $method->getLabel().' '.Money::format($closing->totalFor($method)));
+
+        return Money::format($closing->total()).($byMethod->isEmpty() ? '' : ' ('.$byMethod->implode(' · ').')');
+    }
+
+    /** "cuadra", "faltan S/ 10.00" o "sobran S/ 5.00", con lo que se anotó al cerrar. */
+    private static function cashCount(DailyClosing $record): string
+    {
+        $difference = $record->difference();
+        $count = match (true) {
+            abs($difference) < 0.005 => 'cuadra',
+            $difference < 0 => 'faltan '.Money::format(-$difference),
+            default => 'sobran '.Money::format($difference),
+        };
+
+        return $count.(filled($record->notes) ? ' ('.Str::squish($record->notes).')' : '');
+    }
+
+    /**
+     * Los descuentos que los cargos del día ya traían al llegar a caja (de una promoción, de un plan o puestos en la
+     * cuenta del paciente): "S/ 30.00 en 2 cargos (Ana Flores: familiar · Luis Soto)", o "ninguno". Lo que se puso o
+     * se subió al cobrar no va aquí: sale en los precios cambiados al cobrar (priceChanges). De un cargo que se cambió
+     * al cobrar va solo el nombre, porque su motivo puede ser el del cambio.
+     *
+     * @param  array{CarbonImmutable, CarbonImmutable}  $day
+     */
+    private static function discounts(array $day): string
+    {
+        /** @var Collection<int, Charge> $charges */
+        $charges = Charge::query()
+            ->valid()
+            ->with('patient')
+            ->whereBetween('charged_at', $day)
+            ->where('discount', '>', 0)
+            ->orderBy('charged_at')
+            ->orderBy('id')
+            ->get()
+            ->filter(fn (Charge $charge) => self::discountBeforeCheckout($charge) > 0)
+            ->values();
+
+        if ($charges->isEmpty()) {
+            return 'ninguno';
+        }
+
+        $named = $charges->take(self::NAMED_DISCOUNTS)
+            ->map(function (Charge $charge): string {
+                /** @var Patient|null $patient */
+                $patient = $charge->patient;
+                $reason = $charge->adjusted_at === null ? $charge->discount_reason : null;
+
+                return collect([$patient?->full_name, $reason])->filter(fn (?string $part) => filled($part))->implode(': ');
+            })
+            ->implode(' · ');
+        $more = $charges->count() > self::NAMED_DISCOUNTS ? ' y '.($charges->count() - self::NAMED_DISCOUNTS).' más' : '';
+
+        return Money::format($charges->sum(fn (Charge $charge) => self::discountBeforeCheckout($charge)))
+            .' en '.($charges->count() === 1 ? '1 cargo' : $charges->count().' cargos')
+            .' ('.$named.$more.')';
+    }
+
+    /**
+     * Lo que queda del descuento con que el cargo llegó a caja. Uno agregado al cobrar no traía ninguno. Si al cobrar
+     * se subió, cuenta el que traía (lo agregado ya está en los cambios al cobrar); si se bajó, lo que quedó.
+     */
+    private static function discountBeforeCheckout(Charge $charge): float
+    {
+        return match (true) {
+            $charge->adjusted_at === null => (float) $charge->discount,
+            $charge->addedAtCheckout() => 0.0,
+            default => min((float) $charge->discount, (float) $charge->original_discount),
+        };
+    }
+
+    /** El primer día con citas desde ese, dentro de una semana; si no hay ninguna, ese mismo día. */
+    private static function nextDayWithAppointments(CarbonImmutable $from): CarbonImmutable
+    {
+        $first = Appointment::query()
+            ->where('status', '!=', AppointmentStatus::Cancelled)
+            ->where('starts_at', '>=', $from->startOfDay())
+            ->where('starts_at', '<', $from->addWeek()->startOfDay())
+            ->min('starts_at');
+
+        return $first === null ? $from : CarbonImmutable::parse($first)->startOfDay();
+    }
+
+    /**
+     * "2 cambios, se cobró S/ 70.00 menos (Ana Flores: paciente frecuente · Luis Soto)", o "ninguno". Lo mismo que el
+     * bloque «Precios cambiados y descuentos» del cierre (PriceAdjustments): otro precio, un descuento, un concepto
+     * agregado o quitado al cobrar y los cargos anulados a mano, con a quién y por qué.
+     */
+    private static function priceChanges(CarbonImmutable $date): string
+    {
+        $rows = app(PriceAdjustments::class)->ofDay($date);
+
+        if ($rows->isEmpty()) {
+            return 'ninguno';
+        }
+
+        $totals = PriceAdjustments::totals($rows);
+        $named = $rows->take(self::NAMED_DISCOUNTS)
+            ->map(fn (array $row) => $row['patient'].(filled($row['reason']) ? ': '.$row['reason'] : ''))
+            ->implode(' · ');
+        $more = $rows->count() > self::NAMED_DISCOUNTS ? ' y '.($rows->count() - self::NAMED_DISCOUNTS).' más' : '';
+
+        return $totals['count'].' '.($totals['count'] === 1 ? 'cambio' : 'cambios')
+            .($totals['lowered'] > 0 ? ', se cobró '.Money::format($totals['lowered']).' menos' : '')
+            .($totals['raised'] > 0 ? ', '.Money::format($totals['raised']).' más por precios subidos' : '')
+            .' ('.$named.$more.')';
+    }
+
+    /**
+     * A qué celulares va el aviso: el de cada persona que administra y tiene uno; si nadie lo tiene, el WhatsApp del
+     * consultorio.
+     *
+     * @param  Collection<int, User>  $admins
+     * @return list<string>
+     */
+    private static function phones(Collection $admins): array
+    {
+        $phones = $admins->pluck('phone')
+            ->filter(fn (?string $phone) => filled($phone) && Phone::isValid($phone))
+            ->map(fn (string $phone) => Phone::normalize($phone))
+            ->unique()
+            ->values()
+            ->all();
+        $clinic = (string) Setting::get('clinic.whatsapp');
+
+        return $phones === [] && Phone::isValid($clinic) ? [Phone::normalize($clinic)] : $phones;
+    }
+}

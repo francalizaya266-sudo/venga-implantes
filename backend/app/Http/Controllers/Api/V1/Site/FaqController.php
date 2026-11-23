@@ -38,7 +38,6 @@ class FaqController extends Controller
             'data' => ['topics' => $topics],
             'meta' => $meta->for(
                 page: 'preguntas',
-                description: 'Respuestas sobre citas, pagos, tratamientos y cómo llegar.',
                 jsonLd: array_filter([
                     $structuredData->breadcrumbs(['Preguntas frecuentes' => route('site.faq')]),
                     $faqs->isNotEmpty() ? $structuredData->faqPage($faqs) : null,

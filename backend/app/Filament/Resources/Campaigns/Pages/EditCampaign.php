@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Campaigns\Pages;
 
 use App\Filament\Resources\Campaigns\CampaignResource;
 use App\Filament\Resources\WhatsappMessages\WhatsappMessageResource;
+use App\Filament\Support\CopyLink;
 use App\Models\Campaign;
 use App\Services\WhatsApp\CampaignBroadcast;
 use Filament\Actions\Action;
@@ -13,7 +14,6 @@ use Filament\Actions\RestoreAction;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
 use Filament\Support\Icons\Heroicon;
-use Illuminate\Support\Js;
 
 /** @property Campaign $record */
 class EditCampaign extends EditRecord
@@ -33,7 +33,7 @@ class EditCampaign extends EditRecord
                 ->color('gray')
                 ->visible($isPublished)
                 // Para pegarlo en el estado de WhatsApp, Facebook o Instagram. Si el navegador no deja copiar, lo muestra para copiarlo a mano.
-                ->alpineClickHandler(fn () => self::copyJs($url())),
+                ->alpineClickHandler(fn () => CopyLink::js($url())),
             Action::make('viewOnSite')
                 ->label('Ver en la web')
                 ->icon(Heroicon::OutlinedArrowTopRightOnSquare)
@@ -46,16 +46,6 @@ class EditCampaign extends EditRecord
                 RestoreAction::make(),
             ]),
         ];
-    }
-
-    private static function copyJs(string $text): string
-    {
-        $text = Js::from($text);
-        $copied = Js::from('Enlace copiado');
-        $manual = Js::from('Copia el enlace');
-
-        return "(window.navigator.clipboard ? window.navigator.clipboard.writeText({$text}) : Promise.reject())"
-            ."  .then(() => \$tooltip({$copied}, { theme: \$store.theme, timeout: 2000 }), () => window.prompt({$manual}, {$text}))";
     }
 
     /**

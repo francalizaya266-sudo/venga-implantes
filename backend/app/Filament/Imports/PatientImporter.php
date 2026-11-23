@@ -1,0 +1,549 @@
+<?php
+
+namespace App\Filament\Imports;
+
+use App\Enums\DocumentType;
+use App\Enums\Sex;
+use App\Models\Account;
+use App\Models\Patient;
+use App\Services\Patients\PatientRegistrar;
+use App\Support\Phone;
+use Carbon\CarbonInterface;
+use Closure;
+use Filament\Actions\Imports\Downloaders\Contracts\Downloader;
+use Filament\Actions\Imports\Exceptions\RowImportFailedException;
+use Filament\Actions\Imports\ImportColumn;
+use Filament\Actions\Imports\Importer;
+use Filament\Actions\Imports\Models\Import;
+use Filament\Forms\Components\Radio;
+use Filament\Notifications\Notification;
+use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Str;
+
+/**
+ * Pacientes desde una lista en Excel o CSV (Pacientes › Importar pacientes), una fila por paciente. Cada fila se revisa
+ * como en el alta del panel (nombres y apellidos, DNI de 8 dígitos, celular peruano, fecha de nacimiento, correo) y se
+ * guarda con el mismo registro: el celular agrupa a la familia. Quien ya está registrado (mismo DNI, mismo celular y
+ * nombre, mismo nombre y fecha de nacimiento o, si la fila no trae más, el mismo nombre completo) no se repite: se deja
+ * como está y la fila va al archivo de errores, o solo se completan sus datos vacíos, según se elija al importar.
+ */
+class PatientImporter extends Importer
+{
+    protected static ?string $model = Patient::class;
+
+    /** Qué hacer con quien ya está registrado: opción del formulario de importación. */
+    public const EXISTING = 'existing';
+
+    public const SKIP = 'skip';
+
+    public const FILL = 'fill';
+
+    /** Con esto empieza el motivo de una fila que no se importó porque el paciente ya estaba. */
+    public const ALREADY_REGISTERED = 'Ya está registrado';
+
+    /** Lo que se completa de un paciente que ya estaba, solo si lo tiene vacío. */
+    private const FILLABLE = ['document_number', 'birth_date', 'sex', 'email', 'admin_notes'];
+
+    /** Por qué la fila es de alguien que ya estaba ("mismo DNI"), o null si es un paciente nuevo. */
+    private ?string $matchedBy = null;
+
+    public static function getColumns(): array
+    {
+        return [
+            ImportColumn::make('first_name')
+                ->label('Nombres')
+                ->exampleHeader('Nombres')
+                ->requiredMapping()
+                ->guess(self::guesses('nombres', 'nombre', 'nombre(s)', 'nombres del paciente', 'nombre del paciente', 'primer nombre', 'first name', 'first_name'))
+                ->examples(['Rosa María', 'Mateo'])
+                ->castStateUsing(fn (mixed $state): ?string => self::name($state))
+                ->rules(['required', 'max:100']),
+            ImportColumn::make('last_name')
+                ->label('Apellidos')
+                ->exampleHeader('Apellidos')
+                ->requiredMapping()
+                ->guess(self::guesses('apellidos', 'apellido', 'apellido(s)', 'apellidos del paciente', 'apellido paterno', 'primer apellido', 'ap. paterno', 'last name', 'last_name'))
+                ->examples(['Huamán Quispe', 'Quispe Huamán'])
+                ->castStateUsing(fn (mixed $state): ?string => self::name($state))
+                ->rules(['required', 'max:100']),
+            ImportColumn::make('second_last_name')
+                ->label('Apellido materno (si va aparte)')
+                ->exampleHeader('Apellido materno')
+                ->guess(self::guesses('apellido materno', 'segundo apellido', 'ap. materno'))
+                ->castStateUsing(fn (mixed $state): ?string => self::name($state)),
+            ImportColumn::make('document_number')
+                ->label('DNI')
+                ->exampleHeader('DNI')
+                ->guess(self::guesses('dni', 'n° dni', 'nº dni', 'nro dni', 'nro. dni', 'número de dni', 'dni n°', 'documento', 'documento de identidad', 'doc. identidad', 'n° documento', 'nº documento', 'nro documento', 'nro. documento', 'número de documento'))
+                ->examples(['45678912', '71234567'])
+                ->castStateUsing(fn (mixed $state): ?string => self::dni($state))
+                ->rules(['nullable', 'regex:/^\d{8}$/']),
+            ImportColumn::make('phone')
+                ->label('Celular')
+                ->exampleHeader('Celular')
+                ->guess(self::guesses('celular', 'cel', 'cel.', 'n° celular', 'nro celular', 'nro. celular', 'número de celular', 'teléfono', 'teléfono celular', 'tel', 'tel.', 'telf', 'telf.', 'móvil', 'whatsapp', 'celular / whatsapp', 'celular/whatsapp', 'phone'))
+                ->examples(['987654321', '987654321'])
+                ->castStateUsing(fn (mixed $state): ?string => self::text($state))
+                ->rules(['nullable', fn (string $attribute, mixed $value, Closure $fail) => filled($value) && ($problem = Phone::problem((string) $value)) !== null ? $fail($problem) : null]),
+            ImportColumn::make('birth_date')
+                ->label('Fecha de nacimiento')
+                ->exampleHeader('Fecha de nacimiento')
+                ->guess(self::guesses('fecha de nacimiento', 'fecha nacimiento', 'fecha de nac.', 'fecha nac.', 'fecha nac', 'f. nacimiento', 'f. nac.', 'fec. nac.', 'fec. nacimiento', 'nacimiento', 'cumpleaños'))
+                ->examples(['12/04/1985', '03/09/2015'])
+                ->castStateUsing(fn (mixed $state): ?string => self::date($state))
+                ->rules(['nullable', 'bail', 'date_format:Y-m-d', 'before_or_equal:today', 'after_or_equal:1900-01-01']),
+            ImportColumn::make('email')
+                ->label('Correo')
+                ->exampleHeader('Correo')
+                ->guess(self::guesses('correo', 'correo electrónico', 'email', 'e-mail', 'mail'))
+                ->examples(['rosa.huaman@gmail.com', ''])
+                ->castStateUsing(fn (mixed $state): ?string => ($text = self::text($state)) !== null ? Str::lower(str_replace(' ', '', $text)) : null)
+                ->rules(['nullable', 'email', 'max:255']),
+            ImportColumn::make('sex')
+                ->label('Sexo')
+                ->exampleHeader('Sexo')
+                ->guess(self::guesses('sexo', 'género', 'sexo (f/m)', 'f/m'))
+                ->examples(['F', 'M'])
+                ->castStateUsing(fn (mixed $state): ?string => self::sex($state))
+                ->rules(['nullable', 'in:F,M']),
+            ImportColumn::make('admin_notes')
+                ->label('Notas')
+                ->exampleHeader('Notas')
+                ->guess(self::guesses('notas', 'nota', 'observaciones', 'observación', 'obs', 'obs.', 'comentarios', 'comentario'))
+                ->examples(['Prefiere citas en la tarde', 'Hijo de Rosa María: usa su celular'])
+                ->castStateUsing(fn (mixed $state): ?string => self::text($state))
+                ->rules(['nullable', 'max:2000']),
+        ];
+    }
+
+    /** @return list<Radio> */
+    public static function getOptionsFormComponents(): array
+    {
+        return [
+            Radio::make(self::EXISTING)
+                ->label('Si alguien ya está registrado')
+                ->helperText('Se reconoce por su DNI, por su celular y nombre, o por su nombre y fecha de nacimiento.')
+                ->options([
+                    self::SKIP => 'Dejarlo como está y anotarlo en el archivo de errores',
+                    self::FILL => 'Completar solo los datos que le falten',
+                ])
+                ->default(self::SKIP)
+                ->required(),
+        ];
+    }
+
+    /** El apellido materno, si vino en su propia columna, va con los apellidos. */
+    public function castData(): void
+    {
+        parent::castData();
+
+        if (filled($this->data['second_last_name'] ?? null)) {
+            $this->data['last_name'] = trim(($this->data['last_name'] ?? '').' '.$this->data['second_last_name']);
+        }
+
+        unset($this->data['second_last_name']);
+    }
+
+    /**
+     * Un paciente nuevo, o el que ya estaba si se eligió completar sus datos. Si ya estaba y se eligió dejarlo como
+     * está, la fila no se importa y queda en el archivo de errores con el motivo.
+     */
+    public function resolveRecord(): Patient
+    {
+        [$existing, $this->matchedBy] = $this->alreadyRegistered();
+
+        if ($existing === null) {
+            return new Patient;
+        }
+
+        if (($this->options[self::EXISTING] ?? self::SKIP) !== self::FILL) {
+            throw new RowImportFailedException(self::ALREADY_REGISTERED." ({$this->matchedBy}): {$existing->full_name}. No se cambió nada.");
+        }
+
+        return $existing;
+    }
+
+    /** @return array<string, string> */
+    public function getValidationMessages(): array
+    {
+        return [
+            'first_name.required' => 'Faltan los nombres.',
+            'first_name.max' => 'Los nombres son muy largos: hasta 100 letras.',
+            'last_name.required' => 'Faltan los apellidos.',
+            'last_name.max' => 'Los apellidos son muy largos: hasta 100 letras.',
+            'document_number.regex' => 'El DNI tiene 8 dígitos.',
+            'birth_date.date_format' => 'Escribe la fecha de nacimiento como día/mes/año, por ejemplo 12/04/1985.',
+            'birth_date.before_or_equal' => 'La fecha de nacimiento es de un día que todavía no llega.',
+            'birth_date.after_or_equal' => 'Revisa el año de nacimiento.',
+            'email.email' => 'Revisa el correo: le falta algo.',
+            'email.max' => 'El correo es muy largo.',
+            'sex.in' => 'En sexo escribe F o M.',
+            'admin_notes.max' => 'Las notas son muy largas: hasta 2000 letras.',
+        ];
+    }
+
+    /** Lo de la fila se guarda al registrar (paciente nuevo) o solo en lo que le falta (paciente que ya estaba). */
+    public function fillRecord(): void
+    {
+        $patient = $this->patient();
+
+        if (! $patient->exists) {
+            return;
+        }
+
+        foreach (self::FILLABLE as $attribute) {
+            if (blank($patient->getAttribute($attribute)) && filled($this->data[$attribute] ?? null)) {
+                $patient->setAttribute($attribute, $this->data[$attribute]);
+            }
+        }
+
+        if ($patient->isDirty('document_number') && $patient->getAttribute('document_type') === null) {
+            $patient->setAttribute('document_type', DocumentType::Dni);
+        }
+    }
+
+    /**
+     * El paciente nuevo entra con el alta de siempre: su celular lo agrupa con su familia, si ya está en el sistema. Al
+     * que ya estaba se le guarda lo que se completó; si ya tenía todo, la fila cuenta como "ya está registrado".
+     */
+    public function saveRecord(): void
+    {
+        $phone = $this->data['phone'] ?? null;
+
+        if (! $this->record->exists) {
+            $this->record = app(PatientRegistrar::class)->register(array_filter(
+                [...array_intersect_key($this->data, array_flip(['first_name', 'last_name', ...self::FILLABLE])), 'phone' => $phone],
+                fn (mixed $value): bool => filled($value),
+            ));
+
+            return;
+        }
+
+        $patient = $this->patient();
+        $joinsPhone = $patient->account_id === null && filled($phone);
+
+        if (! $patient->isDirty() && ! $joinsPhone) {
+            throw new RowImportFailedException(self::ALREADY_REGISTERED." ({$this->matchedBy}): {$patient->full_name}. Ya tenía esos datos: no se cambió nada.");
+        }
+
+        $patient->save();
+
+        if ($joinsPhone) {
+            app(PatientRegistrar::class)->moveToPhone($patient, $phone);
+        }
+
+        $this->countCompleted();
+    }
+
+    /**
+     * Uno más de los que ya estaban y se completaron, para el aviso final (Filament solo cuenta las filas que entraron).
+     * Se anota en la misma base, dentro de la importación: si esa parte se deshace, la cuenta también.
+     */
+    private function countCompleted(): void
+    {
+        Cache::add(self::completedKey($this->import), 0, now()->addMonth());
+        Cache::increment(self::completedKey($this->import));
+    }
+
+    private static function completedKey(Import $import): string
+    {
+        return 'patient-import.'.$import->getKey().'.completed';
+    }
+
+    /** El paciente de la fila, con su tipo (el análisis estático no lo ve). */
+    private function patient(): Patient
+    {
+        /** @var Patient $patient */
+        $patient = $this->record;
+
+        return $patient;
+    }
+
+    /** Las filas que no entraron, en Excel (se abren bien en Excel en español) y listas para corregir y volver a subir. */
+    public static function getFailedRowsDownloader(): Downloader
+    {
+        return app(FailedRowsDownloader::class);
+    }
+
+    public static function getCompletedNotificationTitle(Import $import): string
+    {
+        return 'Importación de pacientes terminada';
+    }
+
+    /**
+     * "Se importaron 120 pacientes y se completaron los datos de 4 que ya estaban registrados. 5 filas no se
+     * importaron: 3 ya estaban registrados y 2 tienen datos por corregir."
+     */
+    public static function getCompletedNotificationBody(Import $import): string
+    {
+        $imported = (int) $import->successful_rows;
+        $completed = min($imported, (int) Cache::get(self::completedKey($import), 0));
+        $created = $imported - $completed;
+        $failed = $import->getFailedRowsCount();
+        $already = self::alreadyRegisteredCount($import);
+        $toFix = $failed - $already;
+
+        $body = match (true) {
+            $created === 0 && $completed === 0 => 'No se importó ningún paciente.',
+            $created === 0 => $completed === 1
+                ? 'Se completaron los datos de 1 paciente que ya estaba registrado.'
+                : 'Se completaron los datos de '.number_format($completed).' pacientes que ya estaban registrados.',
+            default => ($created === 1 ? 'Se importó 1 paciente' : 'Se importaron '.number_format($created).' pacientes').match ($completed) {
+                0 => '',
+                1 => ' y se completaron los datos de 1 que ya estaba registrado',
+                default => ' y se completaron los datos de '.number_format($completed).' que ya estaban registrados',
+            }.'.',
+        };
+
+        if ($failed === 0) {
+            return $body;
+        }
+
+        $alreadyText = $already === 1 ? '1 ya estaba registrado' : number_format($already).' ya estaban registrados';
+        $toFixText = $toFix === 1 ? '1 tiene datos por corregir' : number_format($toFix).' tienen datos por corregir';
+
+        $failures = match (true) {
+            $already > 0 && $toFix > 0 => number_format($failed).' filas no se importaron: '.$alreadyText.' y '.$toFixText.'.',
+            $already > 0 => $alreadyText.($already === 1 ? ' y quedó como estaba.' : ' y quedaron como estaban.'),
+            default => $toFix === 1 ? '1 fila tiene datos por corregir.' : number_format($toFix).' filas tienen datos por corregir.',
+        };
+
+        return $body.' '.$failures.' Descarga el archivo para ver '.($failed === 1 ? 'cuál' : 'cuáles').' y por qué.';
+    }
+
+    /** Si lo único que no entró es gente que ya estaba registrada, no hay nada que corregir: el aviso no sale en rojo. */
+    public static function modifyCompletedNotification(Notification $notification, Import $import): Notification
+    {
+        $failed = $import->getFailedRowsCount();
+
+        if ($failed === 0 || self::alreadyRegisteredCount($import) < $failed) {
+            return $notification;
+        }
+
+        return (int) $import->successful_rows > 0 ? $notification->success() : $notification->info();
+    }
+
+    /** Cuántas filas no entraron porque esa persona ya estaba registrada. */
+    private static function alreadyRegisteredCount(Import $import): int
+    {
+        return $import->failedRows()->where('validation_error', 'like', self::ALREADY_REGISTERED.'%')->count();
+    }
+
+    /**
+     * El paciente que ya está registrado y por qué se sabe, o [null, null]. Primero por DNI; luego por celular, con el
+     * mismo nombre (otro nombre con ese celular es un familiar, y se suma a la familia); luego por nombre y fecha de
+     * nacimiento; y si la fila no trae DNI, celular ni fecha de nacimiento, por el nombre completo. Un DNI que ya es
+     * de otra persona (otro nombre) no se toca: hay que revisarlo. Si varios podrían ser la persona de la fila, no se
+     * adivina: la fila queda para revisar.
+     *
+     * @return array{0: ?Patient, 1: ?string}
+     */
+    private function alreadyRegistered(): array
+    {
+        $firstName = (string) ($this->data['first_name'] ?? '');
+        $lastName = (string) ($this->data['last_name'] ?? '');
+        $document = $this->data['document_number'] ?? null;
+
+        if (filled($document) && preg_match('/^\d{8}$/', $document) === 1) {
+            $owner = Patient::withTrashed()->where('document_type', DocumentType::Dni)->where('document_number', $document)->first();
+
+            if ($owner?->trashed()) {
+                throw new RowImportFailedException("Hubo un paciente con el DNI {$document} y se borró: {$owner->full_name}. Si es la misma persona, pide que lo restauren.");
+            }
+
+            if ($owner !== null && ! self::samePerson($owner, $firstName, $lastName)) {
+                throw new RowImportFailedException("El DNI {$document} ya es de {$owner->full_name}. Revisa el DNI.");
+            }
+
+            if ($owner !== null) {
+                return [$owner, 'mismo DNI'];
+            }
+        }
+
+        $phone = $this->data['phone'] ?? null;
+
+        if (filled($phone) && Phone::isValid($phone)) {
+            $account = Account::query()->where('phone', Phone::normalize($phone))->first();
+            /** @var Collection<int, Patient> $family */
+            $family = $account === null ? new Collection : $account->patients;
+            $relative = $this->theOneWhoCouldBe($family);
+
+            if ($relative !== null) {
+                return [$relative, 'mismo celular y nombre'];
+            }
+        }
+
+        $birthDate = $this->data['birth_date'] ?? null;
+
+        if (filled($birthDate) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $birthDate) === 1) {
+            /** @var Collection<int, Patient> $bornThatDay */
+            $bornThatDay = Patient::query()->whereDate('birth_date', $birthDate)->get();
+            $twin = $this->theOneWhoCouldBe($bornThatDay);
+
+            if ($twin !== null) {
+                return [$twin, 'mismo nombre y fecha de nacimiento'];
+            }
+        }
+
+        // Sin DNI, celular ni fecha de nacimiento no hay con qué distinguirlos: el mismo nombre completo es la misma
+        // persona (así, subir dos veces la misma lista no repite a nadie).
+        if (blank($document) && blank($phone) && blank($birthDate) && filled($firstName) && filled($lastName)) {
+            /** @var Collection<int, Patient> $namesakes */
+            $namesakes = Patient::query()->where('search_name', Patient::searchable($firstName.' '.$lastName))->get();
+            $namesake = $this->theOneWhoCouldBe($namesakes);
+
+            if ($namesake !== null) {
+                return [$namesake, 'mismo nombre'];
+            }
+        }
+
+        return [null, null];
+    }
+
+    /**
+     * Para el dueño de un DNI: el mismo primer nombre y el mismo primer apellido, sin importar tildes ("Rosa Huamán"
+     * es "Rosa María Huamán Quispe"). El DNI ya dice quién es; el nombre solo confirma que no está mal escrito.
+     */
+    private static function samePerson(Patient $patient, string $firstName, string $lastName): bool
+    {
+        return self::firstWord($patient->first_name) === self::firstWord($firstName) && self::firstWord($patient->last_name) === self::firstWord($lastName);
+    }
+
+    private static function firstWord(string $text): string
+    {
+        return Str::before(Patient::searchable($text).' ', ' ');
+    }
+
+    /**
+     * El único de los candidatos que puede ser la persona de la fila, o null si ninguno. Si son varios (la fila dice
+     * "María Quispe" y con ese celular están María Elena y María José), no se adivina: la fila queda para revisar.
+     *
+     * @param  Collection<int, Patient>  $candidates
+     */
+    private function theOneWhoCouldBe(Collection $candidates): ?Patient
+    {
+        $matches = $candidates->filter(fn (Patient $patient): bool => $this->couldBe($patient))->values();
+
+        if ($matches->count() > 1) {
+            throw new RowImportFailedException('Podría ser '.$matches->map(fn (Patient $patient): string => $patient->full_name)->sort()->join(', ', ' o ').'. Agrega su DNI o su fecha de nacimiento para saber quién es.');
+        }
+
+        return $matches->first();
+    }
+
+    /**
+     * ¿Puede ser la persona de la fila? Los nombres y los apellidos coinciden palabra por palabra hasta donde los dos
+     * los tienen, sin importar tildes ("Rosa Huamán" es "Rosa María Huamán Quispe"), y nada los separa: si los dos
+     * tienen DNI, o fecha de nacimiento, es el mismo. Así no se confunden dos hermanas, María Elena y María José,
+     * con el mismo celular, ni el papá con el hijo que lleva su nombre.
+     */
+    private function couldBe(Patient $patient): bool
+    {
+        $document = $this->data['document_number'] ?? null;
+        $birthDate = $this->data['birth_date'] ?? null;
+        /** @var CarbonInterface|null $bornOn */
+        $bornOn = $patient->birth_date;
+
+        return self::startsAlike($patient->first_name, (string) ($this->data['first_name'] ?? ''))
+            && self::startsAlike($patient->last_name, (string) ($this->data['last_name'] ?? ''))
+            && (blank($document) || blank($patient->document_number) || $patient->document_number === $document)
+            && (blank($birthDate) || $bornOn === null || $bornOn->toDateString() === $birthDate);
+    }
+
+    /** Una es el comienzo de la otra, palabra por palabra y sin importar tildes: "rosa" y "rosa maria", no "maria elena" y "maria jose". */
+    private static function startsAlike(string $one, string $other): bool
+    {
+        $one = explode(' ', Patient::searchable($one));
+        $other = explode(' ', Patient::searchable($other));
+        $shared = min(count($one), count($other));
+
+        return $one[0] !== '' && $other[0] !== '' && array_slice($one, 0, $shared) === array_slice($other, 0, $shared);
+    }
+
+    /**
+     * Los títulos de columna que se reconocen solos, con y sin tildes ("teléfono" y "telefono").
+     *
+     * @return list<string>
+     */
+    private static function guesses(string ...$names): array
+    {
+        $plain = array_map(fn (string $name): string => strtr($name, ['á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u', 'ñ' => 'n']), $names);
+
+        return array_values(array_unique([...$names, ...$plain]));
+    }
+
+    /** Sin espacios de más; vacío es null. */
+    private static function text(mixed $state): ?string
+    {
+        $text = Str::squish((string) $state);
+
+        return $text === '' ? null : $text;
+    }
+
+    /** Un nombre escrito todo en mayúsculas (o todo en minúsculas) queda como se escribe: "ROSA DE LA CRUZ" → "Rosa de la Cruz". */
+    private static function name(mixed $state): ?string
+    {
+        $text = self::text($state);
+
+        if ($text === null || ($text !== mb_strtoupper($text) && $text !== mb_strtolower($text))) {
+            return $text;
+        }
+
+        return collect(explode(' ', mb_convert_case($text, MB_CASE_TITLE)))
+            ->map(fn (string $word, int $index): string => $index > 0 && in_array(mb_strtolower($word), ['de', 'del', 'la', 'las', 'los', 'y'], true) ? mb_strtolower($word) : $word)
+            ->implode(' ');
+    }
+
+    /** Sin puntos ni guiones; si Excel le quitó el cero de adelante ("7654321"), se le devuelve. */
+    private static function dni(mixed $state): ?string
+    {
+        $number = DocumentType::clean(self::text($state));
+
+        if ($number !== null && preg_match('/^\d{6,7}$/', $number) === 1) {
+            return str_pad($number, 8, '0', STR_PAD_LEFT);
+        }
+
+        return $number;
+    }
+
+    /**
+     * Día/mes/año, como se escribe en Perú ("12/04/1985", "12-04-85"), o año-mes-día. Lo que no es una fecha se deja
+     * como vino, para que la fila diga qué revisar.
+     */
+    private static function date(mixed $state): ?string
+    {
+        $text = self::text($state);
+
+        if ($text === null) {
+            return null;
+        }
+
+        if (preg_match('/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4}|\d{2})$/', $text, $parts) === 1) {
+            [, $day, $month, $year] = $parts;
+        } elseif (preg_match('/^(\d{4})-(\d{1,2})-(\d{1,2})(?:[ T].*)?$/', $text, $parts) === 1) {
+            [, $year, $month, $day] = $parts;
+        } else {
+            return $text;
+        }
+
+        if (strlen($year) === 2) {
+            $year = (int) $year + ((int) $year > (int) now()->format('y') ? 1900 : 2000);
+        }
+
+        return checkdate((int) $month, (int) $day, (int) $year) ? sprintf('%04d-%02d-%02d', $year, $month, $day) : $text;
+    }
+
+    /** "F", "Femenino", "Mujer" → F; "M", "Masculino", "Hombre", "Varón" → M. */
+    private static function sex(mixed $state): ?string
+    {
+        $text = self::text($state);
+
+        return match ($text === null ? null : Str::lower(Str::ascii($text))) {
+            null => null,
+            'f', 'fem', 'fem.', 'femenino', 'mujer' => Sex::Female->value,
+            'm', 'masc', 'masc.', 'masculino', 'hombre', 'varon', 'h' => Sex::Male->value,
+            default => $text,
+        };
+    }
+}

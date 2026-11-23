@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Patients\Pages;
 
+use App\Filament\Actions\ImportPatientsAction;
 use App\Filament\Concerns\HasNoBreadcrumbs;
 use App\Filament\Resources\Patients\PatientResource;
 use App\Filament\Resources\TreatmentPlans\TreatmentPlanResource;
@@ -35,6 +36,7 @@ class ListPatients extends ListRecords
     {
         return [
             CreateAction::make()->label('Nuevo paciente'),
+            ImportPatientsAction::make(),
         ];
     }
 

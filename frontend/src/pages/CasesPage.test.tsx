@@ -49,11 +49,11 @@ describe('CasesPage', () => {
     expect(shown()).toEqual(['Un implante en lugar del premolar']);
   });
 
-  it('says cases are coming, without a filter, while none is published', async () => {
-    mockApi({ '/api/v1/cases': page(cases({ cases: [], treatments: [] })) });
+  it('is a page that does not exist while no case is published', async () => {
+    mockApi({ '/api/v1/cases': { status: 404, body: { message: 'No encontramos esta página.' } } });
     renderApp('/antes-y-despues');
 
-    expect(await screen.findByText('Pronto publicaremos casos de nuestros pacientes.')).toBeInTheDocument();
-    expect(screen.queryByRole('navigation', { name: 'Filtrar por tratamiento' })).not.toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: 'No encontramos esta página' })).toBeInTheDocument();
+    expect(screen.queryByText(/Pronto publicaremos/)).not.toBeInTheDocument();
   });
 });

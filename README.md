@@ -2,9 +2,9 @@
 
 Hecho para **Clínica Vega Implant** (Jr. Apurímac 648, Juliaca). Su nombre, dirección, WhatsApp y lema vienen ya puestos en `backend/config/consultorio.php` y se cambian desde **Ajustes**.
 
-Reservas online verificadas por WhatsApp, agenda inteligente, historia clínica con odontograma y paneles para administrador, recepción y doctores. Pagos solo informativos (se cobra en el consultorio).
+Reservas online verificadas por WhatsApp, agenda inteligente, historia clínica con odontograma y paneles para Administración, Recepción y Odontología. Pagos solo informativos (se cobra en el consultorio).
 
-**Stack:** Laravel 13 (PHP 8.3+) · MySQL · Filament 5 para los paneles · React 19 + TypeScript + Vite para la web pública, que habla con Laravel por una API. Pensado para hosting compartido con PHP: sin Node en producción (la web se sube ya compilada) y con un solo cron.
+**Stack:** Laravel 13 (PHP 8.3+) · MySQL 8 o MariaDB 10.6+ · Filament 5 para los paneles · React 19 + TypeScript + Vite para la web pública, que habla con Laravel por una API. Pensado para hosting compartido con PHP: sin Node en producción (la web se sube ya compilada) y con un solo cron.
 
 ## Backend y frontend
 
@@ -17,7 +17,7 @@ Todo vive en un solo dominio: la web usa las cookies y la sesión de Laravel (el
 
 ## Puesta en marcha local
 
-Hace falta PHP 8.3+, Composer, MySQL y Node 22+ (Node solo en la computadora donde se desarrolla).
+Hace falta PHP 8.3+, Composer, una base de datos **MySQL 8 o MariaDB 10.6+** y Node 22+ (Node solo en la computadora donde se desarrolla). Para dejarlo funcionando en la laptop del consultorio, mira [Instalación en una laptop con Windows](#instalación-en-una-laptop-con-windows).
 
 ```bash
 cd backend
@@ -34,7 +34,7 @@ composer dev
 
 La consulta de DNI y los feriados de Nager.Date salen por HTTPS. En Windows, si dicen que no responden y `storage/logs/laravel.log` muestra `cURL error 60`, a PHP le faltan los certificados: se descarga https://curl.se/ca/cacert.pem y en `php.ini` (lo indica `php --ini`) se apuntan `curl.cainfo` y `openssl.cafile` a ese archivo.
 
-En local, `--seed` crea datos de demostración, con 11 meses de historia para que Resumen y Ganancias tengan qué mostrar (tarda unos segundos). Panel: `/panel` con `admin@consultorio.test` (el Dr. Vega: administrador y único doctor) o `recepcion@consultorio.test` (clave `password`).
+En local, `--seed` crea datos de demostración, con 11 meses de historia para que Resumen y Ganancias tengan qué mostrar (tarda unos segundos). Panel: `/panel` con `admin@consultorio.test` (el Dr. Vega, que administra el panel y es el único doctor) o `recepcion@consultorio.test` (clave `password`).
 
 ### Pruebas
 
@@ -57,14 +57,14 @@ El hosting no necesita Node: la web se compila antes de subirla. Hay dos formas 
 De aquí en adelante, las carpetas y los comandos son dentro de `backend/`.
 
 1. La raíz pública del dominio apunta a la carpeta `public/`.
-2. `.env` con `APP_ENV=production`, `APP_DEBUG=false`, los datos de MySQL y `APP_URL` con `https://`.
+2. `.env` con `APP_ENV=production`, `APP_DEBUG=false`, los datos de la base (MySQL 8 o MariaDB 10.6+) y `APP_URL` con la dirección real y `https://` (por ejemplo `https://vegaimplant.pe`): de ahí salen el mapa del sitio para Google, los enlaces de las citas que van por WhatsApp y la vista previa al compartir la web. Con `http://localhost`, esos enlaces no le sirven a nadie.
 3. `composer install --no-dev --optimize-autoloader`, `php artisan migrate --force` y `php artisan db:seed --class=CatalogSeeder --force` (solo catálogos, sin datos de prueba).
 4. Un único cron cada minuto:
    `* * * * * php /ruta/al/proyecto/artisan schedule:run >> /dev/null 2>&1`
-   Ese cron prepara los recordatorios del día anterior, marca las citas sin confirmar, procesa la cola, limpia enlaces vencidos y guarda cada madrugada una copia de la base de datos.
+   Ese cron prepara los recordatorios del día anterior, marca las citas sin confirmar, procesa la cola, limpia enlaces vencidos y guarda cada madrugada una copia de la base de datos. Cada pasada deja su hora: si pasa más de una hora sin correr, **Hoy** se lo avisa a quien administra. En una laptop con Windows no hay cron: ver [Instalación en una laptop con Windows](#instalación-en-una-laptop-con-windows).
 5. PHP con la extensión **GD** (casi todos los hostings la traen): comprime radiografías y fotos al subirlas. Esos archivos y las firmas quedan en `storage/app/private/clinica`, fuera de `public/`; inclúyanlo en las copias de seguridad junto con la base de datos.
 6. Las fotos de la web (doctores, tratamientos, promociones, antes y después) se guardan en `public/media`, achicadas y sin datos de ubicación. También van en las copias de seguridad.
-7. **Copias de seguridad:** cada día a las 3:00 a. m. se guarda una copia de la base de datos en `storage/app/private/respaldos` (se conservan las últimas 14). Cualquier administrador ve en **Configuración → Copias de seguridad** si están al día, crea una, borra las viejas y cambia cuántas se conservan (`BACKUPS_KEEP` es solo el valor con que nace ese número). Descargarlas, y bajar en `.zip` las radiografías, fotos, documentos y firmas de los puntos 5 y 6, solo puede el administrador odontólogo, porque traen historias clínicas. Quién descarga o borra cada copia queda en **Configuración → Historial de cambios**.
+7. **Copias de seguridad:** cada día a las 3:00 a. m. se guarda una copia de la base de datos en `storage/app/private/respaldos` (se conservan las últimas 14). Cualquiera que administre el panel ve en **Configuración → Copias de seguridad** si están al día, crea una, borra las viejas y cambia cuántas se conservan (`BACKUPS_KEEP` es solo el valor con que nace ese número). Descargarlas, y bajar en `.zip` las radiografías, fotos, documentos y firmas de los puntos 5 y 6, solo puede quien administra y también atiende, porque traen historias clínicas. Quién descarga o borra cada copia queda en **Configuración → Historial de cambios**. Cada copia del día también puede guardarse sola en otra carpeta: ver «La copia fuera de la laptop» en la sección de Windows.
 
    **Restaurar una copia.** Probado sobre MariaDB 10.11 con una base vacía (hosting nuevo) y con una base dañada: las 66 tablas volvieron con las mismas filas, índices y llaves foráneas, y el panel abrió con normalidad.
    1. `php artisan down`, para que nadie registre nada mientras tanto.
@@ -75,7 +75,31 @@ De aquí en adelante, las carpetas y los comandos son dentro de `backend/`.
    6. `php artisan migrate --force` (por si el sistema es más nuevo que la copia), `php artisan optimize:clear` y `php artisan up`.
    7. Las sesiones vienen vacías: todos vuelven a entrar con su correo y su contraseña. Revisar la agenda de hoy, un paciente con radiografías y la caja del día.
 8. En **Ajustes** se revisan los datos de la clínica (vienen los del recetario) y se agregan el correo, las redes y los textos del inicio. El horario de atención que muestra la web sale solo de los horarios de los doctores.
-9. **Correo para recuperar contraseñas:** en `.env`, `MAIL_MAILER=smtp` con los datos del buzón que da el hosting (`MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_SCHEME` y `MAIL_FROM_ADDRESS`). Con eso, "¿Olvidaste tu contraseña?" en el inicio de sesión envía al correo del usuario un enlace que sirve una hora (sale con el cron del punto 4, en menos de un minuto). Mientras siga en `log`, esa página solo dice que se le pida la contraseña al administrador, que la cambia en **Configuración → Usuarios**. Por eso conviene que el correo del administrador sea uno que de verdad revise. Si el administrador olvida la suya y no hay correo, quien tenga acceso al servidor le pone una temporal con `php artisan usuario:clave su@correo.com`.
+9. **Correo para recuperar contraseñas (antes de usarlo con pacientes):** en `.env`, `MAIL_MAILER=smtp` con los datos del buzón que da el hosting (`MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_SCHEME` y `MAIL_FROM_ADDRESS`). Con eso, "¿Olvidaste tu contraseña?" en el inicio de sesión envía al correo del usuario un enlace que sirve una hora (sale con el cron del punto 4, en menos de un minuto). Mientras siga en `log`, esa página solo dice que se le pida la contraseña a quien administra el panel, que la cambia en **Configuración → Usuarios**. Por eso conviene que el correo de quien administra sea uno que de verdad revise. Si quien administra olvida la suya y no hay correo, quien tenga acceso al servidor le pone una temporal con `php artisan usuario:clave su@correo.com`.
+
+10. **Puesta a punto:** **Configuración → Puesta a punto** dice qué falta para empezar a atender (horarios de los doctores, precios, usuario de recepción, RUC, celular, tareas automáticas, primera copia y copia extra), y **Página web → Puesta a punto**, lo que falta en la web.
+
+## Instalación en una laptop con Windows
+
+Mientras el consultorio use el sistema en su propia laptop, sin hosting:
+
+1. Se instala como en [Puesta en marcha local](#puesta-en-marcha-local), con PHP 8.3+, Composer y una base **MySQL 8 o MariaDB 10.6+** (si usas un paquete como XAMPP, revisa sus versiones: suele traer un PHP y una MariaDB más antiguos), la web ya compilada (`npm --prefix frontend run build`) y `php artisan db:seed --class=CatalogSeeder` en lugar de `--seed`, para empezar sin datos de prueba.
+2. **Para abrir el sistema:** doble clic en `infra\windows\iniciar-consultorio.bat`. Lo abre en `http://127.0.0.1:8000/panel` y, mientras su ventana siga abierta, también corre las tareas automáticas (`php artisan schedule:work`). Conviene un acceso directo en el escritorio: clic derecho → Enviar a → Escritorio.
+3. **Para que las tareas automáticas corran siempre:** doble clic en `infra\windows\encender-tareas-automaticas.bat` y aceptar el permiso que pide Windows. Se hace una vez: crea en el Programador de tareas la tarea "Consultorio - tareas automaticas", que ejecuta `php artisan schedule:run` cada minuto aunque el sistema esté cerrado o nadie haya iniciado sesión, también a batería y sin abrir ventanas. Para quitarla: `infra\windows\quitar-tareas-automaticas.bat`, o `schtasks /delete /tn "Consultorio - tareas automaticas" /f` en una consola abierta como administrador.
+4. **Correo para recuperar contraseñas:** como en el punto 9 de la sección anterior, con los datos del correo del consultorio. Sin eso, el enlace de "¿Olvidaste tu contraseña?" no llega: quien administra cambia la contraseña desde **Configuración → Usuarios**.
+
+Sin las tareas automáticas no salen los recordatorios, no se cargan las cuotas, la lista de espera no se libera y no se crean las copias de seguridad. Si pasa más de una hora sin que corran, **Hoy** se lo avisa a quien administra, y **Configuración → Puesta a punto** lo marca como pendiente.
+
+**Con la laptop apagada, dormida o en hibernación no corre nada.** Al prenderla, el sistema se pone al día solo: la copia del día se crea en ese momento y los recordatorios que tocaban mientras tanto salen más tarde. Por eso, cuando se atienda todos los días con pacientes, conviene pasar a un hosting (sección anterior) o dejar la laptop enchufada y sin suspensión.
+
+**La web y los enlaces para pacientes.** En la laptop, `APP_URL` queda como `http://127.0.0.1:8000`: los pacientes no pueden abrir la web ni los enlaces de sus citas que van en los mensajes de WhatsApp. Eso funciona cuando el sistema pasa a un hosting con su dirección real y `https://` (punto 2 de la sección anterior).
+
+**La copia fuera de la laptop.** La copia de cada día se queda en la misma laptop: si se malogra, se moja o la roban, se pierde con ella. En **Configuración → Copias de seguridad → Copia extra en otra carpeta**, quien puede descargar las copias elige una carpeta donde cada copia del día se guarda también, con solo las últimas:
+
+- **OneDrive** (viene con Windows) o **Google Drive para escritorio**: la carpeta se sube sola a la nube. Hace el papel de "subir la copia a Drive" sin que el sistema necesite una cuenta ni claves de Google. Con Google Drive hay que usar el modo **Reflejar archivos** y su carpeta "Mi unidad": la unidad `G:` del modo transmisión no la ven las tareas automáticas.
+- Un **USB** que no se quede junto a la laptop. Si un día no está conectado, el sistema avisa en Hoy y vuelve a intentarlo cada 15 minutos.
+
+La carpeta tiene que existir, dejar guardar archivos y estar fuera de `backend/` (nunca en `storage/` ni en `public/`). Las copias van comprimidas pero sin cifrar, igual que las que se descargan: esa cuenta o ese USB tienen que ser solo del consultorio. Las radiografías, fotos y firmas siguen bajándose desde Copias de seguridad, en `.zip`.
 
 ## Cómo está organizado
 
@@ -93,7 +117,7 @@ De aquí en adelante, las carpetas y los comandos son dentro de `backend/`.
 | `app/Services/Clinical` | Historia clínica: atención, odontograma, plan de tratamiento, recetas, radiografías y fotos (comprimidas) y consentimientos firmados en pantalla. |
 | `app/Services/Reports` | Ganancias (cobrado y realizado, por día, doctor, tratamiento y medio de pago) y los números del Resumen. Las mismas tablas alimentan el panel, la hoja para imprimir o guardar en PDF y el Excel (`app/Support/Spreadsheet`, sin librerías extra). |
 | `app/Services/Backup` | Copia de seguridad de la base de datos en `.sql.gz`, sin depender de `mysqldump`, y su restauración. |
-| `app/Http/Controllers/Api/V1`, `app/Http/Resources/V1`, `routes/api.php` | La API de la web: el contenido de cada página (inicio con el próximo horario libre, tratamientos con precio "desde", equipo con COP, promociones, antes y después, opiniones, preguntas frecuentes), reservar en 3 pasos, Mi cuenta y el enlace personal de WhatsApp. El contenido se edita en el panel, grupo **Web** (solo administrador). |
+| `app/Http/Controllers/Api/V1`, `app/Http/Resources/V1`, `routes/api.php` | La API de la web: el contenido de cada página (inicio con el próximo horario libre, tratamientos con precio "desde", equipo con COP, promociones, antes y después, opiniones, preguntas frecuentes), reservar en 3 pasos, Mi cuenta y el enlace personal de WhatsApp. El contenido se edita en el panel, grupo **Web** (solo quien administra). |
 | `app/Http/Controllers/Site`, `app/Services/Web`, `routes/web.php` | El documento de cada página de la web (`SpaController`, `SpaDocument`): carga el frontend y lleva escritos el título, la descripción, los datos para Google (schema.org `Dentist`, `FAQPage`) y los datos de la página, para que se pinte sin esperar. También `sitemap.xml`, `robots.txt` y el archivo para guardar la cita en el calendario. |
 | `config/consultorio.php` | Valores por defecto (plazos, topes, tiempos). Se pueden cambiar desde el panel (tabla `settings`). |
 
@@ -137,9 +161,9 @@ La web le pide todo a Laravel en `/api/v1`, dentro del mismo dominio. El contrat
 - **Feriados:** en **Agenda → Bloqueos de horario**, **Cargar feriados** bloquea de una vez los del año en que el consultorio no atiende. La lista junta los feriados nacionales que conoce el sistema con los de [Nager.Date](https://date.nager.at), una API pública y gratis (sin cuenta ni clave, y solo se le pide el año), así que un feriado nuevo por ley aparece solo. Si Nager.Date no responde, queda la lista del sistema y la ventana lo dice.
 - **Pendientes en el menú:** cada opción principal muestra cuánto espera adentro, aunque esté en una de sus opciones de adentro, y al pasar el mouse dice qué cuenta: Agenda (citas de hoy y mañana por confirmar y cambios de horario pedidos), Pacientes (atenciones sin terminar y trabajos de laboratorio por revisar), Caja (a quiénes falta cobrarles lo de hoy), Inventario y Avisos. En el celular, Agenda y Pacientes llevan el mismo número en la barra de abajo.
 - **Doctores** solo manejan su propia agenda; cada cambio prepara el aviso al paciente y alerta a recepción.
-- **Datos clínicos** solo los ven los doctores y el administrador si es odontólogo (Ley N.º 29733).
-- **Cobros:** al terminar la atención se carga solo lo realizado: la sesión del procedimiento del plan (su parte del precio acordado; la última sesión, lo que falta) o el tratamiento de la cita a su precio, con el descuento de la promoción. Recepción lo revisa en "Cobrar", corrige o agrega conceptos y registra el pago (efectivo, tarjeta, Yape, Plin, transferencia). Los doctores no manejan dinero: si el paciente debe algo al terminar, recepción recibe el aviso solo. La administradora que también atiende elige entre cobrar ella o **Pasar a recepción**. Cargos y pagos no se borran: se anulan con motivo.
-- **Ganancias y gráficos:** los ve el administrador. Recepción no. Cada doctor puede ver solo los suyos si se activa en **Ajustes → Reportes** (apagado al inicio). Lo anulado nunca suma.
+- **Datos clínicos** solo los ven los doctores y quien administra, si también atiende (Ley N.º 29733).
+- **Cobros:** al terminar la atención se carga solo lo realizado: la sesión del procedimiento del plan (su parte del precio acordado; la última sesión, lo que falta) o el tratamiento de la cita a su precio, con el descuento de la promoción. Recepción lo revisa en "Cobrar", corrige o agrega conceptos y registra el pago (efectivo, tarjeta, Yape, Plin, transferencia). Los doctores no manejan dinero: si el paciente debe algo al terminar, recepción recibe el aviso solo. Quien administra y también atiende elige entre cobrar o **Pasar a recepción**. Cargos y pagos no se borran: se anulan con motivo.
+- **Ganancias y gráficos:** los ve quien administra. Recepción no. Cada doctor puede ver solo los suyos si se activa en **Ajustes → Reportes** (apagado al inicio). Lo anulado nunca suma.
 - **Antes y después** solo se publica si el paciente lo autorizó por escrito; queda registrado quién lo confirmó y cuándo. Las opiniones se copian de Google tal cual: la web no inventa reseñas ni resultados.
 
 ## WhatsApp: etapa 1 y etapa 2

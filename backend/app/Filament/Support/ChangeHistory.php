@@ -8,16 +8,21 @@ use App\Enums\UserRole;
 use App\Filament\Forms\WeeklySchedule;
 use App\Filament\Pages\Settings;
 use App\Models\AuditLog;
+use App\Models\Charge;
 use App\Models\ConsentTemplate;
 use App\Models\Doctor;
 use App\Models\DoctorSchedule;
 use App\Models\MessageTemplate;
+use App\Models\Patient;
 use App\Models\Setting;
 use App\Models\Treatment;
 use App\Models\TreatmentPackage;
 use App\Models\User;
+use App\Services\Agenda\DoctorCalendarFeed;
 use App\Services\Backup\DatabaseBackup;
+use App\Services\Backup\ExtraCopy;
 use App\Services\Backup\OffsiteCopies;
+use App\Services\ClinicSetupChecklist;
 use App\Services\Web\PageTexts;
 use App\Support\Money;
 use Carbon\CarbonImmutable;
@@ -28,6 +33,7 @@ use Throwable;
 /**
  * El historial de cambios de Configuración dicho con palabras: de cada registro guardado saca dónde fue, sobre qué
  * y qué cambió ("Duración de la cita: 30 → 45"), con los mismos nombres que tienen los datos en cada pantalla.
+ * También los precios y descuentos que se cambiaron al cobrar.
  */
 final class ChangeHistory
 {
@@ -41,6 +47,8 @@ final class ChangeHistory
         TreatmentPackage::class => 'Paquetes',
         ConsentTemplate::class => 'Textos de consentimiento',
         MessageTemplate::class => 'Textos de aviso',
+        // De la caja, solo los precios y descuentos que se cambiaron al cobrar: ver withoutRoutineCharges().
+        Charge::class => 'Cobros',
     ];
 
     /** Las copias de seguridad no cambian ningún dato, pero cada una trae los de todos los pacientes: queda quién la bajó o la borró. */
@@ -51,6 +59,9 @@ final class ChangeHistory
         OffsiteCopies::DOWNLOADED => 'Se descargó',
         OffsiteCopies::DELETED => 'Se borró del sistema',
     ];
+
+    /** Los ajustes de las copias, que se cambian en su pantalla: cuántas se guardan y la carpeta de la copia extra. */
+    private const BACKUP_SETTINGS = [DatabaseBackup::KEEP_SETTING, ExtraCopy::FOLDER_SETTING, ExtraCopy::KEEP_SETTING];
 
     /**
      * @var array<string, string> Cada ajuste (de Ajustes y de la puesta a punto de la página web) con su nombre en pantalla.
@@ -66,11 +77,12 @@ final class ChangeHistory
         'clinic.slogan' => 'Lema',
         'clinic.legal_name' => 'Razón social',
         'clinic.ruc' => 'RUC',
-        'agenda.buffer_minutes' => 'Limpieza y esterilización entre citas',
+        'agenda.buffer_minutes' => 'Tiempo para preparar el sillón entre citas',
         'agenda.slot_step_minutes' => 'Cada cuánto se ofrecen horarios',
         'agenda.min_useful_gap_minutes' => 'Hueco mínimo que sirve para una cita',
         'booking.min_lead_minutes' => 'Anticipación mínima para reservar',
         'booking.horizon_days' => 'Hasta cuántos días adelante se puede reservar',
+        'booking.web_slot_step_minutes' => 'Horas que ofrece la web',
         'booking.max_web_appointments_per_patient' => 'Citas web futuras por paciente',
         'booking.max_web_appointments_per_phone' => 'Citas web futuras por celular',
         'booking.self_reschedule_min_hours' => 'Cambio automático si faltan más de',
@@ -81,9 +93,16 @@ final class ChangeHistory
         'reminders.installment_days_before' => 'Días antes para el aviso de una cuota',
         'plans.valid_days' => 'Un presupuesto vale por',
         DatabaseBackup::KEEP_SETTING => 'Copias de los datos que se guardan',
+        ExtraCopy::FOLDER_SETTING => 'Carpeta de la copia extra',
+        ExtraCopy::KEEP_SETTING => 'Copias que se guardan en la carpeta extra',
         'reports.doctors_see_own' => 'Cada doctor ve sus propios ingresos y gráficos',
         'reports.monthly_goal' => 'Meta de cobro del mes',
         'inventory.deduct_on_close' => 'Al terminar una atención, revisar y descontar los materiales usados',
+        'payments.yape_qr' => 'QR de Yape',
+        'payments.yape_holder' => 'Titular de Yape',
+        'payments.plin_qr' => 'QR de Plin',
+        'payments.plin_holder' => 'Titular de Plin',
+        ClinicSetupChecklist::NO_RECEPTION => 'Nadie trabaja en recepción (puesta a punto)',
         'web.tagline' => 'Frase arriba del título de la web',
         'web.headline' => 'Título del inicio de la web',
         'web.intro' => 'Frase bajo el título de la web',
@@ -106,7 +125,7 @@ final class ChangeHistory
             'name' => 'Nombre',
             'email' => 'Correo',
             'role' => 'Rol',
-            'is_dentist' => 'Es odontólogo',
+            'is_dentist' => 'Es dentista',
             'phone' => 'Celular',
             'is_active' => 'Puede entrar al panel',
             'must_change_password' => 'Tiene que elegir su contraseña al entrar',
@@ -143,7 +162,7 @@ final class ChangeHistory
             'price_from' => 'Precio normal',
             'show_price' => 'Mostrar el precio en la web',
             'duration_minutes' => 'Duración de la cita',
-            'buffer_minutes' => 'Limpieza y esterilización',
+            'buffer_minutes' => 'Tiempo para preparar el sillón',
             'sessions_label' => 'Sesiones que suele llevar',
             'checkup_months' => 'Vuelve a control cada',
             'next_session_days' => 'Sesión siguiente a los',
@@ -185,14 +204,29 @@ final class ChangeHistory
             'api_language' => 'Idioma',
             'is_active' => 'En uso',
         ],
+        // De un cobro, solo lo que se ve en la ventana Cobrar: lo demás lo lleva el sistema.
+        Charge::class => [
+            'description' => 'Concepto',
+            'amount' => 'Precio',
+            'discount' => 'Descuento',
+            'adjustment_reason' => 'Motivo',
+        ],
     ];
 
     /** Datos que el sistema lleva por dentro: no son cambios que alguien hizo en una pantalla. */
     public const INTERNAL = ['id', 'key', 'doctor_id', 'created_by_user_id', 'last_login_at', 'email_verified_at', 'deleted_at'];
 
+    /** @var array<class-string, list<string>> Lo que el sistema lleva por dentro de cada cosa: no sale en el historial. */
+    public const HIDDEN = [
+        Charge::class => [
+            'patient_id', 'appointment_id', 'consultation_id', 'treatment_plan_item_id', 'treatment_id', 'discount_reason', 'suggested_amount',
+            'original_amount', 'original_discount', 'adjusted_by_user_id', 'adjusted_at', 'campaign_id', 'charged_at', 'voided_at', 'voided_by_user_id', 'void_reason',
+        ],
+    ];
+
     private const YES_NO = ['is_dentist', 'is_active', 'must_change_password', 'is_public', 'accepts_online_booking', 'show_price', 'is_evaluation', 'online_bookable', 'for_two', 'allows_upfront', 'allows_installments', 'reports.doctors_see_own', 'inventory.deduct_on_close'];
 
-    private const MONEY = ['price_from', 'price', 'upfront_discount', 'down_payment', 'monthly_amount', 'reports.monthly_goal'];
+    private const MONEY = ['price_from', 'price', 'upfront_discount', 'down_payment', 'monthly_amount', 'reports.monthly_goal', 'amount', 'discount'];
 
     private const HOURS = ['starts_at', 'ends_at', 'reminders.day_before_at', 'reminders.flag_unconfirmed_at'];
 
@@ -207,9 +241,11 @@ final class ChangeHistory
         'duration_months' => 'meses',
         'next_session_days' => 'días',
         'booking.horizon_days' => 'días',
+        'booking.web_slot_step_minutes' => 'min',
         'plans.valid_days' => 'días',
         'reminders.installment_days_before' => 'días',
         DatabaseBackup::KEEP_SETTING => 'copias',
+        ExtraCopy::KEEP_SETTING => 'copias',
         'booking.self_reschedule_min_hours' => 'horas',
         'booking.self_cancel_min_hours' => 'horas',
     ];
@@ -219,7 +255,7 @@ final class ChangeHistory
     /** Textos largos y archivos: en la lista se dice que cambiaron, sin copiarlos enteros. */
     private const LONG = ['body', 'bio', 'education', 'description', 'summary', 'before_instructions', 'aftercare', 'seo_description', 'web.about', 'web.intro'];
 
-    private const FILES = ['photo_path', 'image_path', 'web.logo', 'web.hero_image'];
+    private const FILES = ['photo_path', 'image_path', 'web.logo', 'web.hero_image', 'payments.yape_qr', 'payments.plin_qr'];
 
     /** El nombre de un ajuste en pantalla, o null si no lo edita ninguna hoja. */
     public static function settingName(string $key): ?string
@@ -241,6 +277,20 @@ final class ChangeHistory
     private static function isFile(string $name): bool
     {
         return in_array($name, self::FILES, true) || self::pageField($name) === 'photo';
+    }
+
+    /**
+     * De los cobros entra solo lo que se cambió al cobrar (otro precio, un descuento, un concepto agregado o quitado):
+     * cada cargo que arma el sistema o se paga no es un cambio que alguien tenga que revisar.
+     */
+    public static function withoutRoutineCharges(Builder $query): Builder
+    {
+        return $query->whereNot(fn (Builder $charges) => $charges
+            ->where('auditable_type', Charge::class)
+            ->whereNull('new_values->adjusted_at')
+            ->where(fn (Builder $routine) => $routine
+                ->where('event', '!=', 'updated')
+                ->orWhere(fn (Builder $other) => $other->whereNull('new_values->amount')->whereNull('new_values->discount'))));
     }
 
     /** La sección de Configuración donde se hizo el cambio. */
@@ -265,7 +315,7 @@ final class ChangeHistory
             ->whereIn('event', array_keys(self::BACKUP_EVENTS))
             ->orWhere(fn (Builder $kept) => $kept
                 ->where('auditable_type', Setting::class)
-                ->whereIn('auditable_id', Setting::query()->where('key', DatabaseBackup::KEEP_SETTING)->select('id')));
+                ->whereIn('auditable_id', Setting::query()->whereIn('key', self::BACKUP_SETTINGS)->select('id')));
 
         if ($section === self::BACKUPS) {
             return $query->where($aboutBackups);
@@ -309,6 +359,10 @@ final class ChangeHistory
             return ($doctor?->name ?? 'Un doctor').' · horario del '.mb_strtolower(WeeklySchedule::DAYS[(int) ($values['weekday'] ?? 0)] ?? 'día');
         }
 
+        if ($log->auditable_type === Charge::class) {
+            return self::chargeSubject($log);
+        }
+
         if ($log->auditable_type === MessageTemplate::class) {
             $key = $record?->key ?? MessageTemplateKey::tryFrom((string) ($values['key'] ?? ''));
 
@@ -318,19 +372,63 @@ final class ChangeHistory
         return (string) ($record?->name ?? $values['name'] ?? 'Ya no existe');
     }
 
+    /** "Limpieza dental · Rosa Huamán". */
+    private static function chargeSubject(AuditLog $log): string
+    {
+        /** @var Charge|null $charge */
+        $charge = $log->auditable;
+        /** @var array<string, mixed> $values */
+        $values = ($log->new_values ?? []) + ($log->old_values ?? []);
+        $patient = Patient::withTrashed()->find($charge->patient_id ?? $values['patient_id'] ?? null);
+
+        return ($charge->description ?? $values['description'] ?? 'Un cobro').($patient ? ' · '.$patient->full_name : '');
+    }
+
     /** El cambio en una línea, para la lista. */
     public static function summary(AuditLog $log): string
     {
         $schedule = $log->auditable_type === DoctorSchedule::class;
+
+        if ($log->auditable_type === Charge::class) {
+            return self::chargeInWords($log);
+        }
 
         return match ($log->event) {
             'created' => $schedule ? 'Se agregó el tramo '.self::range($log->new_values ?? []) : 'Se creó',
             'deleted' => $schedule ? 'Se quitó el tramo '.self::range($log->old_values ?? []) : 'Se borró',
             'restored' => 'Se restauró',
             'password_changed' => 'Se cambió su contraseña',
+            // Activar o quitar la doble verificación no guarda ningún dato que se pueda mostrar (el secreto va cifrado).
+            'mfa_enabled' => 'Se activó su doble verificación',
+            'mfa_disabled' => 'Se quitó su doble verificación',
+            DoctorCalendarFeed::LINK_CHANGED => 'Se cambió el enlace de su agenda para el celular',
             OffsiteCopies::DOWNLOADED, OffsiteCopies::DELETED => self::BACKUP_EVENTS[$log->event],
             default => self::changesInWords($log),
         };
+    }
+
+    /** "Precio: S/ 120.00 → S/ 70.00 · Motivo: paciente frecuente", "Se agregó al cobrar: S/ 30.00" o "Se quitó al cobrar". */
+    private static function chargeInWords(AuditLog $log): string
+    {
+        /** @var array<string, mixed> $new */
+        $new = $log->new_values ?? [];
+        $reason = filled($new['adjustment_reason'] ?? null) ? 'Motivo: '.$new['adjustment_reason'] : null;
+
+        if ($log->event === 'created') {
+            return collect(['Se agregó al cobrar: '.Money::format($new['amount'] ?? 0), (float) ($new['discount'] ?? 0) > 0 ? 'Descuento: '.Money::format($new['discount']) : null, $reason])
+                ->filter()
+                ->implode(' · ');
+        }
+
+        $changes = collect(self::changes($log))
+            ->reject(fn (array $change) => $change['field'] === 'Motivo')
+            ->map(fn (array $change) => $change['field'].': '.$change['before'].' → '.$change['after']);
+
+        if (filled($new['voided_at'] ?? null)) {
+            $changes->prepend('Se quitó al cobrar');
+        }
+
+        return $changes->push($reason)->filter()->implode(' · ') ?: 'Se guardó sin cambios que mostrar';
     }
 
     /** "Duración de la cita: 30 min → 45 min · Activo: Sí → No". */
@@ -374,6 +472,10 @@ final class ChangeHistory
                 continue;
             }
 
+            if (in_array($attribute, self::HIDDEN[$log->auditable_type] ?? [], true)) {
+                continue;
+            }
+
             // De un ajuste se guarda solo su valor: el dato es el ajuste mismo.
             $name = $setting ? (string) $settingKey : $attribute;
             $long = self::isLong($name);
@@ -394,10 +496,10 @@ final class ChangeHistory
         return isset(self::BACKUP_EVENTS[$log->event]);
     }
 
-    /** Cuántas copias se guardan es un ajuste, pero se cambia en la pantalla de copias de seguridad. */
+    /** Cuántas copias se guardan y la carpeta de la copia extra son ajustes, pero se cambian en la pantalla de copias. */
     private static function isBackupSetting(AuditLog $log): bool
     {
-        return $log->auditable_type === Setting::class && $log->auditable?->key === DatabaseBackup::KEEP_SETTING;
+        return $log->auditable_type === Setting::class && in_array($log->auditable?->key, self::BACKUP_SETTINGS, true);
     }
 
     /** "Copia de los datos del 23/10/2026 03:00", o el .zip de las radiografías, fotos y firmas con su nombre. */

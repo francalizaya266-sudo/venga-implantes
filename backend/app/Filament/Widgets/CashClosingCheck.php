@@ -3,12 +3,17 @@
 namespace App\Filament\Widgets;
 
 use App\Enums\AppointmentStatus;
+use App\Filament\Actions\AppointmentActions;
 use App\Filament\Actions\RegisterPaymentAction;
 use App\Filament\Resources\Appointments\AppointmentResource;
+use App\Models\Appointment;
+use App\Models\Doctor;
 use App\Models\Patient;
 use App\Models\Payment;
+use App\Models\Treatment;
 use App\Models\User;
 use App\Services\Billing\CashClosing;
+use App\Services\Billing\DaySummary;
 use App\Support\Money;
 use Filament\Actions\Action;
 use Filament\Actions\Concerns\InteractsWithActions;
@@ -19,13 +24,17 @@ use Filament\Schemas\Components\Text;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Concerns\InteractsWithSchemas;
 use Filament\Schemas\Contracts\HasSchemas;
+use Filament\Support\Enums\Size;
 use Filament\Support\Icons\Heroicon;
 use Filament\Widgets\Concerns\InteractsWithPageFilters;
 use Filament\Widgets\Widget;
+use Illuminate\Database\Eloquent\Builder;
 
 /**
  * Si el día cuadra: lo que había para cobrar, lo cobrado y quién se fue debiendo (con "Cobrar"), las citas que
- * quedaron sin cerrar y el arqueo del efectivo. Cerrado el día, sus pagos ya no cambian sin la administradora.
+ * quedaron sin cerrar (con "Atendido" y "No asistió", para resolverlas ahí mismo), las que siguen en curso y el
+ * arqueo del efectivo. Cerrado el día, sus pagos ya no cambian sin quien administra, y a quien administra le llega el
+ * resumen del día (DaySummary).
  */
 class CashClosingCheck extends Widget implements HasActions, HasSchemas
 {
@@ -45,6 +54,9 @@ class CashClosingCheck extends Widget implements HasActions, HasSchemas
     /** @var array<string, mixed>|null */
     private ?array $closingFilters = null;
 
+    /** @var array<int, Appointment|null> Las citas de las filas con botones, buscadas una vez por pedido. */
+    private array $listedAppointments = [];
+
     public static function canView(): bool
     {
         return auth()->user()?->can('viewAny', Payment::class) ?? false;
@@ -62,14 +74,27 @@ class CashClosingCheck extends Widget implements HasActions, HasSchemas
             'expected' => $closing->expected(),
             'pending' => $wholeDay ? $closing->pending() : collect(),
             'pendingTotal' => $wholeDay ? $closing->pendingTotal() : 0.0,
-            'unclosed' => $wholeDay ? $closing->unclosedAppointments()->map(fn ($appointment) => [
-                'time' => $appointment->starts_at->format('H:i'),
-                'name' => $appointment->patient->full_name,
-                'detail' => $appointment->treatment->name.' · '.mb_strtolower($appointment->status->getLabel()).': '.self::unclosedHint($appointment->status),
-                'url' => AppointmentResource::getUrl('view', ['record' => $appointment]),
-            ]) : collect(),
+            'unclosed' => $wholeDay ? $closing->unclosedAppointments()->map(fn (Appointment $appointment) => self::row($appointment, self::unclosedDetail($appointment))) : collect(),
+            'inCourse' => $wholeDay ? $closing->inCourseAppointments()->map(fn (Appointment $appointment) => self::row($appointment, self::inCourseDetail($appointment))) : collect(),
+            'earlierUnclosed' => $wholeDay && $closing->date->isToday() ? $closing->earlierUnclosedCount() : 0,
+            'unclosedUrl' => AppointmentResource::getUrl('index', ['tab' => 'unclosed']),
             'record' => $closing->record(),
         ];
+    }
+
+    /**
+     * "Atendido", el mismo de la agenda: la cita queda atendida y se carga lo programado (si no lo paga, aparece en
+     * "Se fueron debiendo"), con sus materiales y sus cuidados.
+     */
+    public function completeAction(): Action
+    {
+        return $this->forListedAppointment(AppointmentActions::complete())->color('primary');
+    }
+
+    /** "No asistió", el mismo de la agenda: cuenta como falta y entra en "Faltaron o cancelaron" para darle otra hora. */
+    public function missedAction(): Action
+    {
+        return $this->forListedAppointment(AppointmentActions::missed());
     }
 
     /** Cobrar a quien se fue debiendo, desde el mismo cierre. */
@@ -91,7 +116,7 @@ class CashClosingCheck extends Widget implements HasActions, HasSchemas
             ->icon(Heroicon::OutlinedLockClosed)
             ->visible(fn () => $this->closing()->receivedBy === null && $this->closing()->record() === null)
             ->modalHeading(fn () => 'Cerrar la caja del '.$this->closing()->date->translatedFormat('l j \d\e F'))
-            ->modalDescription('Cuenta el efectivo de la caja. Después del cierre, anular un pago de este día o registrar uno con esta fecha lo hace solo la administradora.')
+            ->modalDescription('Cuenta el efectivo de la caja. Después del cierre, anular un pago de este día o registrar uno con esta fecha lo hace solo quien administra.')
             ->modalSubmitActionLabel('Cerrar el día')
             ->modalWidth('lg')
             ->fillForm(fn () => ['opening_cash' => $this->closing()->suggestedOpeningCash()])
@@ -127,16 +152,21 @@ class CashClosingCheck extends Widget implements HasActions, HasSchemas
             ])
             ->action(function (array $data) {
                 $record = $this->closing()->close((float) $data['opening_cash'], (float) $data['counted_cash'], $data['notes'] ?? null, self::user());
+                // El resumen es un extra: si algo falla al armarlo, el día queda cerrado igual (y el error, en el registro).
+                $summaries = rescue(fn () => app(DaySummary::class)->send($this->closing(), $record), 0);
 
                 Notification::make()
                     ->success()
                     ->title('Día cerrado')
-                    ->body(self::differenceText($record->difference()))
+                    ->body(collect([
+                        self::differenceText($record->difference()),
+                        $summaries > 0 ? 'El resumen del día para quien administra quedó en Avisos, listo para enviar por WhatsApp.' : null,
+                    ])->filter()->implode('<br>'))
                     ->send();
             });
     }
 
-    /** Solo la administradora reabre un día cerrado (para corregir un pago de ese día). */
+    /** Solo quien administra reabre un día cerrado (para corregir un pago de ese día). */
     public function reopenDayAction(): Action
     {
         return Action::make('reopenDay')
@@ -167,12 +197,83 @@ class CashClosingCheck extends Widget implements HasActions, HasSchemas
         };
     }
 
+    /** "Limpieza dental · confirmada: marca si vino o si no asistió". */
+    private static function unclosedDetail(Appointment $appointment): string
+    {
+        /** @var Treatment $treatment */
+        $treatment = $appointment->treatment;
+        /** @var AppointmentStatus $status */
+        $status = $appointment->status;
+
+        return $treatment->name.' · '.mb_strtolower($status->getLabel()).': '.self::unclosedHint($status);
+    }
+
+    /** "Limpieza dental · Dra. Ana Torres · en atención". */
+    private static function inCourseDetail(Appointment $appointment): string
+    {
+        /** @var Treatment $treatment */
+        $treatment = $appointment->treatment;
+        /** @var Doctor $doctor */
+        $doctor = $appointment->doctor;
+        /** @var AppointmentStatus $status */
+        $status = $appointment->status;
+
+        return $treatment->name.' · '.$doctor->name.' · '.mb_strtolower($status->getLabel());
+    }
+
     /** Qué falta para cerrar la cita: si no se marcó la llegada, saber si vino; si vino, terminar la atención. */
     private static function unclosedHint(AppointmentStatus $status): string
     {
         return in_array($status, [AppointmentStatus::Pending, AppointmentStatus::Confirmed], true)
             ? 'marca si vino o si no asistió'
             : 'falta terminar la atención y cobrar';
+    }
+
+    /**
+     * Una cita en las listas del cuadre: "09:00 · Rosa Huamán", con su detalle debajo.
+     *
+     * @return array{id: int, time: string, name: string, detail: string, url: string}
+     */
+    private static function row(Appointment $appointment, string $detail): array
+    {
+        return [
+            'id' => $appointment->getKey(),
+            'time' => $appointment->starts_at->format('H:i'),
+            'name' => $appointment->patient->full_name,
+            'detail' => $detail,
+            'url' => AppointmentResource::getUrl('view', ['record' => $appointment]),
+        ];
+    }
+
+    /** La acción de la agenda como botón chico en la fila, sobre la cita que llega en los argumentos. */
+    private function forListedAppointment(Action $action): Action
+    {
+        return $action
+            ->record(fn (array $arguments): ?Appointment => $this->listedAppointment($arguments['appointment'] ?? null))
+            ->size(Size::Small)
+            ->after(function (): void {
+                $this->closing = null;
+                $this->listedAppointments = [];
+            });
+    }
+
+    /**
+     * La cita de una fila. Cada botón la pide varias veces al pintarse (si se ve, si se puede, qué pregunta): se busca
+     * una sola vez, con lo que esos botones miran. Antes eran unas 60 consultas por fila.
+     */
+    private function listedAppointment(mixed $id): ?Appointment
+    {
+        if (! is_numeric($id)) {
+            return null;
+        }
+
+        if (! array_key_exists((int) $id, $this->listedAppointments)) {
+            /** @var Builder<Appointment> $appointments */
+            $appointments = AppointmentResource::getEloquentQuery();
+            $this->listedAppointments[(int) $id] = $appointments->with(['consultation', 'planItem'])->find($id);
+        }
+
+        return $this->listedAppointments[(int) $id];
     }
 
     private function difference(Get $get): ?float
@@ -190,13 +291,15 @@ class CashClosingCheck extends Widget implements HasActions, HasSchemas
         $closing = $this->closing();
         $pending = $closing->pending()->count();
         $unclosed = $closing->unclosedAppointments()->count();
+        $inCourse = $closing->inCourseAppointments()->count();
 
-        $parts = array_filter([
+        $parts = collect([
             $pending > 0 ? 'faltó cobrar '.Money::format($closing->pendingTotal()).' a '.$pending.($pending === 1 ? ' paciente' : ' pacientes') : null,
             $unclosed > 0 ? $unclosed.($unclosed === 1 ? ' cita quedó sin cerrar' : ' citas quedaron sin cerrar') : null,
-        ]);
+            $inCourse > 0 ? $inCourse.($inCourse === 1 ? ' cita sigue en curso' : ' citas siguen en curso') : null,
+        ])->filter();
 
-        return $parts === [] ? null : 'Antes de cerrar: '.implode(' y ', $parts).'.';
+        return $parts->isEmpty() ? null : 'Antes de cerrar: '.$parts->join(', ', ' y ').'.';
     }
 
     /** El cierre del día y la persona elegidos; se arma una vez por pedido (cada parte lo consulta varias veces). */

@@ -307,7 +307,7 @@ class AppointmentServiceTest extends TestCase
             return 'Se agendó.';
         };
 
-        $withRosa = 'Ese horario se cruza con la cita de Rosa Quispe, de 10:00 a 10:30 (más 10 min de esterilización). Elige otro.';
+        $withRosa = 'Ese horario se cruza con la cita de Rosa Quispe, de 10:00 a 10:30 (más 10 min para preparar el sillón). Elige otro.';
 
         $this->assertSame($withRosa, $message('2026-11-03 10:15'));
         // Pegada a la cita, sin dejar el tiempo de esterilización, también choca con ella.

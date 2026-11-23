@@ -2,12 +2,21 @@
 
 use App\Models\Setting;
 use App\Services\Backup\DatabaseBackup;
+use App\Services\Backup\ExtraCopy;
+use App\Services\Reports\MonthlyReport;
+use App\Services\ScheduledTasks;
 use Illuminate\Support\Facades\Schedule;
 
 /*
 | El hosting compartido ejecuta un solo cron cada minuto:
 | * * * * * php /ruta/al/proyecto/artisan schedule:run >> /dev/null 2>&1
+| En una laptop con Windows: infra/windows/iniciar-consultorio.bat (schedule:work) o encender-tareas-automaticas.bat.
 */
+
+// El latido: cada pasada anota su hora. Si lleva más de una hora sin anotarla, Hoy le avisa a quien administra.
+Schedule::call(fn () => ScheduledTasks::beat())
+    ->name('latido')
+    ->everyMinute();
 
 // Cada pasada prepara lo que ya toca (desde la hora de Ajustes › Avisos, el día anterior a la cita): si una se pierde, la siguiente lo pone al día.
 Schedule::command('citas:preparar-recordatorios')
@@ -22,6 +31,13 @@ Schedule::command('citas:marcar-sin-confirmar')
 // Las cuotas de los planes entran al saldo el día que vencen.
 Schedule::command('cuotas:cargar')
     ->dailyAt('06:00')
+    ->withoutOverlapping();
+
+// El día 1, desde las 6:00, el reporte del mes anterior queda listo y quien administra recibe el aviso en la campana.
+// Si ese día la laptop estuvo apagada, se hace en cuanto se prende (una sola vez por mes).
+Schedule::command('reportes:preparar-mes')
+    ->everyFifteenMinutes()
+    ->when(fn () => app(MonthlyReport::class)->isDue())
     ->withoutOverlapping();
 
 // Unos días antes de cada cuota, su aviso queda listo en la bandeja de WhatsApp: desde la hora de los recordatorios
@@ -63,4 +79,11 @@ Schedule::command('agenda:aprender-duraciones')
 Schedule::command('respaldo:crear')
     ->everyFifteenMinutes()
     ->when(fn () => app(DatabaseBackup::class)->isDueToday())
+    ->withoutOverlapping();
+
+// La copia extra en otra carpeta (Copias de seguridad) se guarda apenas se crea la del día. Si en ese momento la carpeta
+// no estaba (un USB desconectado, Google Drive que todavía no abría), se vuelve a intentar cada 15 minutos.
+Schedule::command('respaldo:copia-extra')
+    ->everyFifteenMinutes()
+    ->when(fn () => app(ExtraCopy::class)->isPending())
     ->withoutOverlapping();

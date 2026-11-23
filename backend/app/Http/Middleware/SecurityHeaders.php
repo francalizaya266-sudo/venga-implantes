@@ -13,6 +13,10 @@ use Symfony\Component\HttpFoundation\Response;
  * - Al salir hacia otro sitio (Google Maps, WhatsApp) solo viaja el dominio: el enlace personal
  *   de la cita (/c/…) no se filtra.
  * - Con https, el navegador recuerda que debe entrar siempre así.
+ * - No se dice qué versión de PHP atiende: es una pista menos para quien busca fallas conocidas.
+ *
+ * Sin política de contenido (Content-Security-Policy): Livewire, Alpine y Filament ejecutan código escrito en la
+ * misma página, y una política mal medida deja botones sin funcionar. Va aparte, probándola pantalla por pantalla.
  */
 class SecurityHeaders
 {
@@ -22,6 +26,10 @@ class SecurityHeaders
     public function handle(Request $request, Closure $next): Response
     {
         $response = $next($request);
+
+        // PHP la agrega solo (expose_php) y no pasa por la respuesta de Laravel: se quita de las cabeceras de PHP.
+        header_remove('X-Powered-By');
+        $response->headers->remove('X-Powered-By');
 
         $response->headers->set('X-Frame-Options', 'SAMEORIGIN', false);
         $response->headers->set('X-Content-Type-Options', 'nosniff', false);

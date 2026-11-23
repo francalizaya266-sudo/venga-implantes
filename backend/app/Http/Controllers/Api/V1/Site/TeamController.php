@@ -25,7 +25,6 @@ class TeamController extends Controller
             'data' => ['doctors' => DoctorResource::collection($doctors)],
             'meta' => $meta->for(
                 page: 'equipo',
-                description: 'Quién te atiende: especialidad, formación y número de colegiatura (COP).',
                 jsonLd: [$structuredData->breadcrumbs(['Equipo' => route('site.team')])],
             ),
         ];

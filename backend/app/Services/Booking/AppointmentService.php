@@ -129,11 +129,10 @@ class AppointmentService
                 'last_seen_at' => now(),
             ])->save();
 
-            $campaign = match (true) {
-                filled($data->promoCode) => Campaign::query()->published()->where('promo_code', strtoupper(trim($data->promoCode)))->first(),
-                filled($data->campaignSlug) => Campaign::query()->published()->where('slug', $data->campaignSlug)->first(),
-                default => null,
-            };
+            // La misma campaña que la web le mostró (con su precio): la del código, o la de la página de la que llegó si el
+            // código no es de ninguna promoción vigente o la suya ya no tiene cupos. Ese código no impide reservar: queda
+            // escrito en la cita y recepción lo revisa.
+            $campaign = Campaign::forBooking($data->promoCode, $data->campaignSlug);
 
             $appointment = Appointment::create([
                 'patient_id' => $patient->getKey(),
@@ -145,7 +144,7 @@ class AppointmentService
                 'status' => AppointmentStatus::Pending,
                 'booked_via' => BookingChannel::Web,
                 'origin' => $campaign ? AppointmentOrigin::Campaign : $data->origin,
-                'campaign_id' => $campaign?->hasSlotsLeft() ? $campaign->getKey() : null,
+                'campaign_id' => $campaign?->getKey(),
                 'promo_code' => $data->promoCode,
                 'is_new_patient' => ! $patient->appointments()->where('status', AppointmentStatus::Completed)->exists(),
                 'from_verified_device' => $fromVerifiedDevice,
@@ -157,7 +156,8 @@ class AppointmentService
             $this->outbox->queueForAppointment($appointment, MessageTemplateKey::BookingConfirmation);
             $this->alerts->toReception(
                 'Nueva cita web',
-                "{$patient->full_name} · {$treatment->name} · {$this->when($appointment)} con {$doctor->name}. Envíale la confirmación por WhatsApp.",
+                "{$patient->full_name} · {$treatment->name} · {$this->when($appointment)} con {$doctor->name}. Envíale la confirmación por WhatsApp."
+                    .($appointment->hasUnknownPromoCode() ? " Escribió el código {$appointment->promo_code}, que no es de ninguna promoción vigente: revísalo con el paciente." : ''),
                 link: ['label' => 'Enviar la confirmación', 'url' => WhatsappMessageResource::getUrl()],
             );
 
@@ -459,7 +459,7 @@ class AppointmentService
         if ($waitlist) {
             $this->alerts->toReception(
                 'Se liberó un horario',
-                ucfirst($waitlist['startsAt']->translatedFormat('D j M, g:i a'))." con {$previous->name}. {$waitlist['text']}",
+                ucfirst(Dates::shortDayAndTime($waitlist['startsAt']))." con {$previous->name}. {$waitlist['text']}",
                 link: $waitlist['link'],
             );
         }
@@ -588,6 +588,8 @@ class AppointmentService
             'unconfirmed_flagged_at' => null,
         ]);
 
+        // Lo eligió él mismo: el aviso de un cambio anterior ya no sirve.
+        $this->outbox->discardPending($appointment, MessageTemplateKey::CHANGE_NOTICES);
         $this->closeRescheduleRequests($appointment, 'El paciente movió su cita a otro horario.', 'patient');
 
         $waitlist = $this->waitlist->freedSlotNotice($freedDoctor, $freedAt, $appointment->patient_id);
@@ -642,7 +644,7 @@ class AppointmentService
 
         if ($agreed) {
             // Ya lo sabe: no se le pide confirmar, y el aviso de un cambio anterior ya no sirve.
-            $this->outbox->discardPending($appointment, MessageTemplateKey::Rescheduled);
+            $this->outbox->discardPending($appointment, MessageTemplateKey::CHANGE_NOTICES);
         } else {
             $this->outbox->queueForAppointment($appointment, MessageTemplateKey::Rescheduled);
         }
@@ -662,7 +664,7 @@ class AppointmentService
         } elseif ($waitlist) {
             $this->alerts->toReception(
                 'Se liberó un horario',
-                ucfirst($freedAt->translatedFormat('D j M, g:i a'))." con {$freedDoctor->name}. {$waitlist['text']}",
+                ucfirst(Dates::shortDayAndTime($freedAt))." con {$freedDoctor->name}. {$waitlist['text']}",
                 link: $waitlist['link'],
             );
         }
@@ -1013,9 +1015,17 @@ class AppointmentService
                 $this->waitlist->settle($appointment);
             }
 
-            // El recordatorio del horario anterior ya no sirve; el enlace sigue sirviendo para el nuevo.
-            $this->outbox->discardPending($appointment, MessageTemplateKey::Reminder);
             $appointment->refresh();
+
+            // Lo que todavía no se envió dice el horario y el doctor nuevos, venga de donde venga el cambio. El
+            // recordatorio sigue (con la hora nueva) solo si a esa hora ya le toca; si no, sale el día que le toque.
+            if (! app(AppointmentReminders::class)->isTimeToRemind($appointment)) {
+                $this->outbox->discardPending($appointment, MessageTemplateKey::Reminder);
+            }
+
+            $this->outbox->rebuildPending($appointment);
+
+            // El enlace sigue sirviendo para el nuevo horario.
             $this->links->extendForAppointment($appointment);
 
             return $appointment;
@@ -1167,6 +1177,6 @@ class AppointmentService
 
     private function when(Appointment $appointment): string
     {
-        return $appointment->starts_at->translatedFormat('D j M, g:i a');
+        return Dates::shortDayAndTime($appointment->starts_at);
     }
 }

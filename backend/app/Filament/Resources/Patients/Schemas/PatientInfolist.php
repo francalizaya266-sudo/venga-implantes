@@ -250,6 +250,7 @@ class PatientInfolist
                     ->visible(fn () => auth()->user()->can('viewAny', Charge::class))
                     ->schema([
                         TextEntry::make('account_totals')
+                            ->label('Resumen de la cuenta')
                             ->hiddenLabel()
                             ->state(fn (Patient $record) => self::accountTotals($record))
                             ->color('gray'),
@@ -271,6 +272,7 @@ class PatientInfolist
                             ->viewData(fn (Patient $record) => ['heading' => 'Laboratorio', 'rows' => self::labRows($record)])
                             ->visible(fn (Patient $record) => self::labRows($record) !== []),
                         TextEntry::make('no_plans')
+                            ->label('Presupuestos y laboratorio')
                             ->hiddenLabel()
                             ->state('Todavía no tiene presupuestos ni trabajos de laboratorio.')
                             ->color('gray')

@@ -21,6 +21,7 @@ use App\Models\User;
 use App\Models\WhatsappMessage;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Livewire\Livewire;
+use Tests\Concerns\AnswersWhatsAppQuestion;
 use Tests\Concerns\CreatesAgenda;
 use Tests\TestCase;
 
@@ -30,7 +31,7 @@ use Tests\TestCase;
  */
 class TreatmentPlanPageTest extends TestCase
 {
-    use CreatesAgenda, LazilyRefreshDatabase;
+    use AnswersWhatsAppQuestion, CreatesAgenda, LazilyRefreshDatabase;
 
     private Doctor $torres;
 
@@ -173,13 +174,13 @@ class TreatmentPlanPageTest extends TestCase
 
         $this->actingAs(User::factory()->reception()->create());
 
-        Livewire::test(ViewTreatmentPlan::class, ['record' => $plan->getKey()])
+        $page = Livewire::test(ViewTreatmentPlan::class, ['record' => $plan->getKey()])
             ->assertActionHasUrl('book', AppointmentResource::newUrl(['patient' => $plan->patient_id, 'doctor' => $plan->doctor_id, 'treatment' => $item->treatment_id, 'plan_item' => $item->id]))
             ->mountAction('whatsapp')
             ->assertSchemaStateSet(fn (array $state) => ['body' => str_contains($state['body'], 'queda pendiente: Corona.') ? $state['body'] : 'el aviso del plan sin próxima cita'])
             ->callMountedAction()
-            ->assertHasNoErrors()
-            ->assertSee('Le escribiste hace 0 segundos');
+            ->assertHasNoErrors();
+        $this->answerWhatsApp($page)->assertSee('Le escribiste hace 0 segundos');
 
         $this->assertSame(MessageTemplateKey::PlanNextSession, WhatsappMessage::sole()->template_key);
     }

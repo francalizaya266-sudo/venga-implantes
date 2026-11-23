@@ -8,6 +8,7 @@ use App\Models\Campaign;
 use App\Models\TreatmentPackageItem;
 use App\Services\Booking\WebAvailability;
 use App\Services\Clinical\TreatmentPlanService;
+use App\Services\Web\ClinicInfo;
 use App\Services\Web\PageMeta;
 use App\Services\Web\PublicImages;
 use App\Services\Web\StructuredData;
@@ -17,6 +18,7 @@ use App\Support\Money;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 
 /** Promociones vigentes; cada una con su página para compartir en redes y WhatsApp. */
 class PromotionController extends Controller
@@ -35,7 +37,6 @@ class PromotionController extends Controller
             'data' => ['campaigns' => CampaignResource::collection($this->published())],
             'meta' => $this->meta->for(
                 page: 'promociones',
-                description: 'Promociones vigentes del consultorio. Reserva en línea con tu código.',
                 jsonLd: [$this->structuredData->breadcrumbs(['Promociones' => route('site.promotions')])],
             ),
         ];
@@ -44,7 +45,7 @@ class PromotionController extends Controller
     /**
      * @return array{data: array<string, mixed>, meta: array<string, mixed>}|JsonResponse
      */
-    public function show(Request $request, string $slug, WebAvailability $availability): array|JsonResponse
+    public function show(Request $request, string $slug, WebAvailability $availability, ClinicInfo $clinic): array|JsonResponse
     {
         $campaign = Campaign::query()->where('slug', $slug)->with('treatment', 'package.items.treatment')->first();
 
@@ -76,6 +77,7 @@ class PromotionController extends Controller
         $package = CampaignText::package($campaign);
         $campaignPrice = $campaign->treatment ? $campaign->priceFor($campaign->treatment) : null;
         $discount = CampaignText::discount($campaign);
+        $about = $campaign->summary ?: ($discount ? $discount.' · '.CampaignText::until($campaign) : null);
 
         return [
             'data' => [
@@ -111,7 +113,7 @@ class PromotionController extends Controller
             ],
             'meta' => $this->meta->for(
                 title: $campaign->name,
-                description: $campaign->summary ?: ($discount ? $discount.' · '.CampaignText::until($campaign) : null),
+                description: $about ? PageMeta::describe(Str::finish($about, '.'), 'Se aplica al pagar en el consultorio.', 'Reserva en línea en '.$clinic->name().'.') : null,
                 image: PublicImages::url($campaign->image_path),
                 jsonLd: [$this->structuredData->breadcrumbs(['Promociones' => route('site.promotions'), $campaign->name => route('site.promotion', $campaign->slug)])],
             ),

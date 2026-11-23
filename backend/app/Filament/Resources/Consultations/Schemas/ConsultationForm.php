@@ -241,6 +241,7 @@ class ConsultationForm
                                 ->description(fn (?Consultation $record) => self::diagnosisHint($record))
                                 ->schema([
                                     Repeater::make('diagnoses')
+                                        ->label('Diagnósticos')
                                         ->hiddenLabel()
                                         ->relationship()
                                         ->addActionLabel('Agregar diagnóstico')

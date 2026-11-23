@@ -42,12 +42,13 @@ use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
+use Tests\Concerns\AnswersWhatsAppQuestion;
 use Tests\Concerns\CreatesAgenda;
 use Tests\TestCase;
 
 class TreatmentPlanPanelTest extends TestCase
 {
-    use CreatesAgenda, LazilyRefreshDatabase;
+    use AnswersWhatsAppQuestion, CreatesAgenda, LazilyRefreshDatabase;
 
     protected function setUp(): void
     {
@@ -102,6 +103,7 @@ class TreatmentPlanPanelTest extends TestCase
             ->mountAction(TestAction::make('sendWhatsApp')->table($plan))
             ->assertSchemaStateSet(fn (array $state) => $this->assertStringContainsString('Total: S/ 150.00', $state['body']) ?? [])
             ->callMountedAction();
+        $this->answerWhatsApp($component);
 
         $plan->refresh();
         $this->assertSame([TreatmentPlanStatus::Accepted, PlanPaymentMode::Installments], [$plan->status, $plan->payment_mode]);
@@ -366,6 +368,7 @@ class TreatmentPlanPanelTest extends TestCase
             ->mountAction(TestAction::make('sendPrescription')->schemaComponent('prescription'))
             ->assertSchemaStateSet(fn (array $state) => $this->assertStringContainsString("• Amoxicilina 500 mg: 1 cápsula cada 8 horas por 7 días\n• Ibuprofeno 400 mg", $state['body']) ?? [])
             ->callMountedAction();
+        $this->answerWhatsApp($component);
 
         $this->assertSame([MessageTemplateKey::Prescription, MessageStatus::Sent], [WhatsappMessage::sole()->template_key, WhatsappMessage::sole()->status]);
 

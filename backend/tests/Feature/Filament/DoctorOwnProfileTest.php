@@ -5,10 +5,15 @@ namespace Tests\Feature\Filament;
 use App\Filament\Pages\Auth\EditProfile;
 use App\Filament\Resources\AuditLogs\Pages\ManageAuditLogs;
 use App\Filament\Resources\Doctors\DoctorResource;
+use App\Filament\Resources\Doctors\Pages\EditDoctor;
 use App\Models\AuditLog;
 use App\Models\Doctor;
 use App\Models\DoctorSchedule;
 use App\Models\User;
+use App\Services\Web\PublicImages;
+use Filament\Forms\Components\Field;
+use Filament\Forms\Components\FileUpload;
+use Filament\Schemas\Schema;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -106,7 +111,7 @@ class DoctorOwnProfileTest extends TestCase
         Livewire::test(EditProfile::class)
             ->assertSeeInOrder([
                 'Tu horario de atención',
-                'Lo cambia el administrador',
+                'Lo cambia quien administra el panel',
                 'Lunes: 09:00–13:00 y 15:00–19:00',
                 'Sábado: 09:00–12:00 (solo del 15/12/2026 al 15/03/2027)',
             ])
@@ -144,5 +149,33 @@ class DoctorOwnProfileTest extends TestCase
 
         $this->assertSame('Dirijo el consultorio y atiendo implantes.', $own->fresh()->bio);
         $this->assertSame('No me toques.', $other->fresh()->bio);
+    }
+
+    public function test_the_photo_is_uploaded_the_same_way_in_my_profile_and_in_the_doctor_page(): void
+    {
+        $doctor = Doctor::factory()->create();
+
+        $this->actingAs($doctor->user);
+        $own = $this->photoUpload(Livewire::test(EditProfile::class)->instance()->getSchema('form'));
+
+        $this->actingAs(User::factory()->admin()->create());
+        $fromTheDoctorPage = $this->photoUpload(Livewire::test(EditDoctor::class, ['record' => $doctor->getKey()])->instance()->getSchema('form'));
+
+        // La misma foto redonda, que se recorta en círculo, con el mismo tamaño máximo y en la misma carpeta de la web.
+        foreach ([$own, $fromTheDoctorPage] as $upload) {
+            $this->assertSame(
+                [true, true, true, PublicImages::DISK, 'equipo', 10 * 1024],
+                [$upload->isAvatar(), $upload->hasImageEditor(), $upload->hasCircleCropper(), $upload->getDiskName(), $upload->getDirectory(), $upload->getMaxSize()],
+            );
+        }
+
+        $this->assertSame($own->getImageResizeTargetWidth(), $fromTheDoctorPage->getImageResizeTargetWidth());
+    }
+
+    /** El campo de la foto del doctor en un formulario. */
+    private function photoUpload(Schema $form): FileUpload
+    {
+        return collect($form->getFlatFields(withHidden: true))
+            ->first(fn (Field $field) => $field instanceof FileUpload && $field->getName() === 'photo_path');
     }
 }

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1\Booking;
 
 use App\Enums\AppointmentOrigin;
+use App\Enums\AppointmentStatus;
 use App\Enums\PatientRelationship;
 use App\Exceptions\BookingException;
 use App\Http\Controllers\Controller;
@@ -33,6 +34,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\URL;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 /**
@@ -67,7 +69,7 @@ class BookingController extends Controller
             'origen' => ['nullable', 'string'],
         ]);
 
-        $promoCode = strtoupper(substr(trim((string) $request->query('codigo')), 0, 30));
+        $promoCode = Str::substr(Campaign::writtenCode((string) $request->query('codigo')), 0, 30);
         $campaignSlug = filled($request->query('promo')) ? substr((string) $request->query('promo'), 0, 120) : null;
         $campaign = Campaign::forBooking($promoCode, $campaignSlug);
         $treatments = $this->availability->treatments();
@@ -94,7 +96,8 @@ class BookingController extends Controller
                     'treatment' => $campaign->treatment ? ['id' => $campaign->treatment->getKey(), 'name' => $campaign->treatment->name] : null,
                 ] : null,
                 'promo_code' => $promoCode,
-                'promo_problem' => filled($promoCode) && $campaign === null ? Campaign::UNKNOWN_CODE : null,
+                // No impide reservar: se avisa para que lo corrija si quiere, y si no, lo revisa recepción.
+                'promo_problem' => Campaign::codeNotApplied($promoCode, $campaign) ? Campaign::unknownCodeHint($promoCode) : null,
                 'campaign_slug' => $campaignSlug,
                 'origin' => AppointmentOrigin::tryFrom((string) $request->query('origen'))?->value,
                 'device' => $device ? $this->family($device, (int) $request->query('para')) : null,
@@ -103,7 +106,7 @@ class BookingController extends Controller
                     ->map(fn (PatientRelationship $relationship) => ['value' => $relationship->value, 'label' => $relationship->getLabel()])
                     ->values(),
             ],
-            'meta' => $meta->for(page: 'reservar', description: 'Reserva tu cita en línea: elige el servicio, el día y la hora. Confirmas por WhatsApp.'),
+            'meta' => $meta->for(page: 'reservar'),
         ];
     }
 
@@ -208,6 +211,45 @@ class BookingController extends Controller
     }
 
     /**
+     * "¡Tu cita quedó reservada!" con su propia dirección, para que recargar la página no la pierda. La dirección va
+     * firmada, como la del calendario: solo la tiene quien reservó. Deja de mostrarse cuando la cita ya no está activa
+     * (se canceló o ya se atendió).
+     *
+     * @return array{data: array<string, mixed>, meta: array<string, mixed>}
+     */
+    public function show(Request $request, Appointment $appointment, PageMeta $meta): array
+    {
+        /** @var AppointmentStatus $status */
+        $status = $appointment->status;
+
+        abort_unless(self::hasValidConfirmationSignature($request, $appointment) && $status->isChangeable(), 404);
+
+        $appointment->load(['patient.account', 'doctor', 'treatment', 'campaign']);
+        $device = $this->access->device($request);
+        /** @var Patient $patient */
+        $patient = $appointment->patient;
+
+        return [
+            'data' => $this->confirmation($appointment, $device?->account_id === $patient->account_id ? $device : null, false),
+            'meta' => $meta->for(title: 'Tu cita quedó reservada', noindex: true),
+        ];
+    }
+
+    /** La dirección propia de "¡Tu cita quedó reservada!" (relativa y firmada). */
+    private static function confirmationUrl(Appointment $appointment): string
+    {
+        return URL::signedRoute('site.booking.done', ['appointment' => $appointment->getKey()], absolute: false);
+    }
+
+    /** La firma es la de la página: la API la acepta aunque su dirección sea otra. */
+    private static function hasValidConfirmationSignature(Request $request, Appointment $appointment): bool
+    {
+        parse_str((string) parse_url(self::confirmationUrl($appointment), PHP_URL_QUERY), $query);
+
+        return is_string($request->query('signature')) && hash_equals((string) ($query['signature'] ?? ''), $request->query('signature'));
+    }
+
+    /**
      * Lo que pidió el paciente, listo para AppointmentService: desde un celular recordado no se escribe el celular, y a
      * un familiar que ya existe no se le vuelven a pedir los datos.
      *
@@ -250,6 +292,8 @@ class BookingController extends Controller
         $hour = Dates::time($appointment->starts_at->format('H:i'));
 
         return [
+            // La dirección propia de esta pantalla: la web la abre al reservar y recargarla no la pierde.
+            'page_url' => self::confirmationUrl($appointment),
             'treatment' => $appointment->treatment->name,
             'when' => $day.', '.$hour,
             'who' => $appointment->patient->full_name.' · con '.$appointment->doctor->name,
@@ -262,6 +306,8 @@ class BookingController extends Controller
             'whatsapp_message' => "Hola, acabo de reservar {$appointment->treatment->name} para el ".mb_strtolower($day).' a las '.$hour." a nombre de {$appointment->patient->full_name}.",
             'origins' => $asksOrigin ? self::originsToAsk()->map(fn (AppointmentOrigin $origin) => ['value' => $origin->value, 'label' => $origin->getLabel()]) : [],
             'origin_url' => $asksOrigin ? URL::signedRoute('api.v1.booking.origin', ['appointment' => $appointment->getKey()], absolute: false) : null,
+            // Escribió un código que no es de ninguna promoción: igual quedó reservada y recepción lo revisa.
+            'promo_notice' => $appointment->hasUnknownPromoCode() ? Campaign::unknownCodeNotice((string) $appointment->promo_code) : null,
         ];
     }
 

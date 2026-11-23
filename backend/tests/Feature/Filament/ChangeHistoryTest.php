@@ -7,6 +7,7 @@ use App\Filament\Pages\WebPages;
 use App\Filament\Pages\WebSetup;
 use App\Filament\Resources\AuditLogs\AuditLogResource;
 use App\Filament\Resources\AuditLogs\Pages\ManageAuditLogs;
+use App\Filament\Resources\Doctors\Pages\EditDoctor;
 use App\Filament\Resources\Users\Pages\ManageUsers;
 use App\Filament\Support\ChangeHistory;
 use App\Models\AuditLog;
@@ -90,7 +91,7 @@ class ChangeHistoryTest extends TestCase
         $this->assertSame(['Ajustes y página web', 'Texto bajo el título de la página Servicios', 'Se cambió el texto'], $told('web.pages.servicios.lead'));
         $this->assertSame(['Ajustes y página web', 'Texto del cierre general de la web', 'Reserva tu cita hoy y luce una sonrisa saludable. → Vacío'], $told('web.pages.inicio.closing_text'));
         $this->assertSame(['Ajustes y página web', 'Foto de la página Equipo', 'Sin foto → Una foto'], $told('web.pages.equipo.photo'));
-        $this->assertSame(['Ajustes y página web', 'Punto 2 de la página Equipo', 'Te explicamos todo → Sin dolor'], $told('web.pages.equipo.value2_title'));
+        $this->assertSame(['Ajustes y página web', 'Punto 2 de la página Equipo', 'Vacío → Sin dolor'], $told('web.pages.equipo.value2_title'));
     }
 
     public function test_what_the_system_writes_down_by_itself_is_not_a_change_of_somebody(): void
@@ -122,9 +123,67 @@ class ChangeHistoryTest extends TestCase
             ->assertTableColumnStateSet('section', 'Usuarios', $logs[1])
             ->assertTableColumnStateSet('subject', 'Rosa Quispe', $logs[1])
             // La contraseña que le puso el administrador es temporal: al entrar elige la suya.
-            ->assertTableColumnStateSet('summary', 'Rol: Recepción → Administrador · Tiene que elegir su contraseña al entrar: No → Sí', $logs[1])
+            ->assertTableColumnStateSet('summary', 'Rol: Recepción → Administración · Tiene que elegir su contraseña al entrar: No → Sí', $logs[1])
             ->assertTableColumnStateSet('summary', 'Se cambió su contraseña', $logs[2])
             ->assertTableColumnStateSet('summary', 'Se creó', $logs[0]);
+    }
+
+    public function test_turning_the_double_check_on_and_off_is_told_in_words_and_saving_without_changes_adds_no_row(): void
+    {
+        $this->actingAs(User::factory()->admin()->create());
+        $rosa = User::factory()->reception()->withoutMfa()->create(['name' => 'Rosa Quispe']);
+
+        // La activa al entrar por primera vez y, si pierde el celular, el administrador se la quita.
+        $rosa->saveAppAuthenticationSecret('JBSWY3DPEHPK3PXP');
+        Livewire::test(ManageUsers::class)->callTableAction('resetMfa', $rosa->refresh());
+
+        // Guardar su ficha y la de un doctor sin cambiar nada no deja filas.
+        $doctor = Doctor::factory()->create(['name' => 'Dra. Ana Torres']);
+        DoctorSchedule::create(['doctor_id' => $doctor->id, 'weekday' => 1, 'starts_at' => '09:00', 'ends_at' => '13:00']);
+        $before = AuditLog::query()->count();
+
+        Livewire::test(ManageUsers::class)
+            ->callAction(TestAction::make('edit')->table($rosa), data: [])
+            ->assertHasNoActionErrors();
+        Livewire::test(EditDoctor::class, ['record' => $doctor->getRouteKey()])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $this->assertSame($before, AuditLog::query()->count());
+
+        $logs = AuditLog::query()->where('auditable_type', User::class)->where('auditable_id', $rosa->id)->whereNot('event', 'created')->oldest('id')->get();
+        $this->assertSame(['mfa_enabled', 'mfa_disabled'], $logs->pluck('event')->all());
+
+        Livewire::test(ManageAuditLogs::class)
+            ->assertTableColumnStateSet('summary', 'Se activó su doble verificación', $logs[0])
+            ->assertTableColumnStateSet('summary', 'Se quitó su doble verificación', $logs[1])
+            ->assertDontSee('Se guardó sin cambios que mostrar');
+    }
+
+    public function test_saving_a_doctor_whose_schedule_comes_back_with_seconds_adds_no_row(): void
+    {
+        // Así devuelven MySQL y MariaDB la hora de un tramo; el selector del panel la manda sin segundos.
+        $this->actingAs(User::factory()->admin()->create());
+        $doctor = Doctor::factory()->create(['name' => 'Dra. Ana Torres']);
+        DoctorSchedule::create(['doctor_id' => $doctor->id, 'weekday' => 1, 'starts_at' => '09:00:00', 'ends_at' => '13:00:00']);
+        $before = AuditLog::query()->count();
+
+        Livewire::test(EditDoctor::class, ['record' => $doctor->getRouteKey()])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $this->assertSame($before, AuditLog::query()->count());
+    }
+
+    public function test_a_new_hour_for_a_range_saved_with_seconds_is_still_a_change(): void
+    {
+        $range = DoctorSchedule::create(['doctor_id' => Doctor::factory()->create()->id, 'weekday' => 1, 'starts_at' => '09:00:00', 'ends_at' => '13:00:00']);
+
+        $range->update(['starts_at' => '09:30', 'ends_at' => '13:00']);
+
+        // SQLite la devuelve como "09:30" y MySQL o MariaDB como "09:30:00".
+        $this->assertStringStartsWith('09:30', $range->fresh()->starts_at);
+        $this->assertSame(['starts_at' => '09:30'], AuditLog::query()->where('auditable_type', DoctorSchedule::class)->where('event', 'updated')->sole()->new_values);
     }
 
     public function test_the_history_of_doctors_and_treatments_that_was_already_kept_can_now_be_read(): void
@@ -217,7 +276,7 @@ class ChangeHistoryTest extends TestCase
         $this->assertSame([], array_values(array_filter($keys(WebPages::class), fn (string $key) => ChangeHistory::settingName($key) === null)));
 
         foreach (ChangeHistory::FIELDS as $class => $labels) {
-            $unnamed = array_diff((new $class)->getFillable(), array_keys($labels), ChangeHistory::INTERNAL, ['password', 'name', 'key']);
+            $unnamed = array_diff((new $class)->getFillable(), array_keys($labels), ChangeHistory::INTERNAL, ChangeHistory::HIDDEN[$class] ?? [], ['password', 'name', 'key']);
 
             $this->assertSame([], array_values($unnamed), "Datos de {$class} sin nombre en el historial.");
         }

@@ -48,7 +48,7 @@ class RequestPasswordReset extends BaseRequestPasswordReset
         /** @var TextInput $email */
         $email = parent::getEmailFormComponent();
 
-        return $email->helperText('Te llegará un enlace para poner una contraseña nueva. Si no usas ese correo, pídesela al administrador: la cambia en Configuración, Usuarios.');
+        return $email->helperText('Te llegará un enlace para poner una contraseña nueva. Si no usas ese correo, pídesela a quien administra el panel: la cambia en Configuración, Usuarios.');
     }
 
     /**

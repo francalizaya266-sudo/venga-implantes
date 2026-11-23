@@ -42,7 +42,7 @@ class PasswordRecoveryTest extends TestCase
 
         $this->get(Filament::getRequestPasswordResetUrl())
             ->assertOk()
-            ->assertSee('Pídele una contraseña nueva al administrador.')
+            ->assertSee('Pídele una contraseña nueva a quien administra el panel.')
             ->assertSee('Volver al inicio de sesión')
             ->assertDontSee('Enviarme el enlace');
 
@@ -62,7 +62,7 @@ class PasswordRecoveryTest extends TestCase
         $this->get(Filament::getRequestPasswordResetUrl())
             ->assertOk()
             ->assertSee('Enviarme el enlace')
-            ->assertSee('pídesela al administrador')
+            ->assertSee('pídesela a quien administra el panel')
             ->assertDontSee('todavía no está activado');
 
         Livewire::test(RequestPasswordReset::class)

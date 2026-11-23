@@ -30,18 +30,36 @@ final class AccountActions
         return SendWhatsAppAction::compose('sendAccessLink', function (Action $action) use ($account) {
             $phone = $action->evaluate($account);
 
-            return $phone ? app(WhatsAppOutbox::class)->draftForAccount($phone, MessageTemplateKey::AccessLink, patientId: $phone->holder?->getKey()) : null;
+            if ($phone === null) {
+                return null;
+            }
+
+            // Si el paciente lo pidió desde la web, se envía ese mismo aviso: si al final no se envió, sigue en Avisos.
+            return self::requestedAccessLink($phone)
+                ?? app(WhatsAppOutbox::class)->draftForAccount($phone, MessageTemplateKey::AccessLink, patientId: $phone->holder?->getKey());
         })
             ->label('Enviar enlace de Mi cuenta')
             ->icon(Heroicon::OutlinedKey)
             ->color('gray')
             ->visible(fn (Action $action) => ($phone = $action->evaluate($account)) !== null && ! $phone->isBlocked())
-            // Si el paciente lo había pedido desde la web, ese aviso ya quedó atendido.
+            // Otro pedido desde la web que nadie abrió ya quedó atendido con este.
             ->after(fn (Action $action) => WhatsappMessage::query()
                 ->whereBelongsTo($action->evaluate($account))
                 ->where('template_key', MessageTemplateKey::AccessLink)
                 ->pending()
+                ->whereNull('opened_at')
                 ->update(['status' => MessageStatus::Cancelled]));
+    }
+
+    /** El enlace de Mi cuenta que el paciente pidió desde la web y espera en Avisos. */
+    private static function requestedAccessLink(Account $account): ?WhatsappMessage
+    {
+        return WhatsappMessage::query()
+            ->whereBelongsTo($account)
+            ->where('template_key', MessageTemplateKey::AccessLink)
+            ->pending()
+            ->oldest('id')
+            ->first();
     }
 
     public static function block(): Action

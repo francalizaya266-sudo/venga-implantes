@@ -42,6 +42,7 @@ final class TreatmentRecipeAction
             ])
             ->schema([
                 Repeater::make('supplies')
+                    ->label('Materiales')
                     ->hiddenLabel()
                     ->table([
                         TableColumn::make('Material'),

@@ -103,9 +103,7 @@ class WaitingRoom extends Widget
     private function rooms(): array
     {
         $doctors = Doctor::query()
-            ->whereHas('appointments', fn ($appointments) => $appointments
-                ->whereDate('starts_at', today())
-                ->where('status', '!=', AppointmentStatus::Cancelled))
+            ->whereIn('id', Appointment::query()->startsOn(today())->where('status', '!=', AppointmentStatus::Cancelled)->select('doctor_id'))
             ->orderBy('sort_order')
             ->get(['id', 'name']);
 
@@ -115,7 +113,7 @@ class WaitingRoom extends Widget
 
         // El último que pasó a consulta con cada doctor.
         $inConsultation = Appointment::query()
-            ->whereDate('starts_at', today())
+            ->startsOn(today())
             ->where('status', AppointmentStatus::InProgress)
             ->with('patient')
             ->orderBy('started_at')

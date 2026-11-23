@@ -21,13 +21,14 @@ use Database\Seeders\CatalogSeeder;
 use Filament\Actions\Testing\TestAction;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Livewire\Livewire;
+use Tests\Concerns\AnswersWhatsAppQuestion;
 use Tests\Concerns\CreatesAgenda;
 use Tests\TestCase;
 
 /** El botón WhatsApp de una cita: qué mensaje arma según cómo está la cita, y que no deje avisos sin enviar. */
 class AppointmentWhatsAppTest extends TestCase
 {
-    use CreatesAgenda, LazilyRefreshDatabase;
+    use AnswersWhatsAppQuestion, CreatesAgenda, LazilyRefreshDatabase;
 
     private Treatment $treatment;
 
@@ -69,13 +70,14 @@ class AppointmentWhatsAppTest extends TestCase
         $page = Livewire::test(ViewAppointment::class, ['record' => $appointment->getKey()])
             ->mountAction('whatsapp')
             ->assertMountedActionModalSee('WhatsApp para '.$appointment->patient->full_name)
-            ->assertSchemaStateSet(fn (array $state) => $this->assertStringContainsString("Tu próxima cita de limpieza dental es el jueves 5 de noviembre a las 11:00 am con {$this->doctor->name}", $state['body']) ?? []);
+            ->assertSchemaStateSet(fn (array $state) => $this->assertStringContainsString("Tu próxima cita de limpieza dental es el jueves 5 de noviembre a las 11:00\u{00A0}a.\u{00A0}m. con {$this->doctor->name}", $state['body']) ?? []);
 
         // Solo se miró: en Avisos no queda nada ni se creó un enlace personal.
         $this->assertSame(0, WhatsappMessage::count());
         $this->assertSame(0, MagicLink::count());
 
         $page->callMountedAction()->assertHasNoFormErrors();
+        $this->answerWhatsApp($page);
 
         $sent = WhatsappMessage::sole();
         $this->assertSame(MessageTemplateKey::AppointmentScheduled, $sent->template_key);
@@ -128,11 +130,12 @@ class AppointmentWhatsAppTest extends TestCase
         $moved = app(AppointmentService::class)->rescheduleByStaff($appointment, now()->parse('2026-11-06 16:00'), $this->reception);
         $waiting = WhatsappMessage::query()->pending()->sole();
 
-        Livewire::test(ViewAppointment::class, ['record' => $moved->getKey()])
+        $page = Livewire::test(ViewAppointment::class, ['record' => $moved->getKey()])
             ->mountAction('whatsapp')
-            ->assertSchemaStateSet(fn (array $state) => $this->assertStringContainsString('cambió al viernes 6 de noviembre a las 4:00 pm', $state['body']) ?? [])
+            ->assertSchemaStateSet(fn (array $state) => $this->assertStringContainsString("cambió al viernes 6 de noviembre a las 4:00\u{00A0}p.\u{00A0}m.", $state['body']) ?? [])
             ->callMountedAction()
             ->assertHasNoFormErrors();
+        $this->answerWhatsApp($page);
 
         $this->assertSame(MessageStatus::Sent, $waiting->fresh()->status);
         $this->assertSame(1, WhatsappMessage::count());
@@ -145,12 +148,13 @@ class AppointmentWhatsAppTest extends TestCase
         $appointment->update(['finished_at' => now()]);
         $aftercare = app(WhatsAppOutbox::class)->queueForAppointment($appointment, MessageTemplateKey::Aftercare, extra: ['cuidados' => 'No comas por dos horas.']);
 
-        Livewire::test(ViewAppointment::class, ['record' => $appointment->getKey()])
+        $page = Livewire::test(ViewAppointment::class, ['record' => $appointment->getKey()])
             ->assertActionDoesNotHaveUrl('whatsapp', $this->chatUrl($appointment))
             ->mountAction('whatsapp')
             ->assertSchemaStateSet(fn (array $state) => $this->assertStringContainsString('No comas por dos horas.', $state['body']) ?? [])
             ->callMountedAction()
             ->assertHasNoFormErrors();
+        $this->answerWhatsApp($page);
 
         $this->assertSame(MessageStatus::Sent, $aftercare->fresh()->status);
 

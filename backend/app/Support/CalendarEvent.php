@@ -2,7 +2,10 @@
 
 namespace App\Support;
 
+use App\Enums\AppointmentStatus;
 use App\Models\Appointment;
+use App\Models\Patient;
+use App\Models\Treatment;
 use App\Services\Web\ClinicInfo;
 use Carbon\CarbonInterface;
 
@@ -38,6 +41,63 @@ final class CalendarEvent
             'END:VEVENT',
             'END:VCALENDAR',
         ];
+
+        return collect($lines)->filter()->map(self::fold(...))->implode("\r\n")."\r\n";
+    }
+
+    /**
+     * La agenda de un doctor, para suscribirse desde el calendario del celular: cada cita con su hora, su duración,
+     * el tratamiento y el nombre corto del paciente. Nada clínico ni celulares, y sin alarmas (el calendario del
+     * celular ya avisa a su modo). El celular la vuelve a leer sola cada cierto tiempo.
+     *
+     * @param  iterable<Appointment>  $appointments  Con el paciente y el tratamiento ya cargados.
+     */
+    public static function forDoctorAgenda(iterable $appointments, ClinicInfo $clinic): string
+    {
+        $stamp = fn (CarbonInterface $moment): string => $moment->copy()->utc()->format('Ymd\THis\Z');
+        $host = parse_url((string) config('app.url'), PHP_URL_HOST) ?: 'web';
+
+        $lines = [
+            'BEGIN:VCALENDAR',
+            'VERSION:2.0',
+            'PRODID:-//'.self::escape($clinic->name()).'//Agenda//ES',
+            'CALSCALE:GREGORIAN',
+            'METHOD:PUBLISH',
+            'X-WR-CALNAME:'.self::escape('Citas · '.$clinic->name()),
+            'X-WR-TIMEZONE:'.config('app.timezone'),
+            'REFRESH-INTERVAL;VALUE=DURATION:PT1H',
+            'X-PUBLISHED-TTL:PT1H',
+        ];
+
+        foreach ($appointments as $appointment) {
+            /** @var AppointmentStatus $status */
+            $status = $appointment->status;
+            /** @var CarbonInterface $startsAt */
+            $startsAt = $appointment->starts_at;
+            /** @var CarbonInterface $endsAt */
+            $endsAt = $appointment->ends_at;
+            /** @var Patient $patient */
+            $patient = $appointment->patient;
+            /** @var Treatment $treatment */
+            $treatment = $appointment->treatment;
+            $state = $status === AppointmentStatus::Pending ? 'Por confirmar' : $status->getLabel();
+
+            array_push(
+                $lines,
+                'BEGIN:VEVENT',
+                'UID:agenda-'.$appointment->getKey().'@'.$host,
+                'DTSTAMP:'.$stamp(now()),
+                'DTSTART:'.$stamp($startsAt),
+                'DTEND:'.$stamp($endsAt),
+                'SUMMARY:'.self::escape($patient->short_name.' · '.$treatment->name),
+                'DESCRIPTION:'.self::escape($treatment->name.' · '.str_replace("\u{00A0}", ' ', Dates::duration($appointment->durationMinutes())).' · '.$state),
+                'STATUS:'.($status === AppointmentStatus::Pending ? 'TENTATIVE' : 'CONFIRMED'),
+                $clinic->fullAddress() ? 'LOCATION:'.self::escape($clinic->fullAddress()) : null,
+                'END:VEVENT',
+            );
+        }
+
+        $lines[] = 'END:VCALENDAR';
 
         return collect($lines)->filter()->map(self::fold(...))->implode("\r\n")."\r\n";
     }

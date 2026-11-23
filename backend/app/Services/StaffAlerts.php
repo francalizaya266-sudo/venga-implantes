@@ -2,16 +2,26 @@
 
 namespace App\Services;
 
+use App\Enums\PaymentMethod;
 use App\Enums\UserRole;
+use App\Filament\Pages\CashClosing;
 use App\Livewire\PanelPulse;
 use App\Models\Appointment;
+use App\Models\Charge;
 use App\Models\Patient;
+use App\Models\Payment;
 use App\Models\User;
+use App\Services\Billing\PriceAdjustments;
+use App\Support\Dates;
+use App\Support\Money;
+use Carbon\CarbonInterface;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Support\Enums\Size;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Notifications\DatabaseNotification;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 
 /**
  * Alertas en la campana del panel para recepción (y administración), y para el doctor. Se distinguen de un vistazo:
@@ -42,6 +52,108 @@ class StaffAlerts
     }
 
     /**
+     * A quien administra: lo delicado de la caja, para que se entere en el momento y no recién en el cierre. A quien lo
+     * hizo no hace falta decírselo.
+     *
+     * @param  array{label: string, url: string}|null  $link  Botón para ir a revisarlo.
+     */
+    public function toAdmins(string $title, ?string $body = null, ?User $except = null, ?array $link = null): void
+    {
+        $recipients = User::query()
+            ->where('is_active', true)
+            ->where('role', UserRole::Admin)
+            ->when($except, fn ($q) => $q->whereKeyNot($except->getKey()))
+            ->get();
+
+        if ($recipients->isNotEmpty()) {
+            $this->deliver($recipients, $link ? $this->toAct($title, $body, $link) : $this->toKnow($title, $body));
+        }
+    }
+
+    /**
+     * Al cobrar se cambió un precio, se puso un descuento o se quitó un concepto: quien administra lo sabe al momento,
+     * con el motivo y quién fue. Un concepto agregado a mano sin descuento no se avisa: suma, no rebaja.
+     *
+     * @param  Collection<int, Charge>  $charges  Lo que se cambió al cobrar.
+     */
+    public function checkoutAdjusted(Patient $patient, Collection $charges, User $by): void
+    {
+        $worth = $charges->reject(fn (Charge $charge) => PriceAdjustments::kind($charge) === PriceAdjustments::ADDED && (float) $charge->discount <= 0);
+
+        if ($worth->isEmpty()) {
+            return;
+        }
+
+        $reason = $worth->pluck('adjustment_reason')->filter()->first();
+
+        $this->toAdmins(
+            'Cambio al cobrar a '.$patient->full_name,
+            // "Limpieza dental: precio de S/ 120.00 a S/ 70.00." y abajo el motivo y quién.
+            $worth->map(fn (Charge $charge) => e($charge->description.': '.Str::lcfirst(PriceAdjustments::change($charge)).'.'))
+                ->push(e(($reason ? 'Motivo: '.$reason.'. ' : 'Sin motivo. ').'Lo hizo '.$by->name.'.'))
+                ->implode('<br>'),
+            $by,
+            ['label' => 'Ver en el cierre del día', 'url' => self::closingUrl(today())],
+        );
+    }
+
+    /** Se anuló un cargo desde la cuenta del paciente: ya no se le cobra, y quien administra lo sabe al momento. */
+    public function chargeVoided(Charge $charge, User $by): void
+    {
+        /** @var Patient $patient */
+        $patient = $charge->patient;
+
+        $this->toAdmins(
+            'Se anuló un cargo de '.$patient->full_name,
+            e($charge->description.' de '.Money::format($charge->net()).'. Motivo: '.$charge->void_reason.'. Lo anuló '.$by->name.'.'),
+            $by,
+            ['label' => 'Ver en el cierre del día', 'url' => self::closingUrl(today())],
+        );
+    }
+
+    /** Se anuló un pago: deja de contar en la caja de su día, y quien administra lo sabe al momento. */
+    public function paymentVoided(Payment $payment, User $by): void
+    {
+        /** @var Patient $patient */
+        $patient = $payment->patient;
+        /** @var PaymentMethod $method */
+        $method = $payment->method;
+        /** @var CarbonInterface $paidAt */
+        $paidAt = $payment->paid_at;
+
+        $this->toAdmins(
+            'Se anuló un pago de '.$patient->full_name,
+            e(Money::format(abs((float) $payment->amount)).' con '.$method->getLabel().' ('.$paidAt->translatedFormat('l j \d\e F').', '.Dates::time($paidAt).'). Motivo: '.$payment->void_reason.'. Lo anuló '.$by->name.'.'),
+            $by,
+            ['label' => 'Ver en el cierre del día', 'url' => self::closingUrl($paidAt)],
+        );
+    }
+
+    /** Se devolvió dinero que el paciente tenía a favor: sale de la caja de hoy. */
+    public function refunded(Payment $refund, User $by): void
+    {
+        /** @var Patient $patient */
+        $patient = $refund->patient;
+        /** @var PaymentMethod $method */
+        $method = $refund->method;
+        /** @var CarbonInterface $paidAt */
+        $paidAt = $refund->paid_at;
+
+        $this->toAdmins(
+            'Se devolvió dinero a '.$patient->full_name,
+            e(Money::format(abs((float) $refund->amount)).' con '.$method->getLabel().'. Motivo: '.$refund->notes.'. Lo devolvió '.$by->name.'.'),
+            $by,
+            ['label' => 'Ver en el cierre del día', 'url' => self::closingUrl($paidAt)],
+        );
+    }
+
+    /** El cierre de ese día. */
+    private static function closingUrl(CarbonInterface $day): string
+    {
+        return CashClosing::getUrl(['filters' => ['date' => $day->toDateString()]], panel: 'admin');
+    }
+
+    /**
      * Ya se le cobró: "terminó su atención: cobrarle" queda como leído en la campana de todos en recepción. Antes
      * seguía ahí después de que pagó, y parecía que faltaba cobrarle.
      */
@@ -66,6 +178,8 @@ class StaffAlerts
         return DatabaseNotification::query()
             ->whereNull('read_at')
             ->where('created_at', '<', today())
+            // El reporte del mes espera una semana a que lo abran: el día 1 puede caer domingo.
+            ->where(fn ($query) => $query->whereNull('data->viewData->monthlyReport')->orWhere('created_at', '<', today()->subWeek()))
             ->update(['read_at' => now()]);
     }
 

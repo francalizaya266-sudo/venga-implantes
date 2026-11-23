@@ -70,8 +70,8 @@ export function site(changes: Partial<Site> = {}): Site {
     },
     home: {
       tagline: null,
-      title: { strong: 'Atención dental', thin: '', accent: 'sin esperas' },
-      intro: null,
+      title: { strong: 'Implantes y odontología', thin: '', accent: 'en Juliaca' },
+      intro: 'Tu dentista en Juliaca. Reserva en 2 minutos.',
       about_html: null,
       hero_image_url: null,
     },
@@ -196,6 +196,7 @@ export function bookingDevice(changes: Partial<BookingDevice> = {}): BookingDevi
 
 export function bookedAppointment(changes: Partial<BookedAppointment> = {}): BookedAppointment {
   return {
+    page_url: '/reservar/cita/9?signature=abc',
     treatment: 'Limpieza dental',
     when: 'Miércoles 4 de noviembre, 9:00 a. m.',
     who: 'Rosa Quispe · con Dra. Vega',
@@ -209,6 +210,7 @@ export function bookedAppointment(changes: Partial<BookedAppointment> = {}): Boo
       { value: 'recommendation', label: 'Recomendación' },
     ],
     origin_url: '/api/v1/booking/appointments/9/origin?signature=abc',
+    promo_notice: null,
     ...changes,
   };
 }
@@ -314,6 +316,7 @@ export function homeData(changes: Partial<HomeData> = {}): HomeData {
     cases: [],
     reviews: [],
     faqs: [],
+    facts: { address: 'Jr. Apurímac 648', days: 'Lunes a sábado', price: null },
     ...changes,
   };
 }
