@@ -182,8 +182,11 @@ class WhatsAppOutbox
     /**
      * Enlace wa.me con el mensaje ya escrito. Quien lo abre es quien lo envía:
      * en WhatsApp solo falta presionar Enviar.
+     *
+     * @param  bool  $markSent  Lo da por enviado al abrirlo. Sin eso queda abierto y en "Por enviar" hasta que
+     *                          quien lo abrió diga si se envió (markSent o markNotSent).
      */
-    public function clickToChatUrl(WhatsappMessage $message, User $by, ?string $body = null): string
+    public function clickToChatUrl(WhatsappMessage $message, User $by, ?string $body = null, bool $markSent = true): string
     {
         $body ??= $this->render($message, $by);
 
@@ -192,21 +195,33 @@ class WhatsAppOutbox
             $body = str_replace('{enlace}', $link, $body);
         }
 
-        $message->forceFill([
-            'status' => MessageStatus::Sent,
-            'opened_at' => now(),
-            'opened_by_user_id' => $by->getKey(),
-            'sent_at' => now(),
-            'sent_by_user_id' => $by->getKey(),
-        ])->save();
+        $message->forceFill(['opened_at' => now(), 'opened_by_user_id' => $by->getKey()]);
+
+        if ($markSent) {
+            $message->forceFill(['status' => MessageStatus::Sent, 'sent_at' => now(), 'sent_by_user_id' => $by->getKey()]);
+        }
+
+        $message->save();
 
         return 'https://wa.me/'.Phone::forWhatsApp($message->phone).'?text='.rawurlencode($body);
     }
 
-    /** Se abrió WhatsApp pero el mensaje no llegó a enviarse: vuelve a "Por enviar". */
+    /** Se abrió WhatsApp pero el mensaje no llegó a enviarse: vuelve a "Por enviar", como si no se hubiera abierto. */
     public function markNotSent(WhatsappMessage $message): void
     {
-        $message->forceFill(['status' => MessageStatus::Pending, 'sent_at' => null, 'sent_by_user_id' => null])->save();
+        $message->forceFill([
+            'status' => MessageStatus::Pending,
+            'opened_at' => null,
+            'opened_by_user_id' => null,
+            'sent_at' => null,
+            'sent_by_user_id' => null,
+        ])->save();
+    }
+
+    /** Se abrió en WhatsApp y nadie dijo todavía si se envió: sigue en "Por enviar", con la pregunta pendiente. */
+    public static function isOpenedUnconfirmed(WhatsappMessage $message): bool
+    {
+        return $message->status === MessageStatus::Pending && $message->opened_at !== null;
     }
 
     /** Lo abrió una persona con WhatsApp hace poco: todavía puede decir que no llegó a enviarse. */

@@ -59,12 +59,13 @@ use Filament\Actions\Testing\TestAction;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
+use Tests\Concerns\AnswersWhatsAppQuestion;
 use Tests\Concerns\CreatesAgenda;
 use Tests\TestCase;
 
 class DashboardPanelTest extends TestCase
 {
-    use CreatesAgenda, LazilyRefreshDatabase;
+    use AnswersWhatsAppQuestion, CreatesAgenda, LazilyRefreshDatabase;
 
     private const NBSP = "\u{00A0}";
 
@@ -821,12 +822,12 @@ class DashboardPanelTest extends TestCase
         $carmen = $this->patient('Carmen', 'Rojas', ['birth_date' => '1990-11-02']);
         $this->actingAs(User::factory()->reception()->create());
 
-        Livewire::test(FollowUpsToday::class)
+        $this->answerWhatsApp(Livewire::test(FollowUpsToday::class)
             ->assertDontSee('Le escribiste')
             ->mountAction('whatsapp', ['template' => MessageTemplateKey::Birthday->value, 'patient' => $carmen->id])
             ->assertSchemaStateSet(['body' => '¡Feliz cumpleaños, Carmen! 🎂 Todo el equipo de Clínica Vega Implant te desea un gran día.'])
             ->callMountedAction()
-            ->assertHasNoErrors();
+            ->assertHasNoErrors());
 
         $message = WhatsappMessage::sole();
         $this->assertSame([MessageTemplateKey::Birthday, MessageStatus::Sent, $carmen->id], [$message->template_key, $message->status, $message->patient_id]);
@@ -861,13 +862,14 @@ class DashboardPanelTest extends TestCase
 
         $this->actingAs(User::factory()->reception()->create());
 
-        Livewire::test(FollowUpsToday::class)
+        $followUps = Livewire::test(FollowUpsToday::class)
             ->assertSee(['Pedir su opinión en Google', 'Rosa Quispe', 'Hoy: Limpieza dental · 2 atenciones'])
             ->assertDontSee(['Luis Mamani', 'Ana Flores', 'Pedro Huamán', 'Carmen Rojas'])
             ->mountAction('whatsapp', ['template' => MessageTemplateKey::ReviewRequest->value, 'patient' => $rosa->id])
             ->assertSchemaStateSet(['body' => "Hola Rosa, gracias por confiar en Clínica Vega Implant. Si te sentiste bien atendido, ¿nos dejas tu opinión en Google? Toma un minuto y ayuda a otras personas a encontrarnos:\nhttps://g.page/r/vega/review"])
             ->callMountedAction()
             ->assertHasNoErrors();
+        $this->answerWhatsApp($followUps);
 
         Livewire::test(FollowUpsToday::class)->assertSee(['Rosa Quispe', 'Le escribiste hoy']);
 
