@@ -11,6 +11,31 @@ return [
         ],
     ],
 
+    // Después de la contraseña: el código de la aplicación del celular.
+    'multi_factor' => [
+
+        'heading' => 'Confirma que eres tú',
+
+        'subheading' => 'Abre Google Authenticator en tu celular.',
+
+        'form' => [
+
+            'provider' => [
+                'label' => '¿Cómo quieres confirmar?',
+            ],
+
+            'actions' => [
+
+                'authenticate' => [
+                    'label' => 'Entrar',
+                ],
+
+            ],
+
+        ],
+
+    ],
+
     'messages' => [
         'failed' => 'El correo o la contraseña no coinciden.',
     ],

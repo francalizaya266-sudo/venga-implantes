@@ -7,6 +7,7 @@ use App\Filament\Pages\WebPages;
 use App\Filament\Pages\WebSetup;
 use App\Filament\Resources\AuditLogs\AuditLogResource;
 use App\Filament\Resources\AuditLogs\Pages\ManageAuditLogs;
+use App\Filament\Resources\Doctors\Pages\EditDoctor;
 use App\Filament\Resources\Users\Pages\ManageUsers;
 use App\Filament\Support\ChangeHistory;
 use App\Models\AuditLog;
@@ -125,6 +126,38 @@ class ChangeHistoryTest extends TestCase
             ->assertTableColumnStateSet('summary', 'Rol: Recepción → Administración · Tiene que elegir su contraseña al entrar: No → Sí', $logs[1])
             ->assertTableColumnStateSet('summary', 'Se cambió su contraseña', $logs[2])
             ->assertTableColumnStateSet('summary', 'Se creó', $logs[0]);
+    }
+
+    public function test_turning_the_double_check_on_and_off_is_told_in_words_and_saving_without_changes_adds_no_row(): void
+    {
+        $this->actingAs(User::factory()->admin()->create());
+        $rosa = User::factory()->reception()->withoutMfa()->create(['name' => 'Rosa Quispe']);
+
+        // La activa al entrar por primera vez y, si pierde el celular, el administrador se la quita.
+        $rosa->saveAppAuthenticationSecret('JBSWY3DPEHPK3PXP');
+        Livewire::test(ManageUsers::class)->callTableAction('resetMfa', $rosa->refresh());
+
+        // Guardar su ficha y la de un doctor sin cambiar nada no deja filas.
+        $doctor = Doctor::factory()->create(['name' => 'Dra. Ana Torres']);
+        DoctorSchedule::create(['doctor_id' => $doctor->id, 'weekday' => 1, 'starts_at' => '09:00', 'ends_at' => '13:00']);
+        $before = AuditLog::query()->count();
+
+        Livewire::test(ManageUsers::class)
+            ->callAction(TestAction::make('edit')->table($rosa), data: [])
+            ->assertHasNoActionErrors();
+        Livewire::test(EditDoctor::class, ['record' => $doctor->getRouteKey()])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $this->assertSame($before, AuditLog::query()->count());
+
+        $logs = AuditLog::query()->where('auditable_type', User::class)->where('auditable_id', $rosa->id)->whereNot('event', 'created')->oldest('id')->get();
+        $this->assertSame(['mfa_enabled', 'mfa_disabled'], $logs->pluck('event')->all());
+
+        Livewire::test(ManageAuditLogs::class)
+            ->assertTableColumnStateSet('summary', 'Se activó su doble verificación', $logs[0])
+            ->assertTableColumnStateSet('summary', 'Se quitó su doble verificación', $logs[1])
+            ->assertDontSee('Se guardó sin cambios que mostrar');
     }
 
     public function test_the_history_of_doctors_and_treatments_that_was_already_kept_can_now_be_read(): void

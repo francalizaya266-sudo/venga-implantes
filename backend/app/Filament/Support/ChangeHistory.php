@@ -386,6 +386,9 @@ final class ChangeHistory
             'deleted' => $schedule ? 'Se quitó el tramo '.self::range($log->old_values ?? []) : 'Se borró',
             'restored' => 'Se restauró',
             'password_changed' => 'Se cambió su contraseña',
+            // Activar o quitar la doble verificación no guarda ningún dato que se pueda mostrar (el secreto va cifrado).
+            'mfa_enabled' => 'Se activó su doble verificación',
+            'mfa_disabled' => 'Se quitó su doble verificación',
             OffsiteCopies::DOWNLOADED, OffsiteCopies::DELETED => self::BACKUP_EVENTS[$log->event],
             default => self::changesInWords($log),
         };

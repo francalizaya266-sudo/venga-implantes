@@ -60,6 +60,7 @@ class ConsultationInfolist
                             ->placeholder('Sin diagnósticos')
                             ->schema([
                                 TextEntry::make('icd10Code.code')
+                                    ->label('Diagnóstico')
                                     ->hiddenLabel()
                                     ->formatStateUsing(fn (ConsultationDiagnosis $record) => collect([
                                         $record->icd10Code ? "{$record->icd10Code->code} · {$record->icd10Code->description}" : $record->description,

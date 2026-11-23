@@ -36,6 +36,7 @@ final class UploadClinicalFilesAction
             ->modalSubmitActionLabel('Guardar')
             ->schema([
                 FileUpload::make('files')
+                    ->label('Radiografías o fotos')
                     ->hiddenLabel()
                     ->multiple()
                     ->required()

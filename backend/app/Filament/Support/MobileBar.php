@@ -3,6 +3,7 @@
 namespace App\Filament\Support;
 
 use App\Filament\Pages\Agenda;
+use App\Filament\Pages\Auth\ChoosePassword;
 use App\Filament\Pages\Dashboard;
 use App\Filament\Resources\Appointments\AppointmentResource;
 use App\Filament\Resources\Patients\PatientResource;
@@ -19,6 +20,11 @@ final class MobileBar
     /** @return list<array{label: string, icon: string, url: string, active: bool, primary: bool, badge: ?string}> */
     public static function items(): array
     {
+        // Mientras elige su contraseña o activa la doble verificación, cada botón lo traería de vuelta a esa pantalla.
+        if (request()->routeIs(ChoosePassword::getRouteName(), 'filament.*.auth.multi-factor-authentication.set-up-required')) {
+            return [];
+        }
+
         return array_values(array_filter([
             self::item('Hoy', 'heroicon-o-home', Dashboard::getUrl(), request()->routeIs(Dashboard::getRouteName())),
             Agenda::canAccess()

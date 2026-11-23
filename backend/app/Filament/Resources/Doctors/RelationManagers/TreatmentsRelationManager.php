@@ -16,6 +16,9 @@ use Filament\Tables\Table;
 /** Qué tratamientos hace el doctor y cuánto se le reserva en cada uno: lo puesto a mano, lo que suele tardar o la duración general. */
 class TreatmentsRelationManager extends RelationManager
 {
+    /** El aviso a la ficha de que agregó o quitó tratamientos: así "Todavía no se le puede agendar" se pone al día. */
+    public const CHANGED = 'doctor-treatments-changed';
+
     protected static string $relationship = 'treatments';
 
     protected static ?string $title = 'Tratamientos que realiza';
@@ -55,6 +58,7 @@ class TreatmentsRelationManager extends RelationManager
                     ->modalSubmitActionLabel('Agregar')
                     ->attachAnother(false)
                     ->successNotificationTitle('Tratamientos agregados')
+                    ->after(fn () => $this->dispatch(self::CHANGED))
                     ->preloadRecordSelect()
                     ->multiple()
                     ->schema(fn (AttachAction $action) => [
@@ -71,7 +75,8 @@ class TreatmentsRelationManager extends RelationManager
                     ->modalHeading(fn (Treatment $record) => '¿Quitar '.$record->name.'?')
                     ->modalDescription('Ya no se le podrá agendar este tratamiento. Las citas ya dadas siguen igual.')
                     ->modalSubmitActionLabel('Quitar')
-                    ->successNotificationTitle('Tratamiento quitado'),
+                    ->successNotificationTitle('Tratamiento quitado')
+                    ->after(fn () => $this->dispatch(self::CHANGED)),
             ])
             ->emptyStateHeading('Todavía no realiza ningún tratamiento')
             ->emptyStateDescription('Sin tratamientos no se le puede agendar. Agrega los que realiza.');

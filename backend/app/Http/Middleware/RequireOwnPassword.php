@@ -15,11 +15,10 @@ class RequireOwnPassword
 {
     public function handle(Request $request, Closure $next): Response
     {
-        // La pantalla para activar el segundo factor también pasa: si no, las dos se mandarían una a la otra.
+        // Primero la contraseña y después la doble verificación: la pantalla para activarla también espera.
         $allowedRoutes = [
             ChoosePassword::getRouteName(),
             'filament.*.auth.logout',
-            'filament.*.auth.multi-factor-authentication.set-up-required',
         ];
 
         if ($request->user()?->must_change_password && ! $request->routeIs(...$allowedRoutes)) {

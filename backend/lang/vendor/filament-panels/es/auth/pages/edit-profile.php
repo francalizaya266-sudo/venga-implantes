@@ -17,6 +17,10 @@ return [
 
     ],
 
+    'multi_factor_authentication' => [
+        'label' => 'Doble verificación',
+    ],
+
     'notifications' => [
 
         'throttled' => [

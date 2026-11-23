@@ -2485,6 +2485,31 @@ a.ap-visit:hover { background: var(--gray-50); }
 .dark .auth-note-lead { color: #fff; }
 .dark .auth-note-muted { color: var(--gray-400); }
 
+/* ---------- Doble verificación: los tres pasos y los códigos de recuperación ---------- */
+
+/* Un paso por renglón con su número en un círculo, como se le explicaría a alguien en persona. */
+.mfa-steps { display: grid; gap: 1.25rem; margin: 0; padding: 0; list-style: none; }
+.mfa-step { display: grid; grid-template-columns: 1.75rem minmax(0, 1fr); gap: .75rem; align-items: start; }
+.mfa-step-number { display: grid; place-items: center; width: 1.75rem; height: 1.75rem; border-radius: 999px; background: var(--primary-600); color: #fff; font-size: .875rem; font-weight: 700; }
+.mfa-step-body { display: grid; gap: .5rem; min-width: 0; }
+.mfa-step-title { font-size: 1rem; line-height: 1.75rem; font-weight: 600; color: var(--gray-950); }
+.mfa-step-note { font-size: .875rem; line-height: 1.45; color: var(--gray-600); }
+/* El código va sobre blanco también en modo oscuro: algunas cámaras no leen un código claro sobre fondo oscuro. */
+.mfa-qr { width: 11rem; height: 11rem; padding: .5rem; border-radius: .75rem; background: #fff; box-shadow: inset 0 0 0 1px var(--gray-200); }
+.mfa-secret { padding: .1rem .35rem; border-radius: .35rem; background: var(--gray-100); color: var(--gray-950); font-size: .875rem; letter-spacing: .04em; word-break: break-all; }
+.mfa-codes { display: grid; gap: .85rem; }
+.mfa-codes-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .4rem .75rem; margin: 0; padding: .85rem 1rem; list-style: none; border-radius: .85rem; background: var(--primary-50); box-shadow: inset 0 0 0 1px var(--primary-200); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .8125rem; color: var(--gray-950); }
+.mfa-codes-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
+.mfa-codes-copied { font-size: .8125rem; font-weight: 600; color: var(--success-700); }
+@media (max-width: 30rem) {
+    .mfa-codes-list { grid-template-columns: minmax(0, 1fr); }
+}
+.dark .mfa-step-title { color: #fff; }
+.dark .mfa-step-note { color: var(--gray-400); }
+.dark .mfa-secret { background: rgb(255 255 255 / .08); color: #fff; }
+.dark .mfa-codes-list { background: color-mix(in oklab, var(--primary-400) 12%, transparent); box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--primary-400) 30%, transparent); color: #fff; }
+.dark .mfa-codes-copied { color: var(--success-400); }
+
 /* ---------- Errores de un campo: empiezan con mayúscula ---------- */
 
 /* El mensaje arranca con el nombre del campo, que llega en minúscula ("contraseña debe tener al menos 8 caracteres."). */

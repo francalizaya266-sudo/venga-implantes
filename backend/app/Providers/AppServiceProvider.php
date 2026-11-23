@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Filament\Pages\Auth\SetUpTwoFactor;
 use App\Services\Dashboard\TodayPulse;
 use App\Services\Inventory\SupplyForecast;
 use App\Services\Web\ClinicInfo;
@@ -11,12 +12,14 @@ use Illuminate\Auth\Events\Authenticated;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Contracts\Auth\StatefulGuard;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\DevCommands;
 use Illuminate\Foundation\Events\DiagnosingHealth;
 use Illuminate\Http\Middleware\TrustProxies;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Events\RouteMatched;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Context;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
@@ -53,6 +56,16 @@ class AppServiceProvider extends ServiceProvider
         Password::defaults(fn () => Password::min(8)->letters()->numbers());
 
         Event::listen(Login::class, fn (Login $event) => $event->user->forceFill(['last_login_at' => now()])->saveQuietly());
+
+        // Entró escribiendo su contraseña (no con la sesión recordada): si le falta la doble verificación, al activarla
+        // no se le vuelve a pedir.
+        Event::listen(Login::class, function (Login $event): void {
+            $guard = Auth::guard($event->guard);
+
+            if ($guard instanceof StatefulGuard && ! $guard->viaRemember()) {
+                SetUpTwoFactor::rememberPasswordWasTyped();
+            }
+        });
 
         // Quien pone su contraseña con el enlace del correo ya la eligió: no se le vuelve a pedir al entrar.
         Event::listen(PasswordReset::class, fn (PasswordReset $event) => $event->user->forceFill(['must_change_password' => false])->saveQuietly());
