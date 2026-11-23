@@ -6,6 +6,7 @@ use App\Enums\DayPeriod;
 use App\Enums\WaitlistStatus;
 use App\Filament\Resources\WaitlistEntries\Pages\ManageWaitlistEntries;
 use App\Models\Account;
+use App\Models\Appointment;
 use App\Models\Doctor;
 use App\Models\Patient;
 use App\Models\RememberedDevice;
@@ -173,12 +174,27 @@ class WaitlistControllerTest extends TestCase
         $this->ask(['treatment_id' => $this->cleaning->id, 'patient_id' => $child->id, 'preferred_period' => DayPeriod::Afternoon->value])
             ->assertCreated()
             ->assertJsonPath('message', 'Listo, te anotamos. Si se libera un horario, te escribimos por WhatsApp al 912 345 678.');
-        $this->assertTrue(WaitlistEntry::sole()->patient->is($child));
+        $entry = WaitlistEntry::sole();
+        $this->assertTrue($entry->patient->is($child));
+        $this->assertTrue($entry->from_verified_device);
 
         $this->ask(['treatment_id' => $this->cleaning->id, 'patient_id' => $stranger->id, 'preferred_period' => DayPeriod::Any->value])
             ->assertUnprocessable()
             ->assertJsonPath('message', 'No encontramos a esa persona en este celular. Elige de nuevo para quién es.');
         $this->assertDatabaseCount('waitlist_entries', 1);
+    }
+
+    public function test_from_another_phone_a_new_person_does_not_join_the_family_of_that_number(): void
+    {
+        $account = Account::factory()->verified()->create(['phone' => '+51987654321']);
+        Appointment::factory()->for(Patient::factory()->for($account))->confirmed()->create();
+
+        $this->ask($this->asking())->assertCreated();
+
+        // Como al reservar desde otro celular: la familia no la ve entre los suyos hasta que confirme una cita de ella.
+        $maria = WaitlistEntry::sole()->patient;
+        $this->assertTrue($maria->account->is($account));
+        $this->assertSame([$maria->id], $account->guestIds());
     }
 
     public function test_choosing_a_registered_relative_needs_the_remembered_phone(): void

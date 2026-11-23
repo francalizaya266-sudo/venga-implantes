@@ -74,23 +74,30 @@ class Account extends Model
 
     /**
      * Quienes están "por confirmar" en este celular: todas sus citas son reservas de la web hechas sin entrar desde
-     * el celular de la familia, y nadie confirmó ninguna. No cuentan como familia hasta que el dueño del número
-     * confirme una. Mientras nadie del celular tenga una cita reconocida (su primera reserva), no hay familia que
-     * cuidar: no hay nadie por confirmar.
+     * el celular de la familia, y nadie confirmó ninguna; o, sin citas, solo se anotaron así en la lista de espera
+     * ("Avísame si se libera un horario"). No cuentan como familia hasta que el dueño del número confirme una cita
+     * suya. Mientras nadie del celular tenga una cita reconocida (su primera reserva), no hay familia que cuidar: no
+     * hay nadie por confirmar.
      *
      * @return list<int> Los id de esos pacientes.
      */
     public function guestIds(): array
     {
         $recognized = fn (Builder $appointments) => $appointments->recognized();
+        $askedFromAnotherPhone = fn (Builder $entries) => $entries->where('from_web', true)->where('from_verified_device', false);
 
         if ($this->patients()->whereHas('appointments', $recognized)->doesntExist()) {
             return [];
         }
 
         return $this->patients()
-            ->whereHas('appointments')
-            ->whereDoesntHave('appointments', $recognized)
+            ->where(fn (Builder $guests) => $guests
+                ->where(fn (Builder $booked) => $booked->whereHas('appointments')->whereDoesntHave('appointments', $recognized))
+                // Lo que anotó el consultorio, o la familia desde su celular, ya lo hace familia.
+                ->orWhere(fn (Builder $waiting) => $waiting
+                    ->whereDoesntHave('appointments')
+                    ->whereHas('waitlistEntries', $askedFromAnotherPhone)
+                    ->whereDoesntHave('waitlistEntries', fn (Builder $entries) => $entries->whereNot($askedFromAnotherPhone))))
             ->pluck('id')
             ->all();
     }

@@ -350,7 +350,8 @@ final class WaitlistService
     /**
      * "Avísame si se libera un horario" desde la web: quien no encontró un horario que le sirva queda en la lista de
      * espera, marcado como anotado desde la web, y recepción recibe el aviso en la campana. Si ya esperaba lo mismo, se
-     * actualiza lo que pidió en vez de anotarlo dos veces (y no se vuelve a avisar).
+     * actualiza lo que pidió en vez de anotarlo dos veces (y no se vuelve a avisar). Como en la reserva, quien se anota
+     * con el número de otra familia sin su celular no cuenta como familia de ese número (Account::guestIds()).
      *
      * @throws BookingException|AuthorizationException
      */
@@ -358,8 +359,9 @@ final class WaitlistService
     {
         $phone = Phone::normalize($data->phone);
         $recognized = $device !== null && $device->account->phone === $phone;
+        $fromVerifiedDevice = $recognized && $device->isVerified();
 
-        return DB::transaction(function () use ($data, $treatment, $doctor, $phone, $recognized) {
+        return DB::transaction(function () use ($data, $treatment, $doctor, $phone, $recognized, $fromVerifiedDevice) {
             $account = Account::withTrashed()->firstOrCreate(['phone' => $phone]);
 
             if ($account->trashed()) {
@@ -394,6 +396,7 @@ final class WaitlistService
                 'doctor_id' => $doctor?->getKey(),
                 'preferred_period' => $data->period,
                 'notes' => self::notesWithDays($entry->notes, $data->days),
+                'from_verified_device' => $entry->from_verified_device || $fromVerifiedDevice,
             ])->save();
 
             if ($entry->wasRecentlyCreated) {
