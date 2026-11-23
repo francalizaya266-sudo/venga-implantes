@@ -4,6 +4,7 @@ namespace Tests\Feature\Filament;
 
 use App\Filament\Pages\Auth\ChoosePassword;
 use App\Filament\Pages\Auth\EditProfile;
+use App\Filament\Pages\Auth\SetUpTwoFactor;
 use App\Filament\Resources\Users\Pages\ManageUsers;
 use App\Models\AuditLog;
 use App\Models\User;
@@ -40,18 +41,115 @@ class PanelMultiFactorTest extends TestCase
         $this->get(Filament::getPanel('admin')->getUrl())->assertOk();
     }
 
-    public function test_a_new_user_first_turns_on_the_second_factor_and_then_chooses_a_password(): void
+    public function test_a_new_user_first_chooses_a_password_and_then_turns_on_the_double_check(): void
     {
         $user = User::factory()->reception()->withoutMfa()->create(['must_change_password' => true]);
         $this->actingAs($user);
 
-        $this->get(ChoosePassword::getUrl())->assertRedirect($this->setUpUrl());
-        $this->get($this->setUpUrl())->assertOk();
-
-        $user->saveAppAuthenticationSecret('JBSWY3DPEHPK3PXP');
-
-        $this->get(Filament::getPanel('admin')->getUrl())->assertRedirect(ChoosePassword::getUrl());
+        $this->get($this->setUpUrl())->assertRedirect(ChoosePassword::getUrl());
         $this->get(ChoosePassword::getUrl())->assertOk();
+
+        $user->forceFill(['must_change_password' => false])->save();
+
+        $this->get(Filament::getPanel('admin')->getUrl())->assertRedirect($this->setUpUrl());
+        $this->get($this->setUpUrl())->assertOk();
+    }
+
+    public function test_the_first_entry_is_password_then_three_steps_then_recovery_codes_then_in(): void
+    {
+        $rosa = User::factory()->reception()->withoutMfa()->create(['must_change_password' => true]);
+        $this->actingAs($rosa);
+
+        // 1. Elige su contraseña.
+        Livewire::test(ChoosePassword::class)
+            ->fillForm(['password' => 'Solo-mia-2026', 'passwordConfirmation' => 'Solo-mia-2026'])
+            ->call('save')
+            ->assertHasNoFormErrors()
+            ->assertNotified('Contraseña guardada')
+            ->assertRedirect(Filament::getPanel('admin')->getUrl());
+
+        // 2. La doble verificación en tres pasos numerados, sin volver a pedirle la contraseña que acaba de elegir.
+        $this->get(Filament::getPanel('admin')->getUrl())->assertRedirect($this->setUpUrl());
+
+        $page = Livewire::test(SetUpTwoFactor::class)
+            ->assertSeeInOrder([
+                'Protege tu cuenta con tu celular',
+                'Además de tu contraseña, te pediremos un código de 6 números que aparece en tu celular.',
+                'Instala Google Authenticator en tu celular.',
+                'Escanea este código.',
+                'Escribe los 6 números que te muestra.',
+                'Activar',
+            ])
+            ->assertDontSee(['Tu contraseña', 'usted', 'Usted', '2FA', 'Utilice', 'Ingrese', 'Escanée'])
+            ->assertFormFieldHidden('password');
+
+        $secret = decrypt($page->get('pending'))['secret'];
+
+        // Un código que no es no la activa.
+        $page->fillForm(['code' => '000000'])
+            ->call('activate')
+            ->assertHasFormErrors(['code'])
+            ->assertSee('Ese código no coincide.');
+        $this->assertNull($rosa->fresh()->getAppAuthenticationSecret());
+
+        // 3. Con los 6 números de su celular queda activada y ve sus códigos de recuperación para guardarlos.
+        $page->fillForm(['code' => app(AppAuthentication::class)->getCurrentCode($rosa, $secret)])
+            ->call('activate')
+            ->assertHasNoFormErrors()
+            ->assertSet('isActivated', true)
+            ->assertSee(['Guarda tus códigos de recuperación', 'Descargar', 'Copiar', 'Ya los guardé, entrar'])
+            ->assertSee(decrypt($page->get('pending'))['recoveryCodes']);
+
+        $this->assertSame($secret, $rosa->fresh()->getAppAuthenticationSecret());
+        $this->assertCount(8, $rosa->fresh()->getAppAuthenticationRecoveryCodes());
+
+        // 4. Entra.
+        $page->call('enter')->assertRedirect(Filament::getPanel('admin')->getUrl());
+        $this->get(Filament::getPanel('admin')->getUrl())->assertOk();
+    }
+
+    public function test_whoever_did_not_just_type_the_password_confirms_it_to_turn_the_double_check_on(): void
+    {
+        // A quien se la quitó el administrador y vuelve con la sesión recordada: se le pide su contraseña.
+        $rosa = User::factory()->reception()->withoutMfa()->create();
+        $this->actingAs($rosa);
+
+        $page = Livewire::test(SetUpTwoFactor::class)->assertFormFieldVisible('password');
+        $code = app(AppAuthentication::class)->getCurrentCode($rosa, decrypt($page->get('pending'))['secret']);
+
+        $page->fillForm(['code' => $code, 'password' => 'otra-cosa'])
+            ->call('activate')
+            ->assertHasFormErrors(['password']);
+        $this->assertNull($rosa->fresh()->getAppAuthenticationSecret());
+
+        $page->fillForm(['code' => $code, 'password' => 'password'])
+            ->call('activate')
+            ->assertHasNoFormErrors()
+            ->assertSet('isActivated', true);
+        $this->assertNotNull($rosa->fresh()->getAppAuthenticationSecret());
+    }
+
+    public function test_entering_with_the_password_counts_as_just_typed(): void
+    {
+        $rosa = User::factory()->reception()->withoutMfa()->create();
+
+        Livewire::test(Login::class)
+            ->fillForm(['email' => $rosa->email, 'password' => 'password'])
+            ->call('authenticate');
+
+        $this->assertAuthenticatedAs($rosa);
+        Livewire::test(SetUpTwoFactor::class)->assertFormFieldHidden('password');
+    }
+
+    public function test_leaving_the_double_check_screen_closes_the_session(): void
+    {
+        $this->actingAs(User::factory()->reception()->withoutMfa()->create());
+
+        Livewire::test(SetUpTwoFactor::class)
+            ->call('leave')
+            ->assertRedirect(Filament::getPanel('admin')->getLoginUrl());
+
+        $this->assertGuest();
     }
 
     public function test_the_password_alone_does_not_open_the_panel(): void

@@ -5,6 +5,8 @@ namespace App\Filament\Pages\Auth;
 use App\Models\User;
 use Closure;
 use Filament\Actions\Action;
+use Filament\Auth\MultiFactor\Http\Middleware\EnsureMultiFactorAuthenticationIsEnabled;
+use Filament\Auth\MultiFactor\MultiFactorChallenge;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
@@ -22,6 +24,7 @@ use Illuminate\Validation\Rules\Password;
 /**
  * "Elige tu contraseña": la primera pantalla de quien entra con una contraseña que le puso otra persona (el
  * administrador al crear su usuario o al cambiársela). Hasta que elige la suya no puede abrir nada más.
+ * Va antes que la doble verificación: primero su contraseña y después la protege con su celular.
  *
  * @property-read Schema $form
  */
@@ -36,6 +39,9 @@ class ChoosePassword extends Page
     protected static bool $shouldRegisterNavigation = false;
 
     protected static string $layout = 'filament-panels::components.layout.simple';
+
+    /** Se abre sin la doble verificación activada: la persona nueva la activa después de elegir su contraseña. */
+    protected static string|array $withoutRouteMiddleware = [EnsureMultiFactorAuthenticationIsEnabled::class];
 
     /** @var array<string, mixed>|null */
     public ?array $data = [];
@@ -53,7 +59,8 @@ class ChoosePassword extends Page
 
     public function getSubheading(): string|Htmlable|null
     {
-        return 'La contraseña con la que entraste te la puso otra persona. Elige una que solo tú conozcas para seguir.';
+        return 'La contraseña con la que entraste te la puso otra persona. Elige una que solo tú conozcas para seguir.'
+            .($this->hasDoubleCheck() ? '' : ' Después protegerás tu cuenta con tu celular.');
     }
 
     public function form(Schema $schema): Schema
@@ -94,7 +101,7 @@ class ChoosePassword extends Page
                     ->livewireSubmitHandler('save')
                     ->footer([
                         Actions::make([
-                            Action::make('save')->label('Guardar y entrar')->submit('save'),
+                            Action::make('save')->label($this->hasDoubleCheck() ? 'Guardar y entrar' : 'Guardar y seguir')->submit('save'),
                             Action::make('leave')
                                 ->label('Salir')
                                 ->color('gray')
@@ -113,7 +120,14 @@ class ChoosePassword extends Page
         // Cambiar la contraseña cierra las demás sesiones; esta sigue abierta.
         session()->put(['password_hash_'.Filament::getAuthGuard() => $user->getAuthPassword()]);
 
-        Notification::make()->success()->title('Contraseña guardada')->body('Desde ahora entras con ella. Solo tú la conoces.')->send();
+        // Acaba de escribirla dos veces: al activar la doble verificación no se le vuelve a pedir.
+        SetUpTwoFactor::rememberPasswordWasTyped();
+
+        Notification::make()
+            ->success()
+            ->title('Contraseña guardada')
+            ->body($this->hasDoubleCheck() ? 'Desde ahora entras con ella. Solo tú la conoces.' : 'Ahora protege tu cuenta con tu celular.')
+            ->send();
 
         $this->redirect(Filament::getUrl());
     }
@@ -137,6 +151,12 @@ class ChoosePassword extends Page
             'maxContentWidth' => $maxContentWidth = $this->getMaxWidth() ?? $this->getMaxContentWidth(),
             'maxWidth' => $maxContentWidth,
         ];
+    }
+
+    /** Si ya tiene la doble verificación (se la pidieron al entrar); la persona nueva la activa después de esta pantalla. */
+    private function hasDoubleCheck(): bool
+    {
+        return MultiFactorChallenge::make()->hasEnabledProviders($this->user());
     }
 
     private function user(): User

@@ -4,6 +4,7 @@ namespace App\Providers\Filament;
 
 use App\Filament\Pages\Auth\EditProfile;
 use App\Filament\Pages\Auth\RequestPasswordReset;
+use App\Filament\Pages\Auth\SetUpTwoFactor;
 use App\Filament\Pages\Backups;
 use App\Filament\Pages\Dashboard;
 use App\Filament\Pages\Settings;
@@ -157,8 +158,8 @@ class AdminPanelProvider extends PanelProvider
             ->profile(EditProfile::class, isSimple: false)
             // El panel se abre desde internet (el doctor de viaje, la recepción desde casa): además de la contraseña
             // pide el código de la app autenticadora. Es obligatorio: quien aún no lo tiene solo ve la pantalla para
-            // activarlo. Los códigos de recuperación sirven si pierde el celular.
-            ->multiFactorAuthentication([PhoneAuthentication::make()->recoverable()], isRequired: true)
+            // activarlo, en tres pasos. Los códigos de recuperación sirven si pierde el celular.
+            ->multiFactorAuthentication([PhoneAuthentication::make()->recoverable()], setUpRequiredAction: SetUpTwoFactor::class, isRequired: true)
             ->brandName(fn () => Setting::get('clinic.name'))
             // Con logo subido en la puesta a punto de la web, el panel lo muestra; si no, el diente de la web junto al nombre.
             ->brandLogo(fn () => app(ClinicInfo::class)->logoUrl() ?? view('filament.brand', ['name' => Setting::get('clinic.name')]))
