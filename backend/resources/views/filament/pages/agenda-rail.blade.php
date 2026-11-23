@@ -159,7 +159,7 @@
                     @endphp
                     <li wire:key="wait-{{ $entry->getKey() }}">
                         <span class="agenda-wait-who">
-                            <b>{{ $entry->patient->full_name }}</b>
+                            <b title="{{ $entry->patient->full_name }}">{{ $entry->patient->full_name }}</b>
                             <small>{{ $entry->treatment->name }} · {{ mb_strtolower($entry->preferred_period->getLabel()) }}</small>
                         </span>
                         @if ($offer->isVisible())

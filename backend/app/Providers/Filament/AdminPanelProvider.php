@@ -214,7 +214,7 @@ class AdminPanelProvider extends PanelProvider
             ->renderHook(PanelsRenderHook::USER_MENU_PROFILE_BEFORE, fn () => auth()->check() ? view('filament.user-menu-header', ['user' => auth()->user()]) : '')
             ->renderHook(PanelsRenderHook::BODY_END, fn () => auth()->check() ? view('filament.mobile-bar', ['items' => MobileBar::items()]) : '')
             // Para el administrador: si el respaldo está al día, sin entrar a Copias de seguridad.
-            ->renderHook(PanelsRenderHook::SIDEBAR_FOOTER, fn () => auth()->check() ? view('filament.backup-status', ['status' => Backups::sidebarStatus()]) : '')
+            ->renderHook(PanelsRenderHook::SIDEBAR_FOOTER, fn () => auth()->check() ? view('filament.backup-status', ['status' => self::backupStatus()]) : '')
             // En todas las pantallas: lo que guarda otra persona se ve en pocos segundos, sin recargar.
             ->renderHook(PanelsRenderHook::BODY_END, fn () => auth()->check() ? Blade::render('<livewire:panel-pulse />') : '')
             // En todas las pantallas: después de abrir WhatsApp, al volver se pregunta si el mensaje se envió.
@@ -279,5 +279,18 @@ class AdminPanelProvider extends PanelProvider
         }
 
         return null;
+    }
+
+    /**
+     * El respaldo al pie del menú. En "Hoy", si falta la copia o toca bajarla, ya lo dice en rojo el aviso de arriba
+     * (SystemHealth): el menú no lo repite. En las demás pantallas sigue siendo el único aviso.
+     *
+     * @return array{tone: 'success'|'warning'|'danger', text: string, detail: string, url: string}|null
+     */
+    private static function backupStatus(): ?array
+    {
+        $status = Backups::sidebarStatus();
+
+        return $status !== null && $status['tone'] !== 'success' && request()->routeIs(Dashboard::getRouteName()) ? null : $status;
     }
 }

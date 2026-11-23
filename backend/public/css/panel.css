@@ -114,6 +114,8 @@
 .agenda-controls { display: grid; gap: .75rem; }
 .agenda-toolbar { display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; justify-content: space-between; }
 .agenda-toolbar-group { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
+/* "Ir a la fecha": el calendario del panel, del ancho de "23/11/2026" (en el celular se estira, más abajo). */
+.agenda-date { width: 10.5rem; }
 .agenda-nav { display: inline-flex; align-items: stretch; height: 2.25rem; padding: .1875rem; gap: .125rem; border-radius: .625rem; background: var(--gray-100); }
 .agenda-nav-btn { display: inline-grid; place-items: center; padding: 0 .75rem; border-radius: .4375rem; font-size: .875rem; font-weight: 600; color: var(--gray-800); -webkit-tap-highlight-color: transparent; transition: background-color 150ms ease, color 150ms ease, transform 160ms var(--ag-ease); }
 .agenda-nav-btn.is-icon { width: 2rem; padding: 0; color: var(--gray-500); }
@@ -1424,12 +1426,15 @@ button.pt-chip { transition: transform 160ms ease-out; }
     .dash-segmented :is(a, button) { flex: 1; text-align: center; }
 }
 
-/* La agenda de hoy con "Todos · cada doctor" al lado del título; si no entra, baja debajo. El nombre largo se corta. */
+/* La agenda de hoy con "Todos · cada doctor" al lado del título; si no entra, baja debajo. Si tampoco entra ahí, las
+   opciones no se encogen ni se cortan ("To…"): se deslizan de lado. */
 .fi-ta-ctn .fi-ta-header.dash-agenda-header { flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .75rem 1rem; }
-.dash-doctor-switch { max-width: 100%; }
-.dash-doctor-switch button { min-width: 0; cursor: pointer; overflow: hidden; text-overflow: ellipsis; }
-@media (max-width: 40rem) {
-    .dash-doctor-switch button { flex: 1 1 0; padding-inline: .5rem; }
+.dash-doctor-switch { position: relative; max-width: 100%; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: thin; }
+.dash-doctor-switch button { flex: 1 0 auto; cursor: pointer; }
+/* Con el dedo se deslizan y la barra sobra. Con ratón la barra se queda: la rueda no las mueve de lado. */
+@media (hover: none) {
+    .dash-doctor-switch { scrollbar-width: none; }
+    .dash-doctor-switch::-webkit-scrollbar { display: none; }
 }
 
 /* Los números del día: cuatro en una fila; en el celular, de a dos, y si queda uno solo abajo, ocupa el ancho. */
@@ -1518,21 +1523,37 @@ button.pt-chip { transition: transform 160ms ease-out; }
 .dash-appt-next::before { content: "Ahora"; position: absolute; top: 0; left: .75rem; transform: translateY(-50%); z-index: 2; padding: .05rem .5rem; border-radius: 999px; background: var(--primary-600); color: #fff; font-size: .6875rem; font-weight: 600; letter-spacing: .01em; line-height: 1.1rem; pointer-events: none; }
 .dark .dash-appt-next { border-top-color: var(--primary-400) !important; }
 .dark .dash-appt-next::before { background: var(--primary-500); }
-/* Teléfono y doctor: si no entran en una línea, el doctor baja entero y el teléfono no se parte en dos. */
-.dash-appt .fi-ta-stack .fi-ta-split { flex-wrap: wrap; row-gap: .125rem; }
-.dash-appt .fi-ta-stack .fi-ta-split > .fi-ta-col:first-child .fi-ta-text { white-space: nowrap; }
-/* En el celular, el estado y las etiquetas bajan debajo del nombre para que el nombre no se parta en tres líneas. */
-@media (max-width: 40rem) {
-    .dash-appt .fi-ta-record-content > .fi-grid-col > .fi-ta-split { flex-wrap: wrap; row-gap: .4rem; }
-    .dash-appt .fi-ta-record-content > .fi-grid-col > .fi-ta-split > .fi-grid-col:last-child { flex-basis: 100%; padding-left: 4rem; }
-    .dash-appt .fi-ta-record-content > .fi-grid-col > .fi-ta-split > .fi-grid-col:last-child .fi-ta-stack { flex-direction: row; flex-wrap: wrap; align-items: center; gap: .35rem .5rem; }
-    .dash-appt .fi-ta-record-content > .fi-grid-col > .fi-ta-split > .fi-grid-col:last-child .fi-ta-stack > * { flex: none; width: auto; margin: 0; }
+/* Un rótulo chico encima de cada parte ("En la clínica", "Por cobrar", "Sin cerrar", "Por llegar", "Terminadas"): la
+   agenda va por lo que pide algo y no por hora, y así se entiende por qué. */
+.dash-agenda .fi-ta-group-header { padding-block: .3125rem; }
+.dash-agenda .fi-ta-group-heading { font-size: .75rem; line-height: 1rem; font-weight: 600; letter-spacing: .01em; color: var(--gray-600); }
+.dark .dash-agenda .fi-ta-group-heading { color: var(--gray-400); }
+/* Cada cita en dos líneas (unos 70 px): la hora con el nombre, el estado y los avisos en una fila; debajo, la
+   duración con "Tratamiento · celular" (y el doctor, si hay varios). El nombre no se parte para hacer lugar: si no
+   entran, el estado y los avisos bajan debajo de él. El muy largo llega a dos líneas y el resto se corta; se lee
+   entero al pasar el ratón, como lo que no entra en la línea de abajo. */
+.dash-appt .fi-ta-record-content-ctn { padding-block: .75rem; }
+.dash-appt .fi-ta-record-content > .fi-grid-col > .fi-ta-split { align-items: flex-start; }
+.dash-appt-time { padding-top: .0625rem; }
+.dash-appt-line { flex-wrap: wrap; align-items: center; gap: .25rem .625rem; }
+.dash-appt-line > .fi-grid-col { flex: 0 1 auto; min-width: 0; }
+.dash-appt-name .fi-ta-text-item { line-height: 1.375rem; }
+.dash-appt-tags { flex-wrap: wrap; gap: .25rem .375rem; }
+.dash-appt-tags > .fi-grid-col:not(:has(.fi-badge, .fi-ta-text-item)) { display: none; }
+.dash-appt-tags .fi-ta-text-has-badges { flex-wrap: wrap; gap: .25rem; }
+.dash-appt-details { display: block; margin-top: .125rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* En el celular, una tarjeta: el estado y los avisos siempre debajo del nombre, el tratamiento se lee entero y los
+   botones van abajo, alineados con el nombre. */
+@media (max-width: 39.99rem) {
+    .dash-appt-line > .fi-grid-col:first-child { flex-basis: 100%; }
+    .dash-appt-details { white-space: normal; }
+    .dash-appt .fi-ta-actions { padding-inline-start: 4.25rem; }
 }
-/* En una laptop la agenda no tiene ancho de sobra: si los botones de la fila son varios (No asistió, Llegó, Atendido),
-   bajan debajo de los datos en vez de apretar el nombre y el tratamiento en tres líneas. Con uno o dos, siguen al lado. */
+/* Los botones van a la derecha de los datos. Solo si no queda ni para el nombre (una tableta angosta, tres botones),
+   bajan debajo. */
 @media (min-width: 48rem) {
-    .dash-appt .fi-ta-record-content-ctn { flex-wrap: wrap; }
-    .dash-appt .fi-ta-record-content-ctn > :first-child { flex: 1 1 24rem; min-width: 0; }
+    .dash-appt .fi-ta-record-content-ctn { flex-wrap: wrap; column-gap: 1rem; }
+    .dash-appt .fi-ta-record-content-ctn > :first-child { flex: 1 1 19rem; min-width: 0; }
     .dash-appt .fi-ta-actions { margin-inline-start: auto; }
 }
 /* En cada fila de citas (Hoy y Citas) el paso que toca se ve como botón, en un azul suave que se llena al pasar el
@@ -1622,25 +1643,23 @@ summary.dash-block-title:focus-visible { outline: 2px solid var(--primary-500); 
 .dark .dash-count.is-warning { background: var(--gray-200); color: var(--gray-900); }
 .dash-hint { margin: .15rem 0 0; font-size: .8rem; color: var(--gray-500); }
 
-/* El mes de un vistazo: va en la columna ancha, así que las cifras van un poco más chicas para que
-   "S/ 47,035.00" entre en una línea; en el celular, de a dos y más chicas aún. */
 /* Sin esto, el texto bajo el título no baja de línea y la tarjeta se sale de su columna. */
 /* Vale para toda sección (también Resumen y Ganancias en el celular, donde las cifras se salían por la derecha). */
 .fi-section { grid-template-columns: minmax(0, 1fr); }
 .fi-section-header > * { min-width: 0; }
-.dash-month .fi-wi-stats-overview-stat-value { font-size: 1.5rem; line-height: 2rem; font-weight: 600; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
-/* La línea de lo cobrado en 30 días es para ver la forma, no para alarmar: va en el azul de la marca, apagado. Si
-   el mes va mejor o peor lo dice el texto de abajo, en su color. */
-.dash-month .fi-wi-stats-overview-stat-chart-border-color { color: var(--primary-300) !important; }
-.dash-month .fi-wi-stats-overview-stat-chart-bg-color { color: color-mix(in oklab, var(--primary-100) 45%, transparent) !important; }
-.dark .dash-month .fi-wi-stats-overview-stat-chart-border-color { color: var(--primary-500) !important; }
-.dark .dash-month .fi-wi-stats-overview-stat-chart-bg-color { color: color-mix(in oklab, var(--primary-500) 12%, transparent) !important; }
-@media (max-width: 40rem) {
-    .dash-month { gap: .75rem; }
-    .dash-month .fi-wi-stats-overview-stat { padding: .85rem; }
-    .dash-month .fi-wi-stats-overview-stat-value { font-size: 1.2rem; line-height: 1.5rem; overflow-wrap: anywhere; }
-    .dash-month .fi-wi-stats-overview-stat-description { font-size: .72rem; }
-}
+/* El mes en una línea, al final de "Hoy": lo cobrado y "Ver reportes". Toda la línea lleva a Reportes. */
+.dash-month { display: flex; flex-wrap: wrap; align-items: center; gap: .25rem .6rem; padding: .7rem 1rem; border-radius: .85rem; background: #fff; box-shadow: var(--app-card-shadow); font-size: .875rem; line-height: 1.4; color: var(--gray-600); text-decoration: none; }
+.dash-month:focus-visible { outline: 2px solid var(--primary-500); outline-offset: 2px; }
+.dash-month-icon { width: 1.1rem; height: 1.1rem; flex: none; color: var(--gray-400); }
+.dash-month-text { flex: 1 1 auto; min-width: 0; }
+.dash-month-text strong { font-weight: 600; color: var(--gray-950); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.dash-month-more { display: inline-flex; align-items: center; gap: .3rem; flex: none; margin-left: auto; font-size: .8125rem; font-weight: 600; color: var(--primary-600); }
+.dash-month-more-icon { width: 1rem; height: 1rem; }
+.dash-month:hover .dash-month-more { text-decoration: underline; }
+.dark .dash-month { background: var(--gray-900); color: var(--gray-400); }
+.dark .dash-month-icon { color: var(--gray-500); }
+.dark .dash-month-text strong { color: #fff; }
+.dark .dash-month-more { color: var(--primary-400); }
 
 .dash-rows { margin: .5rem 0 0; padding: 0; list-style: none; display: grid; }
 .dash-rows li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .4rem .75rem; padding: .5rem 0; border-top: 1px dashed var(--gray-200); }

@@ -43,8 +43,10 @@ use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\Checkbox;
+use Filament\Forms\Components\DatePicker;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Filament\Schemas\Schema;
 use Filament\Support\Enums\Size;
 use Filament\Support\Enums\Width;
 use Filament\Support\Icons\Heroicon;
@@ -94,8 +96,9 @@ class Agenda extends Page
         return MenuPending::tooltip(MenuPending::agenda());
     }
 
+    /** El día que se mira (Y-m-d). Null solo un instante: cuando se borra la fecha del calendario (updatedDate). */
     #[Url]
-    public string $date = '';
+    public ?string $date = '';
 
     #[Url]
     public string $mode = 'day';
@@ -230,14 +233,34 @@ class Agenda extends Page
     }
 
     /**
-     * Al escribir la fecha a mano, el campo pasa por fechas a medias ("0002-05-12" mientras se escribe el año): esas
-     * no mueven la agenda, que se queda en el día que se miraba.
+     * Una fecha a medias ("0002-05-12", de un enlace o de una fecha escrita a mano) o borrada no mueve la agenda,
+     * que se queda en el día que se miraba. El calendario manda el día con su hora ("2026-11-25 00:00:00"): cuenta
+     * el día.
      */
     public function updatedDate(): void
     {
-        $this->date = self::isUsableDate($this->date) ? $this->date : ($this->dateBefore ?: today()->toDateString());
+        $date = substr((string) $this->date, 0, 10);
+        $this->date = self::isUsableDate($date) ? $date : ($this->dateBefore ?: today()->toDateString());
         $this->date = $this->safeDate($this->date)->toDateString();
         $this->month = '';
+    }
+
+    /**
+     * "Ir a la fecha", junto a Atrás, Hoy y Adelante: el calendario del panel, en español y con la fecha en
+     * dd/mm/aaaa sea cual sea el idioma de la computadora (el del navegador en inglés decía 11/23/2026).
+     */
+    public function dateForm(Schema $schema): Schema
+    {
+        return $schema->components([
+            DatePicker::make('date')
+                ->label('Ir a la fecha')
+                ->hiddenLabel()
+                ->native(false)
+                ->displayFormat('d/m/Y')
+                ->firstDayOfWeek(1)
+                ->closeOnDateSelection()
+                ->live(),
+        ]);
     }
 
     /**

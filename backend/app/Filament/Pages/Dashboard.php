@@ -10,7 +10,6 @@ use App\Filament\Resources\WaitlistEntries\WaitlistEntryActions;
 use App\Filament\Widgets\DayMomentCard;
 use App\Filament\Widgets\FollowUpsToday;
 use App\Filament\Widgets\MonthOverview;
-use App\Filament\Widgets\MonthTrendChart;
 use App\Filament\Widgets\NextPatient;
 use App\Filament\Widgets\OpenConsultations;
 use App\Filament\Widgets\SystemHealth;
@@ -30,9 +29,10 @@ use Illuminate\Support\Str;
  * El inicio como dashboard: lo del día arriba y lo demás al bajar. Arriba, los avisos del sistema en una línea, los
  * números del día y lo que toca según la hora (antes de abrir, confirmar; al terminar, cerrar el día); al centro,
  * la agenda de hoy (y, para quien atiende, su próximo paciente); al costado, la sala de espera, las atenciones sin
- * terminar, lo que hay que hacer y los huecos de la semana; y al final, cómo va el mes. En el celular va en ese
- * mismo orden. Es una sola pantalla: cada tarjeta se muestra con el mismo permiso de la pantalla a la que lleva, así
- * que recepción ve la clínica, el doctor ve lo suyo y el administrador que además atiende ve las dos cosas a la vez.
+ * terminar, lo que hay que hacer y los huecos de la semana; y al final, cómo va el mes en una línea (el detalle está
+ * en Reportes). En el celular va en ese mismo orden. Es una sola pantalla: cada tarjeta se muestra con el mismo
+ * permiso de la pantalla a la que lleva, así que recepción ve la clínica, el doctor ve lo suyo y el administrador
+ * que además atiende ve las dos cosas a la vez.
  * Si a alguien no le toca nada del costado, el centro ocupa todo el ancho.
  */
 class Dashboard extends BaseDashboard
@@ -49,8 +49,8 @@ class Dashboard extends BaseDashboard
     /** @var list<class-string> La columna angosta (en monitores grandes, dos columnas: panel.css, .dash-side). */
     private const SIDE = [WaitingRoom::class, OpenConsultations::class, FollowUpsToday::class, WeekGaps::class];
 
-    /** @var list<class-string> Debajo de la columna ancha (en el celular, al final de todo): el mes y, debajo, su gráfico. */
-    private const MONTH = [MonthOverview::class, MonthTrendChart::class];
+    /** @var list<class-string> Debajo de la columna ancha (en el celular, al final de todo): el mes, en una línea. */
+    private const MONTH = [MonthOverview::class];
 
     protected static ?string $title = 'Hoy';
 

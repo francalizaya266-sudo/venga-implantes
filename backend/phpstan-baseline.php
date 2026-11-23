@@ -3491,11 +3491,6 @@ $ignoreErrors[] = [
     'path' => __DIR__.'/app/Filament/Widgets/Reports/EarningsStats.php',
 ];
 $ignoreErrors[] = [
-    'rawMessage' => 'Access to an undefined property Illuminate\\Database\\Eloquent\\Model::$account.',
-    'count' => 1,
-    'path' => __DIR__.'/app/Filament/Widgets/TodayAppointments.php',
-];
-$ignoreErrors[] = [
     'rawMessage' => 'Call to an undefined method Illuminate\\Database\\Eloquent\\Builder<Illuminate\\Database\\Eloquent\\Model>::withBalance().',
     'count' => 1,
     'path' => __DIR__.'/app/Filament/Widgets/TodayAppointments.php',
