@@ -16,6 +16,7 @@ use App\Support\Spreadsheet;
 use Carbon\CarbonImmutable;
 use Filament\Actions\Imports\Models\Import;
 use Filament\Actions\Testing\TestAction;
+use Filament\Notifications\Notification;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\URL;
@@ -237,6 +238,7 @@ class PatientImportTest extends TestCase
             'Nombres,Apellidos,DNI,Celular,Fecha de nacimiento,Correo,Notas',
             'Rosa,Huamán Quispe,45678912,987654321,01/01/1980,rosa@gmail.com,Otra nota',
             'Lucía,Huamán,,987654321,,,',
+            'Mateo,Huamán,,987654321,,,',
         ]);
 
         $this->import(UploadedFile::fake()->createWithContent('pacientes.csv', $csv), [PatientImporter::EXISTING => PatientImporter::FILL]);
@@ -250,8 +252,47 @@ class PatientImportTest extends TestCase
         // Otro nombre con el mismo celular es otra persona de la familia.
         $this->assertSame(3, $account->patients()->count());
         $this->assertSame(1, Patient::query()->where('first_name', 'Mateo')->count());
-        $this->assertSame([], $this->failures($this->lastImport()));
         $this->assertTrue($son->is($account->patients()->where('first_name', 'Mateo')->sole()));
+
+        // A quien ya tenía todo no se le cambia nada, y el aviso no lo cuenta como importado.
+        $this->assertSame(['Ya está registrado (mismo celular y nombre): Mateo Huamán. Ya tenía esos datos: no se cambió nada.'], $this->failures($this->lastImport()));
+        $this->assertSame(
+            'Se importó 1 paciente y se completaron los datos de 1 que ya estaba registrado. 1 ya estaba registrado y quedó como estaba. Descarga el archivo para ver cuál y por qué.',
+            PatientImporter::getCompletedNotificationBody($this->lastImport()),
+        );
+    }
+
+    public function test_uploading_the_same_list_twice_repeats_no_one(): void
+    {
+        $this->actingAs(User::factory()->reception()->create());
+        $csv = implode("\n", [
+            'Nombres,Apellidos,DNI,Celular,Fecha de nacimiento',
+            'Rosa María,Huamán,45678912,,',
+            'Mateo,Quispe,,987654321,',
+            'Lucía,Torres,,,05/06/2001',
+            'Pedro,Ramos Díaz,,,',
+        ]);
+
+        $this->import(UploadedFile::fake()->createWithContent('pacientes.csv', $csv));
+        $this->assertSame('Se importaron 4 pacientes.', PatientImporter::getCompletedNotificationBody($this->lastImport()));
+
+        $this->import(UploadedFile::fake()->createWithContent('pacientes.csv', $csv));
+
+        // Sin DNI, celular ni fecha, el mismo nombre completo es la misma persona.
+        $this->assertSame(4, Patient::query()->count());
+        $this->assertSame([
+            'Ya está registrado (mismo DNI): Rosa María Huamán. No se cambió nada.',
+            'Ya está registrado (mismo celular y nombre): Mateo Quispe. No se cambió nada.',
+            'Ya está registrado (mismo nombre y fecha de nacimiento): Lucía Torres. No se cambió nada.',
+            'Ya está registrado (mismo nombre): Pedro Ramos Díaz. No se cambió nada.',
+        ], $this->failures($this->lastImport()));
+        $this->assertSame(
+            'No se importó ningún paciente. 4 ya estaban registrados y quedaron como estaban. Descarga el archivo para ver cuáles y por qué.',
+            PatientImporter::getCompletedNotificationBody($this->lastImport()),
+        );
+
+        // Nada que corregir: el aviso no sale en rojo.
+        $this->assertSame('info', PatientImporter::modifyCompletedNotification(Notification::make()->danger(), $this->lastImport())->getStatus());
     }
 
     public function test_the_summary_only_names_what_happened(): void
@@ -267,6 +308,7 @@ class PatientImportTest extends TestCase
         $import->update(['total_rows' => 4, 'processed_rows' => 4]);
 
         $this->assertSame('Se importaron 3 pacientes. 1 fila tiene datos por corregir. Descarga el archivo para ver cuál y por qué.', PatientImporter::getCompletedNotificationBody($import));
+        $this->assertSame('warning', PatientImporter::modifyCompletedNotification(Notification::make()->warning(), $import)->getStatus());
 
         $import->failedRows()->delete();
         $import->failedRows()->createMany([

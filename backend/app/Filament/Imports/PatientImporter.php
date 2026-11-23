@@ -15,15 +15,17 @@ use Filament\Actions\Imports\ImportColumn;
 use Filament\Actions\Imports\Importer;
 use Filament\Actions\Imports\Models\Import;
 use Filament\Forms\Components\Radio;
+use Filament\Notifications\Notification;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 
 /**
  * Pacientes desde una lista en Excel o CSV (Pacientes › Importar pacientes), una fila por paciente. Cada fila se revisa
  * como en el alta del panel (nombres y apellidos, DNI de 8 dígitos, celular peruano, fecha de nacimiento, correo) y se
  * guarda con el mismo registro: el celular agrupa a la familia. Quien ya está registrado (mismo DNI, mismo celular y
- * nombre, o mismo nombre y fecha de nacimiento) no se repite: se deja como está y la fila va al archivo de errores, o
- * solo se completan sus datos vacíos, según se elija al importar.
+ * nombre, mismo nombre y fecha de nacimiento o, si la fila no trae más, el mismo nombre completo) no se repite: se deja
+ * como está y la fila va al archivo de errores, o solo se completan sus datos vacíos, según se elija al importar.
  */
 class PatientImporter extends Importer
 {
@@ -41,6 +43,9 @@ class PatientImporter extends Importer
 
     /** Lo que se completa de un paciente que ya estaba, solo si lo tiene vacío. */
     private const FILLABLE = ['document_number', 'birth_date', 'sex', 'email', 'admin_notes'];
+
+    /** Por qué la fila es de alguien que ya estaba ("mismo DNI"), o null si es un paciente nuevo. */
+    private ?string $matchedBy = null;
 
     public static function getColumns(): array
     {
@@ -116,7 +121,8 @@ class PatientImporter extends Importer
     {
         return [
             Radio::make(self::EXISTING)
-                ->label('Si alguien ya está registrado (mismo DNI, o mismo celular y nombre)')
+                ->label('Si alguien ya está registrado')
+                ->helperText('Se reconoce por su DNI, por su celular y nombre, o por su nombre y fecha de nacimiento.')
                 ->options([
                     self::SKIP => 'Dejarlo como está y anotarlo en el archivo de errores',
                     self::FILL => 'Completar solo los datos que le falten',
@@ -144,14 +150,14 @@ class PatientImporter extends Importer
      */
     public function resolveRecord(): Patient
     {
-        [$existing, $reason] = $this->alreadyRegistered();
+        [$existing, $this->matchedBy] = $this->alreadyRegistered();
 
         if ($existing === null) {
             return new Patient;
         }
 
         if (($this->options[self::EXISTING] ?? self::SKIP) !== self::FILL) {
-            throw new RowImportFailedException(self::ALREADY_REGISTERED." ({$reason}): {$existing->full_name}. No se cambió nada.");
+            throw new RowImportFailedException(self::ALREADY_REGISTERED." ({$this->matchedBy}): {$existing->full_name}. No se cambió nada.");
         }
 
         return $existing;
@@ -196,7 +202,10 @@ class PatientImporter extends Importer
         }
     }
 
-    /** El paciente nuevo entra con el alta de siempre: su celular lo agrupa con su familia, si ya está en el sistema. */
+    /**
+     * El paciente nuevo entra con el alta de siempre: su celular lo agrupa con su familia, si ya está en el sistema. Al
+     * que ya estaba se le guarda lo que se completó; si ya tenía todo, la fila cuenta como "ya está registrado".
+     */
     public function saveRecord(): void
     {
         $phone = $this->data['phone'] ?? null;
@@ -211,11 +220,34 @@ class PatientImporter extends Importer
         }
 
         $patient = $this->patient();
+        $joinsPhone = $patient->account_id === null && filled($phone);
+
+        if (! $patient->isDirty() && ! $joinsPhone) {
+            throw new RowImportFailedException(self::ALREADY_REGISTERED." ({$this->matchedBy}): {$patient->full_name}. Ya tenía esos datos: no se cambió nada.");
+        }
+
         $patient->save();
 
-        if ($patient->account_id === null && filled($phone)) {
+        if ($joinsPhone) {
             app(PatientRegistrar::class)->moveToPhone($patient, $phone);
         }
+
+        $this->countCompleted();
+    }
+
+    /**
+     * Uno más de los que ya estaban y se completaron, para el aviso final (Filament solo cuenta las filas que entraron).
+     * Se anota en la misma base, dentro de la importación: si esa parte se deshace, la cuenta también.
+     */
+    private function countCompleted(): void
+    {
+        Cache::add(self::completedKey($this->import), 0, now()->addMonth());
+        Cache::increment(self::completedKey($this->import));
+    }
+
+    private static function completedKey(Import $import): string
+    {
+        return 'patient-import.'.$import->getKey().'.completed';
     }
 
     /** El paciente de la fila, con su tipo (el análisis estático no lo ve). */
@@ -238,18 +270,29 @@ class PatientImporter extends Importer
         return 'Importación de pacientes terminada';
     }
 
-    /** "Se importaron 120 pacientes. 5 filas no se importaron: 3 ya estaban registrados y 2 tienen datos por corregir." */
+    /**
+     * "Se importaron 120 pacientes y se completaron los datos de 4 que ya estaban registrados. 5 filas no se
+     * importaron: 3 ya estaban registrados y 2 tienen datos por corregir."
+     */
     public static function getCompletedNotificationBody(Import $import): string
     {
         $imported = (int) $import->successful_rows;
+        $completed = min($imported, (int) Cache::get(self::completedKey($import), 0));
+        $created = $imported - $completed;
         $failed = $import->getFailedRowsCount();
-        $already = $import->failedRows()->where('validation_error', 'like', self::ALREADY_REGISTERED.'%')->count();
+        $already = self::alreadyRegisteredCount($import);
         $toFix = $failed - $already;
 
-        $body = match ($imported) {
-            0 => 'No se importó ningún paciente.',
-            1 => 'Se importó 1 paciente.',
-            default => 'Se importaron '.number_format($imported).' pacientes.',
+        $body = match (true) {
+            $created === 0 && $completed === 0 => 'No se importó ningún paciente.',
+            $created === 0 => $completed === 1
+                ? 'Se completaron los datos de 1 paciente que ya estaba registrado.'
+                : 'Se completaron los datos de '.number_format($completed).' pacientes que ya estaban registrados.',
+            default => ($created === 1 ? 'Se importó 1 paciente' : 'Se importaron '.number_format($created).' pacientes').match ($completed) {
+                0 => '',
+                1 => ' y se completaron los datos de 1 que ya estaba registrado',
+                default => ' y se completaron los datos de '.number_format($completed).' que ya estaban registrados',
+            }.'.',
         };
 
         if ($failed === 0) {
@@ -268,10 +311,29 @@ class PatientImporter extends Importer
         return $body.' '.$failures.' Descarga el archivo para ver '.($failed === 1 ? 'cuál' : 'cuáles').' y por qué.';
     }
 
+    /** Si lo único que no entró es gente que ya estaba registrada, no hay nada que corregir: el aviso no sale en rojo. */
+    public static function modifyCompletedNotification(Notification $notification, Import $import): Notification
+    {
+        $failed = $import->getFailedRowsCount();
+
+        if ($failed === 0 || self::alreadyRegisteredCount($import) < $failed) {
+            return $notification;
+        }
+
+        return (int) $import->successful_rows > 0 ? $notification->success() : $notification->info();
+    }
+
+    /** Cuántas filas no entraron porque esa persona ya estaba registrada. */
+    private static function alreadyRegisteredCount(Import $import): int
+    {
+        return $import->failedRows()->where('validation_error', 'like', self::ALREADY_REGISTERED.'%')->count();
+    }
+
     /**
      * El paciente que ya está registrado y por qué se sabe, o [null, null]. Primero por DNI; luego por celular, con el
-     * mismo nombre (otro nombre con ese celular es un familiar, y se suma a la familia); y sin DNI ni celular, por
-     * nombre y fecha de nacimiento. Un DNI que ya es de otra persona (otro nombre) no se toca: hay que revisarlo.
+     * mismo nombre (otro nombre con ese celular es un familiar, y se suma a la familia); luego por nombre y fecha de
+     * nacimiento; y si la fila no trae DNI, celular ni fecha de nacimiento, por el nombre completo. Un DNI que ya es
+     * de otra persona (otro nombre) no se toca: hay que revisarlo.
      *
      * @return array{0: ?Patient, 1: ?string}
      */
@@ -318,6 +380,16 @@ class PatientImporter extends Importer
 
             if ($twin !== null) {
                 return [$twin, 'mismo nombre y fecha de nacimiento'];
+            }
+        }
+
+        // Sin DNI, celular ni fecha de nacimiento no hay con qué distinguirlos: el mismo nombre completo es la misma
+        // persona (así, subir dos veces la misma lista no repite a nadie).
+        if (blank($document) && blank($phone) && blank($birthDate) && filled($firstName) && filled($lastName)) {
+            $namesake = Patient::query()->where('search_name', Patient::searchable($firstName.' '.$lastName))->first();
+
+            if ($namesake !== null) {
+                return [$namesake, 'mismo nombre'];
             }
         }
 
