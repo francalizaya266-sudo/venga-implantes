@@ -60,6 +60,7 @@ class SpaController extends Controller
         'site.contact' => 'src/pages/ContactPage.tsx',
         'site.privacy' => 'src/pages/PrivacyPage.tsx',
         'site.booking' => 'src/pages/booking/BookingPage.tsx',
+        'site.booking.done' => 'src/pages/booking/BookedPage.tsx',
         'site.account' => 'src/pages/account/AccountPage.tsx',
         'site.account.change' => 'src/pages/change/ChangePage.tsx',
         'site.account.health' => 'src/pages/account/HealthPage.tsx',
