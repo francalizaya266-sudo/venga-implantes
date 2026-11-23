@@ -119,7 +119,8 @@ class TreatmentController extends Controller
 
     /**
      * Lo que Google muestra de un tratamiento cuando el consultorio no escribió su descripción: qué es, dónde, desde
-     * cuánto y dónde se reserva.
+     * cuánto y dónde se reserva. Con un resumen largo, el precio y la reserva van en su versión corta: el precio no
+     * se cae por falta de espacio.
      */
     private function describe(Treatment $treatment): string
     {
@@ -128,8 +129,8 @@ class TreatmentController extends Controller
 
         return PageMeta::describe(
             $treatment->name.($district ? ' en '.$district : '').'.'.($treatment->summary ? ' '.Str::finish($treatment->summary, '.') : ''),
-            $price !== null ? 'Precio referencial: '.lcfirst($price).'.' : null,
-            'Reserva en línea en '.$this->clinic->name().'.',
+            $price !== null ? ['Precio referencial: '.lcfirst($price).'.', ucfirst($price).'.'] : null,
+            ['Reserva en línea en '.$this->clinic->name().'.', 'Reserva tu cita en línea, sin llamar.', 'Reserva tu cita en línea.', 'Reserva en línea.'],
             'Te confirmamos por WhatsApp.',
         );
     }

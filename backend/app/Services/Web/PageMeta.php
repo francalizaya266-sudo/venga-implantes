@@ -42,15 +42,23 @@ final class PageMeta
 
     /**
      * Una descripción para Google de 150 a 160 letras si se puede: la primera frase va siempre y, de las demás, las
-     * que todavía entran sin pasar de 160. Así queda completa con un nombre de consultorio corto o largo.
+     * que todavía entran sin pasar de 160. Una frase puede venir en varias versiones, en el orden en que se
+     * prefieren: va la primera que entra ("Precio referencial: desde S/ 50." o, si no, "Desde S/ 50."). Así queda
+     * completa con un nombre de consultorio corto o largo.
+     *
+     * @param  string|list<string>|null  ...$more
      */
-    public static function describe(string $first, ?string ...$more): string
+    public static function describe(string $first, string|array|null ...$more): string
     {
         $description = $first;
 
         foreach (array_filter($more) as $sentence) {
-            if (mb_strlen($description.' '.$sentence) <= self::DESCRIPTION_MAX) {
-                $description .= ' '.$sentence;
+            foreach ((array) $sentence as $version) {
+                if (mb_strlen($description.' '.$version) <= self::DESCRIPTION_MAX) {
+                    $description .= ' '.$version;
+
+                    break;
+                }
             }
         }
 
@@ -66,12 +74,12 @@ final class PageMeta
 
         return match ($page) {
             'servicios' => self::describe("Los servicios dentales de {$name}{$in}: para qué sirve cada uno, cuánto dura y desde cuánto cuesta.", 'Reserva tu evaluación en línea.', 'Te confirmamos por WhatsApp.'),
-            'equipo' => self::describe("Conoce a los dentistas de {$name}{$in}: su especialidad, sus estudios y su número de colegiatura (COP).", 'Reserva tu cita en línea.', 'Te confirmamos por WhatsApp.'),
+            'equipo' => self::describe("Conoce a los dentistas de {$name}{$in}: su especialidad, sus estudios y su número de colegiatura (COP).", ['Reserva tu cita en línea, sin llamar.', 'Reserva tu cita en línea.'], 'Te confirmamos por WhatsApp.'),
             'preguntas' => "Preguntas frecuentes de los pacientes de {$name}{$in}: cómo reservar o cambiar tu cita, formas de pago, tratamientos, precios y cómo llegar.",
             'casos' => self::describe("Antes y después de pacientes de {$name}{$in}: fotos reales que ellos autorizaron mostrar.", 'En tu evaluación te decimos qué puedes esperar.', 'Reserva en línea.'),
             'opiniones' => self::describe("Opiniones de pacientes de {$name}".($district ? ", dentistas en {$district}" : '').', copiadas tal como las escribieron.', 'Lee cómo los atendimos y reserva tu cita en línea.', 'Te confirmamos por WhatsApp.'),
             'promociones' => self::describe("Promociones vigentes de {$name}{$in}: descuentos en tratamientos que se aplican al pagar en el consultorio.", 'Reserva en línea con tu código.', 'Te confirmamos por WhatsApp.'),
-            'reservar' => self::describe("Reserva tu cita en {$name}".($district ? ", {$district}" : '').': elige el servicio, el día y la hora que te quedan mejor, sin llamar.', 'Te confirmamos por WhatsApp.', 'Pagas en el consultorio.'),
+            'reservar' => self::describe("Reserva en línea tu cita en {$name}".($district ? ", {$district}" : '').': elige el servicio, el día y la hora que te quedan mejor, sin llamar.', 'Te confirmamos por WhatsApp.', 'Pagas en el consultorio.'),
             default => null,
         };
     }

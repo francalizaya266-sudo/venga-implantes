@@ -435,7 +435,12 @@ class SiteContentTest extends TestCase
         Setting::set('clinic.name', 'Clínica Vega Implant');
         Setting::set('clinic.address', 'Jr. Apurímac 648');
         Setting::set('clinic.district', 'Juliaca');
-        Treatment::factory()->evaluation()->create(['price_from' => 50]);
+        Treatment::factory()->evaluation()->create([
+            'name' => 'Evaluación o primera consulta',
+            'slug' => 'evaluacion',
+            'summary' => 'Revisión completa, diagnóstico y presupuesto. Si no sabes qué necesitas, empieza aquí.',
+            'price_from' => 50,
+        ]);
         Treatment::factory()->create(['name' => 'Limpieza dental', 'slug' => 'limpieza-dental', 'summary' => 'Quita el sarro y las manchas.', 'price_from' => 120]);
         $this->doctorOffering(...Treatment::all());
 
@@ -443,9 +448,11 @@ class SiteContentTest extends TestCase
 
         $this->assertSame('Clínica Vega Implant: implantes y odontología en Jr. Apurímac 648, Juliaca. Mira los precios y los horarios libres, y reserva tu cita en línea en 2 minutos.', $description('api.v1.home'));
         $this->assertSame('Limpieza dental en Juliaca. Quita el sarro y las manchas. Precio referencial: desde S/ 120. Reserva en línea en Clínica Vega Implant.', $description('api.v1.treatments.show', 'limpieza-dental'));
+        // Con un resumen largo, el precio y la reserva entran en su versión corta: el precio no se cae.
+        $this->assertSame('Evaluación o primera consulta en Juliaca. Revisión completa, diagnóstico y presupuesto. Si no sabes qué necesitas, empieza aquí. Desde S/ 50. Reserva en línea.', $description('api.v1.treatments.show', 'evaluacion'));
 
         foreach (['api.v1.home', 'api.v1.treatments.index', 'api.v1.team', 'api.v1.faqs', 'api.v1.promotions.index', 'api.v1.booking.options'] as $route) {
-            $this->assertThat(mb_strlen($description($route)), $this->logicalAnd($this->greaterThanOrEqual(140), $this->lessThanOrEqual(160)), $route);
+            $this->assertThat(mb_strlen($description($route)), $this->logicalAnd($this->greaterThanOrEqual(150), $this->lessThanOrEqual(160)), $route);
         }
     }
 }
