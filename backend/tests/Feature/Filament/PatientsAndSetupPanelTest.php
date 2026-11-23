@@ -611,6 +611,9 @@ class PatientsAndSetupPanelTest extends TestCase
 
         Livewire::test(ListPatients::class)
             ->assertSee(['Todos', 'Les toca control', 'Faltaron o cancelaron'])
+            // El lector de pantalla nombra las pestañas por lo que hacen, no con la clave sin traducir.
+            ->assertSeeHtml('aria-label="Filtrar la lista"')
+            ->assertDontSee('list-records.tabs.label')
             ->assertSee('Sus presupuestos se siguen en Presupuestos y planes.')
             // Eran las mismas personas que "Sin respuesta" y "Sin próxima cita" de Presupuestos, sin sus botones.
             ->assertDontSee(['Plan sin agendar', 'Presupuesto sin respuesta']);
