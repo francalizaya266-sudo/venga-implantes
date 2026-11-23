@@ -1,5 +1,7 @@
-import { useCallback, useState } from 'react';
+import { Suspense, useCallback, useState } from 'react';
 import { Outlet, ScrollRestoration, useLocation, type Location } from 'react-router';
+import { SiteLayout } from '@/components/layout/SiteLayout';
+import { Loading } from '@/components/ui/Loading';
 import { FlashProvider } from '@/lib/flash';
 import { firstEntryKey } from '@/lib/scroll';
 import { ErrorPage } from '@/pages/ErrorPage';
@@ -23,7 +25,16 @@ export function Root({ documentError }: Props) {
   return (
     <FlashProvider>
       <ScrollRestoration getKey={scrollKey} />
-      {failed ? <ErrorPage status={documentError} /> : <Outlet />}
+      {/* Mientras llega el código de una página abierta directamente: la cabecera, el pie y el hueco de la página. */}
+      <Suspense
+        fallback={
+          <SiteLayout>
+            <Loading />
+          </SiteLayout>
+        }
+      >
+        {failed ? <ErrorPage status={documentError} /> : <Outlet />}
+      </Suspense>
     </FlashProvider>
   );
 }
