@@ -4,6 +4,7 @@ namespace App\Http\Requests\Api\V1;
 
 use App\Enums\AppointmentOrigin;
 use App\Enums\PatientRelationship;
+use App\Models\Campaign;
 use App\Models\RememberedDevice;
 use App\Services\Access\PatientAccess;
 use App\Support\Phone;
@@ -47,7 +48,7 @@ class StoreBookingRequest extends FormRequest
     {
         $this->merge([
             'birth_date' => $this->composedBirthDate(),
-            'promo_code' => strtoupper(trim((string) $this->input('promo_code'))) ?: null,
+            'promo_code' => Campaign::writtenCode((string) $this->input('promo_code')) ?: null,
         ]);
     }
 

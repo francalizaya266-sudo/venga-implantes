@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Str;
 
 /** Campaña o promoción; se publica y se retira sola según sus fechas. */
 #[Fillable(['name', 'slug', 'summary', 'description', 'image_path', 'treatment_id', 'treatment_package_id', 'discount_type', 'discount_value', 'starts_at', 'ends_at', 'promo_code', 'max_redemptions', 'show_on_home', 'whatsapp_text', 'views_count', 'is_active'])]
@@ -26,19 +27,34 @@ class Campaign extends Model
      */
     public static function unknownCodeNotice(string $promoCode): string
     {
-        return 'No reconocimos el código '.strtoupper(trim($promoCode)).'. Igual reservamos tu cita; lo revisamos en el consultorio.';
+        return 'No reconocimos el código '.self::writtenCode($promoCode).'. Igual reservamos tu cita; lo revisamos en el consultorio.';
     }
 
     /** Lo mismo mientras escribe el código, antes de reservar: puede corregirlo o seguir igual. */
     public static function unknownCodeHint(string $promoCode): string
     {
-        return 'No reconocimos el código '.strtoupper(trim($promoCode)).'. Puedes reservar igual; lo revisamos en el consultorio.';
+        return 'No reconocimos el código '.self::writtenCode($promoCode).'. Puedes reservar igual; lo revisamos en el consultorio.';
+    }
+
+    /** El código como se guarda en la cita y se muestra: sin espacios a los lados y en mayúsculas, ñ y tildes incluidas. */
+    public static function writtenCode(string $promoCode): string
+    {
+        return Str::upper(trim($promoCode));
     }
 
     /** El código escrito no es el de esta campaña (o no hay campaña): no se aplicó y recepción lo revisa. */
     public static function codeNotApplied(?string $promoCode, ?self $campaign): bool
     {
-        return filled($promoCode) && strtoupper(trim((string) $campaign?->promo_code)) !== strtoupper(trim($promoCode));
+        return filled($promoCode) && ! self::sameCode($campaign?->promo_code, $promoCode);
+    }
+
+    /**
+     * El mismo código sin importar mayúsculas ni tildes ("añonuevo" y "anonuevo" son AÑONUEVO). Se compara aquí y no
+     * en la base: MySQL tampoco las distingue, pero SQLite sí, y el consultorio y las pruebas tienen que dar lo mismo.
+     */
+    private static function sameCode(?string $one, string $other): bool
+    {
+        return filled($one) && Str::upper(Str::ascii(trim($one))) === Str::upper(Str::ascii(trim($other)));
     }
 
     /**
@@ -48,7 +64,9 @@ class Campaign extends Model
      */
     public static function forBooking(?string $promoCode, ?string $slug): ?self
     {
-        $byCode = filled($promoCode) ? self::query()->published()->where('promo_code', strtoupper(trim($promoCode)))->first() : null;
+        $byCode = filled($promoCode)
+            ? self::query()->published()->whereNotNull('promo_code')->orderBy('id')->get()->first(fn (self $campaign) => self::sameCode($campaign->promo_code, $promoCode))
+            : null;
 
         if ($byCode?->hasSlotsLeft()) {
             return $byCode;

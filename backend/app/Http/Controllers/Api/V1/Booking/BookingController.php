@@ -34,6 +34,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\URL;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 /**
@@ -68,7 +69,7 @@ class BookingController extends Controller
             'origen' => ['nullable', 'string'],
         ]);
 
-        $promoCode = strtoupper(substr(trim((string) $request->query('codigo')), 0, 30));
+        $promoCode = Str::substr(Campaign::writtenCode((string) $request->query('codigo')), 0, 30);
         $campaignSlug = filled($request->query('promo')) ? substr((string) $request->query('promo'), 0, 120) : null;
         $campaign = Campaign::forBooking($promoCode, $campaignSlug);
         $treatments = $this->availability->treatments();

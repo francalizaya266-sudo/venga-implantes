@@ -328,6 +328,34 @@ class BookingControllerTest extends TestCase
         $this->assertFalse(Appointment::sole()->hasUnknownPromoCode());
     }
 
+    public function test_a_code_with_an_enye_is_recognized_in_lowercase_and_without_accents_in_any_database(): void
+    {
+        $this->freezeMonday();
+        $cleaning = Treatment::factory()->create(['name' => 'Limpieza dental', 'price_from' => 150]);
+        $this->doctorOffering($cleaning);
+        $campaign = Campaign::query()->create(['name' => 'Año nuevo', 'slug' => 'ano-nuevo', 'promo_code' => 'AÑONUEVO', 'treatment_id' => $cleaning->id, 'discount_type' => DiscountType::Amount, 'discount_value' => 30, 'starts_at' => now()->subDay(), 'ends_at' => now()->addMonth()]);
+        User::factory()->reception()->create();
+
+        // MySQL no distingue mayúsculas ni tildes al buscar el código: la web dice lo mismo que aplica.
+        foreach (['añonuevo', 'anonuevo'] as $written) {
+            $this->getJson(route('api.v1.booking.options', ['codigo' => $written]))
+                ->assertOk()
+                ->assertJsonPath('data.campaign.name', 'Año nuevo')
+                ->assertJsonPath('data.promo_problem', null);
+        }
+        $this->getJson(route('api.v1.booking.options', ['codigo' => 'piñata']))
+            ->assertOk()
+            ->assertJsonPath('data.promo_problem', 'No reconocimos el código PIÑATA. Puedes reservar igual; lo revisamos en el consultorio.');
+
+        $this->book($this->booking($cleaning, ['promo_code' => 'añonuevo']))
+            ->assertCreated()
+            ->assertJsonPath('data.promo_notice', null);
+        $appointment = Appointment::sole();
+        $this->assertSame('AÑONUEVO', $appointment->promo_code);
+        $this->assertTrue($appointment->campaign->is($campaign));
+        $this->assertFalse($appointment->hasUnknownPromoCode());
+    }
+
     public function test_a_mistyped_code_keeps_the_promotion_of_the_page_the_patient_came_from(): void
     {
         $this->freezeMonday();
