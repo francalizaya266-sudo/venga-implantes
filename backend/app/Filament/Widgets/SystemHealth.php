@@ -8,12 +8,13 @@ use App\Models\User;
 use App\Models\WhatsappMessage;
 use App\Services\Backup\DatabaseBackup;
 use App\Services\Backup\OffsiteCopies;
+use App\Services\ScheduledTasks;
 use Filament\Widgets\Widget;
 
 /**
- * Solo aparece si algo anda mal y nadie lo vería: las copias de seguridad dejaron de hacerse
- * (la tarea programada del hosting no corre), pasó una semana sin bajarlas para guardarlas fuera
- * del hosting, o la API de WhatsApp no pudo enviar avisos.
+ * Solo aparece si algo anda mal y nadie lo vería: las tareas automáticas no corren, las copias de seguridad
+ * dejaron de hacerse, pasó una semana sin bajarlas para guardarlas fuera del sistema, o la API de WhatsApp no pudo
+ * enviar avisos.
  */
 class SystemHealth extends Widget
 {
@@ -41,13 +42,30 @@ class SystemHealth extends Widget
     private static function issues(): array
     {
         $issues = [];
+        $tasks = app(ScheduledTasks::class);
+
+        // Primero, porque explica los demás: sin las tareas automáticas tampoco salen las copias ni los recordatorios.
+        if ($tasks->areStopped()) {
+            $lastRun = $tasks->lastRunAt();
+            $issues[] = [
+                'heading' => 'Las tareas automáticas no están corriendo',
+                'description' => 'Sin ellas no salen los recordatorios ni las copias de seguridad.'
+                    .($lastRun ? ' Corrieron por última vez '.$lastRun->diffForHumans().'.' : '')
+                    .' '.$tasks->howToTurnOn(),
+                'url' => null,
+                'link' => null,
+            ];
+        }
+
         $backups = app(DatabaseBackup::class);
 
         if ($backups->isStale()) {
             $latest = $backups->latestAt();
             $issues[] = [
                 'heading' => $latest ? 'La última copia de seguridad es de '.$latest->diffForHumans() : 'Todavía no hay copias de seguridad',
-                'description' => 'Se crean solas cada madrugada y la última no se creó. Entra a "Ver copias", toca "Crear copia ahora" y avisa a quien te ayuda con el hosting.',
+                'description' => $tasks->areRunning()
+                    ? 'Las tareas automáticas están corriendo, pero la copia no se creó. Entra a «Ver copias» y toca «Crear copia ahora»: si sale un error, avísale a quien instaló el sistema.'
+                    : 'La copia automática no corrió: revisa que las tareas automáticas '.$tasks->ofMachine().' estén encendidas. Mientras tanto, entra a «Ver copias» y toca «Crear copia ahora».',
                 'url' => Backups::canAccess() ? Backups::getUrl() : null,
                 'link' => 'Ver copias',
             ];

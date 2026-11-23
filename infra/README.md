@@ -40,6 +40,7 @@ Todo se crea **sin pasos manuales**: el firewall es una VM Ubuntu configurada po
 | `nginx/` | El proxy (WAF, HTTPS, caché, límite de peticiones al `/panel`) y vm-app |
 | `env/produccion.env` | Configuración de producción sin secretos |
 | `scripts/` | Publicar la app, VPN, reglas, usuarios de MySQL, copias, agentes de Wazuh y Datadog |
+| `windows/` | Para la laptop del consultorio con Windows, fuera de Azure: abrir el sistema con sus tareas automáticas y encenderlas para siempre (ver «Instalación en una laptop con Windows» en el README principal) |
 | `../.github/workflows/desplegar-azure.yml` | Publica la app en vm-app desde GitHub, sin contraseñas |
 
 **Regla del equipo:** ningún secreto entra al repositorio. Las claves de las personas van en 1Password; los

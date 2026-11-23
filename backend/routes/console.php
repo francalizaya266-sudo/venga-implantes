@@ -2,12 +2,19 @@
 
 use App\Models\Setting;
 use App\Services\Backup\DatabaseBackup;
+use App\Services\ScheduledTasks;
 use Illuminate\Support\Facades\Schedule;
 
 /*
 | El hosting compartido ejecuta un solo cron cada minuto:
 | * * * * * php /ruta/al/proyecto/artisan schedule:run >> /dev/null 2>&1
+| En una laptop con Windows: infra/windows/iniciar-consultorio.bat (schedule:work) o encender-tareas-automaticas.bat.
 */
+
+// El latido: cada pasada anota su hora. Si lleva más de una hora sin anotarla, Hoy le avisa a quien administra.
+Schedule::call(fn () => ScheduledTasks::beat())
+    ->name('latido')
+    ->everyMinute();
 
 // Cada pasada prepara lo que ya toca (desde la hora de Ajustes › Avisos, el día anterior a la cita): si una se pierde, la siguiente lo pone al día.
 Schedule::command('citas:preparar-recordatorios')
