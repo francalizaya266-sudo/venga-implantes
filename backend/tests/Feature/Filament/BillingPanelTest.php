@@ -293,6 +293,22 @@ class BillingPanelTest extends TestCase
         $this->assertSame(['4512', null, null], Payment::query()->orderBy('id')->pluck('reference')->all());
     }
 
+    public function test_caja_shows_each_payment_in_two_lines_on_a_phone_with_a_short_date(): void
+    {
+        $this->freezeMonday();
+        $patient = Patient::factory()->create();
+        $thisYear = Payment::factory()->for($patient)->create(['amount' => 80, 'paid_at' => '2026-11-02 10:40']);
+        $lastYear = Payment::factory()->for($patient)->create(['amount' => 60, 'paid_at' => '2025-12-30 17:15']);
+        $this->actingAs(User::factory()->reception()->create());
+
+        // La tarjeta compacta del celular sale de la clase de la lista (ver .pay-list en panel.css); el año, solo si no es este.
+        Livewire::test(ManagePayments::class)
+            ->removeTableFilter('paid_at')
+            ->assertSeeHtml('pay-list')
+            ->assertTableColumnFormattedStateSet('paid_at', '02/11 10:40', $thisYear)
+            ->assertTableColumnFormattedStateSet('paid_at', '30/12/2025 17:15', $lastYear);
+    }
+
     public function test_owing_balances_are_collected_from_caja_with_who_owes_most_first(): void
     {
         $owes = Patient::factory()->create();

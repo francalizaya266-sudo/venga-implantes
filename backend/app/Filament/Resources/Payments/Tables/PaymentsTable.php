@@ -33,12 +33,15 @@ class PaymentsTable
 
         return $table
             ->stackedOnMobile()
+            // En el celular, cada pago en dos líneas (ver .pay-list en panel.css).
+            ->extraAttributes(['class' => 'pay-list'])
             // La búsqueda del paciente separa las palabras ella misma: así "987 654 321" encuentra el celular.
             ->splitSearchTerms(false)
             ->columns([
                 TextColumn::make('paid_at')
                     ->label('Fecha')
-                    ->dateTime('d/m/Y H:i')
+                    // El año solo si no es este: así, en el celular, cada pago entra en dos líneas.
+                    ->dateTime(fn (Payment $record) => $record->paid_at->isCurrentYear() ? 'd/m H:i' : 'd/m/Y H:i')
                     ->sortable(),
                 TextColumn::make('patient.last_name')
                     ->label('Paciente')
