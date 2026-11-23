@@ -239,7 +239,8 @@
             <div class="odv-stage" x-bind:class="{ 'has-card': tooth }">
                 <div class="odv-sheet" x-ref="sheet" tabindex="0" aria-label="Odontograma: toca una pieza para ver su ficha; con el teclado, flechas para moverte" x-on:click="onSheetClick($event)">
                     <div class="odv-sides" aria-hidden="true"><span>Derecha del paciente</span><span>Izquierda del paciente</span></div>
-                    <div class="odv-scroll">
+                    {{-- En el celular el dibujo se desliza de lado: con el teclado también se llega (Tab) y se mueve (flechas). --}}
+                    <div class="odv-scroll" tabindex="0" role="region" aria-label="Dibujo de los dientes, se desliza de lado">
                         <x-odontogram-drawing :odontogram="$odontogram" :rows="$rows" :teeth="$teeth" :spans="$spans" :today="$today" :preview="$preview" interactive :editing="$canEdit" />
                     </div>
                 </div>
