@@ -546,6 +546,44 @@ class BookingControllerTest extends TestCase
             ->assertSee('DTSTART:20261102T150000Z');
     }
 
+    public function test_the_booked_screen_has_its_own_signed_address_that_survives_a_reload(): void
+    {
+        $this->freezeMonday();
+        $evaluation = Treatment::factory()->evaluation()->create();
+        $this->doctorOffering($evaluation);
+
+        $booked = $this->book($this->booking($evaluation))->assertCreated();
+        $appointment = Appointment::sole();
+        $pageUrl = $booked->json('data.page_url');
+        $signature = (string) str($pageUrl)->after('signature=');
+
+        $this->assertStringStartsWith("/reservar/cita/{$appointment->id}?signature=", $pageUrl);
+
+        // Al recargar (en el mismo celular, que quedó recordado), la página y la API muestran lo mismo que al reservar.
+        $this->withCookie(DeviceService::COOKIE, $booked->getCookie(DeviceService::COOKIE)->getValue());
+        $page = $this->get($pageUrl)->assertOk()->assertSee('<meta name="robots" content="noindex">', false);
+        $this->assertStringContainsString('Lunes 2 de noviembre', $page->getContent());
+        $again = $this->getJson(route('api.v1.booking.show', ['appointment' => $appointment, 'signature' => $signature]))
+            ->assertOk()
+            ->assertJsonPath('data.page_url', $pageUrl)
+            ->assertJsonPath('meta.noindex', true);
+        $this->assertSame(
+            collect($booked->json('data'))->except(['origins', 'origin_url'])->all(),
+            collect($again->json('data'))->except(['origins', 'origin_url'])->all(),
+        );
+
+        // Sin la firma, con otra o la de otra cita, no se ve.
+        $other = Appointment::factory()->at('2026-11-03 10:00')->create();
+        $this->getJson(route('api.v1.booking.show', ['appointment' => $appointment]))->assertNotFound();
+        $this->getJson(route('api.v1.booking.show', ['appointment' => $appointment, 'signature' => 'abc']))->assertNotFound();
+        $this->getJson(route('api.v1.booking.show', ['appointment' => $other, 'signature' => $signature]))->assertNotFound();
+        $this->get(route('site.booking.done', $other).'?signature='.$signature)->assertNotFound();
+
+        // Una cita cancelada ya no se muestra como reservada.
+        $appointment->update(['status' => AppointmentStatus::Cancelled, 'cancelled_at' => now()]);
+        $this->getJson(route('api.v1.booking.show', ['appointment' => $appointment, 'signature' => $signature]))->assertNotFound();
+    }
+
     public function test_how_they_found_us_is_asked_once_after_booking(): void
     {
         $this->freezeMonday();

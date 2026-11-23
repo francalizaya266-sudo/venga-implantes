@@ -209,6 +209,40 @@ class BookingController extends Controller
     }
 
     /**
+     * "¡Tu cita quedó reservada!" con su propia dirección, para que recargar la página no la pierda. La dirección va
+     * firmada, como la del calendario: solo la tiene quien reservó. Deja de mostrarse cuando la cita ya no está activa
+     * (se canceló o ya se atendió).
+     *
+     * @return array{data: array<string, mixed>, meta: array<string, mixed>}
+     */
+    public function show(Request $request, Appointment $appointment, PageMeta $meta): array
+    {
+        abort_unless(self::hasValidConfirmationSignature($request, $appointment) && $appointment->status->isChangeable(), 404);
+
+        $appointment->load(['patient.account', 'doctor', 'treatment', 'campaign']);
+        $device = $this->access->device($request);
+
+        return [
+            'data' => $this->confirmation($appointment, $device?->account_id === $appointment->patient->account_id ? $device : null, false),
+            'meta' => $meta->for(title: 'Tu cita quedó reservada', noindex: true),
+        ];
+    }
+
+    /** La dirección propia de "¡Tu cita quedó reservada!" (relativa y firmada). */
+    private static function confirmationUrl(Appointment $appointment): string
+    {
+        return URL::signedRoute('site.booking.done', ['appointment' => $appointment->getKey()], absolute: false);
+    }
+
+    /** La firma es la de la página: la API la acepta aunque su dirección sea otra. */
+    private static function hasValidConfirmationSignature(Request $request, Appointment $appointment): bool
+    {
+        parse_str((string) parse_url(self::confirmationUrl($appointment), PHP_URL_QUERY), $query);
+
+        return is_string($request->query('signature')) && hash_equals((string) ($query['signature'] ?? ''), $request->query('signature'));
+    }
+
+    /**
      * Lo que pidió el paciente, listo para AppointmentService: desde un celular recordado no se escribe el celular, y a
      * un familiar que ya existe no se le vuelven a pedir los datos.
      *
@@ -251,6 +285,8 @@ class BookingController extends Controller
         $hour = Dates::time($appointment->starts_at->format('H:i'));
 
         return [
+            // La dirección propia de esta pantalla: la web la abre al reservar y recargarla no la pierde.
+            'page_url' => self::confirmationUrl($appointment),
             'treatment' => $appointment->treatment->name,
             'when' => $day.', '.$hour,
             'who' => $appointment->patient->full_name.' · con '.$appointment->doctor->name,

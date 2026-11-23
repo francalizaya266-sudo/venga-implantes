@@ -26,6 +26,11 @@ Route::get('contacto', SpaController::class)->name('site.contact');
 Route::get('privacidad', SpaController::class)->name('site.privacy');
 Route::get('reservar', SpaController::class)->name('site.booking');
 
+// "¡Tu cita quedó reservada!" con su propia dirección: recargar no la pierde. Va firmada como la del calendario.
+Route::get('reservar/cita/{appointment}', SpaController::class)
+    ->whereNumber('appointment')
+    ->middleware('throttle:patient-pages')
+    ->name('site.booking.done');
 // "Guardar en mi calendario" al terminar de reservar. Firma relativa: vale igual detrás del proxy del hosting.
 Route::get('reservar/cita/{appointment}/calendario.ics', AppointmentCalendarController::class)
     ->middleware(['signed:relative', 'throttle:30,1'])

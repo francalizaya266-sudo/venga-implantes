@@ -44,6 +44,11 @@ Route::controller(BookingController::class)
         Route::get('days', 'days')->name('days');
         Route::get('slots', 'slots')->name('slots');
         Route::post('appointments', 'store')->name('store');
+        // La pantalla de la cita recién reservada. La firma es la de su página (web.php): la revisa el controlador.
+        Route::get('appointments/{appointment}', 'show')
+            ->whereNumber('appointment')
+            ->middleware('throttle:30,1')
+            ->name('show');
         // "¿Cómo nos conociste?" al terminar de reservar. Firma relativa: solo la tiene quien acaba de reservar.
         Route::post('appointments/{appointment}/origin', 'origin')
             ->middleware(['signed:relative', 'throttle:30,1'])

@@ -367,6 +367,8 @@ export interface BookingDays extends SlotPicker {
 }
 
 export interface BookedAppointment {
+  /** La dirección propia de "¡Tu cita quedó reservada!" (firmada): recargarla no la pierde. */
+  page_url: string;
   treatment: string;
   when: string;
   who: string;

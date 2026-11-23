@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import type { BookingOptions } from '@/api/types';
+import type { BookedAppointment, BookingOptions } from '@/api/types';
 import { mockApi, offline, renderApp } from '@/test/app';
 import {
   bookedAppointment,
@@ -8,6 +8,7 @@ import {
   bookingDevice,
   bookingOptions,
   bookingTreatment,
+  meta,
   page,
   slot,
 } from '@/test/fixtures';
@@ -19,6 +20,13 @@ const DAYS = '/api/v1/booking/days?treatment=3';
 const BOOK = 'POST /api/v1/booking/appointments';
 /** La dirección del último paso: el servicio, el día y la hora ya elegidos. */
 const DETAILS = '/reservar?tratamiento=limpieza-dental&fecha=2026-11-04&hora=09:00';
+/** La cita reservada, en su propia dirección firmada. */
+const BOOKED = '/api/v1/booking/appointments/9?signature=abc';
+
+/** La reserva hecha: lo que responde la API al reservar y lo que muestra después su propia dirección. */
+function booked(appointment: BookedAppointment = bookedAppointment()) {
+  return { [BOOK]: { status: 201, body: { data: appointment } }, [BOOKED]: page(appointment) };
+}
 
 /** La API de una reserva sencilla; cada prueba cambia lo que le importa. */
 function bookingApi(options: Partial<BookingOptions> = {}, answers: Parameters<typeof mockApi>[0] = {}) {
@@ -35,7 +43,7 @@ const summary = () => within(screen.getByRole('complementary', { name: 'Resumen 
 
 describe('BookingPage', () => {
   it('books an appointment in three steps', async () => {
-    const calls = bookingApi({}, { [BOOK]: { status: 201, body: { data: bookedAppointment() } } });
+    const calls = bookingApi({}, booked());
     const { user, router } = renderApp('/reservar');
 
     await step('¿Qué necesitas?');
@@ -88,8 +96,35 @@ describe('BookingPage', () => {
       '/reservar/cita/9/calendario?signature=abc',
     );
     expect(screen.queryByRole('list', { name: /Paso/ })).not.toBeInTheDocument();
-    // La dirección ya no lleva lo elegido: recargar o retroceder no vuelve al formulario enviado.
-    expect(router.state.location.search).toBe('');
+    // La pantalla tiene su propia dirección (firmada): recargar no la pierde, y retroceder no vuelve al formulario.
+    expect(router.state.location.pathname).toBe('/reservar/cita/9');
+    expect(router.state.location.search).toBe('?signature=abc');
+    expect(router.state.historyAction).toBe('REPLACE');
+  });
+
+  it('opens the booked screen again from its own address, as after reloading the page', async () => {
+    const calls = mockApi({ [BOOKED]: page(bookedAppointment({ remembered: true })) });
+    renderApp('/reservar/cita/9?signature=abc');
+
+    expect(await step('¡Tu cita quedó reservada!')).toHaveFocus();
+    expect(screen.getByText('Miércoles 4 de noviembre, 9:00 a. m.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Mi cuenta' })).toHaveAttribute('href', '/mi-cuenta');
+    expect(calls.map((call) => call.url)).toContain(BOOKED);
+  });
+
+  it('says it when the address of a booked appointment is not valid or the appointment was cancelled', async () => {
+    mockApi({
+      '/api/v1/booking/appointments/9?signature=otra': {
+        status: 404,
+        body: {
+          message: 'No encontramos esta página',
+          meta: meta({ title: 'No encontramos esta página', noindex: true }),
+        },
+      },
+    });
+    renderApp('/reservar/cita/9?signature=otra');
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'No encontramos esta página' })).toBeInTheDocument();
   });
 
   it('marks what the API did not accept, names it by the button and forgets it as it gets fixed', async () => {
@@ -332,15 +367,12 @@ describe('BookingPage', () => {
             promo_problem: 'No reconocimos el código NOEXISTE. Puedes reservar igual; lo revisamos en el consultorio.',
           }),
         ),
-        [BOOK]: {
-          status: 201,
-          body: {
-            data: bookedAppointment({
-              promo_notice:
-                'No reconocimos el código NOEXISTE. Igual reservamos tu cita; lo revisamos en el consultorio.',
-            }),
-          },
-        },
+        ...booked(
+          bookedAppointment({
+            promo_notice:
+              'No reconocimos el código NOEXISTE. Igual reservamos tu cita; lo revisamos en el consultorio.',
+          }),
+        ),
       },
     );
     const { user } = renderApp(DETAILS);
@@ -383,10 +415,7 @@ describe('BookingPage', () => {
   });
 
   it('from a remembered phone it asks who the appointment is for, not the number', async () => {
-    const calls = bookingApi(
-      { device: bookingDevice() },
-      { [BOOK]: { status: 201, body: { data: bookedAppointment({ remembered: true }) } } },
-    );
+    const calls = bookingApi({ device: bookingDevice() }, booked(bookedAppointment({ remembered: true })));
     const { user } = renderApp(DETAILS);
 
     await step('Tus datos');
@@ -406,10 +435,7 @@ describe('BookingPage', () => {
   });
 
   it('from a remembered phone another person is a relative of the holder', async () => {
-    const calls = bookingApi(
-      { device: bookingDevice() },
-      { [BOOK]: { status: 201, body: { data: bookedAppointment({ remembered: true }) } } },
-    );
+    const calls = bookingApi({ device: bookingDevice() }, booked(bookedAppointment({ remembered: true })));
     const { user } = renderApp(DETAILS);
 
     await step('Tus datos');
@@ -483,7 +509,7 @@ describe('BookingPage', () => {
     const calls = bookingApi(
       {},
       {
-        [BOOK]: { status: 201, body: { data: bookedAppointment() } },
+        ...booked(),
         'POST /api/v1/booking/appointments/9/origin?signature=abc': { message: '¡Gracias por contarnos!' },
       },
     );

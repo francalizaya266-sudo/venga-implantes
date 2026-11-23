@@ -14,7 +14,6 @@ import type {
   Slot,
 } from '@/api/types';
 import { withQuery } from '@/lib/paths';
-import { Booked } from '@/pages/booking/Booked';
 import { BookingSummary } from '@/pages/booking/BookingSummary';
 import { StepDetails, type BookingDetails } from '@/pages/booking/StepDetails';
 import { StepService } from '@/pages/booking/StepService';
@@ -26,8 +25,6 @@ const STEPS = ['Servicio', 'Día y hora', 'Tus datos'];
 interface StepState {
   /** El paso anterior quedó justo detrás en el historial: "Cambiar…" vuelve con el botón atrás. */
   follows?: boolean;
-  /** La cita recién reservada. */
-  booked?: BookedAppointment;
 }
 
 interface Props {
@@ -94,8 +91,7 @@ export function BookingWizard({ site, options, onPromoCode }: Props) {
       ? (daySlots.slots.find((option) => option.time === params.get('hora')) ?? null)
       : null;
 
-  const booked = state.booked ?? null;
-  const step = booked ? 4 : !treatment ? 1 : slot ? 3 : 2;
+  const step = !treatment ? 1 : slot ? 3 : 2;
   const loading = step === 2 && (!days || daysQuery.isFetching || daySlots.loading);
 
   const doctors = days?.doctors ?? [];
@@ -187,8 +183,9 @@ export function BookingWizard({ site, options, onPromoCode }: Props) {
 
       // La cita nueva ya cuenta en el inicio, en Mi cuenta y en los horarios libres.
       void queryClient.invalidateQueries();
-      // Con la cita ya reservada no se vuelve al formulario: retroceder ahí la reservaría dos veces.
-      go(addressOf({}), { booked: data }, true);
+      // "¡Tu cita quedó reservada!" tiene su propia dirección: recargarla no la pierde. Y con la cita ya reservada no
+      // se vuelve al formulario: retroceder ahí la reservaría dos veces.
+      void navigate(data.page_url, { state: { booked: data }, replace: true });
     } catch (problem) {
       if (problem instanceof ApiError && Object.keys(problem.fieldErrors).length) {
         setErrors(problem.fieldErrors);
@@ -207,20 +204,18 @@ export function BookingWizard({ site, options, onPromoCode }: Props) {
   }
 
   return (
-    <div ref={root} className={`stack-lg booking${step === 4 ? ' is-done' : ''}`}>
-      {step < 4 ? (
-        <ol className="steps" aria-label={`Paso ${step} de 3`}>
-          {STEPS.map((name, index) => (
-            <li
-              key={name}
-              className={index < step ? 'done' : undefined}
-              aria-current={index + 1 === step ? 'step' : undefined}
-            >
-              {name}
-            </li>
-          ))}
-        </ol>
-      ) : null}
+    <div ref={root} className="stack-lg booking">
+      <ol className="steps" aria-label={`Paso ${step} de 3`}>
+        {STEPS.map((name, index) => (
+          <li
+            key={name}
+            className={index < step ? 'done' : undefined}
+            aria-current={index + 1 === step ? 'step' : undefined}
+          >
+            {name}
+          </li>
+        ))}
+      </ol>
 
       {loading || busy ? <div className="loading-line" aria-hidden="true" /> : null}
 
@@ -231,7 +226,7 @@ export function BookingWizard({ site, options, onPromoCode }: Props) {
       ) : null}
 
       {/* La promoción con que llegó se ve en todos los pasos, para que sepa que va con ella. */}
-      {step < 4 && options.campaign ? (
+      {options.campaign ? (
         <div className="flash info">
           <p>
             Reservas con la promoción {options.campaign.name}
@@ -301,16 +296,12 @@ export function BookingWizard({ site, options, onPromoCode }: Props) {
         />
       ) : null}
 
-      {step === 4 && booked ? <Booked appointment={booked} clinic={site.clinic} howToPay={site.how_to_pay} /> : null}
-
-      {step < 4 ? (
-        <BookingSummary
-          treatment={treatment}
-          day={step >= 2 ? dayLabel : null}
-          time={step === 3 && slot ? slot.label : null}
-          doctor={chosenDoctor}
-        />
-      ) : null}
+      <BookingSummary
+        treatment={treatment}
+        day={step >= 2 ? dayLabel : null}
+        time={step === 3 && slot ? slot.label : null}
+        doctor={chosenDoctor}
+      />
     </div>
   );
 }

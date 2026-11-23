@@ -39,7 +39,7 @@ class OpenApiTest extends TestCase
             ->sortKeys()
             ->all();
 
-        $this->assertCount(36, $routes);
+        $this->assertCount(37, $routes);
         $this->assertSame($routes, $documented);
     }
 

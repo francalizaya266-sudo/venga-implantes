@@ -864,6 +864,74 @@
         }
       }
     },
+    "/booking/appointments/{appointment}": {
+      "get": {
+        "operationId": "booking.show",
+        "tags": [
+          "Reserva"
+        ],
+        "summary": "La cita recién reservada, con su propia dirección",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Appointment"
+          },
+          {
+            "name": "signature",
+            "in": "query",
+            "required": true,
+            "description": "La firma de la página /reservar/cita/{id}: viene en page_url de la reserva.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lo mismo que respondió la reserva.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/BookedAppointment"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PageMeta"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "La firma no vale, la cita no existe o ya no está activa (se canceló o ya se atendió).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Demasiados pedidos seguidos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/booking/appointments/{appointment}/origin": {
       "post": {
         "operationId": "booking.origin",
@@ -2779,6 +2847,7 @@
       "BookedAppointment": {
         "type": "object",
         "required": [
+          "page_url",
           "treatment",
           "when",
           "who",
@@ -2792,6 +2861,10 @@
           "promo_notice"
         ],
         "properties": {
+          "page_url": {
+            "type": "string",
+            "description": "La dirección propia de \"¡Tu cita quedó reservada!\" (/reservar/cita/{id}?signature=…): recargarla no la pierde."
+          },
           "treatment": {
             "type": "string"
           },
