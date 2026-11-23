@@ -41,7 +41,8 @@ class SummaryStats extends StatsOverviewWidget
         $before = $this->activity($previousPeriod);
         $count = fn (float $n) => number_format($n);
 
-        return array_values(array_filter([
+        // Sin meta (otro período, un doctor o sin meta en Ajustes), solo los cuatro números: la meta va al final.
+        return array_filter([
             StatComparison::make('Citas atendidas', $activity->attended(), $before->attended(), $previousPeriod, $count)
                 ->icon('heroicon-o-check-badge'),
             StatComparison::make('Pacientes nuevos', $activity->newPatients(), $before->newPatients(), $previousPeriod, $count)
@@ -53,7 +54,7 @@ class SummaryStats extends StatsOverviewWidget
             StatComparison::points('Inasistencias', $activity->noShowRate(), $before->noShowRate(), $previousPeriod, higherIsBetter: false)
                 ->icon('heroicon-o-user-minus'),
             $this->goal(),
-        ]));
+        ]);
     }
 
     private function collected(): float

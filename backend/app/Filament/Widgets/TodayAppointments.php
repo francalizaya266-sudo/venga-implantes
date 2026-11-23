@@ -9,10 +9,12 @@ use App\Filament\Pages\Agenda;
 use App\Filament\Pages\Dashboard;
 use App\Filament\Resources\Appointments\AppointmentResource;
 use App\Filament\Resources\Appointments\Tables\AppointmentsTable;
+use App\Models\Account;
 use App\Models\Appointment;
 use App\Models\Charge;
 use App\Models\Doctor;
 use App\Models\Patient;
+use App\Models\Treatment;
 use App\Models\User;
 use App\Services\Dashboard\OpenDays;
 use App\Support\Dates;
@@ -112,7 +114,7 @@ class TodayAppointments extends TableWidget
                                 ->wrap()
                                 ->lineClamp(2)
                                 // Los valores de extraAttributes no se escapan al pintarse: el nombre lo escribe cualquiera.
-                                ->extraAttributes(fn (Appointment $record) => ['class' => 'dash-appt-name', 'title' => e($record->patient->full_name)])
+                                ->extraAttributes(fn (?string $state) => ['class' => 'dash-appt-name', 'title' => e($state)])
                                 ->grow(false),
                             Split::make([
                                 TextColumn::make('status')->badge()->grow(false),
@@ -439,11 +441,17 @@ class TodayAppointments extends TableWidget
     {
         /** @var Patient $patient */
         $patient = $record->patient;
+        /** @var Account|null $account */
+        $account = $patient->account;
+        /** @var Treatment|null $treatment */
+        $treatment = $record->treatment;
+        /** @var Doctor|null $doctor */
+        $doctor = $record->doctor;
 
         return collect([
-            $record->treatment?->name,
-            $patient->account ? str_replace(' ', "\u{00A0}", Phone::display($patient->account->phone)) : null,
-            $this->showsDoctorInRows() ? $record->doctor?->name : null,
+            $treatment?->name,
+            $account ? str_replace(' ', "\u{00A0}", Phone::display($account->phone)) : null,
+            $this->showsDoctorInRows() ? $doctor?->name : null,
         ])->filter()->implode(' · ');
     }
 
