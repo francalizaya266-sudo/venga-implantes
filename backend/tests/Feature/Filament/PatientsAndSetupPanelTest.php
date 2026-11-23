@@ -641,6 +641,24 @@ class PatientsAndSetupPanelTest extends TestCase
             ->assertSchemaStateSet(['amount' => 120.0]);
     }
 
+    public function test_a_doctor_lists_her_patients_without_their_balance_or_the_collect_button(): void
+    {
+        $this->freezeMonday();
+        $treatment = Treatment::factory()->create();
+        $doctor = $this->doctorOffering($treatment);
+        $rosa = Patient::factory()->create(['first_name' => 'Rosa', 'last_name' => 'Quispe']);
+        Charge::factory()->for($rosa)->create(['amount' => 120]);
+        Appointment::factory()->for($doctor)->for($treatment)->for($rosa)->at('2026-10-20 10:00')->create(['status' => AppointmentStatus::Completed]);
+        $this->actingAs($doctor->user);
+
+        // La lista del doctor no trae los saldos: el menú de la fila no los lee, ni siquiera para ocultar "Cobrar".
+        Livewire::test(ListPatients::class)
+            ->assertCanSeeTableRecords([$rosa])
+            ->assertTableColumnHidden('balance_due')
+            ->assertActionHidden(TestAction::make('registerPayment')->table($rosa))
+            ->assertDontSee('Debe S/ 120.00');
+    }
+
     public function test_the_patient_file_puts_the_profile_beside_its_tabs_and_charges_only_who_owes(): void
     {
         $this->freezeMonday();
