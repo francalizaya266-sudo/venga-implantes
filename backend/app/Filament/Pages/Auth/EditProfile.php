@@ -61,6 +61,7 @@ class EditProfile extends BaseEditProfile
                     ->visible(fn () => $this->doctor() !== null)
                     ->schema([
                         TextEntry::make('schedule')
+                            ->label('Tu horario de atención')
                             ->hiddenLabel()
                             ->state(fn () => $this->scheduleInWords())
                             ->listWithLineBreaks()

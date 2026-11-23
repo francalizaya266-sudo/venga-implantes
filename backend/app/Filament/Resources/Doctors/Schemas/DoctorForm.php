@@ -365,6 +365,7 @@ class DoctorForm
                     ->columns(2)
                     ->schema([
                         ToggleButtons::make('access')
+                            ->label('Acceso al panel')
                             ->hiddenLabel()
                             ->options(fn (?Doctor $record) => $record?->user_id
                                 ? [self::ACCESS_EXISTING => 'Entra con su usuario']
@@ -430,6 +431,7 @@ class DoctorForm
                     ])
                     ->schema([
                         WeeklySchedule::make('schedules')
+                            ->label('Horario de atención')
                             ->hiddenLabel()
                             ->relationship(modifyQueryUsing: fn (Builder $query) => $query->orderBy('weekday')->orderBy('starts_at'))
                             ->schema([

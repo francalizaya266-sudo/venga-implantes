@@ -185,6 +185,7 @@ final class WaitlistEntryActions
                         ->extraAttributes(['class' => 'appointment-summary'])
                         ->schema([
                             Textarea::make('body')
+                                ->label('Mensaje')
                                 ->hiddenLabel()
                                 ->placeholder('Elige un horario y aquí queda el mensaje listo.')
                                 ->rows(9)
