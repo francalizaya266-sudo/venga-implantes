@@ -12,3 +12,17 @@ export function textOf(html: string): string {
 export function keepAmountTogether(price: string): string {
   return price.replaceAll('S/ ', 'S/\u00a0');
 }
+
+/**
+ * El nombre de un doctor como se dice dentro de una frase, con su artículo: "con la Dra. Ana Torres", "con el Dr.
+ * Luis Ramos". Sin "Dr." ni "Dra." delante, va tal cual.
+ */
+export function withArticle(name: string): string {
+  if (/^(dra\.|doctora)\s/i.test(name)) {
+    return `la ${name}`;
+  }
+  if (/^(dr\.|doctor)\s/i.test(name)) {
+    return `el ${name}`;
+  }
+  return name;
+}

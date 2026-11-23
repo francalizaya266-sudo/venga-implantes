@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { PickerDay, Slot } from '@/api/types';
+import { withArticle } from '@/lib/text';
 
 interface Props {
   /** Los días con horarios libres. */
@@ -17,8 +18,8 @@ interface Props {
   full?: boolean;
   /** El nivel de los dos títulos ("Día" y el día elegido). */
   headingLevel?: 'h2' | 'h3';
-  /** Se buscó con un doctor en particular: si no hay horarios, se dice. */
-  withDoctor?: boolean;
+  /** Se buscó con un doctor en particular: su nombre, para decir con quién no hay horarios. */
+  doctor?: string | null;
 }
 
 /** Días con horarios libres y los horarios del día elegido, primero los que no dejan huecos en la agenda. */
@@ -32,14 +33,14 @@ export function SlotPicker({
   note = null,
   full = false,
   headingLevel: Heading = 'h2',
-  withDoctor = false,
+  doctor = null,
 }: Props) {
   if (!days.length) {
     return (
       <div className="panel">
         <p>
-          No encontramos horarios libres en las próximas semanas{withDoctor ? ' con este doctor' : ''}. Escríbenos por
-          WhatsApp y te buscamos un espacio.
+          No encontramos horarios libres en las próximas semanas{doctor ? ` con ${withArticle(doctor)}` : ''}.
+          Escríbenos por WhatsApp y te buscamos un espacio.
         </p>
       </div>
     );

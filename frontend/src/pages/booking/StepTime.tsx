@@ -61,7 +61,7 @@ export function StepTime({ treatment, days, date, slots, onBack, onDoctor, onDat
           onDate={onDate}
           onTime={onTime}
           headingLevel="h3"
-          withDoctor={days.doctor_id !== null}
+          doctor={days.doctors.find((doctor) => doctor.id === days.doctor_id)?.name ?? null}
         />
       </div>
     </section>

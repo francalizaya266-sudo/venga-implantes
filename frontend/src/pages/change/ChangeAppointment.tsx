@@ -142,7 +142,7 @@ export function ChangeAppointment({ change, resource, back }: Props) {
               onTime={pick}
               note={note}
               full={full}
-              withDoctor
+              doctor={change.appointment.doctor}
             />
 
             {chosen.length ? (

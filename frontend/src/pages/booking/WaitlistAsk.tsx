@@ -3,6 +3,7 @@ import { useAction } from '@/api/actions';
 import { apiUrl } from '@/api/client';
 import type { BookingDevice, BookingTreatment } from '@/api/types';
 import { paths } from '@/lib/paths';
+import { withArticle } from '@/lib/text';
 
 /** A qué hora puede venir, con las palabras del panel (App\Enums\DayPeriod). */
 const PERIODS = [
@@ -113,7 +114,7 @@ export function WaitlistAsk({ treatment, doctor, device, noTimes }: Props) {
         <>
           <p>
             Te anotamos en nuestra lista de espera y te escribimos por WhatsApp si se libera un horario
-            {doctor ? ` con ${doctor.name}` : ''}.
+            {doctor ? ` con ${withArticle(doctor.name)}` : ''}.
           </p>
           <button type="button" className="btn quiet" onClick={() => setOpen(true)}>
             Avísame si se libera un horario

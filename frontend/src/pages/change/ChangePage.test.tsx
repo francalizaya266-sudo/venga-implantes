@@ -176,7 +176,7 @@ describe('changing the time of an appointment', () => {
     renderApp(PATH);
 
     expect(
-      await screen.findByText(/No encontramos horarios libres en las próximas semanas con este doctor\./),
+      await screen.findByText(/No encontramos horarios libres en las próximas semanas con la Dra\. Vega\./),
     ).toBeInTheDocument();
   });
 
