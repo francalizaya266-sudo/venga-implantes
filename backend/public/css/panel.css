@@ -1610,25 +1610,23 @@ summary.dash-block-title:focus-visible { outline: 2px solid var(--primary-500); 
 .dark .dash-count.is-warning { background: var(--gray-200); color: var(--gray-900); }
 .dash-hint { margin: .15rem 0 0; font-size: .8rem; color: var(--gray-500); }
 
-/* El mes de un vistazo: va en la columna ancha, así que las cifras van un poco más chicas para que
-   "S/ 47,035.00" entre en una línea; en el celular, de a dos y más chicas aún. */
 /* Sin esto, el texto bajo el título no baja de línea y la tarjeta se sale de su columna. */
 /* Vale para toda sección (también Resumen y Ganancias en el celular, donde las cifras se salían por la derecha). */
 .fi-section { grid-template-columns: minmax(0, 1fr); }
 .fi-section-header > * { min-width: 0; }
-.dash-month .fi-wi-stats-overview-stat-value { font-size: 1.5rem; line-height: 2rem; font-weight: 600; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
-/* La línea de lo cobrado en 30 días es para ver la forma, no para alarmar: va en el azul de la marca, apagado. Si
-   el mes va mejor o peor lo dice el texto de abajo, en su color. */
-.dash-month .fi-wi-stats-overview-stat-chart-border-color { color: var(--primary-300) !important; }
-.dash-month .fi-wi-stats-overview-stat-chart-bg-color { color: color-mix(in oklab, var(--primary-100) 45%, transparent) !important; }
-.dark .dash-month .fi-wi-stats-overview-stat-chart-border-color { color: var(--primary-500) !important; }
-.dark .dash-month .fi-wi-stats-overview-stat-chart-bg-color { color: color-mix(in oklab, var(--primary-500) 12%, transparent) !important; }
-@media (max-width: 40rem) {
-    .dash-month { gap: .75rem; }
-    .dash-month .fi-wi-stats-overview-stat { padding: .85rem; }
-    .dash-month .fi-wi-stats-overview-stat-value { font-size: 1.2rem; line-height: 1.5rem; overflow-wrap: anywhere; }
-    .dash-month .fi-wi-stats-overview-stat-description { font-size: .72rem; }
-}
+/* El mes en una línea, al final de "Hoy": lo cobrado y "Ver reportes". Toda la línea lleva a Reportes. */
+.dash-month { display: flex; flex-wrap: wrap; align-items: center; gap: .25rem .6rem; padding: .7rem 1rem; border-radius: .85rem; background: #fff; box-shadow: var(--app-card-shadow); font-size: .875rem; line-height: 1.4; color: var(--gray-600); text-decoration: none; }
+.dash-month:focus-visible { outline: 2px solid var(--primary-500); outline-offset: 2px; }
+.dash-month-icon { width: 1.1rem; height: 1.1rem; flex: none; color: var(--gray-400); }
+.dash-month-text { flex: 1 1 auto; min-width: 0; }
+.dash-month-text strong { font-weight: 600; color: var(--gray-950); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.dash-month-more { display: inline-flex; align-items: center; gap: .3rem; flex: none; margin-left: auto; font-size: .8125rem; font-weight: 600; color: var(--primary-600); }
+.dash-month-more-icon { width: 1rem; height: 1rem; }
+.dash-month:hover .dash-month-more { text-decoration: underline; }
+.dark .dash-month { background: var(--gray-900); color: var(--gray-400); }
+.dark .dash-month-icon { color: var(--gray-500); }
+.dark .dash-month-text strong { color: #fff; }
+.dark .dash-month-more { color: var(--primary-400); }
 
 .dash-rows { margin: .5rem 0 0; padding: 0; list-style: none; display: grid; }
 .dash-rows li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .4rem .75rem; padding: .5rem 0; border-top: 1px dashed var(--gray-200); }

@@ -11,10 +11,11 @@ use App\Support\Money;
 use Carbon\CarbonImmutable;
 
 /**
- * Lo cobrado día por día en los últimos 30 días, debajo de "Noviembre hasta hoy": para ver la forma del mes
- * (los días flojos, los buenos) sin entrar a Reportes. Solo para el administrador y al fondo de la página: el
- * inicio no es un panel de estadísticas. Carga después del resto y usa las mismas cifras del mes: se
- * actualiza con "Hoy", así que lo cobrado hoy sube al cobrar. Hoy va más claro: el día sigue.
+ * Lo cobrado día por día en los últimos 30 días, en Reportes debajo de los ingresos por mes: para ver la forma del
+ * mes (los días flojos, los buenos). Antes iba al final de "Hoy", que ahora dice el mes en una línea: el inicio no
+ * es un panel de estadísticas. Como los ingresos por mes, no depende del período elegido, sí del doctor. Solo para
+ * el administrador. Usa las mismas cifras del mes, así que lo cobrado hoy sube al cobrar. Hoy va más claro: el día
+ * sigue.
  */
 class MonthTrendChart extends ReportChart
 {
@@ -45,7 +46,7 @@ class MonthTrendChart extends ReportChart
 
     protected function chartData(): array
     {
-        $daily = (new MonthFigures)->figures()['daily_collected'];
+        $daily = (new MonthFigures($this->reportDoctorId()))->figures()['daily_collected'];
 
         return [
             'labels' => array_map(fn (int $offset): string => ucfirst($this->day($offset)->translatedFormat('D j M')), array_keys($daily)),

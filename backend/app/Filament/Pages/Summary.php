@@ -3,6 +3,7 @@
 namespace App\Filament\Pages;
 
 use App\Filament\Pages\Concerns\HasReportFilters;
+use App\Filament\Widgets\MonthTrendChart;
 use App\Filament\Widgets\Reports\BusiestHoursChart;
 use App\Filament\Widgets\Reports\IncomeByMonthChart;
 use App\Filament\Widgets\Reports\IncomeByTreatmentChart;
@@ -39,6 +40,7 @@ class Summary extends BaseDashboard
         return [
             SummaryStats::class,
             IncomeByMonthChart::class,
+            MonthTrendChart::class,
             IncomeByTreatmentChart::class,
             BusiestHoursChart::class,
             NewVsReturningChart::class,
