@@ -4,7 +4,7 @@ import { createRoot } from 'react-dom/client';
 import { RouterProvider } from 'react-router/dom';
 import { preloadedData } from '@/api/client';
 import { retry } from '@/api/queries';
-import { createAppRouter } from '@/app/router';
+import { createAppRouter, prefetchPages } from '@/app/router';
 import '@/styles/site.css';
 
 const container = document.getElementById('app');
@@ -35,3 +35,6 @@ createRoot(container).render(
     </QueryClientProvider>
   </StrictMode>,
 );
+
+// Las demás páginas se bajan en un rato libre, después de pintar la primera.
+prefetchPages();

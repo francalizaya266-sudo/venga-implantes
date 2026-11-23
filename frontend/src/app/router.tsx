@@ -4,6 +4,9 @@ import { Root } from '@/app/Root';
 import { ErrorPage } from '@/pages/ErrorPage';
 import { HomePage } from '@/pages/HomePage';
 
+/** Cómo se baja el código de cada página que no viene en el archivo principal (prefetchPages los usa). */
+const pageLoaders: (() => Promise<unknown>)[] = [];
+
 /**
  * Una página cuyo código se descarga recién al abrirla. El inicio, que es por donde entra casi todo el mundo, va
  * en el archivo principal; la reserva, Mi cuenta y las demás páginas, cada una en el suyo. Al pasar de una página
@@ -13,7 +16,35 @@ function onDemand<Name extends string, Module extends Record<Name, ComponentType
   name: Name,
   load: () => Promise<Module>,
 ) {
+  pageLoaders.push(load);
+
   return lazy(async () => ({ default: (await load())[name] }));
+}
+
+/**
+ * Con la primera página ya en pantalla, el navegador baja el código de las demás en un rato libre: así, al tocar
+ * "Reservar cita" o el menú, la página sale de una vez y no espera su archivo. Con el ahorro de datos activado no
+ * se adelanta nada: cada página se baja al abrirla.
+ */
+export function prefetchPages(): void {
+  const connection = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection;
+
+  if (connection?.saveData) {
+    return;
+  }
+
+  const prefetch = () => {
+    for (const load of pageLoaders) {
+      // Es solo un adelanto: si no llega (sin señal), no hay nada que avisar.
+      load().catch(() => undefined);
+    }
+  };
+
+  if (typeof window.requestIdleCallback === 'function') {
+    window.requestIdleCallback(prefetch, { timeout: 5000 });
+  } else {
+    window.setTimeout(prefetch, 2000);
+  }
 }
 
 const AccountPage = onDemand('AccountPage', () => import('@/pages/account/AccountPage'));
