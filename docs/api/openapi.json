@@ -2621,7 +2621,7 @@
         "additionalProperties": false
       },
       "AccountData": {
-        "description": "Sin celular recordado solo dice \"guest: true\". Planes, saldos, citas pasadas y datos de la familia llegan solo con el acceso verificado por enlace (\"elevated\"); si no, son null.",
+        "description": "Sin celular recordado solo dice \"guest: true\". Planes, saldos, citas pasadas y datos de la familia llegan cuando este celular tocó un enlace que llegó al WhatsApp del número (\"elevated\"), y siguen llegando hasta que salga; si solo reservó con un número nuevo, son null.",
         "oneOf": [
           {
             "type": "object",

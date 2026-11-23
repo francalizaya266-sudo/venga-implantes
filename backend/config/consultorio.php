@@ -176,10 +176,9 @@ return [
         ],
 
         'devices' => [
-            // El dispositivo deja de estar recordado tras estos días sin uso.
-            'remember_days' => 120,
-            // Minutos que dura la verificación reforzada (citas pasadas, datos personales).
-            'elevated_minutes' => 15,
+            // El celular deja de estar recordado tras estos días sin entrar; cada visita los renueva. Los navegadores
+            // no guardan una cookie más de 400 días.
+            'remember_days' => 400,
         ],
 
         'plans' => [

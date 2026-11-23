@@ -50,16 +50,12 @@ class AccountControllerTest extends TestCase
         $this->child = Patient::factory()->dependentOf($this->account)->create(['first_name' => 'Mateo']);
     }
 
-    private function rememberDevice(?Account $account = null, string $token = 'este-celular'): static
+    /** @param  bool  $verified  Si tocó un enlace del número; si solo reservó con un número nuevo, no. */
+    private function rememberDevice(?Account $account = null, string $token = 'este-celular', bool $verified = true): static
     {
-        RememberedDevice::create(['account_id' => ($account ?? $this->account)->id, 'token_hash' => hash('sha256', $token), 'expires_at' => now()->addMonth(), 'verified_at' => now()]);
+        RememberedDevice::create(['account_id' => ($account ?? $this->account)->id, 'token_hash' => hash('sha256', $token), 'expires_at' => now()->addMonth(), 'verified_at' => $verified ? now() : null]);
 
         return $this->withCookie(DeviceService::COOKIE, $token);
-    }
-
-    private function elevate(): static
-    {
-        return $this->withSession(['patient.elevated_until' => now()->addMinutes(10)->getTimestamp()]);
     }
 
     private function mateoHalfwayThroughHisPlan(Doctor $doctor): TreatmentPlan
@@ -83,14 +79,14 @@ class AccountControllerTest extends TestCase
             ->assertJsonPath('meta.noindex', true);
     }
 
-    public function test_a_remembered_device_sees_the_family_upcoming_appointments_but_not_personal_data(): void
+    public function test_a_phone_that_only_booked_sees_the_family_upcoming_appointments_but_not_personal_data(): void
     {
         $upcoming = Appointment::factory()->for($this->child)->at('2026-11-04 10:00')->confirmed()->create();
         Appointment::factory()->for($this->mother)->at('2026-10-20 10:00')->create(['status' => AppointmentStatus::Completed]);
         // La cita de otra familia no se ve desde este celular.
         Appointment::factory()->at('2026-11-04 11:00')->create();
 
-        $this->rememberDevice()
+        $this->rememberDevice(verified: false)
             ->getJson(route('api.v1.account.show'))
             ->assertOk()
             ->assertJsonPath('data.guest', false)
@@ -104,7 +100,7 @@ class AccountControllerTest extends TestCase
             ->assertJsonPath('data.upcoming.0.tone', 'ok')
             ->assertJsonPath('data.upcoming.0.when', "Miércoles 4 de noviembre, 10:00\u{00A0}a.\u{00A0}m.")
             ->assertJsonPath('data.upcoming.0.what', $upcoming->treatment->name.' · '.$upcoming->doctor->name)
-            // Sin verificar de nuevo no viajan planes, pagos, citas pasadas ni datos personales.
+            // Hasta que toque un enlace del número no viajan planes, pagos, citas pasadas ni datos personales.
             ->assertJsonPath('data.elevated', false)
             ->assertJsonPath('data.plans', null)
             ->assertJsonPath('data.balances', null)
@@ -112,7 +108,7 @@ class AccountControllerTest extends TestCase
             ->assertJsonPath('data.family', null);
     }
 
-    public function test_entering_with_the_access_link_remembers_the_device_and_shows_history_for_a_while(): void
+    public function test_entering_with_the_access_link_keeps_this_phone_showing_everything_until_it_leaves(): void
     {
         Appointment::factory()->for($this->mother)->at('2026-10-20 10:00')->create(['status' => AppointmentStatus::Completed]);
         $token = basename(app(MagicLinkService::class)->issue($this->account, MagicLinkPurpose::Access));
@@ -139,13 +135,30 @@ class AccountControllerTest extends TestCase
             ->assertJsonFragment(['name' => $this->mother->full_name, 'relationship' => 'Titular', 'document' => '40123456'])
             ->assertJsonPath('data.past.0.date', '20/10/2026');
 
-        $this->travel(20)->minutes();
+        // No vence a los minutos: el mismo celular sigue viendo todo meses después, sin pedir otro enlace.
+        $this->travel(10)->months();
 
         $this->getJson(route('api.v1.account.show'))
             ->assertOk()
-            ->assertJsonPath('data.holder.first_name', 'Rosa')
-            ->assertJsonPath('data.elevated', false)
-            ->assertJsonPath('data.family', null);
+            ->assertJsonPath('data.elevated', true)
+            ->assertJsonPath('data.past.0.date', '20/10/2026');
+
+        $this->postJson(route('api.v1.account.logout'))->assertOk();
+
+        $this->getJson(route('api.v1.account.show'))->assertOk()->assertJsonPath('data.guest', true);
+    }
+
+    public function test_a_phone_that_goes_more_than_400_days_without_entering_asks_for_a_new_link(): void
+    {
+        $token = basename(app(MagicLinkService::class)->issue($this->account, MagicLinkPurpose::Access));
+        $device = $this->postJson(route('api.v1.links.enter', $token))->getCookie(DeviceService::COOKIE)->getValue();
+
+        $this->travel(399)->days();
+        $this->withCookie(DeviceService::COOKIE, $device)->getJson(route('api.v1.account.show'))->assertJsonPath('data.elevated', true);
+
+        // Cada visita renueva los 400 días; sin entrar en todo ese tiempo, el celular deja de estar recordado.
+        $this->travel(401)->days();
+        $this->getJson(route('api.v1.account.show'))->assertJsonPath('data.guest', true);
     }
 
     public function test_after_checking_it_is_them_the_family_sees_its_plans_what_was_done_paid_and_the_next_cuota(): void
@@ -168,7 +181,6 @@ class AccountControllerTest extends TestCase
         TreatmentPlan::create(['patient_id' => $this->mother->id, 'doctor_id' => $doctor->id, 'title' => 'Carillas por aceptar', 'status' => TreatmentPlanStatus::Proposed]);
 
         $this->rememberDevice()
-            ->elevate()
             ->getJson(route('api.v1.account.show'))
             ->assertOk()
             // El más reciente va primero: el plan incluido en el 2x1 no tiene costo.
@@ -260,8 +272,7 @@ class AccountControllerTest extends TestCase
             ->assertJsonPath('data.welcome.appointments.*.kicker', ['Cita de Carlos', 'Tu cita']);
 
         // Mientras nadie la confirme, Carlos no figura entre los datos de la familia.
-        $this->elevate()
-            ->getJson(route('api.v1.account.show'))
+        $this->getJson(route('api.v1.account.show'))
             ->assertOk()
             ->assertJsonMissing(['name' => 'Carlos Mamani Soto']);
 
@@ -354,16 +365,26 @@ class AccountControllerTest extends TestCase
             ->assertJsonPath('message', 'Ya recibimos tu pedido. Te escribiremos pronto por WhatsApp.');
     }
 
-    public function test_the_remembered_device_asks_for_the_link_that_shows_the_personal_data(): void
+    public function test_a_phone_that_only_booked_asks_for_the_link_and_after_tapping_it_sees_the_personal_data(): void
     {
         $this->postJson(route('api.v1.account.verification'))->assertForbidden();
 
-        $this->rememberDevice()
+        $this->rememberDevice(verified: false)
             ->postJson(route('api.v1.account.verification'))
             ->assertOk()
-            ->assertJsonPath('message', 'Te enviaremos un enlace por WhatsApp. Al tocarlo, verás tus planes, pagos, citas anteriores y datos durante unos minutos.');
+            ->assertJsonPath('message', 'Te enviaremos un enlace por WhatsApp. Al tocarlo, verás en este celular tus planes, pagos, citas anteriores y datos.');
 
         $this->assertSame(1, WhatsappMessage::where('template_key', MessageTemplateKey::AccessLink)->count());
+
+        // Toca el enlace desde el mismo celular: queda verificado, sin otro celular recordado.
+        $token = basename(app(MagicLinkService::class)->issue($this->account, MagicLinkPurpose::Access));
+        $this->postJson(route('api.v1.links.enter', $token))->assertOk();
+
+        $this->getJson(route('api.v1.account.show'))
+            ->assertOk()
+            ->assertJsonPath('data.elevated', true)
+            ->assertJsonFragment(['name' => $this->mother->full_name, 'relationship' => 'Titular']);
+        $this->assertSame(1, RememberedDevice::whereBelongsTo($this->account)->whereNull('revoked_at')->count());
     }
 
     public function test_the_family_confirms_and_cancels_from_my_account(): void

@@ -35,6 +35,7 @@ use App\Models\Charge;
 use App\Models\Doctor;
 use App\Models\Patient;
 use App\Models\Payment;
+use App\Models\RememberedDevice;
 use App\Models\ScheduleBlock;
 use App\Models\Setting;
 use App\Models\SmileCase;
@@ -104,6 +105,29 @@ class PatientsAndSetupPanelTest extends TestCase
             ->callAction('unblock');
 
         $this->assertFalse($account->fresh()->isBlocked());
+    }
+
+    public function test_reception_closes_my_account_on_the_phones_of_a_patient_who_lost_theirs(): void
+    {
+        $account = Account::factory()->create();
+        $other = Account::factory()->create();
+        $remember = fn (Account $owner, string $token) => RememberedDevice::create(['account_id' => $owner->id, 'token_hash' => hash('sha256', $token), 'expires_at' => now()->addYear(), 'verified_at' => now()]);
+        $phone = $remember($account, 'celular-perdido');
+        $tablet = $remember($account, 'tableta');
+        $neighbour = $remember($other, 'otra-familia');
+        $this->actingAs(User::factory()->reception()->create());
+
+        Livewire::test(ViewAccount::class, ['record' => $account->getKey()])
+            ->callAction('forgetDevices')
+            ->assertNotified('Mi cuenta quedó cerrada en 2 celulares');
+
+        $this->assertNotNull($phone->fresh()->revoked_at);
+        $this->assertNotNull($tablet->fresh()->revoked_at);
+        $this->assertNull($neighbour->fresh()->revoked_at);
+
+        // Ya no hay celulares abiertos: la acción deja de ofrecerse.
+        Livewire::test(ViewAccount::class, ['record' => $account->getKey()])
+            ->assertActionHidden('forgetDevices');
     }
 
     public function test_payments_are_voided_not_deleted_and_leave_the_total(): void

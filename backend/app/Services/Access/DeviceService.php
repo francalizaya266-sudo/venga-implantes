@@ -10,21 +10,19 @@ use Illuminate\Support\Facades\Cookie;
 use Illuminate\Support\Str;
 
 /**
- * Dispositivo recordado: el paciente reserva con un toque y ve sus próximas citas.
- * Para citas pasadas o datos personales se pide una verificación reforzada
- * (un enlace nuevo por WhatsApp) que dura pocos minutos en la sesión.
+ * Dispositivo recordado: el paciente reserva con un toque y ve sus próximas citas. Cuando desde ese celular se tocó
+ * un enlace que llegó al WhatsApp del número, también ve sus planes, pagos, citas pasadas y datos, hasta que toque
+ * "Salir en este celular", pase mucho tiempo sin entrar o el consultorio cierre Mi cuenta en sus celulares.
  */
 class DeviceService
 {
     public const COOKIE = 'cd_device';
 
-    private const ELEVATED_SESSION_KEY = 'patient.elevated_until';
-
     /** @param  bool  $verified  Si llegó con un enlace del número; si no, queda sin verificar hasta que toque uno. */
     public function remember(Account $account, Request $request, bool $verified = true): RememberedDevice
     {
         $token = Str::random(48);
-        $days = (int) Setting::get('devices.remember_days', 120);
+        $days = (int) Setting::get('devices.remember_days', 400);
 
         $device = $account->rememberedDevices()->create([
             'token_hash' => hash('sha256', $token),
@@ -61,7 +59,7 @@ class DeviceService
 
         $device->forceFill([
             'last_used_at' => now(),
-            'expires_at' => now()->addDays((int) Setting::get('devices.remember_days', 120)),
+            'expires_at' => now()->addDays((int) Setting::get('devices.remember_days', 400)),
         ])->save();
 
         return $device;
@@ -90,25 +88,16 @@ class DeviceService
             RememberedDevice::query()->where('token_hash', hash('sha256', $token))->update(['revoked_at' => now()]);
         }
 
-        session()->forget(self::ELEVATED_SESSION_KEY);
         Cookie::queue(Cookie::forget(self::COOKIE));
     }
 
-    /** "Cerrar sesión en todos mis dispositivos". */
-    public function forgetAll(Account $account): void
+    /**
+     * Desde el panel, si el paciente perdió o cambió de celular: Mi cuenta deja de estar abierta en todos los suyos.
+     *
+     * @return int Cuántos celulares dejaron de estar recordados.
+     */
+    public function forgetAll(Account $account): int
     {
-        $account->rememberedDevices()->whereNull('revoked_at')->update(['revoked_at' => now()]);
-        Cookie::queue(Cookie::forget(self::COOKIE));
-    }
-
-    public function elevate(): void
-    {
-        $minutes = (int) Setting::get('devices.elevated_minutes', 15);
-        session()->put(self::ELEVATED_SESSION_KEY, now()->addMinutes($minutes)->getTimestamp());
-    }
-
-    public function isElevated(): bool
-    {
-        return (int) session()->get(self::ELEVATED_SESSION_KEY, 0) > now()->getTimestamp();
+        return RememberedDevice::query()->whereBelongsTo($account)->usable()->update(['revoked_at' => now()]);
     }
 }

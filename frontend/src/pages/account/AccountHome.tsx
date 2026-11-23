@@ -19,7 +19,8 @@ interface Props {
  * Mi cuenta. A un lado, de quién es la cuenta y el paso a cada parte; al otro, las citas que vienen, los planes y
  * pagos, y las citas anteriores con los datos. En el celular va todo en una columna, con "Salir" al final.
  *
- * Los montos, las citas pasadas y los datos personales solo llegan después de verificar por WhatsApp (`elevated`).
+ * Los montos, las citas pasadas y los datos personales llegan cuando este celular tocó un enlace de WhatsApp
+ * (`elevated`), y siguen hasta que salga.
  */
 export function AccountHome({ account, clinic, howToPay }: Props) {
   const { run, busy } = useAction();

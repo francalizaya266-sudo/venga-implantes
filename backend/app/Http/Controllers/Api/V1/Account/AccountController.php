@@ -68,7 +68,8 @@ class AccountController extends Controller
         }
 
         $account = $device->account;
-        $elevated = $this->devices->isElevated();
+        // Un celular que tocó un enlace del número ve todo; el que solo reservó, sus próximas citas.
+        $elevated = $device->isVerified();
         $patients = $account->patients()->orderBy('first_name')->get();
         // Quien reservó con este número desde otro celular: su cita se ve, pero no cuenta como familia todavía.
         $guests = $account->guestIds();
@@ -155,7 +156,7 @@ class AccountController extends Controller
         ]]);
     }
 
-    /** Desde el celular recordado: pedir el enlace para ver citas pasadas y datos personales. */
+    /** Desde un celular que reservó sin enlace: pedir el enlace para ver planes, pagos, citas pasadas y datos. */
     public function requestVerification(Request $request): JsonResponse
     {
         $device = $this->device($request);
@@ -164,7 +165,7 @@ class AccountController extends Controller
             $this->access->requestAccess($device->account->phone);
         }
 
-        return $this->done('Te enviaremos un enlace por WhatsApp. Al tocarlo, verás tus planes, pagos, citas anteriores y datos durante unos minutos.');
+        return $this->done('Te enviaremos un enlace por WhatsApp. Al tocarlo, verás en este celular tus planes, pagos, citas anteriores y datos.');
     }
 
     public function confirm(Request $request, Appointment $appointment): JsonResponse
