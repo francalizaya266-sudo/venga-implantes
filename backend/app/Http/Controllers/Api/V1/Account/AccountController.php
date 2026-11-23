@@ -24,6 +24,7 @@ use App\Services\Billing\BillingService;
 use App\Services\Booking\AppointmentService;
 use App\Services\Booking\PatientChangePolicy;
 use App\Services\Clinical\TreatmentPlanService;
+use App\Services\Notices\PhoneNotices;
 use App\Services\StaffAlerts;
 use App\Services\Web\PageMeta;
 use App\Services\Web\ReturningPatient;
@@ -53,6 +54,7 @@ class AccountController extends Controller
         private readonly BillingService $billing,
         private readonly TreatmentPlanService $plans,
         private readonly PageMeta $meta,
+        private readonly PhoneNotices $notices,
     ) {}
 
     /**
@@ -103,6 +105,8 @@ class AccountController extends Controller
                 'several' => $family->count() > 1,
                 'phone' => Phone::display($account->phone),
                 'elevated' => $elevated,
+                // Avisos en el celular: si este los muestra y si además van por WhatsApp. Null sin las claves o sin verificar.
+                'notices' => $this->notices->stateFor($device),
                 'upcoming' => $upcoming->map(fn (Appointment $appointment) => AppointmentCardResource::make($appointment)->shownAs(
                     name: $appointment->patient->is($holder) ? null : $names[$appointment->patient_id],
                     guest: in_array((int) $appointment->patient_id, $guests, true),

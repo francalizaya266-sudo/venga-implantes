@@ -46,6 +46,23 @@ enum MessageTemplateKey: string implements HasLabel
         self::RescheduleApproved,
     ];
 
+    /**
+     * Avisos que también pueden salir en la pantalla del celular del paciente (y solo ahí, si así lo eligió): los de
+     * sus citas y sus cuotas. Los enlaces para entrar, las recetas, los planes y lo que pide una respuesta siguen por
+     * WhatsApp.
+     */
+    public const PHONE_NOTICES = [
+        self::BookingConfirmation,
+        self::AppointmentScheduled,
+        self::Reminder,
+        self::Rescheduled,
+        self::RescheduleApproved,
+        self::RescheduleRejected,
+        self::Cancelled,
+        self::InstallmentReminder,
+        self::InstallmentOverdue,
+    ];
+
     public function getLabel(): string
     {
         return match ($this) {

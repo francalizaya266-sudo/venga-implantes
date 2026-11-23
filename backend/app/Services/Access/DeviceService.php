@@ -3,6 +3,7 @@
 namespace App\Services\Access;
 
 use App\Models\Account;
+use App\Models\PushSubscription;
 use App\Models\RememberedDevice;
 use App\Models\Setting;
 use Illuminate\Http\Request;
@@ -79,25 +80,31 @@ class DeviceService
         $account->rememberedDevices()->whereNull('revoked_at')->whereNull('verified_at')->update(['revoked_at' => now()]);
     }
 
-    /** "Salir en este celular": deja de estar recordado. */
+    /** "Salir en este celular": deja de estar recordado y de recibir avisos en la pantalla. */
     public function forget(Request $request): void
     {
         $token = $request->cookie(self::COOKIE);
 
         if (is_string($token) && $token !== '') {
-            RememberedDevice::query()->where('token_hash', hash('sha256', $token))->update(['revoked_at' => now()]);
+            $device = RememberedDevice::query()->where('token_hash', hash('sha256', $token));
+            // Los avisos en su pantalla también se van con él.
+            PushSubscription::query()->whereIn('remembered_device_id', $device->clone()->select('id'))->delete();
+            $device->update(['revoked_at' => now()]);
         }
 
         Cookie::queue(Cookie::forget(self::COOKIE));
     }
 
     /**
-     * Desde el panel, si el paciente perdió o cambió de celular: Mi cuenta deja de estar abierta en todos los suyos.
+     * Desde el panel, si el paciente perdió o cambió de celular: Mi cuenta deja de estar abierta en todos los suyos, y
+     * los avisos dejan de salir en sus pantallas (vuelven a ir por WhatsApp).
      *
      * @return int Cuántos celulares dejaron de estar recordados.
      */
     public function forgetAll(Account $account): int
     {
+        PushSubscription::query()->whereBelongsTo($account)->delete();
+
         return RememberedDevice::query()->whereBelongsTo($account)->usable()->update(['revoked_at' => now()]);
     }
 }

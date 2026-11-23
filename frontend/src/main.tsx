@@ -5,6 +5,8 @@ import { RouterProvider } from 'react-router/dom';
 import { preloadedData } from '@/api/client';
 import { cachedSite, retry } from '@/api/queries';
 import { createAppRouter, loadPage, prefetchPages } from '@/app/router';
+import { listenForInstall } from '@/lib/install';
+import { registerWorker } from '@/lib/push';
 import '@/styles/site.css';
 
 const container = document.getElementById('app');
@@ -15,6 +17,9 @@ if (!container) {
 
 // Con JavaScript, las secciones aparecen suaves al llegar a ellas (site.css).
 document.documentElement.classList.add('js');
+
+// La web se puede instalar como app, y el botón para hacerlo está en Mi cuenta: el aviso de Chrome llega al cargar.
+listenForInstall();
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 30_000, retry } },
@@ -48,4 +53,7 @@ firstPage.then(() => {
   if (site) {
     prefetchPages(site.sections);
   }
+
+  // Lo que recibe los avisos en el celular (y deja instalar la web como app). No pide ningún permiso.
+  registerWorker()?.catch(() => undefined);
 });

@@ -92,6 +92,7 @@ final class CreateAppointmentAction
         $notice = match (true) {
             ! $notified => 'No se preparó aviso al paciente.',
             Patient::query()->whereKey($first->patient_id)->whereNull('account_id')->exists() => 'No tiene celular: no se preparó aviso al paciente.',
+            self::noticeGoesToPhone($first) => 'El aviso le llegará a la pantalla de su celular.',
             $count > 1 => 'El aviso de la primera está listo en Avisos.',
             default => 'El aviso al paciente está listo en Avisos.',
         };
@@ -116,7 +117,8 @@ final class CreateAppointmentAction
     private static function createdActions(array $result): array
     {
         $appointment = $result['booked'][0];
-        $noticeReady = WhatsappMessage::query()->where('appointment_id', $appointment->getKey())->pending()->exists();
+        $noticeReady = ! self::noticeGoesToPhone($appointment)
+            && WhatsappMessage::query()->where('appointment_id', $appointment->getKey())->pending()->exists();
 
         return array_values(array_filter([
             $noticeReady
@@ -132,6 +134,12 @@ final class CreateAppointmentAction
                 ->url(AppointmentResource::getUrl('view', ['record' => $appointment]))
                 ->link(),
         ]));
+    }
+
+    /** El paciente pidió los avisos solo en su celular: el de esta cita sale allí solo, sin pasar por Avisos. */
+    private static function noticeGoesToPhone(Appointment $appointment): bool
+    {
+        return WhatsappMessage::query()->where('appointment_id', $appointment->getKey())->pending()->onlyOnPhone()->exists();
     }
 
     /**

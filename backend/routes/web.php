@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Agenda\DoctorCalendarController;
 use App\Http\Controllers\Site\AppointmentCalendarController;
+use App\Http\Controllers\Site\ManifestController;
 use App\Http\Controllers\Site\SitemapController;
 use App\Http\Controllers\Site\SpaController;
 use Illuminate\Support\Facades\Route;
@@ -45,6 +46,8 @@ Route::get('agenda/{doctor}/{token}.ics', DoctorCalendarController::class)
     ->name('doctor.calendar');
 Route::get('sitemap.xml', [SitemapController::class, 'sitemap'])->name('site.sitemap');
 Route::get('robots.txt', [SitemapController::class, 'robots'])->name('site.robots');
+// La web como app instalable (ícono en la pantalla del celular, avisos en iPhone).
+Route::get('manifest.webmanifest', ManifestController::class)->name('site.manifest');
 
 // Mi cuenta: entra con el celular recordado (sin contraseña).
 Route::prefix('mi-cuenta')

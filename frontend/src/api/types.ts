@@ -405,6 +405,14 @@ export interface PlanCard {
   items: { id: number; label: string; state: string; done: boolean }[];
 }
 
+/** Avisos de la familia: si este celular los muestra, en cuántos se activaron y si además van por WhatsApp. */
+export interface NoticesState {
+  key: string;
+  this_phone: boolean;
+  phones: number;
+  whatsapp: boolean;
+}
+
 export type AccountData =
   | { guest: true }
   | {
@@ -413,6 +421,7 @@ export type AccountData =
       several: boolean;
       phone: string;
       elevated: boolean;
+      notices: NoticesState | null;
       upcoming: AppointmentCard[];
       plans: PlanCard[] | null;
       balances: { name: string; text: string; owed: boolean }[] | null;

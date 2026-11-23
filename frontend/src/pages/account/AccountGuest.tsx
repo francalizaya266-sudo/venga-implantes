@@ -1,10 +1,11 @@
 import { useState, type FormEvent } from 'react';
-import { problemOf } from '@/api/actions';
+import { problemOf, useAction } from '@/api/actions';
 import { ApiError, apiUrl, post } from '@/api/client';
 import type { Clinic, DataResponse } from '@/api/types';
 import { AppLink } from '@/components/ui/AppLink';
 import { useFlash } from '@/lib/flash';
 import { paths } from '@/lib/paths';
+import { isInstalled, isIos } from '@/lib/push';
 import { whatsappUrl } from '@/lib/whatsapp';
 
 interface Requested {
@@ -43,6 +44,11 @@ export function AccountGuest({ clinic }: { clinic: Clinic }) {
     } finally {
       setBusy(false);
     }
+  }
+
+  // En iPhone, la app instalada no comparte lo que recuerda Safari: se entra con el código que muestra Mi cuenta allá.
+  if (isInstalled() && isIos()) {
+    return <AppCodeEntry />;
   }
 
   return (
@@ -102,6 +108,60 @@ export function AccountGuest({ clinic }: { clinic: Clinic }) {
       <p className="muted">
         ¿Aún no tienes citas con nosotros? <AppLink href={paths.booking()}>Reserva la primera</AppLink> y entras a Mi
         cuenta al instante, sin esperar ningún enlace.
+      </p>
+    </section>
+  );
+}
+
+/**
+ * Mi cuenta en la app recién instalada: el código de 6 números que Mi cuenta muestra en Safari la deja abierta aquí.
+ * Quien no la tiene abierta en ningún lado puede reservar o pedir su enlace desde la web.
+ */
+function AppCodeEntry() {
+  const { run, busy, errors, fix } = useAction();
+  const [code, setCode] = useState('');
+
+  return (
+    <section className="stack-lg">
+      <form
+        className="panel stack"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void run(apiUrl('account/app-code/enter'), { code });
+        }}
+      >
+        <h2>Entra con tu código</h2>
+        <p>
+          Abre Mi cuenta en Safari, toca «Ver el código para la app» y escríbelo aquí. Solo se pide esta vez: luego la
+          app queda abierta.
+        </p>
+        <div className="field">
+          <label htmlFor="app-code">Código</label>
+          <input
+            id="app-code"
+            name="code"
+            className="input"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            maxLength={7}
+            placeholder="123 456"
+            required
+            value={code}
+            onChange={(event) => {
+              setCode(event.target.value);
+              fix('code');
+            }}
+            aria-invalid={errors.code ? true : undefined}
+          />
+          {errors.code ? <span className="error">{errors.code}</span> : null}
+        </div>
+        <button type="submit" className="btn block" disabled={busy}>
+          Entrar
+        </button>
+      </form>
+      <p className="muted">
+        ¿Todavía no entraste a Mi cuenta en Safari? <AppLink href={paths.booking()}>Reserva tu cita</AppLink> o pide tu
+        enlace desde la página en Safari.
       </p>
     </section>
   );

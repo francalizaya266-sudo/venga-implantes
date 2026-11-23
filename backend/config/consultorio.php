@@ -229,6 +229,16 @@ return [
         ],
     ],
 
+    // Avisos en el celular: los de las citas y cuotas también salen en la pantalla del paciente que los activó en
+    // Mi cuenta. Las claves se crean una vez con `php artisan avisos:crear-claves`; sin ellas, la opción no aparece.
+    // Solo funciona con la web en https (en local, en http://localhost).
+    'push' => [
+        'public_key' => env('VAPID_PUBLIC_KEY'),
+        'private_key' => env('VAPID_PRIVATE_KEY'),
+        // Cómo ubicar a quien envía si el servicio de avisos (Google, Apple, Mozilla) tiene un problema: la web o un correo.
+        'subject' => env('VAPID_SUBJECT'),
+    ],
+
     // Proxies en los que se confía para saber la IP real del paciente y si la conexión es HTTPS. En Azure es el
     // proxy de la DMZ (10.20.3.4, ver infra/); vacío en un hosting compartido o en local. Varios, separados por coma.
     'trusted_proxies' => env('TRUSTED_PROXIES'),

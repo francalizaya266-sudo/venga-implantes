@@ -505,7 +505,7 @@ class AppointmentInfolist
             ->map(fn (WhatsappMessage $message) => [
                 'at' => $message->sent_at ?? $message->created_at,
                 'label' => ($message->status === MessageStatus::Sent ? 'Aviso enviado: ' : 'Aviso por enviar: ').mb_strtolower($message->template_key->getLabel()),
-                'who' => $message->status === MessageStatus::Sent ? ($message->sentBy?->name ?? 'Sistema') : null,
+                'who' => $message->status === MessageStatus::Sent ? ($message->wasShownOnPhone() ? 'En su celular' : ($message->sentBy?->name ?? 'Sistema')) : null,
                 'notes' => null,
                 'tone' => $message->status === MessageStatus::Sent ? 'success' : 'warning',
             ]);

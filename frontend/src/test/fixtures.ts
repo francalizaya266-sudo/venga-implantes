@@ -276,6 +276,7 @@ export function account(
     several: false,
     phone: '987 654 321',
     elevated: false,
+    notices: null,
     upcoming: [],
     plans: null,
     balances: null,

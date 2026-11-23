@@ -79,7 +79,7 @@ class WhatsappMessagesTable
                     // En "Por enviar" y "Promociones" todos dicen lo mismo, y la columna sacaba el botón de la pantalla.
                     ->hidden(fn ($livewire) => in_array($livewire->activeTab ?? 'due', ['due', 'promotions'], true))
                     ->description(fn (WhatsappMessage $record) => match (true) {
-                        $record->status === MessageStatus::Sent => trim(($record->sentBy?->name ?? 'Automático').' · '.$record->sent_at?->format('d/m H:i')),
+                        $record->status === MessageStatus::Sent => trim(self::sender($record).' · '.$record->sent_at?->format('d/m H:i')),
                         $record->status === MessageStatus::Pending && $record->due_at?->isFuture() => 'Sale el '.$record->due_at->translatedFormat('d/m \a \l\a\s H:i'),
                         $record->status === MessageStatus::Failed => $record->error,
                         default => null,
@@ -119,5 +119,15 @@ class WhatsappMessagesTable
             })
             ->emptyStateDescription('Cuando se reserve, mueva o cancele una cita, el aviso aparecerá aquí.')
             ->emptyStateIcon('heroicon-o-chat-bubble-left-right');
+    }
+
+    /** Quién lo envió: una persona, el envío automático o, si el paciente los pidió solo ahí, su celular. */
+    private static function sender(WhatsappMessage $record): string
+    {
+        if ($record->wasShownOnPhone()) {
+            return 'En su celular';
+        }
+
+        return $record->sentBy?->name ?? 'Automático';
     }
 }
