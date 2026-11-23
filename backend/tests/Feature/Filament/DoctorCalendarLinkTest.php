@@ -86,6 +86,14 @@ class DoctorCalendarLinkTest extends TestCase
 
         Livewire::test(EditProfile::class)
             ->assertDontSee('Ver mi agenda en el calendario del celular');
+
+        // Quien administra y ya no atiende (su ficha de doctor está desactivada) no tiene agenda que ver.
+        $retired = User::factory()->admin(isDentist: true)->create();
+        Doctor::factory()->create(['user_id' => $retired->id, 'is_active' => false]);
+        $this->actingAs($retired);
+
+        Livewire::test(EditProfile::class)
+            ->assertDontSee('Ver mi agenda en el calendario del celular');
     }
 
     public function test_with_the_panel_opened_on_this_same_computer_it_warns_that_the_phone_cannot_reach_it(): void

@@ -86,7 +86,8 @@ class EditProfile extends BaseEditProfile
         return Section::make('Ver mi agenda en el calendario del celular')
             ->description('Tus citas aparecen solas en el calendario de tu celular, con la hora, el tratamiento y el nombre del paciente. Sin datos clínicos ni celulares.')
             ->inlineLabel(false)
-            ->visible(fn () => $this->doctor() !== null)
+            // Quien ya no atiende (su ficha de doctor está desactivada) no tiene agenda: el enlace no abriría nada.
+            ->visible(fn () => (bool) $this->doctor()?->is_active)
             ->schema([
                 TextEntry::make('calendar_link')
                     ->label('Tu enlace')
