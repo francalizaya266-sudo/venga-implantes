@@ -38,6 +38,9 @@ class DoctorCalendarLinkTest extends TestCase
         $this->assertNotNull($url);
 
         $page->assertSee([$url, 'Copiar el enlace', 'Agregar al iPhone', 'Añadir calendario suscrito', 'calendar.google.com', 'Cambiar el enlace'])
+            // Lo que lee el lector de pantalla, en español aunque la etiqueta no se vea.
+            ->assertSee(['Cómo agregarlo a tu celular', 'Solo funciona en esta computadora'])
+            ->assertDontSee(['Calendar steps', 'Calendar only here'])
             ->assertDontSee('Crear mi enlace')
             ->assertActionVisible($this->action('copyCalendarLink'))
             ->assertActionHasUrl($this->action('addToIphone'), str_replace('http://', 'webcal://', $url));

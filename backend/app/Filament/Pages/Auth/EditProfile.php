@@ -98,12 +98,15 @@ class EditProfile extends BaseEditProfile
                     ->copyMessage('Enlace copiado')
                     ->placeholder('Todavía no tienes enlace. Créalo y agrégalo una sola vez en tu celular.')
                     ->helperText(fn () => $this->calendarUrl() !== null ? 'Es solo para ti: quien lo tenga ve tus citas. Si lo compartiste por error, cámbialo.' : null),
+                // Las etiquetas no se ven, pero el lector de pantalla las lee: sin ellas decía "Calendar only here".
                 TextEntry::make('calendar_only_here')
+                    ->label('Solo funciona en esta computadora')
                     ->hiddenLabel()
                     ->state('Este enlace solo funciona en esta computadora. Para el celular, abre el panel con su dirección de internet y copia el enlace de ahí.')
                     ->color('warning')
                     ->visible(fn () => $this->calendarUrl() !== null && self::isOnlyOnThisComputer($this->calendarUrl())),
                 TextEntry::make('calendar_steps')
+                    ->label('Cómo agregarlo a tu celular')
                     ->hiddenLabel()
                     ->state([
                         'iPhone: abre esta página en el iPhone y toca «Agregar al iPhone». O ve a Ajustes › Calendario › Cuentas › Añadir cuenta › Otra › Añadir calendario suscrito y pega el enlace.',
