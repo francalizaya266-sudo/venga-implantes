@@ -38,8 +38,10 @@
     .dark .fi-ta-actions > .fi-icon-btn { background: rgb(255 255 255 / .07); }
     .fi-modal-footer-actions .fi-btn { min-height: 2.75rem; }
     /* Las pestañas y los enlaces que hacen de botón ("Ver", "Ocultar", "Ver antecedentes"): 44 px de alto, lo
-       cómodo para un dedo (de fábrica, 31 a 34 y 20). */
+       cómodo para un dedo (de fábrica, 31 a 34 y 20). El nombre del enlace, centrado como su ícono (de fábrica va
+       pegado arriba: con el alto nuevo quedaba más alto que el ícono). */
     .fi-tabs-item, .fi-link { min-height: 2.75rem; }
+    .fi-link > .fi-link-label { align-self: center; }
     /* "Ctrl + K" no sirve sin teclado y le quita espacio al buscador. */
     .fi-global-search-field .fi-input-wrp-suffix { display: none; }
     /* Letra de 16 px al escribir: con menos (los campos traen 14), el iPhone acerca la pantalla y hay que alejarla a mano. */
