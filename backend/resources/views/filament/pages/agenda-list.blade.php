@@ -36,7 +36,7 @@
                             </div>
                             <div class="agenda-item-body">
                                 <div class="agenda-item-title">
-                                    <a href="{{ $item['url'] }}" class="agenda-item-name" x-on:click="open($event, {{ $item['id'] }})">{{ $item['patient'] }}</a>
+                                    <a href="{{ $item['url'] }}" class="agenda-item-name" title="{{ $item['patient'] }}" x-on:click="open($event, {{ $item['id'] }})">{{ $item['patient'] }}</a>
                                     @if ($item['unclosed'])<span class="tag tag-unclosed">Sin cerrar</span>@endif
                                     @if ($item['inBlock'])<span class="tag tag-block">En bloqueo</span>@endif
                                     @if ($item['overbooked'])<span class="tag tag-over">Sobrecupo</span>@endif
@@ -117,7 +117,7 @@
                         <li wire:key="list-cancelled-{{ $cancelled['id'] }}">
                             <span class="agenda-list-cancelled-time">{{ $cancelled['time'] }}</span>
                             <span class="agenda-list-cancelled-body">
-                                <a href="{{ $cancelled['url'] }}" class="agenda-item-name">{{ $cancelled['patient'] }}</a>
+                                <a href="{{ $cancelled['url'] }}" class="agenda-item-name" title="{{ $cancelled['patient'] }}">{{ $cancelled['patient'] }}</a>
                                 <small>{{ $cancelled['treatment'] }}{{ $cancelled['reason'] ? ' · '.$cancelled['reason'] : '' }}</small>
                             </span>
                             @foreach ($this->nextSteps($cancelled['id'], 'cancelled') as $step)
