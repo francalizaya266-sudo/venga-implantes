@@ -45,11 +45,14 @@ class FinishedConsultationTest extends TestCase
         $this->assertNotNull($consultation->fresh()->closed_at);
         $this->assertSame(19.0, (float) $gloves->fresh()->stock);
 
-        // Si igual llega algo de esa pantalla (un segundo toque mientras carga, otra pestaña), pasa a la atención
-        // terminada en vez de rebotar.
+        // Si igual llega algo de esa pantalla (un segundo toque mientras carga, el guardado automático), no se hace
+        // ni rebota: la pantalla pasa a la atención terminada.
+        $page->callMountedAction()
+            ->assertRedirect($finished);
+        $this->assertSame(19.0, (float) $gloves->fresh()->stock);
+
         $page->call('autosave')
-            ->assertStatus(302)
-            ->assertHeader('Location', $finished);
+            ->assertRedirect($finished);
     }
 
     public function test_a_visit_finished_in_another_tab_leads_there_instead_of_failing(): void
@@ -62,9 +65,10 @@ class FinishedConsultationTest extends TestCase
         $page = Livewire::test(EditConsultation::class, ['record' => $consultation->getRouteKey()]);
         $consultation->update(['closed_at' => now()]);
 
+        // Lo que se toque en la pestaña que quedó atrás no abre nada: la pantalla pasa a la atención terminada.
         $page->call('mountAction', 'template')
-            ->assertStatus(302)
-            ->assertHeader('Location', ConsultationResource::getUrl('view', ['record' => $consultation]));
+            ->assertRedirect(ConsultationResource::getUrl('view', ['record' => $consultation]))
+            ->assertActionNotMounted();
     }
 
     public function test_the_finished_visit_offers_collecting_and_booking_once_next_to_their_explanation(): void

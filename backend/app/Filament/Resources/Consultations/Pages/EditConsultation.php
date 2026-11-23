@@ -27,6 +27,7 @@ use Filament\Resources\Pages\EditRecord;
 use Filament\Support\Enums\Width;
 use Filament\Support\Exceptions\Halt;
 use Filament\Support\Icons\Heroicon;
+use Illuminate\Auth\Access\Response;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Support\Arr;
@@ -54,19 +55,34 @@ class EditConsultation extends EditRecord
         $this->savedFingerprint = $this->fingerprint();
     }
 
+    /** La atención ya no se podía editar cuando llegó este pedido (se terminó aquí o en otra pestaña): la pantalla quedó atrás. */
+    private bool $isStale = false;
+
     /**
-     * Si la atención deja de poder editarse con la pantalla abierta (se terminó aquí o en otra pestaña), lo que esta
-     * pantalla todavía pida no rebota con un cuadro de error: pasa a la atención terminada, en modo lectura, como al abrirla.
+     * Si la atención deja de poder editarse con la pantalla abierta, lo que esta pantalla todavía pida (un segundo toque
+     * mientras carga, el guardado automático, otra pestaña) no se hace ni rebota con un cuadro de error: la pantalla pasa
+     * a la atención terminada, en modo lectura, como al abrirla. El paso lo da Livewire y no una redirección del
+     * servidor, porque el navegador la seguiría como un pedido de Livewire y el panel la rechazaría.
      */
     public function hydrate(): void
     {
         $consultation = $this->getConsultation();
 
         if (! auth()->user()->can('update', $consultation) && auth()->user()->can('view', $consultation)) {
-            throw new HttpResponseException(redirect(ConsultationResource::getUrl('view', ['record' => $consultation])));
+            $this->isStale = true;
+            $this->redirect(ConsultationResource::getUrl('view', ['record' => $consultation]));
+            $this->skipRender();
+
+            return;
         }
 
         parent::hydrate();
+    }
+
+    /** En la pantalla que quedó atrás, sus acciones (terminar, plantilla, descartar) ya no se abren ni se hacen. */
+    public function getDefaultActionAuthorizationResponse(Action $action): ?Response
+    {
+        return $this->isStale ? Response::deny() : parent::getDefaultActionAuthorizationResponse($action);
     }
 
     /** Hora del último guardado automático, para mostrarla en la barra fija. */
