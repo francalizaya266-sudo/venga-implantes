@@ -12,7 +12,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /** Cargo al paciente por lo realizado. No se borra: se anula. */
-#[Fillable(['patient_id', 'appointment_id', 'consultation_id', 'treatment_plan_item_id', 'treatment_id', 'doctor_id', 'description', 'amount', 'discount', 'discount_reason', 'suggested_amount', 'campaign_id', 'charged_at', 'created_by_user_id', 'voided_at', 'voided_by_user_id', 'void_reason'])]
+#[Fillable(['patient_id', 'appointment_id', 'consultation_id', 'treatment_plan_item_id', 'treatment_id', 'doctor_id', 'description', 'amount', 'discount', 'discount_reason', 'suggested_amount', 'original_amount', 'original_discount', 'adjustment_reason', 'adjusted_by_user_id', 'adjusted_at', 'campaign_id', 'charged_at', 'created_by_user_id', 'voided_at', 'voided_by_user_id', 'void_reason'])]
 class Charge extends Model
 {
     /** @use HasFactory<ChargeFactory> */
@@ -24,6 +24,9 @@ class Charge extends Model
             'amount' => 'decimal:2',
             'discount' => 'decimal:2',
             'suggested_amount' => 'decimal:2',
+            'original_amount' => 'decimal:2',
+            'original_discount' => 'decimal:2',
+            'adjusted_at' => 'datetime',
             'charged_at' => 'datetime',
             'voided_at' => 'datetime',
         ];
@@ -74,6 +77,12 @@ class Charge extends Model
         return $this->belongsTo(User::class, 'voided_by_user_id');
     }
 
+    /** Quien cambió el precio o el descuento al cobrar, o agregó o quitó el concepto. */
+    public function adjustedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'adjusted_by_user_id');
+    }
+
     /** Lo que cuenta para el saldo: sin los anulados. */
     #[Scope]
     protected function valid(Builder $query): Builder
@@ -94,5 +103,23 @@ class Charge extends Model
     public function priceChange(): float
     {
         return $this->suggested_amount === null ? 0.0 : round((float) $this->suggested_amount - (float) $this->amount, 2);
+    }
+
+    /** Se agregó a mano al cobrar: no llegó a caja con un precio. */
+    public function addedAtCheckout(): bool
+    {
+        return $this->adjusted_at !== null && $this->original_amount === null;
+    }
+
+    /** Lo que había que pagar por él cuando llegó a caja, antes de cambiarlo al cobrar (de uno agregado a mano, su precio). */
+    public function originalNet(): float
+    {
+        if ($this->adjusted_at === null) {
+            return $this->net();
+        }
+
+        return $this->addedAtCheckout()
+            ? round((float) $this->amount, 2)
+            : round((float) $this->original_amount - (float) $this->original_discount, 2);
     }
 }

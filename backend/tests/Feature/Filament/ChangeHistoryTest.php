@@ -217,7 +217,7 @@ class ChangeHistoryTest extends TestCase
         $this->assertSame([], array_values(array_filter($keys(WebPages::class), fn (string $key) => ChangeHistory::settingName($key) === null)));
 
         foreach (ChangeHistory::FIELDS as $class => $labels) {
-            $unnamed = array_diff((new $class)->getFillable(), array_keys($labels), ChangeHistory::INTERNAL, ['password', 'name', 'key']);
+            $unnamed = array_diff((new $class)->getFillable(), array_keys($labels), ChangeHistory::INTERNAL, ChangeHistory::HIDDEN[$class] ?? [], ['password', 'name', 'key']);
 
             $this->assertSame([], array_values($unnamed), "Datos de {$class} sin nombre en el historial.");
         }

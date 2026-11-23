@@ -1,5 +1,7 @@
 @use('App\Support\Money')
+@use('App\Support\Dates')
 @use('App\Filament\Widgets\CashClosingCheck')
+@use('App\Services\Billing\PriceAdjustments')
 <x-print-layout title="Cierre del día">
     <style>
         .period { font-size: 1rem; font-weight: 700; margin: -4px 0 12px; }
@@ -60,6 +62,29 @@
             </table>
         </section>
     @endif
+
+    {{-- Lo que se cambió al cobrar (otro precio, un descuento, un concepto agregado o quitado), con su motivo y quién. --}}
+    @php($adjustments = app(PriceAdjustments::class)->ofDay($closing->date, $closing->receivedBy))
+    <section class="owed">
+        @if ($adjustments->isEmpty())
+            <h2>Precios cambiados y descuentos</h2>
+            <p class="muted">Nadie cambió precios, puso descuentos ni anuló cargos.</p>
+        @else
+            @php($adjustmentTotals = PriceAdjustments::totals($adjustments))
+            <h2>Precios cambiados y descuentos · {{ $adjustmentTotals['count'] }} {{ $adjustmentTotals['count'] === 1 ? 'cambio' : 'cambios' }}{{ $adjustmentTotals['lowered'] > 0 ? ' · '.Money::format($adjustmentTotals['lowered']).' menos' : '' }}</h2>
+            <table class="report-table">
+                <tbody>
+                    @foreach ($adjustments as $row)
+                        <tr>
+                            <td>{{ $row['patient'] }} · {{ $row['concept'] }}</td>
+                            <td class="muted">{{ PriceAdjustments::change($row['charge']) }} · {{ filled($row['reason']) ? 'Motivo: '.$row['reason'] : 'Sin motivo' }} · {{ $row['by'] }}, {{ Dates::time($row['at']) }}</td>
+                            <td class="num">{{ abs($row['lowered']) >= 0.005 ? ($row['lowered'] > 0 ? '− ' : '+ ').Money::format(abs($row['lowered'])) : '' }}</td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        @endif
+    </section>
 
     {{-- Con el día cerrado, el arqueo ya está hecho: se imprime lo que se contó. --}}
     @php($record = $closing->receivedBy === null ? $closing->record() : null)

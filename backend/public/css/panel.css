@@ -1917,6 +1917,13 @@ a.ap-visit:hover { background: var(--gray-50); }
 .dark .cc-rows li { border-color: rgb(255 255 255 / .06); }
 .dark .cc-status { background: rgb(59 130 246 / .1); box-shadow: inset 0 0 0 1px rgb(59 130 246 / .28); }
 @media (max-width: 40rem) { .cc-figures dd { font-size: 1rem; } .cc-rows li, .cc-status { flex-wrap: wrap; } .cc-status .cc-row-text { flex: 1 1 calc(100% - 2rem); } .cc-status > .fi-btn { margin-left: 2rem; } }
+/* Precios cambiados y descuentos: cuántos y por cuánto arriba; lo que se rebajó, en ámbar. */
+.cc-adjust-total { margin: 0 0 .25rem; font-size: .875rem; color: var(--gray-700); }
+.cc-adjust-total strong { font-weight: 700; color: var(--gray-950); font-variant-numeric: tabular-nums; }
+.cc-adjust-total .is-lowered, .cc-amount.is-lowered { color: var(--warning-700); }
+.dark .cc-adjust-total { color: var(--gray-300); }
+.dark .cc-adjust-total strong { color: #fff; }
+.dark .cc-adjust-total .is-lowered, .dark .cc-amount.is-lowered { color: var(--warning-400); }
 
 /* Opciones rápidas: junto al nombre, solo lo que no es lo de siempre ("Solo tuya", "Propuesta de Ana"). */
 .snip-note { display: inline-block; margin-left: .35rem; padding: 0 .45rem; border-radius: 9999px; font-size: .72rem; font-weight: 500; line-height: 1.25rem; vertical-align: 1px; color: var(--gray-600); background: var(--gray-100); }
@@ -2367,6 +2374,47 @@ a.ap-visit:hover { background: var(--gray-50); }
 .dark .pay-total-label { color: var(--primary-200); }
 .dark .pay-total-value { color: #fff; }
 .dark .pay-total-note { color: var(--gray-400); }
+
+/* El QR de Yape o Plin: grande y sobre blanco (también en modo oscuro), para que el celular del paciente lo lea. */
+.pay-qr { display: flex; align-items: center; gap: 1rem; margin: 0; padding: .75rem; border-radius: .85rem; background: var(--gray-50); box-shadow: inset 0 0 0 1px var(--gray-200); }
+.pay-qr-image { flex: none; width: 11rem; height: 11rem; object-fit: contain; padding: .35rem; border-radius: .6rem; background: #fff; }
+.pay-qr-text { display: grid; gap: .25rem; min-width: 0; font-size: .875rem; color: var(--gray-700); }
+.pay-qr-text strong { font-size: 1rem; font-weight: 700; color: var(--gray-950); }
+.pay-qr-text small { font-size: .8125rem; line-height: 1.35; color: var(--gray-500); }
+.dark .pay-qr { background: rgb(255 255 255 / .03); box-shadow: inset 0 0 0 1px rgb(255 255 255 / .1); }
+.dark .pay-qr-text { color: var(--gray-300); }
+.dark .pay-qr-text strong { color: #fff; }
+.dark .pay-qr-text small { color: var(--gray-400); }
+@media (max-width: 30rem) { .pay-qr { flex-direction: column; text-align: center; } .pay-qr-image { width: 13rem; height: 13rem; } }
+
+/* Caja en el celular: cada pago en dos líneas. Arriba el paciente y el monto; abajo el concepto, el medio, la fecha
+   y los botones (la constancia, solo con su ícono). Antes cada dato iba en su línea y 10 pagos ocupaban más de 5
+   pantallas. El n.º de operación y el doctor están en la constancia y en el cierre. */
+@media (max-width: 39.99rem) {
+    .pay-list .fi-ta-table-stacked-on-mobile > tbody > tr.fi-ta-row { display: flex; flex-wrap: wrap; align-items: center; gap: .1rem .5rem; padding: .6rem 1rem; }
+    .pay-list .fi-ta-table-stacked-on-mobile > tbody > tr.fi-ta-row::after { content: ''; order: 3; flex-basis: 100%; }
+    .pay-list .fi-ta-table-stacked-on-mobile > tbody > tr.fi-ta-row > td.fi-ta-cell:has(> .fi-ta-cell-label) { display: contents; }
+    .pay-list .fi-ta-table-stacked-on-mobile > tbody > tr.fi-ta-row > td.fi-ta-cell > .fi-ta-cell-label,
+    .pay-list .fi-ta-table-stacked-on-mobile > tbody > tr.fi-ta-row .fi-ta-cell-content:has(.fi-ta-placeholder) { display: none; }
+    .pay-list .fi-ta-table-stacked-on-mobile > tbody > tr.fi-ta-row .fi-ta-cell-content .fi-ta-col { padding-block: 0; }
+    .pay-list .fi-ta-cell-patient\.last-name > .fi-ta-cell-content { order: 1; flex: 1 1 0; min-width: 0; }
+    .pay-list .fi-ta-cell-amount > .fi-ta-cell-content { order: 2; flex: none; }
+    .pay-list .fi-ta-cell-treatment\.name > .fi-ta-cell-content { order: 4; flex: 1 1 0; min-width: 0; }
+    .pay-list .fi-ta-cell-method > .fi-ta-cell-content { order: 5; flex: none; }
+    .pay-list .fi-ta-cell-paid-at > .fi-ta-cell-content { order: 6; flex: none; }
+    .pay-list .fi-ta-cell-received-by\.name > .fi-ta-cell-content { order: 7; flex: none; }
+    .pay-list .fi-ta-table-stacked-on-mobile > tbody > tr.fi-ta-row > td.fi-ta-cell:has(> .fi-ta-actions) { order: 8; margin-inline-start: auto; padding: 0; }
+    .pay-list .fi-ta-table-stacked-on-mobile > tbody > tr.fi-ta-row .fi-ta-cell-patient\.last-name .fi-ta-text-item { display: block; overflow: hidden; font-size: .9375rem; font-weight: 600; white-space: nowrap; text-overflow: ellipsis; color: var(--gray-950); }
+    .pay-list .fi-ta-table-stacked-on-mobile > tbody > tr.fi-ta-row .fi-ta-cell-amount .fi-ta-text-item { font-size: .9375rem; font-weight: 700; }
+    .pay-list .fi-ta-table-stacked-on-mobile > tbody > tr.fi-ta-row :is(.fi-ta-cell-patient\.last-name, .fi-ta-cell-treatment\.name) :is(.fi-ta-col, .fi-ta-text) { min-width: 0; max-width: 100%; }
+    .pay-list .fi-ta-table-stacked-on-mobile > tbody > tr.fi-ta-row .fi-ta-cell-treatment\.name .fi-ta-text-item { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+    .pay-list .fi-ta-table-stacked-on-mobile > tbody > tr.fi-ta-row :is(.fi-ta-cell-treatment\.name, .fi-ta-cell-method) .fi-ta-text-description { display: none; }
+    .pay-list .fi-ta-table-stacked-on-mobile > tbody > tr.fi-ta-row .fi-ta-actions { flex-wrap: nowrap; gap: .25rem; }
+    .pay-list .fi-ta-table-stacked-on-mobile > tbody > tr.fi-ta-row .fi-ta-actions .fi-link-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+    .pay-list .fi-ta-table-stacked-on-mobile > tbody > tr.fi-ta-row :is(.fi-ta-cell-treatment\.name, .fi-ta-cell-paid-at, .fi-ta-cell-received-by\.name) .fi-ta-text-item { font-size: .8125rem; font-weight: 400; color: var(--gray-600); }
+    .dark .pay-list .fi-ta-table-stacked-on-mobile > tbody > tr.fi-ta-row .fi-ta-cell-patient\.last-name .fi-ta-text-item { color: #fff; }
+    .dark .pay-list .fi-ta-table-stacked-on-mobile > tbody > tr.fi-ta-row :is(.fi-ta-cell-treatment\.name, .fi-ta-cell-paid-at, .fi-ta-cell-received-by\.name) .fi-ta-text-item { color: var(--gray-400); }
+}
 
 /* ---------- Avisos de "guardado": abajo, sin tapar nada ---------- */
 

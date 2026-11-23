@@ -19,6 +19,7 @@ use App\Services\Clinical\TreatmentPlanService;
 use App\Services\StaffAlerts;
 use App\Support\Money;
 use Carbon\CarbonInterface;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -35,6 +36,9 @@ final class BillingService
 {
     /** Motivo de las anulaciones que hace el sistema al corregirse una atención. */
     public const CORRECTED = 'Se corrigió la atención';
+
+    /** Motivo de lo que se quita en la ventana Cobrar. */
+    public const REMOVED_AT_CHECKOUT = 'Quitado al cobrar';
 
     private const CHECKOUT_DISCOUNT = 'Descuento al cobrar';
 
@@ -291,9 +295,10 @@ final class BillingService
     }
 
     /**
-     * Cargo a mano: un material, una radiografía, un ajuste de precio.
+     * Cargo a mano: un material, una radiografía, un ajuste de precio. Si se agrega al cobrar, va con el motivo, quién
+     * y cuándo (adjustment_reason, adjusted_by_user_id y adjusted_at).
      *
-     * @param  array{description: string, amount: float|string, discount?: float|string|null, discount_reason?: ?string, treatment_id?: ?int, doctor_id?: ?int}  $data
+     * @param  array{description: string, amount: float|string, discount?: float|string|null, discount_reason?: ?string, treatment_id?: ?int, doctor_id?: ?int, adjustment_reason?: ?string, adjusted_by_user_id?: ?int, adjusted_at?: mixed}  $data
      */
     public function addCharge(Patient $patient, array $data, User $by, ?Appointment $appointment = null): Charge
     {
@@ -308,7 +313,7 @@ final class BillingService
             'discount_reason' => filled($data['discount'] ?? null) && (float) $data['discount'] > 0 ? ($data['discount_reason'] ?? null) : null,
             'charged_at' => now(),
             'created_by_user_id' => $by->getKey(),
-        ]);
+        ] + Arr::only($data, ['adjustment_reason', 'adjusted_by_user_id', 'adjusted_at']));
     }
 
     /**
@@ -570,10 +575,12 @@ final class BillingService
         return [max(0, $session >= $sessions ? $remaining : min($remaining, round($total / $sessions, 2))), $session];
     }
 
+    /** Anular un cargo desde la cuenta del paciente: sale en el cierre del día y quien administra recibe una alerta. */
     public function void(Charge $charge, User $by, string $reason): void
     {
         $this->markVoided($charge, $by, $reason);
         $this->settleWhenNothingIsOwed($charge->patient_id);
+        app(StaffAlerts::class)->chargeVoided($charge, $by);
     }
 
     private function markVoided(Charge $charge, User $by, string $reason): void
@@ -605,15 +612,21 @@ final class BillingService
     }
 
     /**
-     * Al cobrar, recepción revisa lo de hoy: corrige montos, agrega o quita conceptos.
+     * Al cobrar, recepción revisa lo de hoy: corrige montos, agrega o quita conceptos. Lo que no queda como llegó a
+     * caja (otro precio, un descuento, un concepto agregado o quitado a mano) se guarda con el precio con que llegó, el
+     * motivo, quién y cuándo: sale en el cierre del día y en la constancia, y quien administra recibe una alerta.
      *
      * @param  list<array{id?: ?int, description: string, amount: float|string, discount?: float|string|null}>  $lines
+     * @return Collection<int, Charge> Lo que se cambió.
      */
-    public function reviseCharges(Appointment $appointment, array $lines, User $by): void
+    public function reviseCharges(Appointment $appointment, array $lines, User $by, ?string $reason = null): Collection
     {
-        DB::transaction(function () use ($appointment, $lines, $by) {
+        $reason = filled($reason) ? trim($reason) : null;
+
+        $adjusted = DB::transaction(function () use ($appointment, $lines, $by, $reason) {
             $current = $this->chargesFor($appointment)->keyBy('id');
             $kept = [];
+            $adjusted = collect();
 
             foreach ($lines as $line) {
                 $charge = filled($line['id'] ?? null) ? $current->get((int) $line['id']) : null;
@@ -623,20 +636,82 @@ final class BillingService
                     'discount' => round((float) ($line['discount'] ?? 0), 2),
                 ];
 
-                if ($charge) {
-                    $kept[] = $charge->getKey();
-                    $charge->fill($values + [
-                        'discount_reason' => $values['discount'] > 0 ? ($charge->discount_reason ?? self::CHECKOUT_DISCOUNT) : null,
-                    ])->save();
-                } else {
-                    $this->addCharge($appointment->patient, $values + ['discount_reason' => self::CHECKOUT_DISCOUNT], $by, $appointment);
+                if (! $charge) {
+                    $adjusted->push($this->addCharge($appointment->patient, $values + [
+                        'discount_reason' => $reason ?? self::CHECKOUT_DISCOUNT,
+                        'adjustment_reason' => $reason,
+                        'adjusted_by_user_id' => $by->getKey(),
+                        'adjusted_at' => now(),
+                    ], $by, $appointment));
+
+                    continue;
                 }
+
+                $kept[] = $charge->getKey();
+                $discountChanged = abs($values['discount'] - (float) $charge->discount) >= 0.005;
+                $priceChanged = $discountChanged || abs($values['amount'] - (float) $charge->amount) >= 0.005;
+
+                $charge->fill($values + [
+                    'discount_reason' => $values['discount'] > 0
+                        ? ($discountChanged && $reason ? $reason : ($charge->discount_reason ?? self::CHECKOUT_DISCOUNT))
+                        : null,
+                ]);
+
+                if ($priceChanged) {
+                    $charge->fill(self::adjustment($charge, $by, $reason));
+                }
+
+                if ($priceChanged && $charge->adjusted_at !== null) {
+                    $adjusted->push($charge);
+                }
+
+                $charge->save();
             }
 
-            $current->except($kept)->each(fn (Charge $c) => $this->markVoided($c, $by, 'Quitado al cobrar'));
+            $current->except($kept)->each(function (Charge $removed) use ($by, $reason, $adjusted) {
+                $removed->fill(self::adjustment($removed, $by, $reason, removed: true));
+                $this->markVoided($removed, $by, self::REMOVED_AT_CHECKOUT);
+                $adjusted->push($removed);
+            });
+
+            return $adjusted;
         });
 
         $this->settleWhenNothingIsOwed($appointment->patient_id);
+        app(StaffAlerts::class)->checkoutAdjusted($appointment->patient, $adjusted, $by);
+
+        return $adjusted;
+    }
+
+    /**
+     * El cambio al cobrar de un cargo que llegó a caja: con qué precio y descuento llegó (la primera vez que se cambia),
+     * por qué, quién y cuándo. Si vuelve a quedar como llegó, ya no cuenta como cambiado.
+     *
+     * @return array<string, mixed>
+     */
+    private static function adjustment(Charge $charge, User $by, ?string $reason, bool $removed = false): array
+    {
+        $firstTime = $charge->getOriginal('adjusted_at') === null;
+        $original = $firstTime ? $charge->getOriginal('amount') : $charge->original_amount;
+        $originalDiscount = $firstTime ? $charge->getOriginal('discount') : $charge->original_discount;
+        $addedByHand = ! $firstTime && $charge->original_amount === null;
+
+        $backAsItCame = ! $addedByHand
+            && ! $removed
+            && abs((float) $original - (float) $charge->amount) < 0.005
+            && abs((float) $originalDiscount - (float) $charge->discount) < 0.005;
+
+        if ($backAsItCame) {
+            return ['original_amount' => null, 'original_discount' => null, 'adjustment_reason' => null, 'adjusted_by_user_id' => null, 'adjusted_at' => null];
+        }
+
+        return [
+            'original_amount' => $addedByHand ? null : $original,
+            'original_discount' => $addedByHand ? null : $originalDiscount,
+            'adjustment_reason' => $reason ?? $charge->adjustment_reason,
+            'adjusted_by_user_id' => $by->getKey(),
+            'adjusted_at' => now(),
+        ];
     }
 
     /**
@@ -670,11 +745,11 @@ final class BillingService
 
     /**
      * Devolución de lo que el paciente tenía a favor: un movimiento propio, en negativo, con su motivo.
-     * Sale de la caja del día y el saldo vuelve a cero (o a lo que quede a favor).
+     * Sale de la caja del día y el saldo vuelve a cero (o a lo que quede a favor). Quien administra recibe una alerta.
      */
     public function registerRefund(Patient $patient, float $amount, PaymentMethod|string $method, string $reason, User $by): Payment
     {
-        return Payment::create([
+        $refund = Payment::create([
             'patient_id' => $patient->getKey(),
             'amount' => -round(abs($amount), 2),
             'method' => $method,
@@ -682,6 +757,11 @@ final class BillingService
             'paid_at' => now(),
             'received_by_user_id' => $by->getKey(),
         ]);
+
+        // Sale dinero de la caja: quien administra lo sabe al momento.
+        app(StaffAlerts::class)->refunded($refund, $by);
+
+        return $refund;
     }
 
     /**

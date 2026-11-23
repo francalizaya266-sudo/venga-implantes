@@ -71,7 +71,7 @@ class DailyClosingTest extends TestCase
             // Cobrarle a Rosa desde el mismo cuadre.
             ->mountAction(TestAction::make('collect')->arguments(['patient' => $this->rosa->id]))
             ->assertActionDataSet(['amount' => 120.0])
-            ->setActionData(['method' => PaymentMethod::Yape->value])
+            ->setActionData(['method' => PaymentMethod::Yape->value, 'reference' => '4512'])
             ->callMountedAction()
             ->assertHasNoErrors()
             ->assertNotified('Pago registrado')
