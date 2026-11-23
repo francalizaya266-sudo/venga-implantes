@@ -8,6 +8,7 @@ use App\Filament\Pages\Concerns\EditsSettings;
 use App\Filament\Resources\MessageTemplates\MessageTemplateResource;
 use App\Filament\Resources\Supplies\SupplyResource;
 use App\Models\Setting;
+use App\Services\Booking\WebAvailability;
 use App\Services\WhatsApp\WhatsAppOutbox;
 use App\Support\Dates;
 use App\Support\Phone;
@@ -93,6 +94,7 @@ class Settings extends Page
             'agenda.min_useful_gap_minutes' => 'int',
             'booking.min_lead_minutes' => 'int',
             'booking.horizon_days' => 'int',
+            'booking.web_slot_step_minutes' => 'int',
             'booking.max_web_appointments_per_patient' => 'int',
             'booking.max_web_appointments_per_phone' => 'int',
             'booking.self_reschedule_min_hours' => 'int',
@@ -205,7 +207,7 @@ class Settings extends Page
                                     ]),
                                 Section::make('Reservas y cambios desde la web')
                                     ->headerActions([self::recommendedAction('recommendedBooking', [
-                                        'booking.min_lead_minutes', 'booking.horizon_days', 'booking.max_web_appointments_per_patient', 'booking.max_web_appointments_per_phone',
+                                        'booking.min_lead_minutes', 'booking.horizon_days', 'booking.web_slot_step_minutes', 'booking.max_web_appointments_per_patient', 'booking.max_web_appointments_per_phone',
                                         'booking.self_reschedule_min_hours', 'booking.self_cancel_min_hours', 'booking.max_reschedule_options',
                                     ])])
                                     ->columns(2)
@@ -226,6 +228,13 @@ class Settings extends Page
                                             ->helperText('La web no ofrece horarios que empiecen antes de ese tiempo.')
                                             ->rule(fn (Get $get) => self::lessThanTheHorizon($get, 60, 'Así la web no ofrece ningún horario: la anticipación mínima es mayor que los días que se puede reservar hacia adelante.')),
                                         self::number('booking.horizon_days', 'Hasta cuántos días adelante se puede reservar', 1, 180, 'días'),
+                                        // La web ofrecía 10:05 o 4:40 (justo al terminar otra cita): al paciente le parecía raro.
+                                        Select::make('booking.web_slot_step_minutes')
+                                            ->label('Horas que ofrece la web')
+                                            ->options(collect(WebAvailability::STEPS)->mapWithKeys(fn (int $minutes) => [$minutes => "Cada {$minutes} min"])->all())
+                                            ->selectablePlaceholder(false)
+                                            ->required()
+                                            ->helperText('Solo horas redondas: cada 15 min es 9:00, 9:15, 9:30…; cada 30 min, 9:00, 9:30, 10:00… En el panel se agenda a cualquier hora.'),
                                         self::number('booking.max_web_appointments_per_patient', 'Citas web futuras por paciente', 1, 10, 'citas'),
                                         self::number('booking.max_web_appointments_per_phone', 'Citas web futuras por celular (toda la familia)', 1, 30, 'citas')
                                             ->rule(fn (Get $get) => function (string $attribute, mixed $value, Closure $fail) use ($get): void {

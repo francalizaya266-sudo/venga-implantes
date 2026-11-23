@@ -96,9 +96,12 @@ class OverbookingTest extends TestCase
         $web = app(WebAvailability::class)->slots($this->treatment, collect([$this->doctor]), $day)->pluck('time');
 
         foreach ([$staff, $web] as $offered) {
-            $this->assertContains('10:40', $offered);
             $this->assertEmpty($offered->intersect(['09:30', '09:45', '10:00', '10:15', '10:30'])->all());
         }
+
+        // El panel ofrece el hueco justo al terminar; la web, la siguiente hora redonda.
+        $this->assertSame('10:40', $staff->first(fn (string $time) => $time > '10:30'));
+        $this->assertSame('10:45', $web->first(fn (string $time) => $time > '10:30'));
     }
 
     public function test_moving_an_overbooking_takes_it_to_a_free_time_and_clears_the_mark(): void
