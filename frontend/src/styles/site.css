@@ -727,9 +727,10 @@ details.more[open] > summary::after { transform: translateY(.06em) rotate(225deg
     .services-grid .name { font-size: .9375rem; }
     .services-grid .price { padding: 3px 9px; font-size: .875rem; }
 }
-/* Donde no entran todas (celular y tableta angosta), debajo va "Ver todos los tratamientos", que reemplaza al enlace de arriba. */
+/* En el celular y la tableta, debajo va "Ver todos los tratamientos", que reemplaza al enlace de arriba: un botón
+   ancho, fácil de tocar con el dedo. */
 .services-all { display: none; }
-@media (max-width: 719px) {
+@media (max-width: 1023px) {
     .services .section-head .arrow { display: none; }
     .services-all { display: block; margin: 16px 0 0; }
 }
@@ -743,10 +744,13 @@ details.more[open] > summary::after { transform: translateY(.06em) rotate(225deg
     .services-grid li:nth-child(n + 7) { display: none; }
 }
 @media (min-width: 720px) {
+    .services-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+}
+/* En la computadora, "Ver los N servicios" va a la derecha del título. */
+@media (min-width: 1024px) {
     .services .section-head { grid-template-columns: minmax(0, 1fr) auto; align-items: end; column-gap: 24px; }
     .services .section-head > * { grid-column: 1; }
     .services .section-head .arrow { grid-column: 2; grid-row: 2 / span 2; }
-    .services-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
 }
 
 /* Estrellas de Google: cinco grises y encima las doradas, cortadas según el puntaje. */
