@@ -209,6 +209,68 @@ class PanelMultiFactorTest extends TestCase
             ->assertSee('Escribe uno de los códigos de recuperación que guardaste');
     }
 
+    public function test_without_the_phone_at_hand_only_the_recovery_code_is_asked_and_it_lets_in(): void
+    {
+        $user = User::factory()->reception()->create();
+        $codes = $this->recoveryCodesOf($user);
+
+        $login = Livewire::test(Login::class)
+            ->fillForm(['email' => $user->email, 'password' => 'password'])
+            ->call('authenticate')
+            ->set('data.multiFactor.app.useRecoveryCode', true)
+            // Los 6 casilleros se van: el navegador ya no los pide al tocar "Entrar" y no hay que tocarlo dos veces.
+            ->assertDontSeeHtml('fi-one-time-code-input-ctn')
+            ->assertSee(['Escribe uno de los códigos de recuperación que guardaste', 'Mejor uso mi celular']);
+
+        // Sin el código de recuperación no entra.
+        $login->call('authenticate')->assertHasErrors(['data.multiFactor.app.recoveryCode' => 'required']);
+        $this->assertGuest();
+
+        // Con uno de los que guardó, sí.
+        $login->set('data.multiFactor.app.recoveryCode', $codes[0])
+            ->call('authenticate')
+            ->assertHasNoErrors();
+        $this->assertAuthenticatedAs($user);
+    }
+
+    public function test_a_new_phone_is_set_up_with_a_recovery_code_when_the_old_one_is_gone(): void
+    {
+        $user = User::factory()->reception()->create();
+        $codes = $this->recoveryCodesOf($user);
+        $this->actingAs($user);
+
+        $profile = Livewire::test(EditProfile::class)
+            ->mountAction(TestAction::make('disableAppAuthentication')->schemaComponent('app', schema: 'content'))
+            ->setActionData(['useRecoveryCode' => true])
+            ->assertMountedActionModalDontSeeHtml('fi-one-time-code-input-ctn')
+            ->assertMountedActionModalSee(['Escribe uno de los códigos de recuperación que guardaste', 'Todavía tengo el celular de antes']);
+
+        $profile->setActionData(['useRecoveryCode' => true, 'password' => 'password'])
+            ->callMountedAction()
+            ->assertHasActionErrors(['recoveryCode' => 'required']);
+        $this->assertNotNull($user->fresh()->getAppAuthenticationSecret());
+
+        $profile->setActionData(['useRecoveryCode' => true, 'password' => 'password', 'recoveryCode' => $codes[0]])
+            ->callMountedAction()
+            ->assertHasNoActionErrors()
+            ->assertRedirect($this->setUpUrl());
+        $this->assertNull($user->fresh()->getAppAuthenticationSecret());
+    }
+
+    /**
+     * Le da códigos de recuperación, como al activar la doble verificación.
+     *
+     * @return array<string>
+     */
+    private function recoveryCodesOf(User $user): array
+    {
+        $provider = app(AppAuthentication::class);
+        $codes = $provider->generateRecoveryCodes();
+        $provider->saveRecoveryCodes($user, $codes);
+
+        return $codes;
+    }
+
     public function test_my_profile_does_not_turn_the_double_check_off_but_moves_it_to_a_new_phone(): void
     {
         $user = User::factory()->reception()->create();
