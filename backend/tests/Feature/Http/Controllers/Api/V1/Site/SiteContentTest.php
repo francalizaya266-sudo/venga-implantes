@@ -415,12 +415,37 @@ class SiteContentTest extends TestCase
         $this->getJson(route('api.v1.pages.contact'))
             ->assertOk()
             ->assertJsonPath('meta.title', 'Contacto y cómo llegar · Clínica Vega')
-            ->assertJsonPath('meta.description', 'Dirección, horario de atención, WhatsApp y mapa: Jr. Apurímac 648, Juliaca.')
-            ->assertJsonPath('meta.json_ld.0.@type', 'Dentist');
+            ->assertJsonPath('meta.description', 'Cómo llegar a Clínica Vega: Jr. Apurímac 648, Juliaca. Horario de atención, WhatsApp y mapa. Escríbenos o reserva tu cita en línea. Te esperamos.')
+            ->assertJsonPath('meta.json_ld.0.@type', 'Dentist')
+            // Para Google, el teléfono va con el código del país.
+            ->assertJsonPath('meta.json_ld.0.telephone', '+51 912 345 678');
+
+        Setting::set('clinic.phone', '051 321456');
+        $this->getJson(route('api.v1.pages.contact'))->assertJsonPath('meta.json_ld.0.telephone', '+51 51 321456');
 
         $this->getJson(route('api.v1.pages.privacy'))
             ->assertOk()
             ->assertJsonPath('data', ['clinic' => 'Clínica Vega', 'address' => 'Jr. Apurímac 648', 'whatsapp' => '912 345 678'])
-            ->assertJsonPath('meta.title', 'Política de privacidad · Clínica Vega');
+            ->assertJsonPath('meta.title', 'Política de privacidad · Clínica Vega')
+            ->assertJsonPath('meta.description', 'Cómo Clínica Vega cuida tus datos personales y de salud (Ley N.º 29733): qué datos usamos, para qué, quién los ve, cuánto los guardamos y tus derechos.');
+    }
+
+    public function test_each_page_tells_google_what_it_has_whose_it_is_and_where_in_150_to_160_letters(): void
+    {
+        Setting::set('clinic.name', 'Clínica Vega Implant');
+        Setting::set('clinic.address', 'Jr. Apurímac 648');
+        Setting::set('clinic.district', 'Juliaca');
+        Treatment::factory()->evaluation()->create(['price_from' => 50]);
+        Treatment::factory()->create(['name' => 'Limpieza dental', 'slug' => 'limpieza-dental', 'summary' => 'Quita el sarro y las manchas.', 'price_from' => 120]);
+        $this->doctorOffering(...Treatment::all());
+
+        $description = fn (string $route, mixed ...$parameters): string => $this->getJson(route($route, $parameters))->assertOk()->json('meta.description');
+
+        $this->assertSame('Clínica Vega Implant: implantes y odontología en Jr. Apurímac 648, Juliaca. Mira los precios y los horarios libres, y reserva tu cita en línea en 2 minutos.', $description('api.v1.home'));
+        $this->assertSame('Limpieza dental en Juliaca. Quita el sarro y las manchas. Precio referencial: desde S/ 120. Reserva en línea en Clínica Vega Implant.', $description('api.v1.treatments.show', 'limpieza-dental'));
+
+        foreach (['api.v1.home', 'api.v1.treatments.index', 'api.v1.team', 'api.v1.faqs', 'api.v1.promotions.index', 'api.v1.booking.options'] as $route) {
+            $this->assertThat(mb_strlen($description($route)), $this->logicalAnd($this->greaterThanOrEqual(140), $this->lessThanOrEqual(160)), $route);
+        }
     }
 }

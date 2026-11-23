@@ -36,7 +36,6 @@ class SmileCaseController extends Controller
             ],
             'meta' => $meta->for(
                 page: 'casos',
-                description: 'Resultados reales de pacientes que autorizaron mostrar sus fotos.',
                 jsonLd: [$structuredData->breadcrumbs(['Antes y después' => route('site.cases')])],
             ),
         ];

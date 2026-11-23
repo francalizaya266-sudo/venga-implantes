@@ -24,6 +24,7 @@ use App\Support\CampaignText;
 use App\Support\Markdown;
 use App\Support\Money;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Str;
 
 /** Tratamientos: la lista con duración y precio "desde", y una página por tratamiento. */
 class TreatmentController extends Controller
@@ -40,7 +41,6 @@ class TreatmentController extends Controller
      */
     public function index(): array
     {
-        $district = $this->clinic->district();
         $evaluation = $this->availability->treatments()->firstWhere('is_evaluation', true);
 
         return [
@@ -51,7 +51,6 @@ class TreatmentController extends Controller
             ],
             'meta' => $this->meta->for(
                 page: 'servicios',
-                description: 'Servicios y tratamientos dentales'.($district ? ' en '.$district : '').' con duración y precio referencial. Reserva tu evaluación en línea.',
                 jsonLd: [$this->structuredData->breadcrumbs(['Servicios' => route('site.treatments')])],
             ),
         ];
@@ -102,7 +101,7 @@ class TreatmentController extends Controller
             ],
             'meta' => $this->meta->for(
                 title: $treatment->seo_title ?: $treatment->name.($this->clinic->district() ? ' en '.$this->clinic->district() : ''),
-                description: $treatment->seo_description ?: $treatment->summary,
+                description: $treatment->seo_description ?: $this->describe($treatment),
                 image: PublicImages::url($treatment->image_path),
                 jsonLd: array_filter([
                     $this->structuredData->breadcrumbs(['Servicios' => route('site.treatments'), $treatment->name => route('site.treatment', $treatment->slug)]),
@@ -116,5 +115,22 @@ class TreatmentController extends Controller
     private function visible(): Builder
     {
         return Treatment::query()->active()->where('is_public', true)->orderByDesc('is_evaluation')->orderBy('sort_order');
+    }
+
+    /**
+     * Lo que Google muestra de un tratamiento cuando el consultorio no escribió su descripción: qué es, dónde, desde
+     * cuánto y dónde se reserva.
+     */
+    private function describe(Treatment $treatment): string
+    {
+        $district = $this->clinic->district();
+        $price = $treatment->webPrice();
+
+        return PageMeta::describe(
+            $treatment->name.($district ? ' en '.$district : '').'.'.($treatment->summary ? ' '.Str::finish($treatment->summary, '.') : ''),
+            $price !== null ? 'Precio referencial: '.lcfirst($price).'.' : null,
+            'Reserva en línea en '.$this->clinic->name().'.',
+            'Te confirmamos por WhatsApp.',
+        );
     }
 }

@@ -103,7 +103,7 @@ class BookingController extends Controller
                     ->map(fn (PatientRelationship $relationship) => ['value' => $relationship->value, 'label' => $relationship->getLabel()])
                     ->values(),
             ],
-            'meta' => $meta->for(page: 'reservar', description: 'Reserva tu cita en línea: elige el servicio, el día y la hora. Confirmas por WhatsApp.'),
+            'meta' => $meta->for(page: 'reservar'),
         ];
     }
 

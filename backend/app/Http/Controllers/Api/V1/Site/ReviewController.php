@@ -20,7 +20,6 @@ class ReviewController extends Controller
             'data' => ['reviews' => ReviewResource::collection(Review::query()->published()->with('treatment')->get())],
             'meta' => $meta->for(
                 page: 'opiniones',
-                description: 'Lo que dicen nuestros pacientes.',
                 jsonLd: [$structuredData->breadcrumbs(['Opiniones' => route('site.reviews')])],
             ),
         ];
