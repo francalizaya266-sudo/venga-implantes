@@ -112,7 +112,7 @@ final class ClinicSetupChecklist
                 'key' => 'extra-copy',
                 'title' => 'La copia extra en otra carpeta',
                 'why' => $extraProblem !== null
-                    ? 'La última no se pudo guardar: '.$extraProblem
+                    ? 'La última no se pudo guardar. '.$extraProblem
                     : 'Para que la copia no se pierda junto con la computadora: en OneDrive, Google Drive o un USB.',
                 'done' => $extraFolder !== null && $extraProblem === null,
                 'url' => Backups::getUrl().'#copia-extra',
