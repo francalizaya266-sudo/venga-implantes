@@ -317,9 +317,9 @@ class Backups extends Page
                 default => 'Respaldo de ayer ✓',
             },
             'detail' => match (true) {
-                // La copia extra en otra carpeta la guarda fuera cada día, sin descargar nada. Solo si la que está ahí es
-                // la de hoy: una de ayer guardada pasada la medianoche no es "la copia de hoy".
-                $latest?->isToday() === true && app(ExtraCopy::class)->hasTheLatest() => 'Copia de hoy guardada también en otra carpeta',
+                // La copia extra en otra carpeta la guarda fuera cada día, sin descargar nada. Dice cuál está ahí, como
+                // arriba: la de ayer guardada pasada la medianoche no es "la copia de hoy".
+                $latest !== null && ! $database->isStale() && app(ExtraCopy::class)->hasTheLatest() => ($latest->isToday() ? 'Copia de hoy' : 'Copia de ayer').' guardada también en otra carpeta',
                 $downloaded === null => 'Aún no se bajó una copia fuera '.app(ScheduledTasks::class)->ofMachine(),
                 default => 'Copia fuera '.app(ScheduledTasks::class)->ofMachine().' '.$downloaded['at']->diffForHumans(),
             },

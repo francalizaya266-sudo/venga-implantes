@@ -174,7 +174,7 @@ class ExtraCopyTest extends TestCase
         $this->assertNull(app(ExtraCopy::class)->folder());
     }
 
-    public function test_the_foot_of_the_menu_says_todays_copy_only_when_todays_copy_is_in_the_folder(): void
+    public function test_the_foot_of_the_menu_says_which_copy_is_in_the_folder(): void
     {
         $this->actingAs(User::factory()->admin(isDentist: true)->create());
         $this->artisan('respaldo:crear')->assertSuccessful();
@@ -185,13 +185,20 @@ class ExtraCopyTest extends TestCase
         $this->artisan('respaldo:copia-extra')->assertSuccessful();
 
         $this->assertSame('Respaldo de ayer ✓', Backups::sidebarStatus()['text']);
-        $this->assertNotSame('Copia de hoy guardada también en otra carpeta', Backups::sidebarStatus()['detail']);
+        $this->assertSame('Copia de ayer guardada también en otra carpeta', Backups::sidebarStatus()['detail']);
 
         // Con la de hoy creada y guardada ahí, sí.
         $this->travelTo(CarbonImmutable::parse('2026-10-24 03:00', 'America/Lima'));
         $this->artisan('respaldo:crear')->assertSuccessful();
 
         $this->assertSame('Copia de hoy guardada también en otra carpeta', Backups::sidebarStatus()['detail']);
+
+        // Si la del día siguiente no llega a la carpeta (el USB no está), ya no lo dice.
+        File::deleteDirectory($this->folder);
+        $this->travel(1)->days();
+        $this->artisan('respaldo:crear')->assertSuccessful();
+
+        $this->assertSame('Aún no se bajó una copia fuera del servidor', Backups::sidebarStatus()['detail']);
     }
 
     public function test_with_the_extra_copy_working_the_weekly_download_asks_only_for_the_files(): void
