@@ -7,6 +7,7 @@ use App\Models\Appointment;
 use App\Models\Doctor;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 /**
@@ -25,6 +26,9 @@ final class DoctorCalendarFeed
     /** Letras y números al azar: imposible de adivinar. */
     public const TOKEN_LENGTH = 40;
 
+    /** Como queda en el historial de cambios que el doctor cambió su enlace (el historial guarda hasta 20 letras). */
+    public const LINK_CHANGED = 'calendar_changed';
+
     /** El enlace del doctor, o null si todavía no lo creó. */
     public function url(Doctor $doctor): ?string
     {
@@ -40,11 +44,13 @@ final class DoctorCalendarFeed
     {
         $hadLink = filled($doctor->calendar_token);
 
-        $doctor->forceFill(['calendar_token' => Str::random(self::TOKEN_LENGTH)])->save();
+        DB::transaction(function () use ($doctor, $hadLink): void {
+            $doctor->forceFill(['calendar_token' => Str::random(self::TOKEN_LENGTH)])->save();
 
-        if ($hadLink) {
-            $doctor->auditEvent('calendar_link_changed');
-        }
+            if ($hadLink) {
+                $doctor->auditEvent(self::LINK_CHANGED);
+            }
+        });
 
         return (string) $this->url($doctor);
     }

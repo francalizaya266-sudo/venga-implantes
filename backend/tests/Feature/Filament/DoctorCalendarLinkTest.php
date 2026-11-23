@@ -37,8 +37,9 @@ class DoctorCalendarLinkTest extends TestCase
         $url = app(DoctorCalendarFeed::class)->url($doctor->refresh());
         $this->assertNotNull($url);
 
-        $page->assertSee([$url, 'Agregar al iPhone', 'Añadir calendario suscrito', 'calendar.google.com', 'Cambiar el enlace'])
+        $page->assertSee([$url, 'Copiar el enlace', 'Agregar al iPhone', 'Añadir calendario suscrito', 'calendar.google.com', 'Cambiar el enlace'])
             ->assertDontSee('Crear mi enlace')
+            ->assertActionVisible($this->action('copyCalendarLink'))
             ->assertActionHasUrl($this->action('addToIphone'), str_replace('http://', 'webcal://', $url));
 
         $this->get($url)->assertOk();
@@ -60,8 +61,10 @@ class DoctorCalendarLinkTest extends TestCase
         $this->get($old)->assertNotFound();
         $this->get($new)->assertOk();
 
-        // Quien administra ve que lo cambió, sin la clave.
-        $change = AuditLog::query()->where('auditable_type', Doctor::class)->where('event', 'calendar_link_changed')->sole();
+        // Quien administra ve que lo cambió, sin la clave. El historial guarda hasta 20 letras: la base de las pruebas no
+        // lo exige, MySQL sí (con un nombre más largo, cambiar el enlace daba error).
+        $this->assertLessThanOrEqual(20, strlen(DoctorCalendarFeed::LINK_CHANGED));
+        $change = AuditLog::query()->where('auditable_type', Doctor::class)->where('event', DoctorCalendarFeed::LINK_CHANGED)->sole();
         $this->assertSame($doctor->user_id, $change->user_id);
         $this->assertStringNotContainsString(basename($new, '.ics'), json_encode($change->toArray()));
         $this->assertSame(0, AuditLog::query()->where('auditable_type', Doctor::class)->where('event', 'updated')->count());
@@ -83,6 +86,14 @@ class DoctorCalendarLinkTest extends TestCase
             ->assertActionVisible($this->action('createCalendarLink'));
 
         $this->actingAs(User::factory()->reception()->create());
+
+        Livewire::test(EditProfile::class)
+            ->assertDontSee('Ver mi agenda en el calendario del celular');
+
+        // Quien administra y ya no atiende (su ficha de doctor está desactivada) no tiene agenda que ver.
+        $retired = User::factory()->admin(isDentist: true)->create();
+        Doctor::factory()->create(['user_id' => $retired->id, 'is_active' => false]);
+        $this->actingAs($retired);
 
         Livewire::test(EditProfile::class)
             ->assertDontSee('Ver mi agenda en el calendario del celular');

@@ -4,6 +4,7 @@ namespace App\Filament\Pages\Auth;
 
 use App\Filament\Forms\WebPhotoUpload;
 use App\Filament\Forms\WeeklySchedule;
+use App\Filament\Support\CopyLink;
 use App\Models\Doctor;
 use App\Models\DoctorSchedule;
 use App\Services\Agenda\DoctorCalendarFeed;
@@ -87,7 +88,8 @@ class EditProfile extends BaseEditProfile
         return Section::make('Ver mi agenda en el calendario del celular')
             ->description('Tus citas aparecen solas en el calendario de tu celular, con la hora, el tratamiento y el nombre del paciente. Sin datos clínicos ni celulares.')
             ->inlineLabel(false)
-            ->visible(fn () => $this->doctor() !== null)
+            // Quien ya no atiende (su ficha de doctor está desactivada) no tiene agenda: el enlace no abriría nada.
+            ->visible(fn () => (bool) $this->doctor()?->is_active)
             ->schema([
                 TextEntry::make('calendar_link')
                     ->label('Tu enlace')
@@ -121,6 +123,11 @@ class EditProfile extends BaseEditProfile
 
                             Notification::make()->success()->title('Enlace creado')->body('Cópialo y agrégalo en tu celular.')->send();
                         }),
+                    Action::make('copyCalendarLink')
+                        ->label('Copiar el enlace')
+                        ->icon(Heroicon::OutlinedClipboardDocument)
+                        ->visible(fn () => $this->calendarUrl() !== null)
+                        ->alpineClickHandler(fn () => CopyLink::js((string) $this->calendarUrl())),
                     Action::make('addToIphone')
                         ->label('Agregar al iPhone')
                         ->icon(Heroicon::OutlinedDevicePhoneMobile)

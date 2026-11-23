@@ -16,6 +16,7 @@ use App\Support\Spreadsheet;
 use Carbon\CarbonImmutable;
 use Filament\Actions\Imports\Models\Import;
 use Filament\Actions\Testing\TestAction;
+use Filament\Notifications\Notification;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\URL;
@@ -23,6 +24,7 @@ use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
 use OpenSpout\Reader\XLSX\Reader as XlsxReader;
 use Tests\TestCase;
+use ZipArchive;
 
 /** Pacientes › Importar pacientes: la lista en Excel o CSV entra revisada como el alta del panel, sin repetir a nadie. */
 class PatientImportTest extends TestCase
@@ -69,6 +71,35 @@ class PatientImportTest extends TestCase
         unlink($path);
 
         return $rows;
+    }
+
+    /**
+     * El Excel con fórmulas, como lo guarda Excel: en cada celda marcada, la fórmula y lo que muestra.
+     *
+     * @param  array<string, array{0: string, 1: string}>  $formulas  Texto de la celda => [fórmula, lo que muestra].
+     */
+    private function withFormulas(string $xlsx, array $formulas): string
+    {
+        $path = (string) tempnam(sys_get_temp_dir(), 'xlsx');
+        file_put_contents($path, $xlsx);
+        $zip = new ZipArchive;
+        $zip->open($path);
+        $sheet = (string) $zip->getFromName('xl/worksheets/sheet1.xml');
+
+        foreach ($formulas as $text => [$formula, $shown]) {
+            $sheet = (string) preg_replace(
+                '#<c r="([A-Z]+\d+)" t="inlineStr" s="\d+"><is><t xml:space="preserve">'.preg_quote($text, '#').'</t></is></c>#',
+                '<c r="$1" t="str"><f>'.htmlspecialchars($formula, ENT_XML1).'</f><v>'.htmlspecialchars($shown, ENT_XML1).'</v></c>',
+                $sheet,
+            );
+        }
+
+        $zip->addFromString('xl/worksheets/sheet1.xml', $sheet);
+        $zip->close();
+        $contents = (string) file_get_contents($path);
+        unlink($path);
+
+        return $contents;
     }
 
     /** @return list<string> Qué hay que corregir en cada fila que no entró. */
@@ -158,6 +189,24 @@ class PatientImportTest extends TestCase
         $this->assertSame([1, 1], [$this->lastImport()->total_rows, $this->lastImport()->successful_rows]);
     }
 
+    public function test_a_column_made_with_a_formula_brings_what_excel_shows_not_the_formula(): void
+    {
+        $this->actingAs(User::factory()->reception()->create());
+
+        $book = (new Spreadsheet)->sheet('Pacientes', ['Nombres', 'Apellidos', 'Celular'], [Spreadsheet::TEXT, Spreadsheet::TEXT, Spreadsheet::TEXT], [
+            ['[nombre]', '[apellidos]', '987654321'],
+        ]);
+        $xlsx = $this->withFormulas($book->toXlsx(), [
+            '[nombre]' => ['PROPER("ROSA MARÍA")', 'Rosa María'],
+            '[apellidos]' => ['CONCATENATE("Huamán"," ","Quispe")', 'Huamán Quispe'],
+        ]);
+
+        $this->import(UploadedFile::fake()->createWithContent('pacientes.xlsx', $xlsx));
+
+        $rosa = Patient::query()->sole();
+        $this->assertSame(['Rosa María', 'Huamán Quispe', '+51987654321'], [$rosa->first_name, $rosa->last_name, $rosa->account->phone]);
+    }
+
     public function test_the_template_downloads_in_excel_and_imports_as_it_comes(): void
     {
         $this->actingAs(User::factory()->reception()->create());
@@ -187,8 +236,9 @@ class PatientImportTest extends TestCase
 
         $csv = implode("\n", [
             'Nombres,Apellidos,DNI,Celular,Fecha de nacimiento,Correo,Notas',
-            'Rosa,Huamán Quispe,45678912,987654321,01/01/1980,rosa@gmail.com,Otra nota',
+            'Rosa,Huamán Quispe,45678912,987654321,,rosa@gmail.com,Otra nota',
             'Lucía,Huamán,,987654321,,,',
+            'Mateo,Huamán,,987654321,,,',
         ]);
 
         $this->import(UploadedFile::fake()->createWithContent('pacientes.csv', $csv), [PatientImporter::EXISTING => PatientImporter::FILL]);
@@ -202,8 +252,81 @@ class PatientImportTest extends TestCase
         // Otro nombre con el mismo celular es otra persona de la familia.
         $this->assertSame(3, $account->patients()->count());
         $this->assertSame(1, Patient::query()->where('first_name', 'Mateo')->count());
-        $this->assertSame([], $this->failures($this->lastImport()));
         $this->assertTrue($son->is($account->patients()->where('first_name', 'Mateo')->sole()));
+
+        // A quien ya tenía todo no se le cambia nada, y el aviso no lo cuenta como importado.
+        $this->assertSame(['Ya está registrado (mismo celular y nombre): Mateo Huamán. Ya tenía esos datos: no se cambió nada.'], $this->failures($this->lastImport()));
+        $this->assertSame(
+            'Se importó 1 paciente y se completaron los datos de 1 que ya estaba registrado. 1 ya estaba registrado y quedó como estaba. Descarga el archivo para ver cuál y por qué.',
+            PatientImporter::getCompletedNotificationBody($this->lastImport()),
+        );
+    }
+
+    public function test_relatives_with_the_same_phone_are_not_mixed_up(): void
+    {
+        $this->actingAs(User::factory()->reception()->create());
+        $account = Account::factory()->create(['phone' => '+51987654321']);
+        $elena = Patient::factory()->for($account)->create(['first_name' => 'María Elena', 'last_name' => 'Quispe Torres', 'document_number' => null, 'email' => null, 'birth_date' => '2001-05-06']);
+        $father = Patient::factory()->for($account)->create(['first_name' => 'Juan', 'last_name' => 'Quispe Torres', 'document_number' => '41234567', 'email' => null, 'birth_date' => '1970-02-10']);
+        $rosa = Patient::factory()->for($account)->create(['first_name' => 'Rosa', 'last_name' => 'Quispe Torres', 'document_number' => null, 'email' => null]);
+
+        $csv = implode("\n", [
+            'Nombres,Apellidos,DNI,Celular,Fecha de nacimiento,Correo',
+            // Su hermana gemela: el mismo celular y la misma fecha, otro segundo nombre.
+            'María José,Quispe Torres,71234567,987654321,06/05/2001,majo@gmail.com',
+            // El hijo que lleva el nombre del papá: otra fecha de nacimiento.
+            'Juan,Quispe,,987654321,15/08/1998,juan.hijo@gmail.com',
+            // Una prima con el mismo nombre: otro segundo apellido.
+            'Rosa,Quispe de la Cruz,,987654321,,rosa.prima@gmail.com',
+            // Solo "María Quispe": podría ser cualquiera de las dos hermanas.
+            'María,Quispe,,987654321,,maria@gmail.com',
+        ]);
+
+        $this->import(UploadedFile::fake()->createWithContent('pacientes.csv', $csv), [PatientImporter::EXISTING => PatientImporter::FILL]);
+
+        // Entraron la gemela, el hijo y la prima; a los que ya estaban no se les puso nada de otra persona.
+        $this->assertSame(6, $account->patients()->count());
+        $this->assertSame([null, null], [$elena->refresh()->document_number, $elena->email]);
+        $this->assertSame(['1970-02-10', null], [$father->refresh()->birth_date->toDateString(), $father->email]);
+        $this->assertNull($rosa->refresh()->email);
+        $this->assertSame(['Podría ser María Elena Quispe Torres o María José Quispe Torres. Agrega su DNI o su fecha de nacimiento para saber quién es.'], $this->failures($this->lastImport()));
+        $this->assertSame(
+            'Se importaron 3 pacientes. 1 fila tiene datos por corregir. Descarga el archivo para ver cuál y por qué.',
+            PatientImporter::getCompletedNotificationBody($this->lastImport()),
+        );
+    }
+
+    public function test_uploading_the_same_list_twice_repeats_no_one(): void
+    {
+        $this->actingAs(User::factory()->reception()->create());
+        $csv = implode("\n", [
+            'Nombres,Apellidos,DNI,Celular,Fecha de nacimiento',
+            'Rosa María,Huamán,45678912,,',
+            'Mateo,Quispe,,987654321,',
+            'Lucía,Torres,,,05/06/2001',
+            'Pedro,Ramos Díaz,,,',
+        ]);
+
+        $this->import(UploadedFile::fake()->createWithContent('pacientes.csv', $csv));
+        $this->assertSame('Se importaron 4 pacientes.', PatientImporter::getCompletedNotificationBody($this->lastImport()));
+
+        $this->import(UploadedFile::fake()->createWithContent('pacientes.csv', $csv));
+
+        // Sin DNI, celular ni fecha, el mismo nombre completo es la misma persona.
+        $this->assertSame(4, Patient::query()->count());
+        $this->assertSame([
+            'Ya está registrado (mismo DNI): Rosa María Huamán. No se cambió nada.',
+            'Ya está registrado (mismo celular y nombre): Mateo Quispe. No se cambió nada.',
+            'Ya está registrado (mismo nombre y fecha de nacimiento): Lucía Torres. No se cambió nada.',
+            'Ya está registrado (mismo nombre): Pedro Ramos Díaz. No se cambió nada.',
+        ], $this->failures($this->lastImport()));
+        $this->assertSame(
+            'No se importó ningún paciente. 4 ya estaban registrados y quedaron como estaban. Descarga el archivo para ver cuáles y por qué.',
+            PatientImporter::getCompletedNotificationBody($this->lastImport()),
+        );
+
+        // Nada que corregir: el aviso no sale en rojo.
+        $this->assertSame('info', PatientImporter::modifyCompletedNotification(Notification::make()->danger(), $this->lastImport())->getStatus());
     }
 
     public function test_the_summary_only_names_what_happened(): void
@@ -219,6 +342,7 @@ class PatientImportTest extends TestCase
         $import->update(['total_rows' => 4, 'processed_rows' => 4]);
 
         $this->assertSame('Se importaron 3 pacientes. 1 fila tiene datos por corregir. Descarga el archivo para ver cuál y por qué.', PatientImporter::getCompletedNotificationBody($import));
+        $this->assertSame('warning', PatientImporter::modifyCompletedNotification(Notification::make()->warning(), $import)->getStatus());
 
         $import->failedRows()->delete();
         $import->failedRows()->createMany([

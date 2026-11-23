@@ -18,6 +18,7 @@ use App\Models\Setting;
 use App\Models\Treatment;
 use App\Models\TreatmentPackage;
 use App\Models\User;
+use App\Services\Agenda\DoctorCalendarFeed;
 use App\Services\Backup\DatabaseBackup;
 use App\Services\Backup\ExtraCopy;
 use App\Services\Backup\OffsiteCopies;
@@ -400,7 +401,7 @@ final class ChangeHistory
             // Activar o quitar la doble verificación no guarda ningún dato que se pueda mostrar (el secreto va cifrado).
             'mfa_enabled' => 'Se activó su doble verificación',
             'mfa_disabled' => 'Se quitó su doble verificación',
-            'calendar_link_changed' => 'Se cambió el enlace de su agenda para el celular',
+            DoctorCalendarFeed::LINK_CHANGED => 'Se cambió el enlace de su agenda para el celular',
             OffsiteCopies::DOWNLOADED, OffsiteCopies::DELETED => self::BACKUP_EVENTS[$log->event],
             default => self::changesInWords($log),
         };
