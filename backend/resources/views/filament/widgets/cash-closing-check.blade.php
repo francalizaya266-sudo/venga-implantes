@@ -89,7 +89,10 @@
                             {{ CashClosingCheck::differenceText($record->difference()) }}{{ $record->notes ? ' '.$record->notes : '' }}
                         </small>
                     </span>
-                    {{ $this->reopenDayAction }}
+                    {{-- Reabrir es de quien administra: a recepción no se le muestra el botón apagado. --}}
+                    @if ($this->reopenDayAction->isVisible())
+                        {{ $this->reopenDayAction }}
+                    @endif
                 @else
                     <x-filament::icon icon="heroicon-o-calculator" class="cc-status-icon" />
                     <span class="cc-row-text">

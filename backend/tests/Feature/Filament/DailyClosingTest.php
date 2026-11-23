@@ -97,7 +97,9 @@ class DailyClosingTest extends TestCase
             ->assertNotified('Día cerrado')
             ->assertSee(['Cerrado por Carla Ríos', 'debía haber S/ 300.00', 'se contó S/ 280.00', 'Faltan S/ 20.00 en la caja.', 'Se dio vuelto de más'])
             ->assertActionHidden('closeDay')
-            ->assertActionHidden('reopenDay');
+            ->assertActionHidden('reopenDay')
+            // Ni siquiera apagado: reabrir es de quien administra.
+            ->assertDontSee('Reabrir el día');
 
         $record = DailyClosing::sole();
         $this->assertSame(['2026-11-02', 100.0, 300.0, 280.0, 200.0, 200.0, -20.0], [$record->date->toDateString(), (float) $record->opening_cash, (float) $record->expected_cash, (float) $record->counted_cash, (float) $record->collected, (float) $record->pending, $record->difference()]);
@@ -122,6 +124,7 @@ class DailyClosingTest extends TestCase
         $this->assertTrue($admin->can('update', $payment));
 
         Livewire::test(CashClosingCheck::class, ['pageFilters' => ['date' => '2026-11-02']])
+            ->assertSee('Reabrir el día')
             ->callAction('reopenDay')
             ->assertNotified('Día reabierto')
             ->assertSee('Falta el arqueo');
