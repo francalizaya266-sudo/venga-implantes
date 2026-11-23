@@ -1757,8 +1757,8 @@ a.dash-name:hover { color: var(--primary-600); }
 
 /* Huecos de la semana: los 7 días en una fila (el elegido, marcado) y debajo el detalle del día. */
 .dash-week { display: grid; gap: .75rem; }
-.dash-week-strip { display: grid; grid-template-columns: repeat(var(--days, 7), minmax(0, 1fr)); gap: .3rem; }
-.dash-week-day { display: grid; justify-items: center; gap: .15rem; min-width: 0; padding: .45rem .15rem .5rem; border: 1px solid var(--gray-200); border-radius: .65rem; background: transparent; color: var(--gray-600); font: inherit; cursor: pointer; transition: border-color .15s ease, background-color .15s ease; }
+.dash-week-strip { display: grid; grid-template-columns: repeat(var(--days, 7), minmax(0, 1fr)); gap: .2rem; }
+.dash-week-day { display: grid; justify-items: center; gap: .15rem; min-width: 0; padding: .45rem 0 .5rem; border: 1px solid var(--gray-200); border-radius: .65rem; background: transparent; color: var(--gray-600); font: inherit; cursor: pointer; transition: border-color .15s ease, background-color .15s ease; container-type: inline-size; }
 .dash-week-day:hover { border-color: var(--gray-300); }
 .dash-week-day:focus-visible { outline: 2px solid var(--primary-500); outline-offset: 1px; }
 .dash-week-day.is-selected { border-color: var(--primary-500); background: color-mix(in oklab, var(--primary-500) 6%, transparent); box-shadow: inset 0 0 0 1px var(--primary-500); }
@@ -1769,14 +1769,14 @@ a.dash-name:hover { color: var(--primary-600); }
 .dash-week-number { font-size: 1rem; font-weight: 600; line-height: 1.25rem; color: var(--gray-950); font-variant-numeric: tabular-nums; }
 .dark .dash-week-number { color: #fff; }
 .dash-week-day .dash-meter { width: calc(100% - .6rem); height: .25rem; margin: .2rem 0 .1rem; }
-.dash-week-free { max-width: 100%; overflow: hidden; text-overflow: ellipsis; font-size: .6875rem; font-weight: 600; line-height: 1rem; white-space: nowrap; color: var(--gray-700); font-variant-numeric: tabular-nums; }
+.dash-week-free { max-width: 100%; overflow: hidden; text-overflow: ellipsis; font-size: .75rem; font-weight: 600; line-height: 1rem; white-space: nowrap; color: var(--gray-700); font-variant-numeric: tabular-nums; }
 .dark .dash-week-free { color: var(--gray-200); }
 .dash-week-day.is-full .dash-week-free { font-weight: 500; color: var(--gray-500); }
-/* En el celular los días quedan angostos: "13 h 20" entra completo con la letra un poco más chica. */
-@media (max-width: 40rem) {
-    .dash-week-strip { gap: .2rem; }
-    .dash-week-day { padding-inline: 0; }
-    .dash-week-free { font-size: .625rem; letter-spacing: -.01em; }
+/* Un día angosto (siete en el celular o en la columna del costado) no tiene lugar para "13 h 20" en 12 px: se ven
+   solo las horas, y "45 min" puede bajar a dos líneas. Los minutos siguen en el detalle del día. */
+@container (max-width: 2.875rem) {
+    .dash-week-min { display: none; }
+    .dash-week-free { white-space: normal; text-align: center; }
 }
 .dash-day { display: grid; gap: .3rem; padding: .7rem .8rem; border: 1px solid var(--gray-200); border-radius: .75rem; color: var(--gray-700); }
 .dark .dash-day { border-color: rgb(255 255 255 / .1); color: var(--gray-300); }

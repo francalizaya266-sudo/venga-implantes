@@ -24,7 +24,7 @@
                             <span class="dash-week-name">{{ $day['short'] }}</span>
                             <span class="dash-week-number">{{ $day['number'] }}</span>
                             <span class="dash-meter" aria-hidden="true"><span style="width: {{ $day['occupancy'] }}%"></span></span>
-                            <span class="dash-week-free">{{ $day['free_short'] }}</span>
+                            <span class="dash-week-free">{{ $day['free_short']['main'] }}@if ($day['free_short']['minutes'])<span class="dash-week-min"> {{ $day['free_short']['minutes'] }}</span>@endif</span>
                         </button>
                     @endforeach
                 </div>

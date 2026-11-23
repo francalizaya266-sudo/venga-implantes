@@ -1062,16 +1062,20 @@ class DashboardPanelTest extends TestCase
         ScheduleBlock::create(['doctor_id' => $doctor->id, 'type' => ScheduleBlockType::Course, 'starts_at' => '2026-11-03 00:00', 'ends_at' => '2026-11-03 23:59']);
         $this->actingAs(User::factory()->reception()->create());
 
-        Livewire::test(WeekGaps::class)
+        $week = Livewire::test(WeekGaps::class)
             // Arriba, el total de la semana (el que antes repetía "Horas libres" en los números del día).
             ->assertSee('Quedan 39'.self::NBSP.'h 20'.self::NBSP.'min libres de hoy a 7 días.')
-            // En una fila, empezando hoy: cuánto queda libre en cada día, con poco espacio.
-            ->assertSeeInOrder(['Hoy', '7 h 20', 'Mar', 'Lleno', 'Mié', '8 h', 'Sáb', '8 h'])
+            // En una fila, empezando hoy: cuánto queda libre en cada día, con poco espacio. Los minutos van aparte:
+            // en un día angosto se ven solo las horas.
+            ->assertSeeHtmlInOrder(['Hoy', '<span class="dash-week-free">7 h', '<span class="dash-week-min"> 20</span>', 'Mar', '<span class="dash-week-free">Lleno', 'Mié', '<span class="dash-week-free">8 h', 'Sáb', '<span class="dash-week-free">8 h'])
             // Y debajo, el detalle de cada día al tocarlo; abre en el primero que tiene huecos.
             ->assertSeeInOrder(['Hoy', '7'.self::NBSP.'h 20'.self::NBSP.'min libres', '09:40–13:00 · 15:00–19:00', 'Abrir la agenda de ese día', 'Mañana', 'Sin huecos', 'Miércoles 4', '8'.self::NBSP.'h libres'])
             ->assertSeeHtml('x-data="{ day: 0 }"')
             // El domingo no se atiende.
             ->assertDontSee('Domingo');
+
+        // Solo el día con minutos sueltos los lleva aparte; "Lleno" y "8 h" van enteros.
+        $this->assertSame(1, substr_count($week->html(), 'dash-week-min'));
     }
 
     public function test_today_counts_from_now_and_each_doctor_shows_who_on_the_waitlist_fits(): void

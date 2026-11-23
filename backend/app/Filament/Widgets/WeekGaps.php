@@ -37,7 +37,7 @@ class WeekGaps extends Widget
     }
 
     /**
-     * @return array{summary: string|null, selected: int, days: list<array{label: string, short: string, number: string, occupancy: int, free: string, free_short: string, url: string, doctors: list<array{name: string|null, gaps: string, waiting: string|null, waiting_url: string}>}>}
+     * @return array{summary: string|null, selected: int, days: list<array{label: string, short: string, number: string, occupancy: int, free: string, free_short: array{main: string, minutes: string|null}, url: string, doctors: list<array{name: string|null, gaps: string, waiting: string|null, waiting_url: string}>}>}
      */
     protected function getViewData(): array
     {
@@ -85,13 +85,19 @@ class WeekGaps extends Widget
         return ($count === 1 ? '1 de la lista de espera puede venir' : $count.' de la lista de espera pueden venir').($doctor ? ' con '.$doctor : '');
     }
 
-    /** Lo libre de un día en la fila de arriba, donde hay poco espacio: "3 h", "2 h 50", "40 min" o "Lleno". */
-    private static function shortDuration(int $minutes): string
+    /**
+     * Lo libre de un día en la fila de arriba, donde hay poco espacio: "3 h", "2 h 50", "40 min" o "Lleno". Los minutos
+     * de "2 h 50" van aparte: en un día angosto "13 h 20" no entra con la letra de 12 px y se ven solo las horas
+     * (panel.css, .dash-week-min); el detalle del día y lo que lee el lector de pantalla los dicen siempre.
+     *
+     * @return array{main: string, minutes: string|null}
+     */
+    private static function shortDuration(int $minutes): array
     {
         return match (true) {
-            $minutes <= 0 => 'Lleno',
-            $minutes < 60 => $minutes.' min',
-            default => intdiv($minutes, 60).' h'.($minutes % 60 > 0 ? ' '.$minutes % 60 : ''),
+            $minutes <= 0 => ['main' => 'Lleno', 'minutes' => null],
+            $minutes < 60 => ['main' => $minutes.' min', 'minutes' => null],
+            default => ['main' => intdiv($minutes, 60).' h', 'minutes' => $minutes % 60 > 0 ? (string) ($minutes % 60) : null],
         };
     }
 

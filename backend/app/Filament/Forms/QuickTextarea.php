@@ -187,7 +187,7 @@ class QuickTextarea extends Textarea
                 .qt-chip:hover { border-color: var(--primary-500); color: var(--primary-700); background: var(--primary-50); }
                 .dark .qt-chip { color: var(--gray-300); border-color: rgb(255 255 255 / .2); }
                 .qt-more { border-style: solid; }
-                .qt-hint { font-size: .72rem; color: var(--gray-500); margin-left: .25rem; }
+                .qt-hint { font-size: .75rem; color: var(--gray-500); margin-left: .25rem; }
             </style>
             HTML);
     }
