@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Services\Backup\DatabaseBackup;
 use App\Services\Backup\FilesBackup;
 use App\Services\Backup\OffsiteCopies;
+use App\Services\ScheduledTasks;
 use App\Support\Dates;
 use BackedEnum;
 use Carbon\CarbonImmutable;
@@ -186,6 +187,23 @@ class Backups extends Page
         ];
     }
 
+    /**
+     * Por qué falta la copia de las últimas horas y qué hacer. Casi siempre es que las tareas automáticas de la
+     * computadora están apagadas; si están corriendo, la copia falló por otra cosa y toca crearla a mano.
+     */
+    private static function missedBackup(bool $noneYet): string
+    {
+        $tasks = app(ScheduledTasks::class);
+
+        if ($tasks->areRunning()) {
+            return 'Las tareas automáticas están corriendo, pero la copia automática no se creó. Toca «Crear copia ahora»: si sale un error, avísale a quien instaló el sistema.';
+        }
+
+        return ($noneYet ? 'Todavía no se creó la primera copia automática.' : 'La copia automática de anoche no corrió.')
+            .' Revisa que las tareas automáticas '.$tasks->ofMachine().' estén encendidas. '.$tasks->howToTurnOn()
+            .' Mientras tanto, toca «Crear copia ahora».';
+    }
+
     /** "Hay 4 copias de más: las más viejas se borran al crear la próxima copia." */
     private static function extraCopies(int $extra): string
     {
@@ -219,6 +237,7 @@ class Backups extends Page
             'whoDownloads' => self::whoDownloads(),
             'backups' => $backups,
             'stale' => $service->isStale(),
+            'missedBackup' => self::missedBackup($list === []),
             'keep' => $keep = $service->keep(),
             'extra' => count($list) > $keep ? self::extraCopies(count($list) - $keep) : null,
             'due' => $copies->due(),

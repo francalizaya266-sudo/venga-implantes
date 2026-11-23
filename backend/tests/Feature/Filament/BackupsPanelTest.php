@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Services\Backup\DatabaseBackup;
 use App\Services\Backup\FilesBackup;
 use App\Services\Backup\OffsiteCopies;
+use App\Services\ScheduledTasks;
 use Carbon\CarbonImmutable;
 use Filament\Actions\Testing\TestAction;
 use Filament\Facades\Filament;
@@ -125,6 +126,34 @@ class BackupsPanelTest extends TestCase
 
         Livewire::test(Backups::class)
             ->assertSee('Hoy nadie puede descargarlas. En Usuarios, marca "Es odontólogo" en el administrador que atiende pacientes.', false);
+    }
+
+    public function test_when_the_daily_copy_did_not_run_it_says_to_check_the_automatic_tasks(): void
+    {
+        $this->actingAs(User::factory()->admin(isDentist: true)->create());
+        $this->stored('respaldos/respaldo_2026-10-21_030000.sql.gz', '2026-10-21 03:00');
+
+        // Sin hablar del hosting: el sistema puede estar en la laptop del consultorio.
+        Livewire::test(Backups::class)
+            ->assertSee([
+                'No hay una copia de las últimas horas',
+                'La copia automática de anoche no corrió. Revisa que las tareas automáticas del servidor estén encendidas.',
+                'Pide a quien instaló el sistema que encienda la tarea que corre cada minuto',
+                'Mientras tanto, toca «Crear copia ahora».',
+            ])
+            ->assertDontSee('te ayuda con el hosting');
+        Livewire::test(SystemHealth::class)
+            ->assertSee('La copia automática no corrió: revisa que las tareas automáticas del servidor estén encendidas.')
+            ->assertDontSee('hosting');
+
+        // Si las tareas sí corren, la copia falló por otra cosa: no se manda a revisarlas.
+        ScheduledTasks::beat();
+
+        Livewire::test(Backups::class)
+            ->assertSee('Las tareas automáticas están corriendo, pero la copia automática no se creó. Toca «Crear copia ahora»: si sale un error, avísale a quien instaló el sistema.')
+            ->assertDontSee('Revisa que las tareas automáticas');
+        Livewire::test(SystemHealth::class)
+            ->assertSee('Las tareas automáticas están corriendo, pero la copia no se creó.');
     }
 
     public function test_old_copies_are_deleted_but_the_latest_always_stays(): void

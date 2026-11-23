@@ -2,8 +2,7 @@
     @if ($stale)
         <x-filament::section icon="heroicon-o-exclamation-triangle" icon-color="danger">
             <x-slot name="heading">No hay una copia de las últimas horas</x-slot>
-            Las copias se crean solas cada madrugada y hoy no se creó. Por ahora toca "Crear copia ahora", y avisa a quien
-            te ayuda con el hosting: la tarea automática del servidor no está corriendo.
+            {{ $missedBackup }}
         </x-filament::section>
     @endif
 
@@ -116,7 +115,7 @@
 
     <x-filament::section heading="Para que sirva de verdad" collapsible>
         <div class="backup-help">
-            <p>Una copia que queda en el mismo hosting no sirve si el hosting falla. Una vez por semana descarga la copia de los datos más reciente y los archivos nuevos, y guárdalos en otro lugar seguro (por ejemplo, la cuenta de Google Drive del consultorio). Si pasa una semana sin hacerlo, el sistema lo recuerda en "Hoy".</p>
+            <p>Una copia que se queda en el mismo equipo no sirve si ese equipo se malogra, se moja o se pierde. Una vez por semana descarga la copia de los datos más reciente y los archivos nuevos, y guárdalos en otro lugar seguro (por ejemplo, la cuenta de Google Drive del consultorio). Si pasa una semana sin hacerlo, el sistema lo recuerda en "Hoy".</p>
             <p>Tienen datos clínicos de los pacientes: no los compartas ni los envíes por WhatsApp.</p>
             <p>La copia de los datos trae pacientes, citas, historias y pagos. Las radiografías, fotos, documentos y firmas se bajan aparte, aquí mismo. Guarda todas esas descargas: cada una trae solo lo nuevo.</p>
         </div>
@@ -125,8 +124,8 @@
     <x-filament::section heading="Si hay que recuperar los datos" description="Recuperar es dejar el sistema como estaba el día de una copia." collapsible>
         <div class="backup-help">
             <ol class="backup-steps">
-                <li>Avisa a quien te ayuda con el hosting que hay que recuperar la copia de seguridad. Los pasos técnicos están en la guía de instalación del sistema, en el punto "Copias de seguridad".</li>
-                <li>Dale la copia de los datos más reciente que tengas guardada (el archivo que empieza con "respaldo_") y todos los archivos .zip de radiografías, fotos, documentos y firmas, no solo el último. Si el hosting sigue funcionando y solo se borró o dañó algo, también sirven las copias de esta pantalla.</li>
+                <li>Avisa a quien instaló el sistema que hay que recuperar la copia de seguridad. Los pasos técnicos están en la guía de instalación del sistema, en el punto "Copias de seguridad".</li>
+                <li>Dale la copia de los datos más reciente que tengas guardada (el archivo que empieza con "respaldo_") y todos los archivos .zip de radiografías, fotos, documentos y firmas, no solo el último. Si el equipo sigue funcionando y solo se borró o dañó algo, también sirven las copias de esta pantalla.</li>
                 <li>Lo que se registró después de esa copia se pierde: las citas, los pagos y las historias de esos días hay que volver a anotarlos. Por eso conviene descargar cada semana.</li>
                 <li>Al terminar, todos vuelven a entrar con su correo y su contraseña de siempre. Revisa la agenda de hoy, un paciente reciente con sus radiografías y la caja del día.</li>
             </ol>
