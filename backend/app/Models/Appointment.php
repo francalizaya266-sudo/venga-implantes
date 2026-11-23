@@ -7,6 +7,7 @@ use App\Enums\AppointmentStatus;
 use App\Enums\BookingChannel;
 use App\Enums\CancelledBy;
 use App\Enums\ConfirmationChannel;
+use App\Enums\RescheduleRequestStatus;
 use App\Models\Concerns\Auditable;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
@@ -103,6 +104,12 @@ class Appointment extends Model
     public function rescheduleRequests(): HasMany
     {
         return $this->hasMany(RescheduleRequest::class);
+    }
+
+    /** El pedido de cambio de horario que todavía espera respuesta (hay uno vivo por cita). */
+    public function pendingRescheduleRequest(): HasOne
+    {
+        return $this->hasOne(RescheduleRequest::class)->ofMany(['id' => 'max'], fn (Builder $query) => $query->where('status', RescheduleRequestStatus::Pending));
     }
 
     public function messages(): HasMany
@@ -314,6 +321,12 @@ class Appointment extends Model
     public function durationMinutes(): int
     {
         return (int) $this->starts_at->diffInMinutes($this->ends_at, true);
+    }
+
+    /** Al reservar escribió un código de promoción que no se aplicó (no es de ninguna vigente): recepción lo revisa. */
+    public function hasUnknownPromoCode(): bool
+    {
+        return Campaign::codeNotApplied($this->promo_code, $this->campaign);
     }
 
     /** Ya pasó su hora y nadie anotó que llegó: o vino y se atendió, o no asistió. */

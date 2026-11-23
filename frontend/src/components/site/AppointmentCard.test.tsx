@@ -122,15 +122,18 @@ describe('AppointmentCard', () => {
     expect(screen.queryByText(/Faltan menos de/)).not.toBeInTheDocument();
   });
 
-  it('reminds the times the patient asked to change the appointment to', () => {
+  it('reminds the times the patient asked to change the appointment to, and does not offer to ask again', () => {
     mockApi();
     renderCard({ pending_request: 'jueves 5 de noviembre a las 9:00 a. m. o viernes 6 de noviembre a las 3:00 p. m.' });
 
-    expect(
-      screen.getByText(
-        'Pediste cambiar esta cita a: jueves 5 de noviembre a las 9:00 a. m. o viernes 6 de noviembre a las 3:00 p. m. Te avisaremos por WhatsApp cuál quedó.',
-      ),
-    ).toBeInTheDocument();
+    const note = screen.getByText('Pediste cambiarla.').closest('p');
+    expect(note).toHaveTextContent(
+      'Pediste cambiarla. Te avisamos por WhatsApp. Propusiste: jueves 5 de noviembre a las 9:00 a. m. o viernes 6 de noviembre a las 3:00 p. m.',
+    );
+    expect(screen.queryByRole('link', { name: 'Cambiar horario' })).not.toBeInTheDocument();
+    // Mientras tanto la cita sigue como estaba: se puede confirmar o cancelar.
+    expect(screen.getByRole('button', { name: 'Confirmar asistencia' })).toBeInTheDocument();
+    expect(screen.getByText('Cancelar cita')).toBeInTheDocument();
   });
 
   it('invites to tell the health history before the appointment', () => {

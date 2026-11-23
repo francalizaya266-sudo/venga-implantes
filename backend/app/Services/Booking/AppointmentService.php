@@ -129,11 +129,10 @@ class AppointmentService
                 'last_seen_at' => now(),
             ])->save();
 
-            $campaign = match (true) {
-                filled($data->promoCode) => Campaign::query()->published()->where('promo_code', strtoupper(trim($data->promoCode)))->first(),
-                filled($data->campaignSlug) => Campaign::query()->published()->where('slug', $data->campaignSlug)->first(),
-                default => null,
-            };
+            // Un código que no es de ninguna promoción no impide reservar ni quita la de la página de la que llegó: queda
+            // escrito en la cita y recepción lo revisa.
+            $campaign = (filled($data->promoCode) ? Campaign::query()->published()->where('promo_code', strtoupper(trim($data->promoCode)))->first() : null)
+                ?? (filled($data->campaignSlug) ? Campaign::query()->published()->where('slug', $data->campaignSlug)->first() : null);
 
             $appointment = Appointment::create([
                 'patient_id' => $patient->getKey(),
@@ -157,7 +156,8 @@ class AppointmentService
             $this->outbox->queueForAppointment($appointment, MessageTemplateKey::BookingConfirmation);
             $this->alerts->toReception(
                 'Nueva cita web',
-                "{$patient->full_name} · {$treatment->name} · {$this->when($appointment)} con {$doctor->name}. Envíale la confirmación por WhatsApp.",
+                "{$patient->full_name} · {$treatment->name} · {$this->when($appointment)} con {$doctor->name}. Envíale la confirmación por WhatsApp."
+                    .($appointment->hasUnknownPromoCode() ? " Escribió el código {$appointment->promo_code}, que no es de ninguna promoción vigente: revísalo con el paciente." : ''),
                 link: ['label' => 'Enviar la confirmación', 'url' => WhatsappMessageResource::getUrl()],
             );
 

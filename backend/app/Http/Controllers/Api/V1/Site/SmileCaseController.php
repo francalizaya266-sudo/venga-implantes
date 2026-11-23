@@ -11,7 +11,7 @@ use App\Services\Web\StructuredData;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 
-/** Antes y después: los casos publicados, con el filtro por tratamiento. */
+/** Antes y después: los casos publicados, con el filtro por tratamiento. Sin ninguno publicado, la página no existe. */
 class SmileCaseController extends Controller
 {
     /**
@@ -20,6 +20,9 @@ class SmileCaseController extends Controller
     public function __invoke(Request $request, StructuredData $structuredData, PageMeta $meta): array
     {
         $request->validate(['tratamiento' => ['nullable', 'string']]);
+
+        // Sin casos publicados la página no existe: ni Google ni quien escribe la dirección llegan a una página vacía.
+        abort_unless(SmileCase::query()->published()->exists(), 404);
 
         $treatments = Treatment::query()->whereHas('smileCases', fn (Builder $query) => $query->published())->orderBy('sort_order')->get();
         $selected = $treatments->firstWhere('slug', (string) $request->query('tratamiento'));

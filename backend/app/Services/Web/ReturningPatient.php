@@ -50,7 +50,7 @@ final class ReturningPatient
             ->whereIn('patient_id', $patients->modelKeys())
             ->where('starts_at', '>=', now())
             ->whereIn('status', AppointmentStatus::changeable())
-            ->with(['patient.medicalBackground', 'doctor', 'treatment'])
+            ->with(['patient.medicalBackground', 'doctor', 'treatment', 'pendingRescheduleRequest.options'])
             ->oldest('starts_at')
             ->get()
             // La cita que la familia todavía no reconoce va primero: que no quede escondida en "Ver más".

@@ -2,6 +2,7 @@ import { createBrowserRouter, type RouteObject } from 'react-router';
 import { Root } from '@/app/Root';
 import { AccountPage } from '@/pages/account/AccountPage';
 import { HealthPage } from '@/pages/account/HealthPage';
+import { BookedPage } from '@/pages/booking/BookedPage';
 import { BookingPage } from '@/pages/booking/BookingPage';
 import { CasesPage } from '@/pages/CasesPage';
 import { AccountChangePage, LinkChangePage } from '@/pages/change/ChangePage';
@@ -35,6 +36,7 @@ export const pages: RouteObject[] = [
   { path: '/contacto', element: <ContactPage /> },
   { path: '/privacidad', element: <PrivacyPage /> },
   { path: '/reservar', element: <BookingPage /> },
+  { path: '/reservar/cita/:id', element: <BookedPage /> },
   { path: '/mi-cuenta', element: <AccountPage /> },
   { path: '/mi-cuenta/citas/:id/cambiar', element: <AccountChangePage /> },
   { path: '/mi-cuenta/pacientes/:id/salud', element: <HealthPage /> },

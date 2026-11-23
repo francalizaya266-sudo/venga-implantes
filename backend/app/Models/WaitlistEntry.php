@@ -19,7 +19,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * se le ofrece por WhatsApp y el horario queda apartado un rato para él; al agendarle la cita sale
  * solo de la lista.
  */
-#[Fillable(['patient_id', 'treatment_id', 'doctor_id', 'earliest_date', 'latest_date', 'preferred_period', 'notes', 'status', 'offered_at', 'offered_starts_at', 'offered_until', 'offered_doctor_id', 'held_until', 'appointment_id', 'created_by_user_id'])]
+#[Fillable(['patient_id', 'treatment_id', 'doctor_id', 'earliest_date', 'latest_date', 'preferred_period', 'notes', 'from_web', 'from_verified_device', 'status', 'offered_at', 'offered_starts_at', 'offered_until', 'offered_doctor_id', 'held_until', 'appointment_id', 'created_by_user_id'])]
 class WaitlistEntry extends Model
 {
     /** @use HasFactory<WaitlistEntryFactory> */
@@ -39,6 +39,8 @@ class WaitlistEntry extends Model
             'earliest_date' => 'date',
             'latest_date' => 'date',
             'preferred_period' => DayPeriod::class,
+            'from_web' => 'boolean',
+            'from_verified_device' => 'boolean',
             'status' => WaitlistStatus::class,
             'offered_at' => 'datetime',
             'offered_starts_at' => 'datetime',

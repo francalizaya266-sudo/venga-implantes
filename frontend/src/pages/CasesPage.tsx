@@ -8,7 +8,7 @@ import { Loading } from '@/components/ui/Loading';
 import { paths, withQuery } from '@/lib/paths';
 import { ErrorPage } from '@/pages/ErrorPage';
 
-/** Antes y después: los casos publicados, con filtro por tratamiento. */
+/** Antes y después: los casos publicados, con filtro por tratamiento. Sin ninguno, la API responde 404. */
 export function CasesPage() {
   const [params] = useSearchParams();
   const { data, error } = usePage<CasesData>('cases', { tratamiento: params.get('tratamiento') });
@@ -45,11 +45,7 @@ function CasesBody({ data: { cases, treatments, selected } }: { data: CasesData 
         </nav>
       ) : null}
 
-      {cases.length ? (
-        <Cases cases={cases} withDescription />
-      ) : (
-        <p className="panel">Pronto publicaremos casos de nuestros pacientes.</p>
-      )}
+      <Cases cases={cases} withDescription />
     </>
   );
 }

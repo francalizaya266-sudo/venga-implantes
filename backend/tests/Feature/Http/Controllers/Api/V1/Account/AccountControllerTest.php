@@ -8,6 +8,7 @@ use App\Enums\MessageTemplateKey;
 use App\Enums\PatientRelationship;
 use App\Enums\PlanItemStatus;
 use App\Enums\PlanPaymentMode;
+use App\Enums\RescheduleRequestStatus;
 use App\Enums\TreatmentPlanStatus;
 use App\Models\Account;
 use App\Models\Appointment;
@@ -431,6 +432,35 @@ class AccountControllerTest extends TestCase
             ->assertJsonPath('message', "¡Listo! Tu cita se cambió al jueves 5 de noviembre, 11:00\u{00A0}a.\u{00A0}m.");
 
         $this->assertSame('2026-11-05 11:00', $appointment->fresh()->starts_at->format('Y-m-d H:i'));
+    }
+
+    public function test_my_account_and_the_home_remember_the_change_the_family_asked_for_while_it_waits(): void
+    {
+        $treatment = Treatment::factory()->create(['name' => 'Limpieza dental', 'duration_minutes' => 30]);
+        $doctor = $this->doctorOffering($treatment);
+        // Hoy a las 4:00 p. m.: tan cerca que el cambio lo aprueba el consultorio.
+        $appointment = Appointment::factory()->for($this->mother)->for($doctor)->for($treatment)->at('2026-11-02 16:00')->create();
+        $this->rememberDevice();
+
+        $this->getJson(route('api.v1.account.show'))->assertOk()->assertJsonPath('data.upcoming.0.pending_request', null);
+
+        $this->postJson(route('api.v1.account.appointments.change.save', $appointment), ['chosen' => ['2026-11-03 09:00', '2026-11-03 11:00']])
+            ->assertOk()
+            ->assertJsonPath('message', 'Enviamos tu pedido. Te avisaremos por WhatsApp cuando el consultorio elija uno de tus horarios. Mientras tanto, tu cita sigue como estaba.');
+
+        // Al volver a Mi cuenta (o recargar), la tarjeta dice que espera respuesta y con qué horarios.
+        $proposed = "martes 3 de noviembre a las 9:00\u{00A0}a.\u{00A0}m. o martes 3 de noviembre a las 11:00\u{00A0}a.\u{00A0}m.";
+        $this->getJson(route('api.v1.account.show'))
+            ->assertOk()
+            ->assertJsonPath('data.upcoming.0.when', "Lunes 2 de noviembre, 4:00\u{00A0}p.\u{00A0}m.")
+            ->assertJsonPath('data.upcoming.0.pending_request', $proposed);
+        $this->getJson(route('api.v1.home'))
+            ->assertOk()
+            ->assertJsonPath('data.welcome.appointments.0.pending_request', $proposed);
+
+        // Cuando el consultorio responde, deja de decirlo.
+        $appointment->rescheduleRequests()->update(['status' => RescheduleRequestStatus::Rejected]);
+        $this->getJson(route('api.v1.account.show'))->assertOk()->assertJsonPath('data.upcoming.0.pending_request', null);
     }
 
     public function test_moving_an_appointment_asks_for_a_day_and_a_time_that_are_still_free(): void

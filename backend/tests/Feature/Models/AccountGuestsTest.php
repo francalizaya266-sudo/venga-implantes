@@ -8,13 +8,14 @@ use App\Enums\PatientRelationship;
 use App\Models\Account;
 use App\Models\Appointment;
 use App\Models\Patient;
+use App\Models\WaitlistEntry;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 /**
  * Quién queda "por confirmar" en un celular: el que entró solo por una reserva de la web hecha sin el celular de la
- * familia, mientras nadie la confirme.
+ * familia, mientras nadie la confirme, o solo se anotó así en la lista de espera.
  */
 class AccountGuestsTest extends TestCase
 {
@@ -61,6 +62,22 @@ class AccountGuestsTest extends TestCase
         $this->booking->update($recognized);
 
         $this->assertSame([], $this->account->guestIds());
+    }
+
+    public function test_who_only_asked_from_another_phone_to_hear_of_a_free_time_waits_too(): void
+    {
+        Appointment::factory()->for($this->holder)->confirmed()->create();
+        $asker = Patient::factory()->dependentOf($this->account, PatientRelationship::Other)->create();
+        $ask = WaitlistEntry::factory()->for($asker)->create(['from_web' => true]);
+        // A quien anotó el consultorio en la lista de espera no se le pide nada más.
+        WaitlistEntry::factory()->for(Patient::factory()->dependentOf($this->account))->create();
+
+        $this->assertEqualsCanonicalizing([$this->newcomer->id, $asker->id], $this->account->guestIds());
+
+        // Anotado desde el celular de la familia, ya es familia.
+        $ask->update(['from_verified_device' => true]);
+
+        $this->assertSame([$this->newcomer->id], $this->account->guestIds());
     }
 
     public function test_on_a_phone_where_nobody_is_recognized_yet_nobody_waits(): void

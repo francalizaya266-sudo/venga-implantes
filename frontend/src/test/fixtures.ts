@@ -196,6 +196,7 @@ export function bookingDevice(changes: Partial<BookingDevice> = {}): BookingDevi
 
 export function bookedAppointment(changes: Partial<BookedAppointment> = {}): BookedAppointment {
   return {
+    page_url: '/reservar/cita/9?signature=abc',
     treatment: 'Limpieza dental',
     when: 'Miércoles 4 de noviembre, 9:00 a. m.',
     who: 'Rosa Quispe · con Dra. Vega',
@@ -209,6 +210,7 @@ export function bookedAppointment(changes: Partial<BookedAppointment> = {}): Boo
       { value: 'recommendation', label: 'Recomendación' },
     ],
     origin_url: '/api/v1/booking/appointments/9/origin?signature=abc',
+    promo_notice: null,
     ...changes,
   };
 }

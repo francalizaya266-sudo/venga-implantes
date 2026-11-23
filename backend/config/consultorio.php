@@ -144,6 +144,8 @@ return [
             'min_lead_minutes' => 120,
             // Hasta cuántos días adelante se puede reservar en la web.
             'horizon_days' => 45,
+            // La web ofrece solo horas "redondas": cada 15 (9:00, 9:15…) o cada 30 minutos (9:00, 9:30…).
+            'web_slot_step_minutes' => 15,
             'max_web_appointments_per_patient' => 2,
             'max_web_appointments_per_phone' => 6,
             // Cambio automático si faltan más de estas horas (nivel 1).

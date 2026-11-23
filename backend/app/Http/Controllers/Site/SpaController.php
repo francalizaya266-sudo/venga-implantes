@@ -31,6 +31,7 @@ class SpaController extends Controller
         'site.contact' => ['api.v1.pages.contact'],
         'site.privacy' => ['api.v1.pages.privacy'],
         'site.booking' => ['api.v1.booking.options', ['codigo', 'promo', 'origen', 'doctor', 'tratamiento', 'para']],
+        'site.booking.done' => ['api.v1.booking.show', ['signature']],
         'site.account' => ['api.v1.account.show'],
         'site.account.change' => ['api.v1.account.appointments.change'],
         'site.account.health' => ['api.v1.account.patients.health'],

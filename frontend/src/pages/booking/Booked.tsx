@@ -46,6 +46,11 @@ export function Booked({ appointment, clinic, howToPay }: Props) {
           </p>
         ) : null}
       </div>
+      {appointment.promo_notice ? (
+        <div className="flash info">
+          <p>{appointment.promo_notice}</p>
+        </div>
+      ) : null}
 
       <div className="stack">
         <h3>Qué sigue</h3>

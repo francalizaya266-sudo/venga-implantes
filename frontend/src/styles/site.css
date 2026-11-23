@@ -1294,6 +1294,9 @@ main.with-band > .wrap:first-child .flash { margin: 16px 0; }
 .booking form { max-width: var(--measure); }
 .booking.is-done { max-width: var(--measure); margin-inline: auto; }
 .pick { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+/* "Avísame si se libera un horario", al pie del paso de horarios: sobre el panel celeste, el botón y las opciones sin
+   elegir van en blanco (la elegida sigue en oscuro). */
+.waitlist-ask .btn.quiet, .waitlist-ask .chip:not([aria-pressed="true"]) { background: var(--ground); }
 .booking-summary { display: none; }
 @media (min-width: 640px) {
     .booking { z-index: 3; padding: 26px 28px 32px; border-radius: 28px; background: var(--ground); border: 1px solid var(--card-line); box-shadow: var(--card-shadow); }

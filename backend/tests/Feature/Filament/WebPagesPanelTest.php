@@ -3,6 +3,7 @@
 namespace Tests\Feature\Filament;
 
 use App\Filament\Pages\WebPages;
+use App\Models\Review;
 use App\Models\Setting;
 use App\Models\User;
 use App\Services\Web\PublicImages;
@@ -132,11 +133,26 @@ class WebPagesPanelTest extends TestCase
 
     public function test_each_page_has_its_tab_with_a_link_to_see_it(): void
     {
+        Review::factory()->create();
+
         Livewire::test(WebPages::class)
             ->assertSeeInOrder(['Servicios', 'Equipo', 'Contacto', 'Preguntas frecuentes', 'Promociones', 'Antes y después', 'Opiniones', 'Mi cuenta', 'Reservar cita', 'Cierre general'])
             ->assertSee([route('site.treatments'), route('site.faq'), route('site.reviews'), route('site.account'), route('site.booking')])
             // Las páginas sin cierre propio dicen con qué cierran.
             ->assertSee('Esta página cierra con la frase de la pestaña Cierre general.')
             ->assertSee('con el botón para escribir por WhatsApp');
+    }
+
+    public function test_a_page_with_nothing_published_says_when_it_comes_out_and_offers_no_link(): void
+    {
+        Review::factory()->create(['is_published' => false]);
+
+        // Sin casos ni opiniones publicadas, esas páginas no existen en la web: verlas daría "No encontramos esta página".
+        Livewire::test(WebPages::class)
+            ->assertSee('La página sale en la web cuando publiques el primer caso.')
+            ->assertSee('La página sale en la web cuando publiques la primera opinión.')
+            ->assertDontSee(route('site.cases'))
+            ->assertDontSee(route('site.reviews'))
+            ->assertSee(route('site.faq'));
     }
 }

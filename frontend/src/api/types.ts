@@ -367,6 +367,8 @@ export interface BookingDays extends SlotPicker {
 }
 
 export interface BookedAppointment {
+  /** La dirección propia de "¡Tu cita quedó reservada!" (firmada): recargarla no la pierde. */
+  page_url: string;
   treatment: string;
   when: string;
   who: string;
@@ -377,6 +379,8 @@ export interface BookedAppointment {
   whatsapp_message: string;
   origins: { value: string; label: string }[];
   origin_url: string | null;
+  /** Escribió un código que no es de ninguna promoción: la cita quedó reservada igual y recepción lo revisa. */
+  promo_notice: string | null;
 }
 
 export interface PlanCard {
