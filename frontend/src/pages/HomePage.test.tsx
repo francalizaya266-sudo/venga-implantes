@@ -12,7 +12,7 @@ function openHome(home: Partial<HomeData> = {}, answers: Parameters<typeof mockA
   return { calls, ...renderApp('/') };
 }
 
-const title = () => screen.findByRole('heading', { level: 1, name: 'Atención dental sin esperas' });
+const title = () => screen.findByRole('heading', { level: 1, name: 'Implantes y odontología en Juliaca' });
 
 describe('HomePage', () => {
   it('opens with the phrase of the clinic, what calms before booking and the services', async () => {

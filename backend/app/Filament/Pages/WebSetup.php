@@ -4,6 +4,7 @@ namespace App\Filament\Pages;
 
 use App\Filament\Forms\WebPhotoUpload;
 use App\Filament\Pages\Concerns\EditsSettings;
+use App\Services\Web\ClinicInfo;
 use App\Services\Web\OpeningHours;
 use App\Services\Web\PublicImages;
 use App\Services\Web\SetupChecklist;
@@ -118,19 +119,20 @@ class WebSetup extends Page
                         TextInput::make('web.tagline')
                             ->label('Frase arriba del título')
                             ->maxLength(40)
-                            ->placeholder('Innovación y cuidado dental')
-                            ->helperText('Sale en mayúsculas, arriba del título y junto al aviso de si está abierto, que se pone solo. Vacía = no sale.')
+                            ->helperText('Opcional, y mejor un dato que un lema (por ejemplo, desde qué año atienden). Sale en mayúsculas, arriba del título y junto al aviso de si está abierto, que se pone solo. Vacía = no sale.')
                             ->columnSpanFull(),
+                        // Vacíos, el título y la frase son los del sistema, con la ciudad de Ajustes: si la ciudad cambia, cambian solos.
                         TextInput::make('web.headline')
                             ->label('Título del inicio')
-                            ->required()
                             ->maxLength(60)
-                            ->helperText('Corto: que entre en dos líneas en el celular.'),
+                            ->placeholder(fn () => app(ClinicInfo::class)->defaultHeadline())
+                            ->helperText(fn () => 'Corto: que entre en dos líneas en el celular. Vacío = «'.app(ClinicInfo::class)->defaultHeadline().'».'),
                         Textarea::make('web.intro')
                             ->label('Frase bajo el título')
-                            ->required()
                             ->rows(2)
-                            ->maxLength(220),
+                            ->maxLength(220)
+                            ->placeholder(fn () => app(ClinicInfo::class)->defaultIntro())
+                            ->helperText(fn () => 'Vacía = «'.app(ClinicInfo::class)->defaultIntro().'».'),
                         Textarea::make('web.about')
                             ->label('Sobre el consultorio')
                             ->rows(4)

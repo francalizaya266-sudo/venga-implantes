@@ -90,7 +90,7 @@ class ChangeHistoryTest extends TestCase
         $this->assertSame(['Ajustes y página web', 'Texto bajo el título de la página Servicios', 'Se cambió el texto'], $told('web.pages.servicios.lead'));
         $this->assertSame(['Ajustes y página web', 'Texto del cierre general de la web', 'Reserva tu cita hoy y luce una sonrisa saludable. → Vacío'], $told('web.pages.inicio.closing_text'));
         $this->assertSame(['Ajustes y página web', 'Foto de la página Equipo', 'Sin foto → Una foto'], $told('web.pages.equipo.photo'));
-        $this->assertSame(['Ajustes y página web', 'Punto 2 de la página Equipo', 'Te explicamos todo → Sin dolor'], $told('web.pages.equipo.value2_title'));
+        $this->assertSame(['Ajustes y página web', 'Punto 2 de la página Equipo', 'Vacío → Sin dolor'], $told('web.pages.equipo.value2_title'));
     }
 
     public function test_what_the_system_writes_down_by_itself_is_not_a_change_of_somebody(): void

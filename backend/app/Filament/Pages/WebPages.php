@@ -105,7 +105,7 @@ class WebPages extends Page
                 TextInput::make(PageTexts::key($page, 'kicker'))
                     ->label(PageTexts::HEADER_FIELDS['kicker'])
                     ->maxLength(50)
-                    ->helperText('Va arriba del título, en una pastilla con su ícono. Vacía = no sale.'),
+                    ->helperText('Opcional: el título ya dice qué hay. Si la usas, que sea un dato y no un lema. Va arriba del título, en una pastilla con su ícono. Vacía = no sale.'),
                 TextInput::make(PageTexts::key($page, 'title'))
                     ->label(PageTexts::HEADER_FIELDS['title'])
                     ->required()
@@ -141,7 +141,7 @@ class WebPages extends Page
         }
 
         return Section::make('Lo que distingue al equipo')
-            ->description('Hasta cuatro puntos cortos en una franja celeste, bajo los doctores. Un punto sin título no sale.')
+            ->description('Hasta cuatro datos cortos y propios del equipo, en una franja celeste bajo los doctores: años atendiendo, idiomas, lo que nadie más en la ciudad ofrece. La colegiatura y los estudios ya van en cada doctor. Un punto sin título no sale.')
             ->columns(2)
             ->schema($fields);
     }

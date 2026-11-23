@@ -71,6 +71,67 @@ class SiteContentTest extends TestCase
         $this->assertSame(['strong' => 'Sonrisas sanas,', 'thin' => '', 'accent' => 'siempre'], $title('Sonrisas sanas, siempre'));
     }
 
+    public function test_the_cover_says_what_and_where_with_the_city_of_the_settings_unless_the_clinic_wrote_its_own(): void
+    {
+        $cover = fn (): array => $this->getJson(route('api.v1.site'))->assertOk()->json('data.home');
+
+        // Sin nada escrito en la puesta a punto: qué se atiende y dónde, sin lema encima ni promesas de "sin esperas".
+        Setting::set('clinic.district', 'Juliaca');
+        $this->assertSame(['strong' => 'Implantes y odontología', 'thin' => '', 'accent' => 'en Juliaca'], $cover()['title']);
+        $this->assertSame('Tu dentista en Juliaca. Reserva en 2 minutos.', $cover()['intro']);
+        $this->assertNull($cover()['tagline']);
+
+        // La ciudad sale de Ajustes: si cambia, la portada cambia sola.
+        Setting::set('clinic.district', 'Puno');
+        $this->assertSame('en Puno', $cover()['title']['accent']);
+        $this->assertSame('Tu dentista en Puno. Reserva en 2 minutos.', $cover()['intro']);
+
+        // Sin ciudad no queda un "en" colgando.
+        Setting::set('clinic.district', null);
+        $this->assertSame(['strong' => 'Implantes y', 'thin' => '', 'accent' => 'odontología'], $cover()['title']);
+        $this->assertSame('Reserva en 2 minutos.', $cover()['intro']);
+
+        // Lo que el consultorio escribe manda.
+        Setting::set('web.headline', 'Sonrisas sanas siempre');
+        Setting::set('web.intro', 'Atendemos a toda la familia.');
+        $this->assertSame('Sonrisas sanas', $cover()['title']['strong']);
+        $this->assertSame('Atendemos a toda la familia.', $cover()['intro']);
+    }
+
+    public function test_the_texts_saved_as_they_came_give_way_to_the_new_ones_but_what_the_clinic_wrote_stays(): void
+    {
+        $migration = require database_path('migrations/2026_11_22_214735_web_texts_say_what_and_where_instead_of_slogans.php');
+        Setting::set('clinic.district', 'Juliaca');
+        // Al guardar la puesta a punto y los textos de las páginas sin tocarlos, quedaron guardados los de antes.
+        Setting::set('web.tagline', 'Innovación y cuidado dental');
+        Setting::set('web.headline', 'Atención dental sin esperas');
+        Setting::set('web.intro', 'Evaluaciones, limpiezas, implantes y más. Elige tu horario aquí mismo y te confirmamos por WhatsApp.');
+        Setting::set('web.pages.servicios.kicker', 'Tu sonrisa, nuestra prioridad');
+        Setting::set('web.pages.equipo.value1_title', 'Colegiados');
+        Setting::set('web.pages.equipo.value1_text', 'Cada doctor con su número de colegiatura');
+        // Lo que el consultorio escribió.
+        Setting::set('web.pages.contacto.kicker', 'A media cuadra de la plaza');
+        Setting::set('web.pages.equipo.value2_title', 'Atención en quechua');
+        $this->getJson(route('api.v1.site'))->assertJsonPath('data.home.title.accent', 'sin esperas');
+
+        $migration->up();
+
+        $this->getJson(route('api.v1.site'))
+            ->assertOk()
+            ->assertJsonPath('data.home.tagline', null)
+            ->assertJsonPath('data.home.title', ['strong' => 'Implantes y odontología', 'thin' => '', 'accent' => 'en Juliaca'])
+            ->assertJsonPath('data.home.intro', 'Tu dentista en Juliaca. Reserva en 2 minutos.')
+            ->assertJsonPath('data.pages.servicios.kicker', null)
+            ->assertJsonPath('data.pages.contacto.kicker', 'A media cuadra de la plaza')
+            ->assertJsonPath('data.team_values', [['icon' => 'chat-check', 'title' => 'Atención en quechua', 'text' => null]]);
+
+        // Al volver atrás, el título y la frase (que eran obligatorios) vuelven a ser los de antes.
+        $migration->down();
+
+        $this->assertSame('Atención dental sin esperas', Setting::get('web.headline'));
+        $this->assertSame('Evaluaciones, limpiezas, implantes y más. Elige tu horario aquí mismo y te confirmamos por WhatsApp.', Setting::get('web.intro'));
+    }
+
     public function test_the_home_gives_the_next_free_times_the_first_eight_treatments_and_the_main_questions(): void
     {
         $this->freezeMonday();

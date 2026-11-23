@@ -391,9 +391,10 @@ class PatientsAndSetupPanelTest extends TestCase
     {
         $this->actingAs(User::factory()->admin()->create());
 
-        // La hoja abre con la frase con que viene el sistema, y la web la muestra tal como se guarde.
+        // La hoja abre sin frase (el sistema no trae ninguna: un lema no informa), y la web la muestra tal como se guarde.
+        $this->getJson(route('api.v1.site'))->assertJsonPath('data.home.tagline', null);
         Livewire::test(WebSetup::class)
-            ->assertSchemaStateSet(['web.tagline' => 'Innovación y cuidado dental'])
+            ->assertSchemaStateSet(['web.tagline' => null])
             ->fillForm(['web' => ['tagline' => 'Más de 20 años cuidando sonrisas']])
             ->call('save')
             ->assertHasNoFormErrors();
@@ -407,7 +408,7 @@ class PatientsAndSetupPanelTest extends TestCase
             ->call('save')
             ->assertHasFormErrors(['web.tagline']);
 
-        // Vacía, la frase sale de la web y no vuelve la que venía con el sistema.
+        // Vacía, la frase sale de la web.
         Livewire::test(WebSetup::class)
             ->fillForm(['web' => ['tagline' => '']])
             ->call('save')
@@ -415,6 +416,34 @@ class PatientsAndSetupPanelTest extends TestCase
 
         $this->assertNull(Setting::get('web.tagline'));
         $this->getJson(route('api.v1.site'))->assertJsonPath('data.home.tagline', null);
+    }
+
+    public function test_the_home_title_and_the_phrase_below_it_left_empty_are_the_ones_of_the_system_with_the_city(): void
+    {
+        $this->actingAs(User::factory()->admin()->create());
+        Setting::set('clinic.district', 'Juliaca');
+
+        // Abren vacíos y dicen qué sale así, con la ciudad de Ajustes.
+        Livewire::test(WebSetup::class)
+            ->assertSchemaStateSet(['web.headline' => null, 'web.intro' => null])
+            ->assertSee(['Vacío = «Implantes y odontología en Juliaca».', 'Vacía = «Tu dentista en Juliaca. Reserva en 2 minutos.».'])
+            ->fillForm(['web' => ['headline' => 'Tu sonrisa en Juliaca', 'intro' => '']])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $this->assertSame(['Tu sonrisa en Juliaca', null], [Setting::get('web.headline'), Setting::get('web.intro')]);
+        $this->getJson(route('api.v1.site'))
+            ->assertJsonPath('data.home.title.accent', 'en Juliaca')
+            ->assertJsonPath('data.home.title.strong', 'Tu sonrisa')
+            ->assertJsonPath('data.home.intro', 'Tu dentista en Juliaca. Reserva en 2 minutos.');
+
+        // Borrado el título, vuelve el del sistema.
+        Livewire::test(WebSetup::class)
+            ->fillForm(['web' => ['headline' => '']])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $this->getJson(route('api.v1.site'))->assertJsonPath('data.home.title.strong', 'Implantes y odontología');
     }
 
     public function test_the_browser_lightens_the_home_photo_and_sends_it_as_jpeg(): void

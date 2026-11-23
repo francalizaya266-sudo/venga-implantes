@@ -28,14 +28,15 @@ class WebPagesPanelTest extends TestCase
     {
         Livewire::test(WebPages::class)
             ->assertSchemaStateSet([
-                'web.pages.servicios.kicker' => 'Tu sonrisa, nuestra prioridad',
+                // La frase sobre el título viene vacía: el título ya dice qué hay.
+                'web.pages.servicios.kicker' => null,
                 'web.pages.servicios.title' => 'Nuestros servicios',
                 'web.pages.contacto.title' => 'Contácta*nos*',
                 'web.pages.servicios.closing_title' => '¿Listo para cuidar tu sonrisa?',
                 'web.pages.inicio.closing_title' => 'Tu salud bucal, en buenas manos',
             ])
             ->fillForm(['web' => ['pages' => [
-                'servicios' => ['kicker' => '', 'title' => 'Tratamientos *para* tu sonrisa', 'lead' => 'Elige el tuyo y reserva.', 'closing_title' => '¿Empezamos?', 'closing_text' => ''],
+                'servicios' => ['kicker' => 'Atendemos en quechua', 'title' => 'Tratamientos *para* tu sonrisa', 'lead' => 'Elige el tuyo y reserva.', 'closing_title' => '¿Empezamos?', 'closing_text' => ''],
                 'inicio' => ['closing_title' => 'Te esperamos en Juliaca'],
             ]]])
             ->call('save')
@@ -43,19 +44,20 @@ class WebPagesPanelTest extends TestCase
             ->assertNotified('Textos de las páginas guardados');
 
         $this->assertSame(
-            [null, 'Tratamientos *para* tu sonrisa', 'Elige el tuyo y reserva.', '¿Empezamos?', null],
+            ['Atendemos en quechua', 'Tratamientos *para* tu sonrisa', 'Elige el tuyo y reserva.', '¿Empezamos?', null],
             array_map(fn (string $field) => Setting::get('web.pages.servicios.'.$field), ['kicker', 'title', 'lead', 'closing_title', 'closing_text']),
         );
 
         $this->getJson(route('api.v1.site'))
             ->assertOk()
-            ->assertJsonPath('data.pages.servicios.kicker', null)
+            ->assertJsonPath('data.pages.servicios.kicker', 'Atendemos en quechua')
             ->assertJsonPath('data.pages.servicios.title', ['Tratamientos ', 'para', ' tu sonrisa'])
             ->assertJsonPath('data.pages.servicios.lead', 'Elige el tuyo y reserva.')
             ->assertJsonPath('data.pages.servicios.closing.title', '¿Empezamos?')
             ->assertJsonPath('data.pages.servicios.closing.text', null)
             // Lo que no se tocó queda como venía, y el cierre general llega al inicio.
             ->assertJsonPath('data.pages.equipo.title', ['Nuestro ', 'equipo', ''])
+            ->assertJsonPath('data.pages.equipo.kicker', null)
             ->assertJsonPath('data.closing.title', 'Te esperamos en Juliaca');
     }
 
@@ -81,18 +83,22 @@ class WebPagesPanelTest extends TestCase
 
     public function test_the_points_that_distinguish_the_team_are_written_in_the_team_tab(): void
     {
+        // Vienen vacíos: la colegiatura y los estudios ya van en cada doctor, y sin puntos la franja no sale.
+        $this->getJson(route('api.v1.site'))->assertJsonPath('data.team_values', []);
+
         Livewire::test(WebPages::class)
             ->assertSee(['Lo que distingue al equipo', 'Texto del punto 4'])
             ->assertSchemaStateSet([
-                'web.pages.equipo.value1_title' => 'Colegiados',
-                'web.pages.equipo.value1_text' => 'Cada doctor con su número de colegiatura',
-                'web.pages.equipo.value4_title' => 'Trato humano',
+                'web.pages.equipo.value1_title' => null,
+                'web.pages.equipo.value1_text' => null,
+                'web.pages.equipo.value4_title' => null,
             ])
             ->fillForm(['web' => ['pages' => ['equipo' => ['value1_title' => 'Atención en quechua', 'value1_text' => '', 'value2_title' => '']]]])
             ->call('save')
             ->assertHasNoFormErrors();
 
         $this->assertSame(['Atención en quechua', null, null], array_map(fn (string $field) => Setting::get('web.pages.equipo.'.$field), ['value1_title', 'value1_text', 'value2_title']));
+        $this->getJson(route('api.v1.site'))->assertJsonPath('data.team_values', [['icon' => 'award', 'title' => 'Atención en quechua', 'text' => null]]);
 
         // Los puntos van en una franja angosta: cada uno tiene su límite.
         Livewire::test(WebPages::class)
@@ -100,7 +106,7 @@ class WebPagesPanelTest extends TestCase
             ->call('save')
             ->assertHasFormErrors(['web.pages.equipo.value3_title', 'web.pages.equipo.value3_text']);
 
-        $this->assertSame('Compromiso', Setting::get('web.pages.equipo.value3_title'));
+        $this->assertNull(Setting::get('web.pages.equipo.value3_title'));
     }
 
     public function test_the_admin_uploads_and_removes_the_photo_of_a_page(): void
