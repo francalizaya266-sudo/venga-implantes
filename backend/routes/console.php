@@ -2,6 +2,7 @@
 
 use App\Models\Setting;
 use App\Services\Backup\DatabaseBackup;
+use App\Services\Backup\ExtraCopy;
 use App\Services\ScheduledTasks;
 use Illuminate\Support\Facades\Schedule;
 
@@ -70,4 +71,11 @@ Schedule::command('agenda:aprender-duraciones')
 Schedule::command('respaldo:crear')
     ->everyFifteenMinutes()
     ->when(fn () => app(DatabaseBackup::class)->isDueToday())
+    ->withoutOverlapping();
+
+// La copia extra en otra carpeta (Copias de seguridad) se guarda apenas se crea la del día. Si en ese momento la carpeta
+// no estaba (un USB desconectado, Google Drive que todavía no abría), se vuelve a intentar cada 15 minutos.
+Schedule::command('respaldo:copia-extra')
+    ->everyFifteenMinutes()
+    ->when(fn () => app(ExtraCopy::class)->isPending())
     ->withoutOverlapping();

@@ -24,8 +24,11 @@ class Setting extends Model
     /** Lo que el sistema anota solo (cuándo fue la última copia de seguridad): no es un cambio hecho por alguien. */
     private const SYSTEM_STATE = 'backups.';
 
-    /** Cuántas copias se guardan sí lo decide alguien, aunque sea de las copias: queda en el historial. */
-    private const DECIDED_BY_SOMEONE = ['backups.keep'];
+    /**
+     * Cuántas copias se guardan y en qué otra carpeta va la copia extra sí lo decide alguien, aunque sea de las copias:
+     * queda en el historial.
+     */
+    private const DECIDED_BY_SOMEONE = ['backups.keep', 'backups.extra_folder', 'backups.extra_keep'];
 
     protected function casts(): array
     {

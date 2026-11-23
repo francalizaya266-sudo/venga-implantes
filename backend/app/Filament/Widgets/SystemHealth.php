@@ -7,14 +7,15 @@ use App\Filament\Resources\WhatsappMessages\WhatsappMessageResource;
 use App\Models\User;
 use App\Models\WhatsappMessage;
 use App\Services\Backup\DatabaseBackup;
+use App\Services\Backup\ExtraCopy;
 use App\Services\Backup\OffsiteCopies;
 use App\Services\ScheduledTasks;
 use Filament\Widgets\Widget;
 
 /**
  * Solo aparece si algo anda mal y nadie lo vería: las tareas automáticas no corren, las copias de seguridad
- * dejaron de hacerse, pasó una semana sin bajarlas para guardarlas fuera del sistema, o la API de WhatsApp no pudo
- * enviar avisos.
+ * dejaron de hacerse o no se pudieron guardar en la otra carpeta, pasó una semana sin bajarlas para guardarlas fuera
+ * del sistema, o la API de WhatsApp no pudo enviar avisos.
  */
 class SystemHealth extends Widget
 {
@@ -66,6 +67,18 @@ class SystemHealth extends Widget
                 'description' => $tasks->areRunning()
                     ? 'Las tareas automáticas están corriendo, pero la copia no se creó. Entra a «Ver copias» y toca «Crear copia ahora»: si sale un error, avísale a quien instaló el sistema.'
                     : 'La copia automática no corrió: revisa que las tareas automáticas '.$tasks->ofMachine().' estén encendidas. Mientras tanto, entra a «Ver copias» y toca «Crear copia ahora».',
+                'url' => Backups::canAccess() ? Backups::getUrl() : null,
+                'link' => 'Ver copias',
+            ];
+        }
+
+        $extra = app(ExtraCopy::class);
+        $extraProblem = $extra->problem();
+
+        if ($extraProblem !== null) {
+            $issues[] = [
+                'heading' => 'La copia extra no se guardó en la otra carpeta',
+                'description' => $extraProblem.' Carpeta: '.$extra->folder().'. Se vuelve a intentar sola cada 15 minutos.',
                 'url' => Backups::canAccess() ? Backups::getUrl() : null,
                 'link' => 'Ver copias',
             ];

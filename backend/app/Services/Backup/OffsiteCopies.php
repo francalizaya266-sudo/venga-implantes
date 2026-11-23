@@ -10,6 +10,7 @@ use Carbon\CarbonImmutable;
 /**
  * Una copia que se queda en el hosting no sirve si el hosting falla. Aquí se anota cuándo se bajó
  * la de los datos y se avisa cuando pasa una semana sin bajarla o sin bajar los archivos nuevos.
+ * Con la copia extra en otra carpeta funcionando, la de los datos ya sale sola cada día: solo se piden los archivos.
  */
 final class OffsiteCopies
 {
@@ -22,7 +23,7 @@ final class OffsiteCopies
 
     private const SETTING = 'backups.database_download';
 
-    public function __construct(private DatabaseBackup $database, private FilesBackup $files) {}
+    public function __construct(private DatabaseBackup $database, private FilesBackup $files, private ExtraCopy $extra) {}
 
     public function recordDatabaseDownload(?User $by, string $file): void
     {
@@ -75,6 +76,8 @@ final class OffsiteCopies
 
         $due = array_filter([
             match (true) {
+                // La copia extra en otra carpeta ya la guarda fuera de la computadora.
+                $this->extra->lastSavedAt()?->gte($deadline) === true => null,
                 // Un sistema recién instalado tiene su primera semana antes del primer aviso.
                 $last === null => $this->database->oldestAt()?->lt($deadline) ? 'todavía no se ha descargado ninguna copia de los datos' : null,
                 $last['at']->lt($deadline) => 'la última descarga de los datos fue '.$last['at']->diffForHumans(),
