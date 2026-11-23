@@ -4,15 +4,21 @@ namespace Tests\Feature\Filament;
 
 use App\Filament\Resources\Consultations\ConsultationResource;
 use App\Filament\Resources\Consultations\Pages\EditConsultation;
+use App\Filament\Resources\Consultations\Pages\ViewConsultation;
+use App\Models\Charge;
 use App\Models\Consultation;
 use App\Models\Doctor;
 use App\Models\Supply;
+use App\Models\TreatmentPlan;
+use App\Models\User;
+use Filament\Actions\Action;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
+use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
 use Tests\Concerns\CreatesAgenda;
 use Tests\TestCase;
 
-/** Terminar la atención: lo que pasa por detrás mientras se abre la atención terminada. */
+/** Terminar la atención y la atención terminada: lo que se ve arriba y lo que pasa por detrás al terminar. */
 class FinishedConsultationTest extends TestCase
 {
     use CreatesAgenda, LazilyRefreshDatabase;
@@ -59,5 +65,56 @@ class FinishedConsultationTest extends TestCase
         $page->call('mountAction', 'template')
             ->assertStatus(302)
             ->assertHeader('Location', ConsultationResource::getUrl('view', ['record' => $consultation]));
+    }
+
+    public function test_the_finished_visit_offers_collecting_and_booking_once_next_to_their_explanation(): void
+    {
+        $this->freezeMonday();
+        $admin = User::factory()->admin(isDentist: true)->create();
+        $doctor = Doctor::factory()->create(['user_id' => $admin->id]);
+        $consultation = Consultation::factory()->for($doctor)->create(['closed_at' => now()]);
+        Charge::factory()->for($consultation->patient)->create(['consultation_id' => $consultation->id, 'description' => 'Limpieza dental', 'amount' => 120]);
+        $this->actingAs($admin);
+
+        // El día en que se terminó, "Cobrar ahora" y "Agendar" están en las franjas: arriba no se repiten.
+        $page = Livewire::test(ViewConsultation::class, ['record' => $consultation->getRouteKey()])
+            ->assertSeeInOrder(['Cobro', 'Debe S/ 120.00', 'Cobrar ahora', 'Próxima cita', 'Agendar']);
+        $this->assertSame(['Reabrir para corregir', 'Laboratorio', 'Historia clínica'], $this->headerButtons($page));
+
+        // "Cobrar ahora" sigue abriendo el cobro.
+        $page->call('mountAction', 'collect')
+            ->assertActionMounted('collect')
+            ->assertMountedActionModalSee('Cobrar a '.$consultation->patient->full_name);
+
+        // Días después ya no están las franjas: cobrar y programar la cita quedan arriba.
+        $this->travelTo(now()->addDays(2));
+        $page = Livewire::test(ViewConsultation::class, ['record' => $consultation->getRouteKey()])
+            ->assertDontSee('Cobrar ahora');
+        $this->assertSame(['Cobrar', 'Programar cita', 'Laboratorio', 'Historia clínica'], $this->headerButtons($page));
+    }
+
+    public function test_the_plan_goes_under_the_visit_when_the_side_is_narrow(): void
+    {
+        $this->freezeMonday();
+        $doctor = Doctor::factory()->create();
+        $consultation = Consultation::factory()->for($doctor)->create(['closed_at' => now()]);
+        TreatmentPlan::create(['patient_id' => $consultation->patient_id, 'doctor_id' => $doctor->id, 'consultation_id' => $consultation->id, 'title' => 'Plan']);
+        $this->actingAs($doctor->user);
+
+        // Con tres columnas, el plan ocupa el ancho de la atención, justo debajo: no queda un hueco bajo ella. Con
+        // cinco, sigue al lado de los datos.
+        Livewire::test(ViewConsultation::class, ['record' => $consultation->getRouteKey()])
+            ->assertSeeInOrder(['Atención', 'Datos', 'Plan de tratamiento', 'Odontograma de esta atención'])
+            ->assertSeeHtml('--col-span-c3xl: span 2 / span 2; --col-span-c6xl: span 1 / span 1');
+    }
+
+    /** @return list<string> */
+    private function headerButtons(Testable $page): array
+    {
+        return collect($page->instance()->getCachedHeaderActions())
+            ->filter(fn (Action $action) => $action->isVisible())
+            ->map(fn (Action $action) => (string) $action->getLabel())
+            ->values()
+            ->all();
     }
 }
