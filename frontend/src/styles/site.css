@@ -208,17 +208,40 @@ main { padding: 24px 0 96px; flex: 1 0 auto; }
 main, .site-footer { container-type: inline-size; }
 @container (max-width: 16em) {
     /* La palabra larga que se parte lleva su guion ("Blanquea-miento"), donde el navegador sabe partirla en
-       castellano; las cortas ("lunes") bajan enteras. */
-    main *, .site-footer * { min-width: 0; overflow-wrap: anywhere; -webkit-hyphens: auto; hyphens: auto; hyphenate-limit-chars: 7 3 3; }
+       castellano; las de menos de 10 letras ("quienes", "Fernández") bajan enteras: con todo uno debajo de otro,
+       como queda abajo, entran en su línea. */
+    main *, .site-footer * { min-width: 0; overflow-wrap: anywhere; -webkit-hyphens: auto; hyphens: auto; hyphenate-limit-chars: 10 3 3; }
     /* Lo que de otro modo va en una sola línea: el nombre del pie y el precio, que baja entero ("desde" arriba y el
        monto debajo: lib/text.ts no deja separar "S/" de la cifra). */
     .site-footer .brand, main :is(.services-grid, .price-list) .price { white-space: normal; text-wrap: balance; }
-    /* De a dos no entran: las palabras se partían por la mitad ("Limpiez" y "a dental", "5:30 p." y "m."). Las tarjetas
-       de servicios y los horarios van uno debajo de otro, y la invitación del pie, sin el diente ni el ícono de su
-       botón, ocupa todo el ancho ("WhatsApp" se partía). */
-    main :is(.services-grid, .free-times, .times) { grid-template-columns: minmax(0, 1fr); }
+    /* De a dos no entran: las palabras se partían por la mitad ("Limpiez" y "a dental", "5:30 p." y "m.", "WhatsA" y
+       "pp"). Las tarjetas de servicios, los horarios y las cuatro razones de la portada van uno debajo de otro, y la
+       invitación del pie, sin el diente ni el ícono de su botón, ocupa todo el ancho ("WhatsApp" se partía). */
+    main :is(.services-grid, .free-times, .times, .trust) { grid-template-columns: minmax(0, 1fr); }
     .site-footer .footer-cta { grid-template-columns: minmax(0, 1fr); }
     .site-footer .footer-cta :is(img, .btn svg) { display: none; }
+    /* Lo que va al lado de un texto le dejaba una columna angosta: «Teléfono» y el número se leían letra por letra,
+       «Duración» se partía en «Dura» y «ción», y «Jassmanny» en «Jass-mann» e «y». Aquí cada cosa va debajo de la
+       otra: el botón de cada forma de contacto bajo su nombre, el rótulo de cada dato sobre su valor, el retrato del
+       doctor sobre su nombre y el dibujo de cada servicio o paso sobre su texto; el de la promoción se quita. (Con
+       "main" delante, para ganarle a las reglas de cada parte, que vienen más abajo.) */
+    main .ways li { grid-template-columns: auto minmax(0, 1fr); }
+    main .ways li .pill { grid-column: 1 / -1; justify-self: start; }
+    main .facts-row div { display: grid; gap: 2px; }
+    main .facts-row dd { text-align: left; }
+    main :is(.team:not(.full) .doctor, .team.full .doctor, .meet) { grid-template-columns: minmax(0, 1fr); }
+    main :is(.doctor, .meet) .portrait { width: 4.5rem; }
+    main :is(.doctor, .meet) .monogram { font-size: 2.25rem; }
+    main .price-list a { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; }
+    main .price-list a > :is(.icon, .name, .price, .desc, .meta, .more) { grid-column: 1; grid-row: auto; }
+    main .how li { grid-template-columns: minmax(0, 1fr); }
+    main .how img { grid-row: auto; }
+    main .promo-art { display: none; }
+    main .promo-band .promo-text { padding-right: 24px; }
+    /* Dos que siguen sin entrar: la fecha grande del próximo horario libre ("noviembre") va un poco más chica, y en
+       los pasos de la reserva, de a tres en el ancho, "Servicio" se parte con su guion. */
+    main :is(.quick .next-free, .next-free) .when { font-size: 1.25rem; }
+    main .steps li { hyphenate-limit-chars: 6 3 3; }
 }
 /* El inicio empieza con la portada pegada al encabezado, sobre un fondo de niebla que se aclara al bajar. */
 main.with-hero { padding-top: 0; background: linear-gradient(180deg, var(--mist) 0, var(--mist) 45%, var(--ground) 100%) no-repeat top / 100% 2400px; }
@@ -308,7 +331,9 @@ main.with-hero > .wrap:first-child .flash { margin: 16px 0; }
 h1, h2, h3 { line-height: 1.1; letter-spacing: -.02em; margin: 0; }
 /* Los títulos van en Poppins, más redonda y abierta que la letra del texto: por eso no se aprietan tanto. */
 h1, h2 { font-family: var(--display); overflow-wrap: break-word; }
-h1 { font-size: clamp(1.9rem, 6.5vw, 2.75rem); font-weight: 750; text-wrap: balance; }
+/* En un celular angosto con la letra grande, el título no pasa del tamaño en que una palabra como "Implante" entra
+   en la pantalla (si no, se partía por la mitad); con la letra normal no cambia. Igual los títulos de cada página. */
+h1 { font-size: clamp(min(1.9rem, 11.5vw), 6.5vw, 2.75rem); font-weight: 750; text-wrap: balance; }
 h2 { font-size: 1.35rem; font-weight: 700; text-wrap: balance; }
 h3 { font-size: 1.1rem; font-weight: 700; letter-spacing: -.01em; }
 .lead { font-size: 1.125rem; margin: 12px 0 0; }
@@ -1015,7 +1040,7 @@ main.with-band > .wrap:first-child .flash { margin: 16px 0; }
 .page-band .kicker svg { width: 16px; height: 16px; }
 /* Como el del inicio: en un celular angosto con la letra grande, el título no pasa del tamaño en que "Reservar" o
    "Tratamientos" entran en la pantalla (si no, se partían por la mitad). Con la letra normal no cambia. */
-.page-band h1 { font-size: clamp(min(2.125rem, 11.5vw), 8.4vw, 2.75rem);font-weight: 700; letter-spacing: -.03em; line-height: 1.08; color: #0a1f4f; }
+.page-band h1 { font-size: clamp(min(2.125rem, 11.5vw), 8.4vw, 2.75rem); font-weight: 700; letter-spacing: -.03em; line-height: 1.08; color: #0a1f4f; }
 .page-band h1 em { font-style: normal; color: #1c62d6; }
 .page-band .lead { max-width: 58ch; margin-top: 14px; color: #3a4a64; }
 /* El diente de cristal: en el celular va detrás del texto, en la esquina; en pantallas anchas, entre el texto y la foto. */
@@ -1052,7 +1077,7 @@ main.with-band > .wrap:first-child .flash { margin: 16px 0; }
 /* Lo que una página dice antes de su contenido, bajo el encabezado: la presentación del consultorio en Equipo. */
 .page-intro { margin: 0 0 32px; max-width: 68ch; font-size: 1.125rem; }
 .page-head { margin: 8px 0 32px; }
-.page-head h1 { font-size: clamp(2rem, 6.4vw, 3.25rem); font-weight: 750; letter-spacing: -.025em; line-height: 1.1; }
+.page-head h1 { font-size: clamp(min(2rem, 11.5vw), 6.4vw, 3.25rem); font-weight: 750; letter-spacing: -.025em; line-height: 1.1; }
 .page-head .lead { max-width: 52ch; color: var(--muted); }
 
 .crumbs { margin-bottom: 12px; font-weight: 700; }
@@ -1499,7 +1524,7 @@ main.with-band > .wrap:first-child .flash { margin: 16px 0; }
 .treatment-art { display: grid; place-items: center; width: 96px; height: 96px; margin-bottom: 18px; border-radius: 24px; background: linear-gradient(160deg, #eef4fd, #dfeafb); }
 .treatment-art img { width: 96%; height: auto; }
 @media (min-width: 900px) { .treatment-art { width: 112px; height: 112px; border-radius: 28px; } }
-.treatment-head h1 { font-size: clamp(2rem, 6.4vw, 3.25rem); letter-spacing: -.025em; line-height: 1.1; }
+.treatment-head h1 { font-size: clamp(min(2rem, 11.5vw), 6.4vw, 3.25rem); letter-spacing: -.025em; line-height: 1.1; }
 .treatment-head .row { margin-top: 24px; }
 .treatment-head .muted { max-width: 52ch; }
 .treatment-photo { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 24px; }
@@ -1565,7 +1590,7 @@ main.with-band > .wrap:first-child .flash { margin: 16px 0; }
 .promo-card .discount, .discount-big { color: var(--accent); font-weight: 800; }
 .promo-card .until, .promo-page .until { color: var(--muted); font-weight: 600; }
 .promo-page { display: grid; gap: 28px; }
-.promo-page h1 { font-size: clamp(2rem, 6.4vw, 3.125rem); letter-spacing: -.025em; line-height: 1.1; }
+.promo-page h1 { font-size: clamp(min(2rem, 11.5vw), 6.4vw, 3.125rem); letter-spacing: -.025em; line-height: 1.1; }
 .promo-image { width: 100%; border-radius: 24px; aspect-ratio: 16 / 9; object-fit: cover; }
 .discount-big { font-size: clamp(1.75rem, 5vw, 2.5rem); letter-spacing: -.02em; }
 .promo-page .code { font-size: 1.125rem; }

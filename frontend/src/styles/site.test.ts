@@ -78,9 +78,29 @@ describe('site.css', () => {
     const body = (selector: string) => large.find((rule) => rule.selectors.includes(selector))?.body ?? '';
 
     expect(body('main *')).toMatch(/(^|;)\s*hyphens:\s*auto/);
-    expect(body('main :is(.services-grid, .free-times, .times)')).toMatch(/grid-template-columns:\s*minmax\(0, 1fr\)/);
+    // Las de menos de 10 letras ("quienes", "Fernández") bajan enteras.
+    expect(body('main *')).toMatch(/hyphenate-limit-chars:\s*10 /);
+    expect(body('main :is(.services-grid, .free-times, .times, .trust)')).toMatch(
+      /grid-template-columns:\s*minmax\(0, 1fr\)/,
+    );
     expect(body('.site-footer .footer-cta')).toMatch(/grid-template-columns:\s*minmax\(0, 1fr\)/);
     expect(body('.site-footer .footer-cta :is(img, .btn svg)')).toMatch(/display:\s*none/);
+  });
+
+  it('with very large letters, what went beside a text goes under it, so no column is too narrow to read', () => {
+    const large = rules(css).filter((rule) => rule.at.includes('@container (max-width: 16em)'));
+    const body = (selector: string) => large.find((rule) => rule.selectors.includes(selector))?.body ?? '';
+    const oneColumn = /grid-template-columns:\s*minmax\(0, 1fr\)/;
+
+    // "Teléfono" y su número se leían letra por letra al lado del botón "Llamar".
+    expect(body('main .ways li .pill')).toMatch(/grid-column:\s*1 \/ -1/);
+    // "Duración" se partía en "Dura" y "ción" al lado de "120 min aprox.".
+    expect(body('main .facts-row div')).toMatch(/display:\s*grid/);
+    expect(body('main :is(.team:not(.full) .doctor, .team.full .doctor, .meet)')).toMatch(oneColumn);
+    expect(body('main .price-list a')).toMatch(oneColumn);
+    expect(body('main .price-list a > :is(.icon, .name, .price, .desc, .meta, .more)')).toMatch(/grid-column:\s*1;/);
+    expect(body('main .how li')).toMatch(oneColumn);
+    expect(body('main .promo-art')).toMatch(/display:\s*none/);
   });
 
   it('with very large letters, the open menu slides and its last page stays above the bar at the bottom', () => {
@@ -95,14 +115,15 @@ describe('site.css', () => {
   });
 
   it('the title of a page, like the one of the home, is never bigger than what fits on a narrow phone', () => {
+    const pages = ['h1', '.hero h1', '.page-band h1', '.page-head h1', '.treatment-head h1', '.promo-page h1'];
     const titles = rules(css).filter(
       (rule) =>
         rule.at.length === 0 &&
-        rule.selectors.some((selector) => ['.hero h1', '.page-band h1'].includes(selector)) &&
+        rule.selectors.some((selector) => pages.includes(selector)) &&
         /font-size/.test(rule.body),
     );
 
-    expect(titles.map((rule) => rule.selectors[0])).toEqual(['.hero h1', '.page-band h1']);
+    expect(titles.map((rule) => rule.selectors[0])).toEqual(pages);
     for (const title of titles) {
       expect(title.body).toMatch(/font-size:\s*clamp\(min\([^,]+,\s*[\d.]+vw\)/);
     }
