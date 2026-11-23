@@ -30,8 +30,10 @@ LEFT JOIN (
 WHERE p.deleted_at IS NULL;
 
 -- Las citas de hoy (hora de Lima), sin las canceladas, como el panel "Agenda de hoy" (TodayAppointments).
--- El día se calcula con UTC_TIMESTAMP() y no con fn_hoy_lima(): una función propia se evalúa fila por fila y
--- MySQL no usaría el índice appointments_starts_on_index; UTC_TIMESTAMP() es una constante en cada consulta.
+-- El día se busca como un rango de horas, desde las 00:00 hasta antes de las 00:00 del día siguiente, igual que
+-- Appointment::startsOn(): así MySQL usa el índice appointments_starts_at_index. El día se calcula con
+-- UTC_TIMESTAMP() y no con fn_hoy_lima(): una función propia se evalúa fila por fila y MySQL no usaría el índice;
+-- UTC_TIMESTAMP() es una constante en cada consulta.
 CREATE OR REPLACE SQL SECURITY DEFINER VIEW v_agenda_del_dia AS
 SELECT
     a.id AS cita_id,
@@ -52,7 +54,8 @@ JOIN patients p ON p.id = a.patient_id
 JOIN doctors d ON d.id = a.doctor_id
 JOIN treatments t ON t.id = a.treatment_id
 LEFT JOIN accounts ac ON ac.id = p.account_id
-WHERE DATE(a.starts_at) = DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '-05:00'))
+WHERE a.starts_at >= CAST(DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '-05:00')) AS DATETIME)
+    AND a.starts_at < CAST(DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '-05:00')) AS DATETIME) + INTERVAL 1 DAY
     AND a.deleted_at IS NULL
     AND a.status <> 'cancelled'
 ORDER BY a.starts_at, a.id;

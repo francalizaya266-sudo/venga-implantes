@@ -176,7 +176,7 @@ class MysqlDatabaseObjectsTest extends TestCase
         Appointment::factory()->at(today()->setTime(12, 0)->toDateTimeString())->create()->delete();
         Charge::factory()->for($afternoon->patient)->create(['amount' => 180]);
 
-        $dashboard = Appointment::query()->whereDate('starts_at', today())->where('status', '!=', AppointmentStatus::Cancelled)->orderBy('starts_at')->pluck('id')->all();
+        $dashboard = Appointment::query()->startsOn(today())->where('status', '!=', AppointmentStatus::Cancelled)->orderBy('starts_at')->pluck('id')->all();
         $view = DB::table('v_agenda_del_dia')->orderBy('inicio')->get();
 
         $this->assertSame([$morning->id, $afternoon->id], $dashboard);
@@ -324,8 +324,9 @@ class MysqlDatabaseObjectsTest extends TestCase
 
     public function test_the_frequent_queries_can_use_the_new_indexes(): void
     {
-        $this->assertContains('appointments_starts_on_index', $this->possibleKeys(Appointment::query()->whereDate('starts_at', today())));
-        $this->assertContains('payments_paid_on_index', $this->possibleKeys(Payment::query()->whereDate('paid_at', today())));
+        $this->assertContains('appointments_starts_at_index', $this->possibleKeys(Appointment::query()->startsOn(today())));
+        $this->assertContains('appointments_starts_at_index', $this->possibleKeysInView('v_agenda_del_dia', 'a'));
+        $this->assertContains('payments_paid_at_index', $this->possibleKeys(Payment::query()->whereBetween('paid_at', [today()->startOfDay(), today()->endOfDay()])));
         $this->assertContains('charges_charged_at_index', $this->possibleKeys(Charge::query()->whereBetween('charged_at', [today()->startOfMonth(), today()->endOfMonth()])));
         $this->assertContains('charges_patient_balance_index', $this->possibleKeys(Charge::query()->where('patient_id', 1)->whereNull('voided_at')));
         $this->assertContains('payments_patient_balance_index', $this->possibleKeys(Payment::query()->where('patient_id', 1)->whereNull('voided_at')));
@@ -364,6 +365,18 @@ class MysqlDatabaseObjectsTest extends TestCase
         $plan = (array) DB::selectOne('explain '.$query->toRawSql());
 
         return explode(',', (string) ($plan['possible_keys'] ?? ''));
+    }
+
+    /**
+     * Los índices que MySQL puede usar para leer una de las tablas de una vista, por el alias que tiene en la vista.
+     *
+     * @return list<string>
+     */
+    private function possibleKeysInView(string $view, string $alias): array
+    {
+        $plan = collect(DB::select("explain select * from {$view}"))->first(fn (object $row) => $row->table === $alias);
+
+        return explode(',', (string) ($plan->possible_keys ?? ''));
     }
 
     private function planInInstallments(Patient $patient, Doctor $doctor, TreatmentPlanStatus $status): TreatmentPlan
