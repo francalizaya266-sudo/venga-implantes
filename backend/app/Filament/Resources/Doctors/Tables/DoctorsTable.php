@@ -9,13 +9,13 @@ use App\Models\DoctorSchedule;
 use Filament\Actions\Contracts\HasActions;
 use Filament\Actions\EditAction;
 use Filament\Notifications\Notification;
-use Filament\Tables\Columns\ColorColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\ToggleColumn;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\HtmlString;
+use Illuminate\Support\Str;
 
 class DoctorsTable
 {
@@ -25,8 +25,14 @@ class DoctorsTable
             ->stackedOnMobile()
             ->modifyQueryUsing(fn (Builder $query) => $query->with(['user', 'schedules'])->withCount('treatments'))
             ->columns([
-                ColorColumn::make('agenda_color')
-                    ->label(''),
+                // El color de sus citas en la agenda: el punto a la vista y, para el lector de pantalla, su nombre
+                // ("Violeta"), no el código "#8b5cf6".
+                TextColumn::make('agenda_color')
+                    ->label('Color')
+                    ->formatStateUsing(fn (?string $state) => new HtmlString(
+                        '<span class="color-swatch-dot" style="background-color: '.e((string) Str::sanitizeCssColor($state)).'" aria-hidden="true"></span>'
+                        .'<span class="fi-sr-only">'.e(DoctorForm::colorName($state)).'</span>'
+                    )),
                 TextColumn::make('name')
                     ->label('Doctor')
                     ->searchable()

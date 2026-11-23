@@ -26,7 +26,8 @@ describe('HomePage', () => {
     expect(screen.getByText('Precios a la vista')).toBeInTheDocument();
 
     const services = within(screen.getByRole('region', { name: 'Nuestros servicios' }));
-    expect(services.getByRole('link', { name: /Limpieza dental.*Desde S\/ 120/ })).toHaveAttribute(
+    // "S/" va pegado a la cifra (con un espacio que no se parte): si el precio no entra en una línea, baja entero.
+    expect(services.getByRole('link', { name: /Limpieza dental.*Desde S\/\u00a0120/ })).toHaveAttribute(
       'href',
       '/tratamientos/limpieza-dental',
     );

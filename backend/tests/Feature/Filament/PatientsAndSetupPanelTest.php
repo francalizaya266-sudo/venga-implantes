@@ -387,6 +387,22 @@ class PatientsAndSetupPanelTest extends TestCase
         $this->assertSame([null, null], [Setting::get('clinic.google_rating'), Setting::get('clinic.google_reviews_count')]);
     }
 
+    public function test_the_help_of_the_home_photo_says_it_also_goes_on_top_of_the_pages_without_their_own(): void
+    {
+        Storage::fake(PublicImages::DISK);
+        $this->actingAs(User::factory()->admin()->create());
+
+        Livewire::test(WebSetup::class)
+            ->assertSee('También sale arriba de las demás páginas (Servicios, Equipo, Contacto, Reservar cita…) que no tienen foto propia')
+            ->fillForm(['web' => ['hero_image' => UploadedFile::fake()->image('consultorio.jpg', 2400, 1200)]])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $this->getJson(route('api.v1.site'))
+            ->assertJsonPath('data.pages.equipo.photo_url', PublicImages::url(Setting::get('web.hero_image')))
+            ->assertJsonPath('data.pages.reservar.photo_url', PublicImages::url(Setting::get('web.hero_image')));
+    }
+
     public function test_the_admin_changes_or_removes_the_phrase_above_the_home_title(): void
     {
         $this->actingAs(User::factory()->admin()->create());
@@ -611,6 +627,9 @@ class PatientsAndSetupPanelTest extends TestCase
 
         Livewire::test(ListPatients::class)
             ->assertSee(['Todos', 'Les toca control', 'Faltaron o cancelaron'])
+            // El lector de pantalla nombra las pestañas por lo que hacen, no con la clave sin traducir.
+            ->assertSeeHtml('aria-label="Filtrar la lista"')
+            ->assertDontSee('list-records.tabs.label')
             ->assertSee('Sus presupuestos se siguen en Presupuestos y planes.')
             // Eran las mismas personas que "Sin respuesta" y "Sin próxima cita" de Presupuestos, sin sus botones.
             ->assertDontSee(['Plan sin agendar', 'Presupuesto sin respuesta']);
@@ -639,6 +658,24 @@ class PatientsAndSetupPanelTest extends TestCase
         Livewire::test(ListPatients::class)
             ->mountAction(TestAction::make('collectBalance')->table($rosa))
             ->assertSchemaStateSet(['amount' => 120.0]);
+    }
+
+    public function test_a_doctor_lists_her_patients_without_their_balance_or_the_collect_button(): void
+    {
+        $this->freezeMonday();
+        $treatment = Treatment::factory()->create();
+        $doctor = $this->doctorOffering($treatment);
+        $rosa = Patient::factory()->create(['first_name' => 'Rosa', 'last_name' => 'Quispe']);
+        Charge::factory()->for($rosa)->create(['amount' => 120]);
+        Appointment::factory()->for($doctor)->for($treatment)->for($rosa)->at('2026-10-20 10:00')->create(['status' => AppointmentStatus::Completed]);
+        $this->actingAs($doctor->user);
+
+        // La lista del doctor no trae los saldos: el menú de la fila no los lee, ni siquiera para ocultar "Cobrar".
+        Livewire::test(ListPatients::class)
+            ->assertCanSeeTableRecords([$rosa])
+            ->assertTableColumnHidden('balance_due')
+            ->assertActionHidden(TestAction::make('registerPayment')->table($rosa))
+            ->assertDontSee('Debe S/ 120.00');
     }
 
     public function test_the_patient_file_puts_the_profile_beside_its_tabs_and_charges_only_who_owes(): void

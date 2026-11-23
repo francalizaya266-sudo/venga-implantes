@@ -11,6 +11,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\ToggleButtons;
 use Filament\Schemas\Components\Text;
 use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Components\View;
 use Filament\Support\Enums\FontWeight;
 use Filament\Support\Enums\TextSize;
@@ -48,6 +49,13 @@ final class PaymentFields
                 ->default(PaymentMethod::Cash->value)
                 ->inline()
                 ->live()
+                // Tocar otra vez el medio elegido lo desmarcaba: se iban "¿Con cuánto paga?" o el QR, y el error salía
+                // recién al cobrar. Siempre queda uno elegido; para cambiarlo se toca otro.
+                ->afterStateUpdated(function (mixed $state, mixed $old, Set $set): void {
+                    if (blank($state) && filled($old)) {
+                        $set('method', $old instanceof PaymentMethod ? $old->value : $old);
+                    }
+                })
                 ->required(fn (Get $get) => (float) $get('amount') > 0),
             // Solo para la cuenta del vuelto: no se guarda.
             TextInput::make('received')

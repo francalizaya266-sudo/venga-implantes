@@ -184,7 +184,7 @@ class ExtraCopyTest extends TestCase
         $this->chooseFolder();
         $this->artisan('respaldo:copia-extra')->assertSuccessful();
 
-        $this->assertSame('Respaldo de ayer ✓', Backups::sidebarStatus()['text']);
+        $this->assertSame('Copia de seguridad de ayer ✓', Backups::sidebarStatus()['text']);
         $this->assertSame('Copia de ayer guardada también en otra carpeta', Backups::sidebarStatus()['detail']);
 
         // Con la de hoy creada y guardada ahí, sí.

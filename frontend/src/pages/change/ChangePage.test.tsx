@@ -30,6 +30,7 @@ describe('changing the time of an appointment', () => {
 
     expect(await screen.findByRole('heading', { level: 1, name: 'Cambiar el horario' })).toBeInTheDocument();
     expect(screen.getByText('Ahora: Miércoles 4 de noviembre, 10:00 a. m.')).toBeInTheDocument();
+    expect(screen.getByText('con la Dra. Vega')).toBeInTheDocument();
     expect(screen.getByText('Elige el nuevo día y hora. El cambio se hace al instante.')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Cambiar a este horario' })).not.toBeInTheDocument();
 
@@ -176,7 +177,7 @@ describe('changing the time of an appointment', () => {
     renderApp(PATH);
 
     expect(
-      await screen.findByText(/No encontramos horarios libres en las próximas semanas con este doctor\./),
+      await screen.findByText(/No encontramos horarios libres en las próximas semanas con la Dra\. Vega\./),
     ).toBeInTheDocument();
   });
 

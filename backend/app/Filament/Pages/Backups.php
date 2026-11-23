@@ -285,8 +285,9 @@ class Backups extends Page
     }
 
     /**
-     * Para el administrador, al pie del menú: "Respaldo de hoy ✓" y cuándo se bajó la última copia fuera del equipo
-     * ("de esta computadora" en la laptop, "del servidor" en un hosting).
+     * Para el administrador, al pie del menú: "Copia de seguridad de hoy ✓" (con las palabras del resto del panel, no
+     * "respaldo") y cuándo se bajó la última copia fuera del equipo ("de esta computadora" en la laptop, "del
+     * servidor" en un hosting).
      * En ámbar si toca bajarla, en rojo si la copia diaria dejó de hacerse. Sin la palabra "cifrado": las copias
      * todavía no lo están.
      *
@@ -311,10 +312,10 @@ class Backups extends Page
                 default => 'success',
             },
             'text' => match (true) {
-                $latest === null => 'Todavía no hay respaldo',
-                $database->isStale() => 'Respaldo atrasado: el último es de '.$latest->diffForHumans(),
-                $latest->isToday() => 'Respaldo de hoy ✓',
-                default => 'Respaldo de ayer ✓',
+                $latest === null => 'Todavía no hay copias de seguridad',
+                $database->isStale() => 'Copia de seguridad atrasada: la última es de '.$latest->diffForHumans(),
+                $latest->isToday() => 'Copia de seguridad de hoy ✓',
+                default => 'Copia de seguridad de ayer ✓',
             },
             'detail' => match (true) {
                 // La copia extra en otra carpeta la guarda fuera cada día, sin descargar nada. Dice cuál está ahí, como

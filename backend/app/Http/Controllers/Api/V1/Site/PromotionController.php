@@ -113,7 +113,17 @@ class PromotionController extends Controller
             ],
             'meta' => $this->meta->for(
                 title: $campaign->name,
-                description: $about ? PageMeta::describe(Str::finish($about, '.'), 'Se aplica al pagar en el consultorio.', 'Reserva en línea en '.$clinic->name().'.') : null,
+                // Como en las demás páginas, con la ciudad y de 150 a 160 letras si se puede.
+                description: $about ? PageMeta::describe(
+                    Str::finish($about, '.'),
+                    'Se aplica al pagar en el consultorio.',
+                    [
+                        'Reserva en línea en '.$clinic->name().($clinic->district() ? ', en '.$clinic->district() : '').'.',
+                        'Reserva en línea en '.$clinic->name().'.',
+                        'Reserva en línea.',
+                    ],
+                    'Te confirmamos por WhatsApp.',
+                ) : null,
                 image: PublicImages::url($campaign->image_path),
                 jsonLd: [$this->structuredData->breadcrumbs(['Promociones' => route('site.promotions'), $campaign->name => route('site.promotion', $campaign->slug)])],
             ),

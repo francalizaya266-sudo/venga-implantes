@@ -463,7 +463,7 @@
                                 <span class="agenda-head-title" title="{{ $column['title'] }}">{{ $column['title'] }}</span>
                                 <span class="agenda-head-sub">{{ collect([$column['subtitle'], $countLabel])->filter()->implode(' · ') }}</span>
                                 @if ($column['live'] ?? null)
-                                    <span @class(['agenda-head-live', 'is-busy' => $column['live']['busy'], 'has-waiting' => $column['live']['waiting'] > 0])><i aria-hidden="true"></i>{{ $column['live']['text'] }}</span>
+                                    <span @class(['agenda-head-live', 'is-busy' => $column['live']['busy'], 'has-waiting' => $column['live']['waiting'] > 0]) title="{{ $column['live']['text'] }}"><i aria-hidden="true"></i><span>{{ $column['live']['text'] }}</span></span>
                                 @endif
                             </span>
                         @endif
@@ -530,12 +530,13 @@
                         @foreach ($column['appointments'] as $appt)
                             @php
                                 $short = $appt['end'] - $appt['start'] <= 30;
+                                $steps = ($appt['step'] ?? false) ? $this->nextSteps($appt['id'], $appt['status']) : [];
                             @endphp
                             <div class="agenda-buffer" style="top: {{ ($appt['end'] - $from) * $scale }}px; height: {{ ($appt['until'] - $appt['end']) * $scale }}px"></div>
                             <a
                                 wire:key="appt-{{ $appt['id'] }}"
                                 href="{{ $appt['url'] }}"
-                                @class(['agenda-appt', 's-'.$appt['status'], 'is-movable' => $appt['draggable'], 'is-short' => $short, 'is-unclosed' => $appt['unclosed'], 'needs-call' => $appt['needsCall'], 'in-block' => $appt['inBlock'], 'in-lane' => $appt['lanes'] > 1, 'is-overbooked' => $appt['overbooked'], 'has-doc' => isset($appt['doctor']), 'is-settled' => $appt['settled'], 'is-long' => $appt['state']['long']])
+                                @class(['agenda-appt', 's-'.$appt['status'], 'is-movable' => $appt['draggable'], 'is-short' => $short, 'is-unclosed' => $appt['unclosed'], 'needs-call' => $appt['needsCall'], 'in-block' => $appt['inBlock'], 'in-lane' => $appt['lanes'] > 1, 'is-overbooked' => $appt['overbooked'], 'has-doc' => isset($appt['doctor']), 'is-settled' => $appt['settled'], 'is-long' => $appt['state']['long'], 'has-step' => $steps !== []])
                                 style="top: {{ ($appt['start'] - $from) * $scale }}px; height: {{ max(($appt['end'] - $appt['start']) * $scale - 2, 18) }}px;@if ($appt['lanes'] > 1) --lane: {{ $appt['lane'] }}; --lanes: {{ $appt['lanes'] }};@endif @isset($appt['doctor'])--doc: {{ $appt['doctor']['color'] }};@endisset"
                                 title="{{ $appt['hint'] }}{{ isset($appt['doctor']) ? ' · '.$appt['doctor']['name'] : '' }}"
                                 draggable="false"
@@ -556,15 +557,10 @@
                                 <small>{{ $appt['state']['label'] }}@if ($appt['phone']) · {{ $appt['phone'] }}@endif</small>
                             </a>
                             {{-- En el día, una cita larga trae su siguiente paso (Confirmar, Llegó, Atender, Cobrar), como en la Lista. Va al lado de la tarjeta, no dentro: tocarlo no abre el panel ni crea otra cita. --}}
-                            @if ($appt['step'] ?? false)
-                                @php
-                                    $steps = $this->nextSteps($appt['id'], $appt['status']);
-                                @endphp
-                                @if ($steps !== [])
-                                    <div class="agenda-appt-step" wire:key="step-{{ $appt['id'] }}" style="top: {{ ($appt['end'] - $from) * $scale - 6 }}px" x-on:click.stop x-on:pointerdown.stop>
-                                        {{ $steps[0]->size('xs') }}
-                                    </div>
-                                @endif
+                            @if ($steps !== [])
+                                <div class="agenda-appt-step" wire:key="step-{{ $appt['id'] }}" style="top: {{ ($appt['end'] - $from) * $scale - 6 }}px" x-on:click.stop x-on:pointerdown.stop>
+                                    {{ $steps[0]->size('xs') }}
+                                </div>
                             @endif
                         @endforeach
                     </div>

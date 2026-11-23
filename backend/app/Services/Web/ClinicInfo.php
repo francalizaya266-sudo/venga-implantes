@@ -62,6 +62,13 @@ final class ClinicInfo
         return $this->phone() ? 'tel:'.preg_replace('/[^\d+]/', '', $this->phone()) : null;
     }
 
+    /** El teléfono con el +51 delante, como lo pide Google: el fijo o, si no hay (o no se entiende), el WhatsApp. */
+    public function internationalPhone(): ?string
+    {
+        return ($this->phone() ? Phone::international($this->phone()) : null)
+            ?? ($this->whatsapp() ? Phone::international($this->whatsapp()) : null);
+    }
+
     /** Celular de WhatsApp normalizado (+51…), o null si no es válido. */
     public function whatsapp(): ?string
     {

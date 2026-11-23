@@ -213,6 +213,7 @@ class AccountControllerTest extends TestCase
             ->assertJsonPath('data.welcome.appointments.0.ask_health.text', 'Cuéntanos de tu salud en dos minutos.')
             ->assertJsonPath('data.welcome.sessions.0.kicker', 'Tratamiento de Mateo')
             ->assertJsonPath('data.welcome.sessions.0.title', 'A Mateo le falta 1 de 3 sesiones')
+            ->assertJsonPath('data.welcome.sessions.0.note', 'Con la Dra. Vega. Cada sesión la programa su doctor: pídela y te escribimos con el horario.')
             ->assertJsonPath('data.welcome.sessions.0.button', 'Pedir su próxima sesión')
             ->assertJsonPath('data.welcome.sessions.0.requested', false)
             ->assertJsonPath('data.welcome.checkups.0.kicker', 'Control de Lucía')
@@ -322,7 +323,7 @@ class AccountControllerTest extends TestCase
 
         $alert = $reception->notifications()->sole()->data;
         $this->assertSame('Pide su próxima sesión', $alert['title']);
-        $this->assertSame($this->child->full_name.' quiere agendar su próxima sesión (lleva 2 de 3, con Dra. Vega). Escríbele con el horario.', $alert['body']);
+        $this->assertSame($this->child->full_name.' quiere agendar su próxima sesión (lleva 2 de 3, con la Dra. Vega). Escríbele con el horario.', $alert['body']);
 
         $this->getJson(route('api.v1.home'))->assertJsonPath('data.welcome.sessions.0.requested', true);
 

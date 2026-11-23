@@ -89,11 +89,15 @@ describe('SlotPicker', () => {
   });
 
   it.each([
-    [false, 'No encontramos horarios libres en las próximas semanas. Escríbenos'],
-    [true, 'No encontramos horarios libres en las próximas semanas con este doctor. Escríbenos'],
-  ])('says it when there are no free days (with a doctor: %s)', (withDoctor, text) => {
+    [null, 'No encontramos horarios libres en las próximas semanas. Escríbenos'],
+    [
+      'Dra. Lucía Fernández',
+      'No encontramos horarios libres en las próximas semanas con la Dra. Lucía Fernández. Escríbenos',
+    ],
+    ['Dr. Luis Ramos', 'No encontramos horarios libres en las próximas semanas con el Dr. Luis Ramos. Escríbenos'],
+  ])('says it when there are no free days (with the doctor: %s)', (doctor, text) => {
     const { container } = render(
-      <SlotPicker days={[]} date={null} slots={[]} onDate={vi.fn()} onTime={vi.fn()} withDoctor={withDoctor} />,
+      <SlotPicker days={[]} date={null} slots={[]} onDate={vi.fn()} onTime={vi.fn()} doctor={doctor} />,
     );
 
     expect(container).toHaveTextContent(text);

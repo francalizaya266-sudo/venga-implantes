@@ -106,6 +106,7 @@ class BookingControllerTest extends TestCase
         $this->freezeMonday();
         $evaluation = Treatment::factory()->evaluation()->create();
         $doctor = $this->doctorOffering($evaluation);
+        $doctor->update(['name' => 'Dra. Ana Torres']);
 
         // Con 2 horas de anticipación mínima, lo primero es hoy a las 10:00.
         $this->getJson(route('api.v1.booking.days', ['treatment' => $evaluation->id]))
@@ -129,7 +130,7 @@ class BookingControllerTest extends TestCase
             ->assertJsonPath('data.treatment', $evaluation->name)
             ->assertJsonPath('data.phone', '987 654 321')
             ->assertJsonPath('data.remembered', true)
-            ->assertJsonPath('data.who', 'María Quispe Rojas · con '.$doctor->name);
+            ->assertJsonPath('data.who', 'María Quispe Rojas · con la Dra. Ana Torres');
 
         $appointment = Appointment::with('patient.account')->sole();
         $this->assertTrue($appointment->doctor->is($doctor));

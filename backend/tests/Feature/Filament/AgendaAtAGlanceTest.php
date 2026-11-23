@@ -59,7 +59,8 @@ class AgendaAtAGlanceTest extends TestCase
         $this->travelTo(CarbonImmutable::parse('2026-11-02 11:00', 'America/Lima'));
         $this->actingAs(User::factory()->reception()->create());
 
-        Livewire::test(Agenda::class)->assertSeeHtml('<span class="agenda-head-live"><i aria-hidden="true"></i>Libre</span>');
+        // El texto va en su propia caja, para que en una columna angosta termine en "…" y no a media palabra.
+        Livewire::test(Agenda::class)->assertSeeHtml('<span class="agenda-head-live" title="Libre"><i aria-hidden="true"></i><span>Libre</span></span>');
 
         $this->travelTo(CarbonImmutable::parse('2026-11-02 14:00', 'America/Lima'));
         Livewire::test(Agenda::class)->assertDontSeeHtml('agenda-head-live');

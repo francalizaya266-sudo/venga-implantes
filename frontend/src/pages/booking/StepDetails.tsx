@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import type { BookingOptions, BookingTreatment, Clinic, Slot } from '@/api/types';
 import { AppLink } from '@/components/ui/AppLink';
 import { paths } from '@/lib/paths';
+import { withArticle } from '@/lib/text';
 import { InTreatment } from '@/pages/booking/InTreatment';
 
 const MONTHS = [
@@ -149,9 +150,11 @@ export function StepDetails({
         <p style={{ margin: '4px 0 0' }}>
           {day}, {slot.label}
         </p>
-        <p className="muted" style={{ margin: '2px 0 0' }}>
-          con {doctor}
-        </p>
+        {doctor ? (
+          <p className="muted" style={{ margin: '2px 0 0' }}>
+            con {withArticle(doctor)}
+          </p>
+        ) : null}
         {treatment.price_line ? <p className="price-line">{treatment.price_line}</p> : null}
       </div>
 

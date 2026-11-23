@@ -367,6 +367,29 @@ class SiteContentTest extends TestCase
             ->assertJsonPath('data.booking', ['tratamiento' => 'evaluacion', 'promo' => 'blanqueamiento-verano', 'origen' => 'campaign']);
     }
 
+    public function test_a_promotion_tells_google_where_the_clinic_is_in_150_to_160_letters(): void
+    {
+        Setting::set('clinic.name', 'Clínica Vega Implant');
+        Setting::set('clinic.district', 'Juliaca');
+        $this->campaign(['name' => 'Blanqueamiento 20 %', 'slug' => 'blanqueamiento-20', 'summary' => 'Sonrisa más blanca en una sesión. Válido hasta fin de mes.']);
+        $this->campaign(['name' => 'Limpieza', 'slug' => 'limpieza', 'summary' => 'Limpieza con 20 % de descuento.']);
+
+        $description = fn (string $slug): string => $this->getJson(route('api.v1.promotions.show', $slug))->assertOk()->json('meta.description');
+
+        $this->assertSame(
+            'Sonrisa más blanca en una sesión. Válido hasta fin de mes. Se aplica al pagar en el consultorio. Reserva en línea en Clínica Vega Implant, en Juliaca.',
+            $description('blanqueamiento-20'),
+        );
+        // Con un resumen corto, entra también cómo se confirma.
+        $this->assertSame(
+            'Limpieza con 20 % de descuento. Se aplica al pagar en el consultorio. Reserva en línea en Clínica Vega Implant, en Juliaca. Te confirmamos por WhatsApp.',
+            $description('limpieza'),
+        );
+        foreach (['blanqueamiento-20', 'limpieza'] as $slug) {
+            $this->assertThat(mb_strlen($description($slug)), $this->logicalAnd($this->greaterThanOrEqual(150), $this->lessThanOrEqual(160)), $slug);
+        }
+    }
+
     public function test_a_promotion_counts_one_visit_per_person_and_an_ended_one_offers_the_current_ones(): void
     {
         $campaign = $this->campaign();

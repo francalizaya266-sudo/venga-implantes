@@ -199,7 +199,7 @@ export function bookedAppointment(changes: Partial<BookedAppointment> = {}): Boo
     page_url: '/reservar/cita/9?signature=abc',
     treatment: 'Limpieza dental',
     when: 'Miércoles 4 de noviembre, 9:00 a. m.',
-    who: 'Rosa Quispe · con Dra. Vega',
+    who: 'Rosa Quispe · con la Dra. Vega',
     price_line: 'Precio: desde S/ 120.',
     phone: '987 654 321',
     remembered: false,

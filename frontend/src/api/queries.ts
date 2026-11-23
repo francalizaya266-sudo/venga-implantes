@@ -1,5 +1,5 @@
-import { useQuery } from '@tanstack/react-query';
-import { useEffect } from 'react';
+import { onlineManager, useQuery, type QueryClient } from '@tanstack/react-query';
+import { useEffect, useSyncExternalStore } from 'react';
 import { ApiError, apiUrl, cacheKey, get, type Query } from '@/api/client';
 import type { DataResponse, PageMeta, PageResponse, Site } from '@/api/types';
 import { applyMeta } from '@/lib/meta';
@@ -17,6 +17,18 @@ export function pageError(data: unknown, error: Error | null): Error | null {
   return data !== undefined && !(error instanceof ApiError) ? null : error;
 }
 
+/**
+ * Si hay señal, según React Query: el navegador avisa cuando se va y cuando vuelve. Sin ella, lo que se pide queda
+ * en pausa hasta que vuelva (en vez de fallar), así que una página nueva espera sus datos todo ese rato.
+ */
+export function useOnline(): boolean {
+  return useSyncExternalStore(
+    (onChange) => onlineManager.subscribe(onChange),
+    () => onlineManager.isOnline(),
+    () => true,
+  );
+}
+
 /** Lo que comparten todas las páginas: los datos del consultorio y los textos que se editan en el panel. */
 export function useSite(): Site | undefined {
   const { data } = useQuery<DataResponse<Site>>({
@@ -26,6 +38,11 @@ export function useSite(): Site | undefined {
   });
 
   return data?.data;
+}
+
+/** Los datos del consultorio, si ya están: el documento con que se abrió la web los trae escritos. */
+export function cachedSite(client: QueryClient): Site | undefined {
+  return client.getQueryData<DataResponse<Site>>([cacheKey(apiUrl('site'))])?.data;
 }
 
 /** Pone el título y lo demás de la página en el documento cuando llegan (o cambian) sus datos. */

@@ -251,7 +251,7 @@ describe('BookingPage', () => {
 
     await step('Tus datos');
     expect(screen.getByText('Jueves 5 de noviembre, 11:00 a. m.')).toBeInTheDocument();
-    expect(screen.getByText('con Dra. Vega')).toBeInTheDocument();
+    expect(screen.getByText('con la Dra. Vega')).toBeInTheDocument();
   });
 
   it('lets choose the doctor when several attend the treatment', async () => {
@@ -308,6 +308,30 @@ describe('BookingPage', () => {
     expect(screen.getByText(/No encontramos horarios libres en las próximas semanas\./)).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: '¿Te avisamos cuando haya uno?' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Avísame si se libera un horario' })).toBeInTheDocument();
+  });
+
+  it('says with which doctora there are no free times, as it is said: "con la Dra."', async () => {
+    const doctors = [
+      { id: 1, name: 'Dr. Ramos' },
+      { id: 2, name: 'Dra. Lucía Fernández' },
+    ];
+    const empty = { days: [], date: null, day: null, slots: [] };
+    bookingApi(
+      {},
+      {
+        [DAYS]: { data: bookingDays({ doctors }) },
+        [`${DAYS}&doctor=2`]: { data: bookingDays({ doctors, doctor_id: 2, ...empty }) },
+      },
+    );
+    const { user } = renderApp('/reservar?tratamiento=limpieza-dental');
+
+    await step('Elige día y hora');
+    await user.click(screen.getByRole('button', { name: 'Dra. Lucía Fernández' }));
+
+    expect(
+      await screen.findByText(/No encontramos horarios libres en las próximas semanas con la Dra\. Lucía Fernández\./),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/si se libera un horario con la Dra\. Lucía Fernández\./)).toBeInTheDocument();
   });
 
   it('lets whoever finds no time that suits them join the waiting list', async () => {
@@ -408,7 +432,7 @@ describe('BookingPage', () => {
 
     await step('Elige día y hora');
     await user.click(screen.getByRole('button', { name: 'Dr. Ramos' }));
-    expect(await screen.findByText(/si se libera un horario con Dr\. Ramos\./)).toBeInTheDocument();
+    expect(await screen.findByText(/si se libera un horario con el Dr\. Ramos\./)).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Avísame si se libera un horario' }));
 
     expect(screen.queryByLabelText('Tu celular')).not.toBeInTheDocument();

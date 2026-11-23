@@ -66,10 +66,17 @@ final class PatientRowActions
             ->visible(fn (?Patient $record) => $record !== null && self::canCollect($record));
     }
 
+    /**
+     * Primero el permiso: "balance_due" lo trae la consulta de la lista (Patient::withBalance) solo para quien ve los
+     * saldos, y leerlo sin que venga es un error en local y en las pruebas (modo estricto de los modelos).
+     */
     public static function canCollect(Patient $patient): bool
     {
-        // "balance_due" lo trae la consulta de la lista (Patient::withBalance).
-        return (float) $patient->getAttribute('balance_due') > 0 && auth()->user()->can('create', Payment::class);
+        if (! auth()->user()->can('create', Payment::class)) {
+            return false;
+        }
+
+        return array_key_exists('balance_due', $patient->getAttributes()) && (float) $patient->getAttribute('balance_due') > 0;
     }
 
     /**

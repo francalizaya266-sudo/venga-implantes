@@ -4,6 +4,7 @@ namespace Tests\Feature\Filament;
 
 use App\Filament\Resources\Doctors\Pages\CreateDoctor;
 use App\Filament\Resources\Doctors\Pages\EditDoctor;
+use App\Filament\Resources\Doctors\Pages\ListDoctors;
 use App\Filament\Resources\ScheduleBlocks\Pages\ManageScheduleBlocks;
 use App\Filament\Resources\ScheduleBlocks\ScheduleBlockResource;
 use App\Models\Doctor;
@@ -137,6 +138,19 @@ class DoctorWeekScheduleTest extends TestCase
             ->assertHasNoFormErrors();
 
         $this->assertSame(['#123456', 'Ortodoncia'], [$doctor->refresh()->agenda_color, $doctor->specialty]);
+    }
+
+    public function test_the_list_of_doctors_names_each_color_for_the_screen_reader(): void
+    {
+        Doctor::factory()->create(['name' => 'Dra. Ana Torres', 'agenda_color' => '#8B5CF6']);
+        Doctor::factory()->create(['name' => 'Dr. Luis Paz', 'agenda_color' => '#123456']);
+        $this->actingAs(User::factory()->admin()->create());
+
+        // La columna tiene encabezado y el enlace de cada fila se lee con el nombre del color, no con su código.
+        Livewire::test(ListDoctors::class)
+            ->assertSeeInOrder(['Color', 'Doctor', 'Atiende'])
+            ->assertSeeHtml(['<span class="fi-sr-only">Violeta</span>', '<span class="fi-sr-only">Otro color</span>'])
+            ->assertDontSeeHtml('aria-label="#8b5cf6"');
     }
 
     public function test_a_new_doctor_is_offered_a_color_nobody_uses_yet(): void

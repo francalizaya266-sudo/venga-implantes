@@ -3,6 +3,7 @@ import { AppLink } from '@/components/ui/AppLink';
 import { TreatmentArt } from '@/components/ui/Art';
 import { Icon } from '@/components/ui/Icon';
 import { paths } from '@/lib/paths';
+import { keepAmountTogether } from '@/lib/text';
 
 /** Una tarjeta por servicio: su imagen, el nombre, el precio "desde", para qué sirve, cuánto dura y el paso a su página. */
 export function PriceList({ treatments }: { treatments: Treatment[] }) {
@@ -16,7 +17,7 @@ export function PriceList({ treatments }: { treatments: Treatment[] }) {
             </span>
             <span className="name">{treatment.name}</span>
             {treatment.price ? (
-              <span className="price">{treatment.price}</span>
+              <span className="price">{keepAmountTogether(treatment.price)}</span>
             ) : (
               <span className="price ask">Precio en la evaluación</span>
             )}
