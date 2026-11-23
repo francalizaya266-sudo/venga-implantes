@@ -185,7 +185,7 @@ class ImportPatientsAction extends ImportAction
      * Las filas de un CSV, con la codificación ya pasada a UTF-8 y el separador que use (Excel en español separa
      * con punto y coma).
      *
-     * @return list<list<mixed>>
+     * @return list<array<int, mixed>>
      */
     private function csvRows(TemporaryUploadedFile $file): array
     {
@@ -201,7 +201,7 @@ class ImportPatientsAction extends ImportAction
             $reader->setDelimiter($delimiter);
         }
 
-        $rows = array_values(iterator_to_array($reader->getRecords(), false));
+        $rows = iterator_to_array($reader->getRecords(), false);
 
         if (isset($rows[0][0]) && is_string($rows[0][0])) {
             $rows[0][0] = (string) preg_replace('/^\xEF\xBB\xBF/', '', $rows[0][0]);
@@ -213,7 +213,7 @@ class ImportPatientsAction extends ImportAction
     /**
      * Las filas de la primera hoja de un Excel.
      *
-     * @return list<list<mixed>>
+     * @return list<array<int, mixed>>
      */
     private static function excelRows(TemporaryUploadedFile $file): array
     {

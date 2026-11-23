@@ -15,6 +15,7 @@ use Filament\Actions\Imports\ImportColumn;
 use Filament\Actions\Imports\Importer;
 use Filament\Actions\Imports\Models\Import;
 use Filament\Forms\Components\Radio;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Str;
 
 /**
@@ -178,18 +179,20 @@ class PatientImporter extends Importer
     /** Lo de la fila se guarda al registrar (paciente nuevo) o solo en lo que le falta (paciente que ya estaba). */
     public function fillRecord(): void
     {
-        if (! $this->record->exists) {
+        $patient = $this->patient();
+
+        if (! $patient->exists) {
             return;
         }
 
         foreach (self::FILLABLE as $attribute) {
-            if (blank($this->record->getAttribute($attribute)) && filled($this->data[$attribute] ?? null)) {
-                $this->record->setAttribute($attribute, $this->data[$attribute]);
+            if (blank($patient->getAttribute($attribute)) && filled($this->data[$attribute] ?? null)) {
+                $patient->setAttribute($attribute, $this->data[$attribute]);
             }
         }
 
-        if ($this->record->isDirty('document_number')) {
-            $this->record->document_type ??= DocumentType::Dni;
+        if ($patient->isDirty('document_number') && $patient->getAttribute('document_type') === null) {
+            $patient->setAttribute('document_type', DocumentType::Dni);
         }
     }
 
@@ -207,11 +210,21 @@ class PatientImporter extends Importer
             return;
         }
 
-        $this->record->save();
+        $patient = $this->patient();
+        $patient->save();
 
-        if ($this->record->account_id === null && filled($phone)) {
-            app(PatientRegistrar::class)->moveToPhone($this->record, $phone);
+        if ($patient->account_id === null && filled($phone)) {
+            app(PatientRegistrar::class)->moveToPhone($patient, $phone);
         }
+    }
+
+    /** El paciente de la fila, con su tipo (el análisis estático no lo ve). */
+    private function patient(): Patient
+    {
+        /** @var Patient $patient */
+        $patient = $this->record;
+
+        return $patient;
     }
 
     /** Las filas que no entraron, en Excel (se abren bien en Excel en español) y listas para corregir y volver a subir. */
@@ -287,8 +300,10 @@ class PatientImporter extends Importer
         $phone = $this->data['phone'] ?? null;
 
         if (filled($phone) && Phone::isValid($phone)) {
-            $relative = Account::query()->where('phone', Phone::normalize($phone))->first()?->patients
-                ->first(fn (Patient $patient): bool => self::samePerson($patient, $firstName, $lastName));
+            $account = Account::query()->where('phone', Phone::normalize($phone))->first();
+            /** @var Collection<int, Patient> $family */
+            $family = $account === null ? new Collection : $account->patients;
+            $relative = $family->first(fn (Patient $patient): bool => self::samePerson($patient, $firstName, $lastName));
 
             if ($relative !== null) {
                 return [$relative, 'mismo celular y nombre'];

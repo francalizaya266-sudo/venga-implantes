@@ -7,6 +7,7 @@ use Filament\Actions\Imports\Downloaders\Contracts\Downloader;
 use Filament\Actions\Imports\Downloaders\CsvDownloader;
 use Filament\Actions\Imports\Models\FailedImportRow;
 use Filament\Actions\Imports\Models\Import;
+use Illuminate\Database\Eloquent\Collection;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -22,6 +23,7 @@ class FailedRowsDownloader implements Downloader
             return app(CsvDownloader::class)($import);
         }
 
+        /** @var Collection<int, FailedImportRow> $rows */
         $rows = $import->failedRows()->orderBy('id')->get();
         $header = [...array_keys($rows->first()->data ?? []), __('filament-actions::import.failure_csv.error_header')];
 

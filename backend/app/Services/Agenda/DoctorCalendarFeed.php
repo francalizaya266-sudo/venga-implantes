@@ -5,6 +5,7 @@ namespace App\Services\Agenda;
 use App\Enums\AppointmentStatus;
 use App\Models\Appointment;
 use App\Models\Doctor;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Str;
 
@@ -58,10 +59,12 @@ final class DoctorCalendarFeed
     {
         $doctor = Doctor::query()->with('user')->find($doctorId);
         $expected = (string) $doctor?->calendar_token;
+        /** @var User|null $user */
+        $user = $doctor?->user;
 
         $matches = hash_equals($expected !== '' ? $expected : str_repeat('-', self::TOKEN_LENGTH), $token);
 
-        return $matches && $expected !== '' && $doctor?->is_active && $doctor->user?->is_active ? $doctor : null;
+        return $matches && $expected !== '' && $doctor?->is_active && $user?->is_active ? $doctor : null;
     }
 
     /**
@@ -72,12 +75,15 @@ final class DoctorCalendarFeed
      */
     public function appointments(Doctor $doctor): Collection
     {
-        return $doctor->appointments()
+        /** @var Collection<int, Appointment> $appointments */
+        $appointments = $doctor->appointments()
             ->with(['patient', 'treatment'])
             ->whereIn('status', AppointmentStatus::occupying())
             ->where('starts_at', '>=', today()->subDays(self::PAST_DAYS))
             ->where('starts_at', '<', today()->addDays(self::FUTURE_DAYS + 1))
             ->orderBy('starts_at')
             ->get();
+
+        return $appointments;
     }
 }
