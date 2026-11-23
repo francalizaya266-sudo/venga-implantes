@@ -59,6 +59,7 @@ use Carbon\CarbonImmutable;
 use Filament\Actions\Testing\TestAction;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Once;
 use Livewire\Livewire;
 use Tests\Concerns\CreatesAgenda;
 use Tests\TestCase;
@@ -259,24 +260,67 @@ class DashboardPanelTest extends TestCase
         $this->actingAs(User::factory()->reception()->create());
 
         // Arriba lo que pide algo (en sala, quien terminó y debe, la que nadie cerró), después lo que viene y al pie
-        // cuántas terminaron. Quien debe no queda en tenue, la que nadie cerró va en ámbar y "Ahora" va antes de Fabio.
+        // cuántas terminaron, cada parte con su rótulo porque no va por hora. Quien debe no queda en tenue y la que
+        // nadie cerró va en ámbar. Nadie de "Por llegar" se atrasa: la línea de "ahora" quedaría pegada al rótulo.
         $agenda = Livewire::test(TodayAppointments::class)
-            ->assertSeeInOrder(['Elena Prueba', 'Berta Prueba', 'Debe S/', 'Cobrar', 'Diana Prueba', 'Fabio Prueba', 'Terminadas', '2 atendidas · 1 no asistió', 'Ver'])
+            ->assertSeeInOrder(['En la clínica', 'Elena Prueba', 'Por cobrar', 'Berta Prueba', 'Debe S/', 'Cobrar', 'Sin cerrar', 'Diana Prueba', 'Por llegar', 'Fabio Prueba', 'Terminadas', '2 atendidas · 1 no asistió', 'Ver'])
             ->assertDontSee(['Alba Prueba', 'Carlos Prueba', 'Gina Prueba'])
-            ->assertSeeHtml(['dash-appt-completed dash-appt-owes', 'dash-appt-pending dash-appt-unclosed', 'dash-appt-confirmed dash-appt-next']);
+            ->assertSeeHtml(['dash-appt-completed dash-appt-owes', 'dash-appt-pending dash-appt-unclosed'])
+            ->assertDontSeeHtml('dash-appt-next');
 
-        // "Ver" las pone al final, por hora; la elección se recuerda y "Ocultar" las vuelve a plegar.
-        $agenda->call('toggleFinished')->assertSeeInOrder(['Fabio Prueba', 'Alba Prueba', 'Carlos Prueba', 'Gina Prueba', 'Ocultar']);
+        // "Ver" las pone al final, con su rótulo y por hora; la elección se recuerda y "Ocultar" las vuelve a plegar.
+        $agenda->call('toggleFinished')->assertSeeInOrder(['Fabio Prueba', 'Terminadas', 'Alba Prueba', 'Carlos Prueba', 'Gina Prueba', 'Ocultar']);
         Livewire::test(TodayAppointments::class)->assertSee('Alba Prueba')->call('toggleFinished')->assertDontSee('Alba Prueba');
 
         // Si en la agenda que se ve no queda nada más, las terminadas están a la vista y no hay nada que plegar.
-        Livewire::test(TodayAppointments::class)->call('showDoctor', $luis->id)->assertSee('Gina Prueba')->assertDontSee('Terminadas');
+        Livewire::test(TodayAppointments::class)->call('showDoctor', $luis->id)->assertSeeInOrder(['Terminadas', 'Gina Prueba'])->assertDontSeeHtml('dash-agenda-finished');
+
+        // Si alguien de "Por llegar" ya debía haber llegado, la línea de "ahora" lo separa de lo que viene.
+        $visit('Hugo', '2026-11-02 11:45', AppointmentStatus::Pending);
+        Livewire::test(TodayAppointments::class)
+            ->call('showDoctor', null)
+            ->assertSeeInOrder(['Sin cerrar', 'Diana Prueba', 'Por llegar', 'Hugo Prueba', 'Fabio Prueba'])
+            ->assertSeeHtml('dash-appt-confirmed dash-appt-next');
 
         // El doctor no cobra: quien debe es una atendida más, plegada con las otras.
         $this->actingAs($ana->user);
         Livewire::test(TodayAppointments::class)
             ->assertSeeInOrder(['Elena Prueba', 'Diana Prueba', 'Fabio Prueba', 'Terminadas', '2 atendidas · 1 no asistió'])
             ->assertDontSee(['Berta Prueba', 'Gina Prueba']);
+    }
+
+    public function test_each_visit_of_today_takes_two_lines_and_says_the_doctor_only_when_there_are_several(): void
+    {
+        $treatment = Treatment::factory()->create(['name' => 'Limpieza dental']);
+        $ana = $this->doctorOffering($treatment);
+        $ana->update(['name' => 'Dra. Ana Torres']);
+        $longName = $this->patient('Aleksandra María José', 'Wiśniewska-Kowalczyk de la Santísima Trinidad');
+        $longName->account->update(['phone' => '+51987654321']);
+        Appointment::factory()->for($ana)->for($treatment)->for($longName)->at('2026-11-02 10:00')->create();
+        // El nombre lo escribe cualquiera desde la web: en el título que se lee al pasar el ratón no se cuela HTML.
+        Appointment::factory()->for($ana)->for($treatment)->for($this->patient('Rosa', 'Paz"><b>x</b>'))->at('2026-11-02 11:00')->create();
+        $this->actingAs(User::factory()->reception()->create());
+        $phone = '987'.self::NBSP.'654'.self::NBSP.'321';
+
+        // Debajo del nombre, "Tratamiento · celular", con el celular sin partir. Con un solo doctor no se dice de quién
+        // es la cita. El nombre muy largo se lee entero al pasar el ratón.
+        Livewire::test(TodayAppointments::class)
+            ->assertSeeInOrder(['Aleksandra María José Wiśniewska-Kowalczyk de la Santísima Trinidad', "Limpieza dental · {$phone}"])
+            ->assertSeeHtml('title="Aleksandra María José Wiśniewska-Kowalczyk de la Santísima Trinidad"')
+            ->assertSeeHtml('title="Rosa Paz&quot;&gt;&lt;b&gt;x&lt;/b&gt;"')
+            ->assertDontSeeHtml('<b>x</b>')
+            ->assertDontSee('Dra. Ana Torres');
+
+        // Con dos doctores, en "Todos" cada cita dice de quién es; con uno elegido arriba, ya no hace falta. Las
+        // opciones se deslizan de lado si no entran, y la elegida queda a la vista.
+        $this->doctorOffering($treatment);
+        Once::flush();
+        Livewire::test(TodayAppointments::class)
+            ->assertSeeHtml("title=\"Limpieza dental · {$phone} · Dra. Ana Torres\"")
+            ->assertSeeHtml('class="dash-segmented dash-doctor-switch"')
+            ->call('showDoctor', $ana->id)
+            ->assertSeeHtml("title=\"Limpieza dental · {$phone}\"")
+            ->assertDontSeeHtml("{$phone} · Dra. Ana Torres");
     }
 
     public function test_who_did_not_come_is_rebooked_from_the_agenda_with_the_same_visit(): void

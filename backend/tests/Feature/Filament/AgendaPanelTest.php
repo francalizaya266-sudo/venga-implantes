@@ -75,14 +75,15 @@ class AgendaPanelTest extends TestCase
 
         $this->actingAs(User::factory()->reception()->create());
 
-        Livewire::test(TodayAppointments::class)->assertTableColumnHidden('doctor.name');
+        // En Hoy el doctor va en la línea de abajo de cada cita ("Tratamiento · celular · Doctor").
+        Livewire::test(TodayAppointments::class)->assertDontSee($doctor->name);
         Livewire::test(ListAppointments::class)->assertTableColumnHidden('doctor.name')->assertTableFilterHidden('doctor_id');
 
         $this->doctorOffering($treatment);
         // Cada pedido cuenta los doctores una sola vez.
         Once::flush();
 
-        Livewire::test(TodayAppointments::class)->assertTableColumnVisible('doctor.name');
+        Livewire::test(TodayAppointments::class)->assertSee(' · '.$doctor->name);
         Livewire::test(ListAppointments::class)->assertTableColumnVisible('doctor.name')->assertTableFilterVisible('doctor_id');
     }
 
