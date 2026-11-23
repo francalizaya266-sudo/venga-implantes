@@ -435,10 +435,13 @@ class EditConsultation extends EditRecord
             });
     }
 
-    /** Si la clínica lleva inventario: entonces al terminar se revisa lo que sale de él. */
+    /**
+     * Si al terminar se revisa lo que sale del inventario: la clínica lleva inventario y no apagó el
+     * descuento en Ajustes.
+     */
     private static function tracksInventory(): bool
     {
-        return once(fn () => Supply::query()->active()->exists());
+        return once(fn () => InventoryService::deductsOnClose() && Supply::query()->active()->exists());
     }
 
     private function getConsultation(): Consultation

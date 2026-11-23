@@ -40,6 +40,7 @@ use App\Services\Clinical\PediatricDose;
 use App\Services\Clinical\PrescriptionService;
 use App\Services\Clinical\TreatmentPlanService;
 use App\Services\Clinical\TreatmentRisks;
+use App\Services\Inventory\InventoryService;
 use App\Services\Patients\PatientInsights;
 use App\Support\CampaignText;
 use App\Support\Money;
@@ -283,7 +284,7 @@ class ConsultationForm
                                 ->id('plan')
                                 ->key('plan')
                                 ->icon(Heroicon::OutlinedClipboardDocumentList)
-                                ->description('Llega con lo programado. Deja marcado solo lo que se hizo: eso se cobra, sale del inventario y avanza el plan.')
+                                ->description(fn () => 'Llega con lo programado. Deja marcado solo lo que se hizo: eso se cobra'.(InventoryService::deductsOnClose() ? ', sale del inventario' : '').' y avanza el plan.')
                                 ->headerActions([self::addToPlanAction(), self::addPackageAction()])
                                 ->schema([
                                     Select::make('treatments')

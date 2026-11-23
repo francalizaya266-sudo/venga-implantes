@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Treatments;
 use App\Filament\Resources\Supplies\SupplyResource;
 use App\Models\Supply;
 use App\Models\Treatment;
+use App\Services\Inventory\InventoryService;
 use App\Support\Money;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Repeater;
@@ -30,7 +31,9 @@ final class TreatmentRecipeAction
             ->color('gray')
             ->visible(fn (Treatment $record) => auth()->user()->can('update', $record) && Supply::query()->active()->exists())
             ->modalHeading(fn (Treatment $record) => 'Materiales de '.$record->name)
-            ->modalDescription('Lo que se usa en una atención. Al terminarla, sale solo del inventario; el doctor puede corregir lo que de verdad usó.')
+            ->modalDescription(fn () => InventoryService::deductsOnClose()
+                ? 'Lo que se usa en una atención. Al terminarla, sale solo del inventario; el doctor puede corregir lo que de verdad usó.'
+                : 'Lo que se usa en una atención: arma la bandeja de mañana y el costo de cada atención. No sale del inventario al terminarla, porque eso está apagado en Ajustes.')
             ->modalSubmitActionLabel('Guardar')
             ->fillForm(fn (Treatment $record) => [
                 'supplies' => $record->supplies()->orderBy('name')->get()

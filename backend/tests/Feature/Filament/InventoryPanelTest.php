@@ -5,6 +5,7 @@ namespace Tests\Feature\Filament;
 use App\Enums\PurchaseOrderStatus;
 use App\Enums\StockMovementType;
 use App\Filament\Pages\Dashboard;
+use App\Filament\Pages\Settings;
 use App\Filament\Pages\StockCount;
 use App\Filament\Resources\Consultations\ConsultationResource;
 use App\Filament\Resources\Consultations\Pages\EditConsultation;
@@ -20,6 +21,7 @@ use App\Filament\Resources\Treatments\Pages\ManageTreatments;
 use App\Filament\Widgets\FollowUpsToday;
 use App\Models\Appointment;
 use App\Models\PurchaseOrder;
+use App\Models\Setting;
 use App\Models\StockMovement;
 use App\Models\Supplier;
 use App\Models\Supply;
@@ -333,6 +335,42 @@ class InventoryPanelTest extends TestCase
 
         $this->assertNotNull($consultation->fresh()->closed_at);
         $this->assertSame(0, StockMovement::count());
+    }
+
+    public function test_the_admin_turns_off_the_materials_when_finishing_and_nothing_leaves_the_inventory(): void
+    {
+        $treatment = Treatment::factory()->create();
+        $gloves = Supply::factory()->create(['name' => 'Guantes de nitrilo', 'unit' => 'par', 'min_stock' => 0]);
+        $treatment->supplies()->attach($gloves->id, ['quantity' => 2]);
+        app(InventoryService::class)->receive($gloves, 50, User::factory()->reception()->create());
+        $doctor = $this->doctorOffering($treatment);
+        $appointment = Appointment::factory()->for($doctor)->for($treatment)->at('2026-11-02 10:00')->confirmed()->create();
+        $consultation = app(ConsultationService::class)->startFromAppointment($appointment, $doctor->user);
+
+        $this->actingAs(User::factory()->admin()->create());
+        Livewire::test(Settings::class)
+            ->assertSeeInOrder(['Inventario', 'Al terminar una atención', 'Revisar y descontar los materiales usados', 'Encendido: al terminar, el doctor ve la lista de materiales'])
+            ->fillForm(['inventory' => ['deduct_on_close' => false]])
+            ->assertSee('Apagado: la atención se termina con una sola confirmación y no sale nada del inventario.')
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $this->assertFalse(Setting::get('inventory.deduct_on_close'));
+        Livewire::test(ManageSupplies::class)
+            ->assertSee('Las atenciones no descuentan nada (está apagado en Ajustes)')
+            ->assertDontSee('Cada atención descuenta lo que usa su tratamiento.');
+
+        $this->actingAs($doctor->user);
+        Livewire::test(EditConsultation::class, ['record' => $consultation->getRouteKey()])
+            ->assertSee('Deja marcado solo lo que se hizo: eso se cobra y avanza el plan.')
+            ->mountAction('close')
+            ->assertMountedActionModalDontSee(['Materiales que usaste', 'salen del inventario'])
+            ->callMountedAction()
+            ->assertRedirect(ConsultationResource::getUrl('view', ['record' => $consultation]));
+
+        $this->assertNotNull($consultation->fresh()->closed_at);
+        $this->assertSame(50.0, (float) $gloves->fresh()->stock);
+        $this->assertSame(0, StockMovement::query()->used()->count());
     }
 
     public function test_hoy_warns_about_what_is_running_low_and_lots_about_to_expire(): void
