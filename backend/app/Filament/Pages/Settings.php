@@ -8,12 +8,14 @@ use App\Filament\Pages\Concerns\EditsSettings;
 use App\Filament\Resources\MessageTemplates\MessageTemplateResource;
 use App\Filament\Resources\Supplies\SupplyResource;
 use App\Models\Setting;
+use App\Services\Web\PublicImages;
 use App\Services\WhatsApp\WhatsAppOutbox;
 use App\Support\Dates;
 use App\Support\Phone;
 use BackedEnum;
 use Closure;
 use Filament\Actions\Action;
+use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -31,7 +33,7 @@ use Filament\Support\Icons\Heroicon;
 
 /**
  * Datos del consultorio, reglas de la agenda y de las reservas web, las horas de los avisos, lo de dinero
- * (presupuestos, meta y reportes) y si cada atención descuenta del inventario lo que usó.
+ * (presupuestos, meta, reportes y el QR de Yape y Plin para cobrar) y si cada atención descuenta del inventario lo que usó.
  * Lo de la página web va en Página web › Puesta a punto. Lo que se guarda aquí reemplaza los valores de
  * config/consultorio.php.
  *
@@ -104,6 +106,10 @@ class Settings extends Page
             'plans.valid_days' => 'int',
             'reports.doctors_see_own' => 'bool',
             'reports.monthly_goal' => 'optional_int',
+            'payments.yape_qr' => 'string',
+            'payments.yape_holder' => 'string',
+            'payments.plin_qr' => 'string',
+            'payments.plin_holder' => 'string',
             'inventory.deduct_on_close' => 'bool',
         ];
     }
@@ -315,6 +321,23 @@ class Settings extends Page
                                             ->helperText('Solo lo suyo: lo que atendió y lo que se cobró de sus citas. Recepción no ve reportes.')
                                             ->inline(false),
                                     ]),
+                                // Al cobrar con Yape o Plin, la ventana muestra el QR para que el paciente lo escanee ahí mismo.
+                                Section::make('QR de Yape y Plin')
+                                    ->description('Al cobrar con Yape o Plin, la ventana de cobro muestra el QR para que el paciente lo escanee.')
+                                    ->columns(2)
+                                    ->schema([
+                                        self::qrUpload('payments.yape_qr', 'QR de Yape'),
+                                        self::qrUpload('payments.plin_qr', 'QR de Plin'),
+                                        TextInput::make('payments.yape_holder')
+                                            ->label('Titular de Yape')
+                                            ->placeholder('Por ejemplo: Ana Pérez R.')
+                                            ->maxLength(80)
+                                            ->helperText('Opcional. El nombre que le sale al paciente al pagar.'),
+                                        TextInput::make('payments.plin_holder')
+                                            ->label('Titular de Plin')
+                                            ->maxLength(80)
+                                            ->helperText('Opcional.'),
+                                    ]),
                             ]),
                         // Antes, si había materiales cargados, al terminar cada atención siempre salía la lista de lo usado.
                         Tab::make('Inventario')
@@ -441,6 +464,20 @@ class Settings extends Page
 
                 Notification::make()->success()->title('Valores recomendados puestos')->body('Revisa y guarda los cambios.')->send();
             });
+    }
+
+    /** La imagen del QR tal como la da la app (PNG o JPG): no se pasa a JPG ni se achica, para que se pueda escanear. */
+    private static function qrUpload(string $key, string $label): FileUpload
+    {
+        return FileUpload::make($key)
+            ->label($label)
+            ->image()
+            ->acceptedFileTypes(['image/png', 'image/jpeg', 'image/webp'])
+            ->disk(PublicImages::DISK)
+            ->directory('cobros')
+            ->visibility('public')
+            ->maxSize(2 * 1024)
+            ->helperText('Descárgalo desde la app (opción "Mi QR") y súbelo aquí. Si lo quitas, ya no se muestra al cobrar.');
     }
 
     private static function number(string $key, string $label, int $min, int $max, string $suffix): TextInput

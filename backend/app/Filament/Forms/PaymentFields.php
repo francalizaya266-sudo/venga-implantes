@@ -3,26 +3,30 @@
 namespace App\Filament\Forms;
 
 use App\Enums\PaymentMethod;
+use App\Models\Setting;
+use App\Services\Web\PublicImages;
 use App\Support\Money;
 use Closure;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\ToggleButtons;
 use Filament\Schemas\Components\Text;
 use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\View;
 use Filament\Support\Enums\FontWeight;
 use Filament\Support\Enums\TextSize;
 
 /**
  * Monto, medio de pago y n.º de operación: iguales al cobrar una cita o al registrar un pago suelto.
- * En efectivo se puede anotar con cuánto paga, y el sistema dice el vuelto. Con Yape, Plin o transferencia se pide
- * el n.º de operación: sin él, el cierre no se puede cuadrar contra los movimientos del celular.
+ * En efectivo se puede anotar con cuánto paga, y el sistema dice el vuelto. Con Yape o Plin se muestra el QR del
+ * consultorio (si está en Ajustes) para que el paciente lo escanee, y con Yape, Plin o transferencia se pide el
+ * n.º de operación: sin él, el cierre no se puede cuadrar contra los movimientos del celular.
  */
 final class PaymentFields
 {
     /** Los medios que dejan un n.º de operación en el celular o en el banco: se pide siempre. */
     public const NEEDS_REFERENCE = [PaymentMethod::Yape, PaymentMethod::Plin, PaymentMethod::Transfer];
 
-    /** @return list<TextInput|ToggleButtons|Text> */
+    /** @return list<TextInput|ToggleButtons|Text|View> */
     public static function make(bool $amountRequired = true): array
     {
         return [
@@ -57,6 +61,10 @@ final class PaymentFields
                 ->weight(FontWeight::Bold)
                 ->color(fn (Get $get) => (float) $get('received') < (float) $get('amount') ? 'danger' : 'success')
                 ->visible(fn (Get $get) => self::paysInCash($get) && (float) $get('amount') > 0 && filled($get('received'))),
+            // El QR de Yape o de Plin, para que el paciente lo escanee ahí mismo.
+            View::make('filament.forms.payment-qr')
+                ->viewData(fn (Get $get) => self::qr($get) ?? [])
+                ->visible(fn (Get $get) => (float) $get('amount') > 0 && self::qr($get) !== null),
             TextInput::make('reference')
                 ->label('N.º de operación')
                 ->placeholder(fn (Get $get) => self::needsReference($get) ? 'Por ejemplo: 4512' : 'Opcional')
@@ -79,6 +87,33 @@ final class PaymentFields
         $method = $get('method');
 
         return in_array($method instanceof PaymentMethod ? $method : PaymentMethod::tryFrom((string) $method), self::NEEDS_REFERENCE, true);
+    }
+
+    /**
+     * El QR guardado en Ajustes para el medio elegido (Yape o Plin), con el nombre del titular.
+     *
+     * @return array{method: string, url: string, holder: string|null}|null
+     */
+    private static function qr(Get $get): ?array
+    {
+        $method = $get('method');
+        $method = $method instanceof PaymentMethod ? $method : PaymentMethod::tryFrom((string) $method);
+        $key = match ($method) {
+            PaymentMethod::Yape => 'yape',
+            PaymentMethod::Plin => 'plin',
+            default => null,
+        };
+        $path = $key ? Setting::get("payments.{$key}_qr") : null;
+
+        if (blank($path)) {
+            return null;
+        }
+
+        return [
+            'method' => $method->getLabel(),
+            'url' => (string) PublicImages::url((string) $path),
+            'holder' => Setting::get("payments.{$key}_holder"),
+        ];
     }
 
     private static function paysInCash(Get $get): bool

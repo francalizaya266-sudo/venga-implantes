@@ -188,6 +188,14 @@ return [
             'monthly_goal' => null,
         ],
 
+        // El QR de Yape y de Plin que se muestra al cobrar (ruta en el disco "web") y a nombre de quién está.
+        'payments' => [
+            'yape_qr' => null,
+            'yape_holder' => null,
+            'plin_qr' => null,
+            'plin_holder' => null,
+        ],
+
         'inventory' => [
             // Si al terminar una atención el doctor revisa los materiales que usó y salen del inventario.
             // Apagado, el inventario se mueve solo con lo que se anota a mano: compras, bajas y el conteo.

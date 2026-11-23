@@ -89,6 +89,10 @@ final class ChangeHistory
         'reports.doctors_see_own' => 'Cada doctor ve sus propios ingresos y gráficos',
         'reports.monthly_goal' => 'Meta de cobro del mes',
         'inventory.deduct_on_close' => 'Al terminar una atención, revisar y descontar los materiales usados',
+        'payments.yape_qr' => 'QR de Yape',
+        'payments.yape_holder' => 'Titular de Yape',
+        'payments.plin_qr' => 'QR de Plin',
+        'payments.plin_holder' => 'Titular de Plin',
         'web.tagline' => 'Frase arriba del título de la web',
         'web.headline' => 'Título del inicio de la web',
         'web.intro' => 'Frase bajo el título de la web',
@@ -239,7 +243,7 @@ final class ChangeHistory
     /** Textos largos y archivos: en la lista se dice que cambiaron, sin copiarlos enteros. */
     private const LONG = ['body', 'bio', 'education', 'description', 'summary', 'before_instructions', 'aftercare', 'seo_description', 'web.about', 'web.intro'];
 
-    private const FILES = ['photo_path', 'image_path', 'web.logo', 'web.hero_image'];
+    private const FILES = ['photo_path', 'image_path', 'web.logo', 'web.hero_image', 'payments.yape_qr', 'payments.plin_qr'];
 
     /** El nombre de un ajuste en pantalla, o null si no lo edita ninguna hoja. */
     public static function settingName(string $key): ?string
