@@ -175,7 +175,7 @@ class Backups extends Page
             ->color(fn () => app(ExtraCopy::class)->folder() === null ? 'primary' : 'gray')
             ->visible(fn () => self::canDownload())
             ->modalHeading('Copia extra en otra carpeta')
-            ->modalDescription('Cada día, apenas se crea la copia, se guarda otra igual en esta carpeta. Elige una que no se quede solo en esta computadora: la de OneDrive o Google Drive, que la suben solas a la nube, o un USB.')
+            ->modalDescription('Cada día, apenas se crea la copia, se guarda otra igual en esta carpeta. Elige una que no se quede solo en esta computadora: la de OneDrive o Google Drive, que la suben solas a la nube, o un USB. Las copias traen los datos de todos los pacientes: usa una cuenta o un USB que sea solo del consultorio.')
             ->modalWidth('lg')
             ->fillForm(fn (ExtraCopy $extra) => ['folder' => $extra->folder(), 'keep' => $extra->keep()])
             ->schema([
@@ -317,8 +317,9 @@ class Backups extends Page
                 default => 'Respaldo de ayer ✓',
             },
             'detail' => match (true) {
-                // La copia extra en otra carpeta la guarda fuera cada día, sin descargar nada.
-                app(ExtraCopy::class)->lastSavedAt()?->isToday() === true => 'Copia de hoy guardada también en otra carpeta',
+                // La copia extra en otra carpeta la guarda fuera cada día, sin descargar nada. Dice cuál está ahí, como
+                // arriba: la de ayer guardada pasada la medianoche no es "la copia de hoy".
+                $latest !== null && ! $database->isStale() && app(ExtraCopy::class)->hasTheLatest() => ($latest->isToday() ? 'Copia de hoy' : 'Copia de ayer').' guardada también en otra carpeta',
                 $downloaded === null => 'Aún no se bajó una copia fuera '.app(ScheduledTasks::class)->ofMachine(),
                 default => 'Copia fuera '.app(ScheduledTasks::class)->ofMachine().' '.$downloaded['at']->diffForHumans(),
             },

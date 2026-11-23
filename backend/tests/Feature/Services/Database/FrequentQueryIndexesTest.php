@@ -13,8 +13,9 @@ use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
 /**
- * Los índices de las consultas frecuentes se crean en cualquier motor (aquí SQLite; en CI, también MySQL) y la
- * migración que los arregla deja bien una base que tenga los viejos de date(…), como una de MySQL 8.
+ * Los índices de las consultas frecuentes se crean en cualquier motor (aquí SQLite; en el MySQL 8 de CI, con
+ * MysqlFrequentQueryIndexesTest) y la migración que los arregla deja bien una base que tenga los viejos de date(…),
+ * como una de MySQL 8.
  */
 class FrequentQueryIndexesTest extends TestCase
 {

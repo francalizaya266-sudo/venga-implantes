@@ -92,6 +92,8 @@ Sin las tareas automáticas no salen los recordatorios, no se cargan las cuotas,
 
 **Con la laptop apagada, dormida o en hibernación no corre nada.** Al prenderla, el sistema se pone al día solo: la copia del día se crea en ese momento y los recordatorios que tocaban mientras tanto salen más tarde. Por eso, cuando se atienda todos los días con pacientes, conviene pasar a un hosting (sección anterior) o dejar la laptop enchufada y sin suspensión.
 
+**La web y los enlaces para pacientes.** En la laptop, `APP_URL` queda como `http://127.0.0.1:8000`: los pacientes no pueden abrir la web ni los enlaces de sus citas que van en los mensajes de WhatsApp. Eso funciona cuando el sistema pasa a un hosting con su dirección real y `https://` (punto 2 de la sección anterior).
+
 **La copia fuera de la laptop.** La copia de cada día se queda en la misma laptop: si se malogra, se moja o la roban, se pierde con ella. En **Configuración → Copias de seguridad → Copia extra en otra carpeta**, quien puede descargar las copias elige una carpeta donde cada copia del día se guarda también, con solo las últimas:
 
 - **OneDrive** (viene con Windows) o **Google Drive para escritorio**: la carpeta se sube sola a la nube. Hace el papel de "subir la copia a Drive" sin que el sistema necesite una cuenta ni claves de Google. Con Google Drive hay que usar el modo **Reflejar archivos** y su carpeta "Mi unidad": la unidad `G:` del modo transmisión no la ven las tareas automáticas.

@@ -98,7 +98,9 @@ final class ExtraCopy
         if ($problem === null) {
             $target = rtrim($folder, '\\/').DIRECTORY_SEPARATOR.$file;
             // Como la original: se escribe aparte y se renombra al terminar, así nunca queda una a medias con su nombre.
-            $partial = $target.'.part';
+            // Cada intento escribe en su propio archivo: "Probar de nuevo" y el reintento de cada 15 minutos pueden
+            // coincidir, y con uno solo para los dos, uno renombraría la copia que el otro todavía está escribiendo.
+            $partial = $target.'.'.bin2hex(random_bytes(4)).'.part';
 
             if (@copy($source, $partial) && @rename($partial, $target)) {
                 $this->prune($folder);

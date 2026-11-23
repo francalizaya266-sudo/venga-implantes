@@ -39,9 +39,11 @@ if errorlevel 1 (
 )
 
 rem  Si la tarea de Windows ya las corre cada minuto, no hace falta otra ventana.
+rem  Si no, corren una vez enseguida (así Hoy no avisa que están apagadas mientras
+rem  se espera el próximo minuto) y después cada minuto.
 schtasks /query /tn "%TAREA%" >nul 2>nul
 if errorlevel 1 (
-    start "Tareas automáticas del consultorio - no cierres esta ventana" /min cmd /c php artisan schedule:work
+    start "Tareas automáticas del consultorio - no cierres esta ventana" /min cmd /c "php artisan schedule:run & php artisan schedule:work"
 )
 
 rem  Abre el panel en el navegador cuando el sistema ya responde, unos segundos después.
