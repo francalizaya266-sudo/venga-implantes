@@ -292,11 +292,21 @@
 
         // Que la pieza abierta se vea: dentro del dibujo (que en el celular se desliza) y, si la ficha sale
         // desde abajo, por encima de ella.
-        reveal(tooth) {
+        reveal(tooth, attempt = 0) {
             const group = this.$root.querySelector(`[data-tooth-group="${tooth}"]`);
             const scroller = this.$root.querySelector('.odv-scroll');
 
             if (! group || ! scroller) {
+                return;
+            }
+
+            // La ficha cuenta solo si está abierta (después de escribir «47 O caries», por ejemplo, no lo está). Recién
+            // abierta, todavía no se dibuja: se mide en el cuadro siguiente. Medida sin dibujar, la pieza se iba arriba.
+            const opened = this.tooth ? this.$root.querySelector('.odv-card') : null;
+
+            if (opened && ! opened.getClientRects().length && attempt < 3) {
+                requestAnimationFrame(() => this.reveal(tooth, attempt + 1));
+
                 return;
             }
 
@@ -307,15 +317,21 @@
                 scroller.scrollLeft += box.left - view.left - (view.width - box.width) / 2;
             }
 
-            const card = this.$root.querySelector('.odv-card');
+            const card = opened?.getClientRects().length ? opened : null;
             const floating = card && getComputedStyle(card).position === 'fixed';
-            const bottom = floating ? card.getBoundingClientRect().top - 8 : window.innerHeight - 8;
+            // Encima de la ficha que sale desde abajo, medida ya en su lugar (sin su animación de entrada).
+            const bottom = floating ? window.innerHeight - parseFloat(getComputedStyle(card).bottom) - card.offsetHeight - 8 : window.innerHeight - 8;
             const covered = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--cb-offset'));
             const top = this.expanded ? 8 : (covered || 72) + 8;
 
             const page = this.expanded ? this.$root.querySelector('.odv-frame') : window;
 
-            if (box.bottom > bottom) {
+            if (box.height > bottom - top) {
+                // No entra entera entre la barra y la ficha: queda a la vista lo de la mordida (la corona, sus caras y su
+                // número), abajo en las piezas de arriba y arriba en las de abajo.
+                const upper = [1, 2, 5, 6].includes(Math.floor(Number(tooth) / 10));
+                page.scrollBy({ top: upper ? box.bottom - bottom : box.top - top });
+            } else if (box.bottom > bottom) {
                 page.scrollBy({ top: box.bottom - bottom });
             } else if (box.top < top) {
                 page.scrollBy({ top: box.top - top });
@@ -458,8 +474,14 @@
             if (this.dictating) {
                 clearTimeout(this.sendTimer);
                 this.closeMatches();
+                // En el celular el dibujo se desliza de lado: al terminar se lleva a la vista la pieza marcada.
+                const marked = this.$root.querySelector('.odv-svg [data-preview]')?.dataset.toothGroup;
                 this.$wire.addDictated(this.query).then(() => {
                     this.query = this.$wire.dictation ?? '';
+
+                    if (marked && coarse()) {
+                        this.$nextTick(() => this.reveal(marked));
+                    }
                 });
 
                 return;
