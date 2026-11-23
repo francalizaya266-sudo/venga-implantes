@@ -348,6 +348,32 @@ class BookingControllerTest extends TestCase
         $this->assertSame([AppointmentOrigin::Campaign, 'AMIGO'], [$appointment->origin, $appointment->promo_code]);
     }
 
+    public function test_a_code_whose_promotion_ran_out_of_slots_books_with_the_promotion_the_page_showed(): void
+    {
+        $this->freezeMonday();
+        $cleaning = Treatment::factory()->create(['name' => 'Limpieza dental', 'price_from' => 150]);
+        $this->doctorOffering($cleaning);
+        $page = Campaign::query()->create(['name' => 'Limpieza de verano', 'slug' => 'limpieza-verano', 'treatment_id' => $cleaning->id, 'discount_type' => DiscountType::Amount, 'discount_value' => 30, 'starts_at' => now()->subDay(), 'ends_at' => now()->addMonth()]);
+        $full = Campaign::query()->create(['name' => 'Primeros diez', 'slug' => 'primeros-diez', 'promo_code' => 'DIEZ', 'treatment_id' => $cleaning->id, 'discount_type' => DiscountType::Amount, 'discount_value' => 50, 'max_redemptions' => 1, 'starts_at' => now()->subDay(), 'ends_at' => now()->addMonth()]);
+        Appointment::factory()->for($full)->create();
+        $this->assertFalse($full->hasSlotsLeft());
+
+        // La web muestra la promoción de la página (con su precio) y avisa que ese código no se aplicó.
+        $this->getJson(route('api.v1.booking.options', ['promo' => 'limpieza-verano', 'codigo' => 'diez']))
+            ->assertOk()
+            ->assertJsonPath('data.campaign.name', 'Limpieza de verano')
+            ->assertJsonPath('data.promo_problem', 'No reconocimos el código DIEZ. Puedes reservar igual; lo revisamos en el consultorio.');
+
+        // La cita queda con esa misma promoción, no con la que ya no tiene cupos ni sin ninguna.
+        $this->book($this->booking($cleaning, ['promo_code' => 'diez', 'campaign_slug' => 'limpieza-verano']))
+            ->assertCreated()
+            ->assertJsonPath('data.promo_notice', 'No reconocimos el código DIEZ. Igual reservamos tu cita; lo revisamos en el consultorio.');
+        $appointment = Appointment::query()->latest('id')->firstOrFail();
+        $this->assertTrue($appointment->campaign->is($page));
+        $this->assertSame('DIEZ', $appointment->promo_code);
+        $this->assertTrue($appointment->hasUnknownPromoCode());
+    }
+
     /** Lo que dice el último aviso de "Nueva cita web" en la campana de recepción. */
     private function receptionAlertBody(): string
     {

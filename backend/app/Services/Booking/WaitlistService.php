@@ -359,7 +359,7 @@ final class WaitlistService
     public function addFromWeb(WebWaitlistData $data, Treatment $treatment, ?Doctor $doctor = null, ?RememberedDevice $device = null): WaitlistEntry
     {
         $phone = Phone::normalize($data->phone);
-        /** @var Account|null $deviceAccount */
+        /** @var Account|null $deviceAccount La familia del celular recordado, si lo hay. */
         $deviceAccount = $device?->account;
         $recognized = $device !== null && $deviceAccount?->phone === $phone;
         $fromVerifiedDevice = $recognized && $device->isVerified();

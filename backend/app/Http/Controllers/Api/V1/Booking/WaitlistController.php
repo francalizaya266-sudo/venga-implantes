@@ -42,9 +42,9 @@ class WaitlistController extends Controller
 
         // El doctor que eligió al ver los horarios, si atiende ese tratamiento; si no, cualquiera.
         $doctor = $availability->doctorsFor($treatment)->firstWhere('id', (int) ($data['doctor_id'] ?? 0));
-        /** @var Account|null $account */
+        /** @var Account|null $account La familia del celular recordado, si lo hay. */
         $account = $device?->account;
-        $phone = $account ? $account->phone : (string) $data['phone'];
+        $phone = $account !== null ? $account->phone : (string) $data['phone'];
 
         try {
             $waitlist->addFromWeb(new WebWaitlistData(
