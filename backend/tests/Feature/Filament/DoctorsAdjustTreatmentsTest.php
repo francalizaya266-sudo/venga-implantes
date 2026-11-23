@@ -43,7 +43,7 @@ class DoctorsAdjustTreatmentsTest extends TestCase
 
         Livewire::test(ManageTreatments::class)
             ->mountAction(TestAction::make('edit')->table($this->cleaning))
-            ->assertMountedActionModalSee('El nombre, el precio, quién lo atiende y dónde aparece los cambia el administrador.')
+            ->assertMountedActionModalSee('El nombre, el precio, quién lo atiende y dónde aparece los cambia quien administra el panel.')
             ->fillForm([
                 'duration_minutes' => 45,
                 'buffer_minutes' => 15,
@@ -123,7 +123,7 @@ class DoctorsAdjustTreatmentsTest extends TestCase
             ->assertActionVisible('create')
             ->assertActionVisible(TestAction::make('duplicate')->table($this->cleaning))
             ->mountAction(TestAction::make('edit')->table($this->cleaning))
-            ->assertMountedActionModalDontSee('los cambia el administrador')
+            ->assertMountedActionModalDontSee('los cambia quien administra')
             ->assertFormFieldEnabled('price_from')
             ->assertFormFieldEnabled('presence')
             ->fillForm(['name' => 'Limpieza y profilaxis', 'price_from' => 150, 'doctors' => [$this->doctor->id, $other->id], 'presence' => 'clinic'])
