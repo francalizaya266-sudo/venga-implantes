@@ -189,6 +189,8 @@
 /* Hoy, bajo el doctor: "Libre" en verde, "Atendiendo a…" en azul; con gente en sala, en ámbar. */
 .agenda-head-live { display: flex; align-items: center; gap: .35rem; font-size: .75rem; font-weight: 600; color: var(--success-700); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .agenda-head-live i { width: .45rem; height: .45rem; flex: none; border-radius: 9999px; background: var(--success-500); }
+/* Los puntos suspensivos van en el texto: en una caja flex no salen, y en una columna angosta se cortaba a media palabra. */
+.agenda-head-live span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .agenda-head-live.is-busy { color: var(--primary-700); }
 .agenda-head-live.is-busy i { background: var(--primary-500); animation: agenda-live 1.8s ease-in-out infinite; }
 .agenda-head-live.has-waiting { color: var(--warning-800); }

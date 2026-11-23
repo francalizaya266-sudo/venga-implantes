@@ -463,7 +463,7 @@
                                 <span class="agenda-head-title" title="{{ $column['title'] }}">{{ $column['title'] }}</span>
                                 <span class="agenda-head-sub">{{ collect([$column['subtitle'], $countLabel])->filter()->implode(' · ') }}</span>
                                 @if ($column['live'] ?? null)
-                                    <span @class(['agenda-head-live', 'is-busy' => $column['live']['busy'], 'has-waiting' => $column['live']['waiting'] > 0])><i aria-hidden="true"></i>{{ $column['live']['text'] }}</span>
+                                    <span @class(['agenda-head-live', 'is-busy' => $column['live']['busy'], 'has-waiting' => $column['live']['waiting'] > 0]) title="{{ $column['live']['text'] }}"><i aria-hidden="true"></i><span>{{ $column['live']['text'] }}</span></span>
                                 @endif
                             </span>
                         @endif
