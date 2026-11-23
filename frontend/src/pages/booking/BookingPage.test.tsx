@@ -327,8 +327,20 @@ describe('BookingPage', () => {
           }),
         ),
         [`${OPTIONS}?codigo=NOEXISTE&tratamiento=limpieza-dental`]: page(
-          bookingOptions({ promo_code: 'NOEXISTE', promo_problem: 'Ese código no es de una promoción vigente.' }),
+          bookingOptions({
+            promo_code: 'NOEXISTE',
+            promo_problem: 'No reconocimos el código NOEXISTE. Puedes reservar igual; lo revisamos en el consultorio.',
+          }),
         ),
+        [BOOK]: {
+          status: 201,
+          body: {
+            data: bookedAppointment({
+              promo_notice:
+                'No reconocimos el código NOEXISTE. Igual reservamos tu cita; lo revisamos en el consultorio.',
+            }),
+          },
+        },
       },
     );
     const { user } = renderApp(DETAILS);
@@ -349,9 +361,25 @@ describe('BookingPage', () => {
     await user.type(code, 'noexiste');
     await user.tab();
 
-    expect(await screen.findByText('Ese código no es de una promoción vigente.')).toBeInTheDocument();
-    expect(code).toHaveAttribute('aria-invalid', 'true');
+    // Un código mal escrito se avisa, pero no impide reservar: queda en la cita y recepción lo revisa.
+    expect(
+      await screen.findByText(
+        'No reconocimos el código NOEXISTE. Puedes reservar igual; lo revisamos en el consultorio.',
+      ),
+    ).toBeInTheDocument();
+    expect(code).not.toHaveAttribute('aria-invalid');
     expect(screen.queryByText(/Reservas con la promoción/)).not.toBeInTheDocument();
+
+    await user.type(screen.getByLabelText('Tus nombres'), 'Rosa');
+    await user.type(screen.getByLabelText('Tus apellidos'), 'Quispe');
+    await user.click(screen.getByRole('checkbox', { name: /Acepto la política de privacidad/ }));
+    await user.click(screen.getByRole('button', { name: 'Reservar cita' }));
+
+    await step('¡Tu cita quedó reservada!');
+    expect(
+      screen.getByText('No reconocimos el código NOEXISTE. Igual reservamos tu cita; lo revisamos en el consultorio.'),
+    ).toBeInTheDocument();
+    expect(calls.find((call) => call.method === 'POST')?.body).toMatchObject({ promo_code: 'noexiste' });
   });
 
   it('from a remembered phone it asks who the appointment is for, not the number', async () => {

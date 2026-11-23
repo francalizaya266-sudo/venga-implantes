@@ -9,6 +9,7 @@ use App\Enums\DiscountType;
 use App\Enums\MessageTemplateKey;
 use App\Enums\PatientRelationship;
 use App\Enums\TreatmentPlanStatus;
+use App\Enums\UserRole;
 use App\Models\Account;
 use App\Models\Appointment;
 use App\Models\Campaign;
@@ -16,6 +17,7 @@ use App\Models\Patient;
 use App\Models\RememberedDevice;
 use App\Models\Treatment;
 use App\Models\TreatmentPlan;
+use App\Models\User;
 use App\Models\WhatsappMessage;
 use App\Services\Access\DeviceService;
 use App\Services\WhatsApp\WhatsAppOutbox;
@@ -290,31 +292,67 @@ class BookingControllerTest extends TestCase
             ->assertJsonPath('data.campaign.treatment', ['id' => $whitening->id, 'name' => 'Blanqueamiento']);
     }
 
-    public function test_a_promo_code_that_does_not_exist_stops_the_booking_and_a_valid_one_is_applied(): void
+    public function test_a_promo_code_that_does_not_exist_does_not_stop_the_booking_and_a_valid_one_is_applied(): void
     {
         $this->freezeMonday();
         $cleaning = Treatment::factory()->create(['name' => 'Limpieza dental', 'price_from' => 150]);
         $this->doctorOffering($cleaning);
         $campaign = Campaign::query()->create(['name' => 'Limpieza de verano', 'slug' => 'limpieza-verano', 'promo_code' => 'VERANO30', 'treatment_id' => $cleaning->id, 'discount_type' => DiscountType::Amount, 'discount_value' => 30, 'starts_at' => now()->subDay(), 'ends_at' => now()->addMonth()]);
+        User::factory()->reception()->create();
 
-        // Mientras escribe el código, la web pregunta si existe.
+        // Mientras escribe el código, la web pregunta si existe: si no, avisa sin impedir reservar.
         $this->getJson(route('api.v1.booking.options', ['codigo' => 'sonrisa50']))
             ->assertOk()
             ->assertJsonPath('data.campaign', null)
-            ->assertJsonPath('data.promo_problem', Campaign::UNKNOWN_CODE);
+            ->assertJsonPath('data.promo_problem', 'No reconocimos el código SONRISA50. Puedes reservar igual; lo revisamos en el consultorio.');
         $this->getJson(route('api.v1.booking.options', ['codigo' => 'verano30']))
             ->assertOk()
             ->assertJsonPath('data.promo_code', 'VERANO30')
             ->assertJsonPath('data.promo_problem', null)
             ->assertJsonPath('data.campaign.name', 'Limpieza de verano');
 
-        $this->book($this->booking($cleaning, ['promo_code' => 'SONRISA50']))
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors(['promo_code' => Campaign::UNKNOWN_CODE]);
-        $this->assertDatabaseCount('appointments', 0);
+        // Con una letra equivocada reserva igual: el código queda en la cita para que recepción lo revise.
+        $this->book($this->booking($cleaning, ['promo_code' => ' verano3o ']))
+            ->assertCreated()
+            ->assertJsonPath('data.promo_notice', 'No reconocimos el código VERANO3O. Igual reservamos tu cita; lo revisamos en el consultorio.');
+        $mistyped = Appointment::sole();
+        $this->assertSame(['VERANO3O', null], [$mistyped->promo_code, $mistyped->campaign_id]);
+        $this->assertTrue($mistyped->hasUnknownPromoCode());
+        $this->assertStringContainsString('Escribió el código VERANO3O, que no es de ninguna promoción vigente', $this->receptionAlertBody());
 
-        $this->book($this->booking($cleaning, ['promo_code' => ' verano30 ']))->assertCreated();
+        $mistyped->delete();
+        $this->book($this->booking($cleaning, ['promo_code' => ' verano30 ']))
+            ->assertCreated()
+            ->assertJsonPath('data.promo_notice', null);
         $this->assertTrue(Appointment::sole()->campaign->is($campaign));
+        $this->assertFalse(Appointment::sole()->hasUnknownPromoCode());
+    }
+
+    public function test_a_mistyped_code_keeps_the_promotion_of_the_page_the_patient_came_from(): void
+    {
+        $this->freezeMonday();
+        $cleaning = Treatment::factory()->create(['name' => 'Limpieza dental', 'price_from' => 150]);
+        $this->doctorOffering($cleaning);
+        $campaign = Campaign::query()->create(['name' => 'Limpieza de verano', 'slug' => 'limpieza-verano', 'treatment_id' => $cleaning->id, 'discount_type' => DiscountType::Amount, 'discount_value' => 30, 'starts_at' => now()->subDay(), 'ends_at' => now()->addMonth()]);
+
+        $this->getJson(route('api.v1.booking.options', ['promo' => 'limpieza-verano', 'codigo' => 'amigo']))
+            ->assertOk()
+            ->assertJsonPath('data.campaign.name', 'Limpieza de verano')
+            ->assertJsonPath('data.promo_problem', 'No reconocimos el código AMIGO. Puedes reservar igual; lo revisamos en el consultorio.');
+
+        $this->book($this->booking($cleaning, ['promo_code' => 'amigo', 'campaign_slug' => 'limpieza-verano']))
+            ->assertCreated()
+            ->assertJsonPath('data.promo_notice', 'No reconocimos el código AMIGO. Igual reservamos tu cita; lo revisamos en el consultorio.');
+        $appointment = Appointment::sole();
+        $this->assertTrue($appointment->campaign->is($campaign));
+        $this->assertSame([AppointmentOrigin::Campaign, 'AMIGO'], [$appointment->origin, $appointment->promo_code]);
+    }
+
+    /** Lo que dice el último aviso de "Nueva cita web" en la campana de recepción. */
+    private function receptionAlertBody(): string
+    {
+        return (string) User::query()->where('role', UserRole::Reception)->firstOrFail()
+            ->notifications()->latest()->firstOrFail()->data['body'];
     }
 
     public function test_a_time_taken_meanwhile_sends_the_patient_back_to_choose_another(): void

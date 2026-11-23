@@ -20,22 +20,43 @@ class Campaign extends Model
 {
     use Auditable, SoftDeletes;
 
-    /** El aviso de un código que no es de ninguna promoción vigente: se dice al escribirlo, no en el consultorio. */
-    public const UNKNOWN_CODE = 'Ese código no existe o ya no está disponible. Corrígelo o bórralo para reservar.';
+    /**
+     * El aviso de un código que no es de ninguna promoción vigente. No impide reservar: el código queda escrito en la
+     * cita y recepción lo revisa (antes el paciente que se equivocaba en una letra se quedaba sin poder reservar).
+     */
+    public static function unknownCodeNotice(string $promoCode): string
+    {
+        return 'No reconocimos el código '.strtoupper(trim($promoCode)).'. Igual reservamos tu cita; lo revisamos en el consultorio.';
+    }
+
+    /** Lo mismo mientras escribe el código, antes de reservar: puede corregirlo o seguir igual. */
+    public static function unknownCodeHint(string $promoCode): string
+    {
+        return 'No reconocimos el código '.strtoupper(trim($promoCode)).'. Puedes reservar igual; lo revisamos en el consultorio.';
+    }
+
+    /** El código escrito no es el de esta campaña (o no hay campaña): no se aplicó y recepción lo revisa. */
+    public static function codeNotApplied(?string $promoCode, ?self $campaign): bool
+    {
+        return filled($promoCode) && strtoupper(trim((string) $campaign?->promo_code)) !== strtoupper(trim($promoCode));
+    }
 
     /**
      * La campaña con que se reserva en la web: por el código que se escribió o por la página de la que se llegó.
-     * Null si no hay ninguna vigente o ya no le quedan cupos.
+     * Un código que no es de ninguna promoción vigente no quita la de la página. Null si no hay ninguna vigente o ya
+     * no le quedan cupos.
      */
     public static function forBooking(?string $promoCode, ?string $slug): ?self
     {
-        $campaign = match (true) {
-            filled($promoCode) => self::query()->published()->where('promo_code', strtoupper(trim($promoCode)))->first(),
-            filled($slug) => self::query()->published()->where('slug', $slug)->first(),
-            default => null,
-        };
+        $byCode = filled($promoCode) ? self::query()->published()->where('promo_code', strtoupper(trim($promoCode)))->first() : null;
 
-        return $campaign?->hasSlotsLeft() ? $campaign : null;
+        if ($byCode?->hasSlotsLeft()) {
+            return $byCode;
+        }
+
+        $bySlug = filled($slug) ? self::query()->published()->where('slug', $slug)->first() : null;
+
+        return $bySlug?->hasSlotsLeft() ? $bySlug : null;
     }
 
     protected function casts(): array

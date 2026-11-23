@@ -377,6 +377,8 @@ export interface BookedAppointment {
   whatsapp_message: string;
   origins: { value: string; label: string }[];
   origin_url: string | null;
+  /** Escribió un código que no es de ninguna promoción: la cita quedó reservada igual y recepción lo revisa. */
+  promo_notice: string | null;
 }
 
 export interface PlanCard {

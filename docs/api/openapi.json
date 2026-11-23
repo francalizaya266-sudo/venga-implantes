@@ -2788,7 +2788,8 @@
           "calendar_url",
           "whatsapp_message",
           "origins",
-          "origin_url"
+          "origin_url",
+          "promo_notice"
         ],
         "properties": {
           "treatment": {
@@ -2846,6 +2847,13 @@
               "null"
             ],
             "description": "Dirección firmada para responder \"¿Cómo nos conociste?\"."
+          },
+          "promo_notice": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Escribió un código que no es de ninguna promoción: la cita quedó reservada igual y recepción lo revisa."
           }
         },
         "additionalProperties": false
@@ -3060,7 +3068,8 @@
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "description": "Aviso del código que no es de ninguna promoción vigente. No impide reservar."
           },
           "campaign_slug": {
             "type": [

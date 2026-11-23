@@ -209,6 +209,7 @@ export function bookedAppointment(changes: Partial<BookedAppointment> = {}): Boo
       { value: 'recommendation', label: 'Recomendación' },
     ],
     origin_url: '/api/v1/booking/appointments/9/origin?signature=abc',
+    promo_notice: null,
     ...changes,
   };
 }

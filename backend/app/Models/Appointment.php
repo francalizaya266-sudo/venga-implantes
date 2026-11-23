@@ -284,6 +284,12 @@ class Appointment extends Model
         return (int) $this->starts_at->diffInMinutes($this->ends_at, true);
     }
 
+    /** Al reservar escribió un código de promoción que no se aplicó (no es de ninguna vigente): recepción lo revisa. */
+    public function hasUnknownPromoCode(): bool
+    {
+        return Campaign::codeNotApplied($this->promo_code, $this->campaign);
+    }
+
     /** Ya pasó su hora y nadie anotó que llegó: o vino y se atendió, o no asistió. */
     public function endedWithoutArriving(): bool
     {

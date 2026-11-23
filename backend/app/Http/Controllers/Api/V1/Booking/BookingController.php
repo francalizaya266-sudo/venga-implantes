@@ -94,7 +94,8 @@ class BookingController extends Controller
                     'treatment' => $campaign->treatment ? ['id' => $campaign->treatment->getKey(), 'name' => $campaign->treatment->name] : null,
                 ] : null,
                 'promo_code' => $promoCode,
-                'promo_problem' => filled($promoCode) && $campaign === null ? Campaign::UNKNOWN_CODE : null,
+                // No impide reservar: se avisa para que lo corrija si quiere, y si no, lo revisa recepción.
+                'promo_problem' => Campaign::codeNotApplied($promoCode, $campaign) ? Campaign::unknownCodeHint($promoCode) : null,
                 'campaign_slug' => $campaignSlug,
                 'origin' => AppointmentOrigin::tryFrom((string) $request->query('origen'))?->value,
                 'device' => $device ? $this->family($device, (int) $request->query('para')) : null,
@@ -262,6 +263,8 @@ class BookingController extends Controller
             'whatsapp_message' => "Hola, acabo de reservar {$appointment->treatment->name} para el ".mb_strtolower($day).' a las '.$hour." a nombre de {$appointment->patient->full_name}.",
             'origins' => $asksOrigin ? self::originsToAsk()->map(fn (AppointmentOrigin $origin) => ['value' => $origin->value, 'label' => $origin->getLabel()]) : [],
             'origin_url' => $asksOrigin ? URL::signedRoute('api.v1.booking.origin', ['appointment' => $appointment->getKey()], absolute: false) : null,
+            // Escribió un código que no es de ninguna promoción: igual quedó reservada y recepción lo revisa.
+            'promo_notice' => $appointment->hasUnknownPromoCode() ? Campaign::unknownCodeNotice((string) $appointment->promo_code) : null,
         ];
     }
 

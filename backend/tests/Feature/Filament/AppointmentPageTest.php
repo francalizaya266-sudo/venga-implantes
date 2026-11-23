@@ -109,6 +109,20 @@ class AppointmentPageTest extends TestCase
             ->assertDontSee('Sin cambios registrados');
     }
 
+    public function test_a_code_the_patient_mistyped_on_the_web_shows_up_for_reception_to_check(): void
+    {
+        $appointment = $this->appointment('2026-11-03 10:00', ['booked_via' => BookingChannel::Web, 'promo_code' => 'VERANO3O']);
+        $this->actingAs(User::factory()->reception()->create());
+
+        $code = collect(AppointmentInfolist::detailsData($appointment)['facts'])->firstWhere('label', 'Código de campaña');
+
+        $this->assertSame('VERANO3O', $code['value']);
+        $this->assertSame('No es de ninguna promoción vigente: revísalo con el paciente', $code['hint']);
+        Livewire::test(ViewAppointment::class, ['record' => $appointment->getKey()])
+            ->assertSee('VERANO3O')
+            ->assertSee('No es de ninguna promoción vigente: revísalo con el paciente');
+    }
+
     public function test_the_history_joins_changes_notices_and_payments_in_the_order_they_happened(): void
     {
         $reception = User::factory()->reception()->create(['name' => 'Rocío Paz']);
