@@ -15,9 +15,10 @@ class PanelHeadTest extends TestCase
     /** En el iPhone la página llega a los bordes (así valen las franjas "safe-area-inset") y la barra del navegador toma el color de la de arriba. */
     public function test_the_panel_reaches_the_phone_edges_and_paints_the_browser_bar(): void
     {
+        // El navegador usa el último meta viewport: el nuestro tiene que ir después del de Filament.
         $this->get(Filament::getLoginUrl())
             ->assertOk()
-            ->assertSee('<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">', false)
+            ->assertSeeInOrder(['<meta name="viewport" content="width=device-width, initial-scale=1" />', '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">'], false)
             ->assertSee('<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">', false)
             ->assertSee('<meta name="theme-color" content="#0b1327" media="(prefers-color-scheme: dark)">', false);
 
