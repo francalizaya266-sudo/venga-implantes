@@ -38,14 +38,15 @@ final class CashClosing
     ) {}
 
     /**
-     * El día y la persona elegidos en el panel. Un día que no es válido o que todavía no llega es hoy.
+     * El día y la persona elegidos en el panel. Un día que no es válido o que todavía no llega es hoy. El calendario
+     * del panel deja el día con la hora ("2026-11-01 00:00:00"); la hora no cuenta.
      *
      * @param  array<string, mixed>  $filters
      */
     public static function fromFilters(array $filters): self
     {
         $date = (string) ($filters['date'] ?? '');
-        $day = preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) ? CarbonImmutable::parse($date) : null;
+        $day = preg_match('/^(\d{4}-\d{2}-\d{2})(?: \d{2}:\d{2}(?::\d{2})?)?$/', $date, $match) ? CarbonImmutable::parse($match[1]) : null;
 
         return new self(
             $day && $day->lte(today()) ? $day : CarbonImmutable::today(),
