@@ -180,6 +180,64 @@ class DashboardPanelTest extends TestCase
         Livewire::test(TodayAppointments::class)->assertSee(['Rosa Quispe', 'Pedro Paz'])->assertDontSeeHtml('>Dr. Luis Rojas</button>');
     }
 
+    public function test_on_a_day_without_attention_home_says_so_and_opens_the_next_day_in_the_agenda(): void
+    {
+        $treatment = Treatment::factory()->create(['name' => 'Limpieza dental']);
+        // De lunes a sábado.
+        $ana = $this->doctorOffering($treatment);
+        $ana->update(['name' => 'Dra. Ana Torres']);
+        $luis = $this->doctorOffering($treatment);
+        $visit = fn (Doctor $doctor, string $at, AppointmentStatus $status = AppointmentStatus::Pending) => Appointment::factory()
+            ->for($doctor)->for($treatment)->for($this->patient('Paciente', 'Prueba'))->at($at)->create(['status' => $status]);
+        $visit($ana, '2026-11-02 09:00');
+        $visit($luis, '2026-11-02 10:00');
+        // La cancelada no cuenta.
+        $visit($ana, '2026-11-02 11:00', AppointmentStatus::Cancelled);
+        $reception = User::factory()->reception()->create();
+        $this->actingAs($reception);
+
+        // Domingo: nadie atiende. Se dice, con las citas de mañana y el botón para verlas en la Agenda.
+        $this->travelTo(CarbonImmutable::parse('2026-11-01 10:00', 'America/Lima'));
+        Livewire::test(TodayAppointments::class)
+            ->assertSee(['Hoy el consultorio no atiende', 'Mañana hay 2 citas.'])
+            ->assertDontSee(['No hay citas hoy', 'Las citas de hoy aparecen aquí'])
+            ->assertActionVisible(TestAction::make('seeNextDay')->table())
+            ->assertActionHasLabel(TestAction::make('seeNextDay')->table(), 'Ver mañana')
+            ->assertActionHasUrl(TestAction::make('seeNextDay')->table(), Agenda::getUrl(['date' => '2026-11-02']))
+            // Con un doctor elegido arriba, lo suyo.
+            ->call('showDoctor', $ana->id)
+            ->assertSee(['Dra. Ana Torres no atiende hoy', 'Mañana tiene 1 cita.']);
+
+        // El doctor ve lo suyo.
+        $this->actingAs($ana->user);
+        Livewire::test(TodayAppointments::class)->assertSee(['Hoy no atiendes', 'Mañana tienes 1 cita.']);
+
+        // Un feriado cargado en Bloqueos, de todo el consultorio: el martes 3 no se atiende y el miércoles no hay citas.
+        $this->actingAs($reception);
+        Livewire::test(TodayAppointments::class)->call('showDoctor', null);
+        ScheduleBlock::create(['doctor_id' => null, 'type' => ScheduleBlockType::Holiday, 'starts_at' => '2026-11-03 00:00', 'ends_at' => '2026-11-03 23:59']);
+        $this->travelTo(CarbonImmutable::parse('2026-11-03 08:00', 'America/Lima'));
+        Livewire::test(TodayAppointments::class)
+            ->assertSee(['Hoy el consultorio no atiende', 'Mañana todavía no hay citas.'])
+            ->assertActionHasLabel(TestAction::make('seeNextDay')->table(), 'Ver mañana');
+
+        // Sábado 7 y domingo 8 cerrados (el sábado, por un curso de los dos): el próximo es el lunes.
+        ScheduleBlock::create(['doctor_id' => null, 'type' => ScheduleBlockType::Course, 'starts_at' => '2026-11-07 00:00', 'ends_at' => '2026-11-07 23:59']);
+        $visit($luis, '2026-11-09 16:00');
+        $this->travelTo(CarbonImmutable::parse('2026-11-07 09:00', 'America/Lima'));
+        Livewire::test(TodayAppointments::class)
+            ->assertSee(['Hoy el consultorio no atiende', 'El lunes hay 1 cita.'])
+            ->assertActionHasLabel(TestAction::make('seeNextDay')->table(), 'Ver el lunes')
+            ->assertActionHasUrl(TestAction::make('seeNextDay')->table(), Agenda::getUrl(['date' => '2026-11-09']));
+
+        // Un día que se atiende, aunque esté vacío, dice lo de siempre y no ofrece otro día.
+        $this->travelTo(CarbonImmutable::parse('2026-11-04 08:00', 'America/Lima'));
+        Livewire::test(TodayAppointments::class)
+            ->assertSee(['No hay citas hoy', 'Las citas de hoy aparecen aquí'])
+            ->assertDontSee('no atiende')
+            ->assertActionHidden(TestAction::make('seeNextDay')->table());
+    }
+
     public function test_the_agenda_puts_first_what_needs_something_and_folds_what_ended(): void
     {
         $this->travelTo(CarbonImmutable::parse('2026-11-02 12:00', 'America/Lima'));
