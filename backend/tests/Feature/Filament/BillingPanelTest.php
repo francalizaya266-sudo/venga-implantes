@@ -202,7 +202,7 @@ class BillingPanelTest extends TestCase
             ->assertSee('S/ 80.00 · Plin')
             ->mountAction('registerPayment')
             ->assertSchemaStateSet(['amount' => 120.0])
-            ->fillForm(['amount' => 100, 'notes' => 'Cuota 1'])
+            ->fillForm(['amount' => 100, 'reference' => '7781', 'notes' => 'Cuota 1'])
             ->callMountedAction()
             ->assertHasNoFormErrors()
             ->assertNotified('Pago registrado');
@@ -240,6 +240,7 @@ class BillingPanelTest extends TestCase
             ->mountAction('registerPayment')
             ->setActionData(['patient_id' => $patient->id])
             ->assertActionDataSet(['amount' => 90.0, 'method' => PaymentMethod::Yape])
+            ->fillForm(['reference' => '0045'])
             ->callMountedAction()
             ->assertHasNoFormErrors()
             ->assertNotified('Pago registrado');
@@ -252,6 +253,44 @@ class BillingPanelTest extends TestCase
             ->assertActionHidden('registerPayment')
             ->mountAction('registerAdvance')
             ->assertSchemaStateSet(['method' => PaymentMethod::Yape]);
+    }
+
+    public function test_yape_plin_and_transfer_ask_for_the_operation_number(): void
+    {
+        $patient = Patient::factory()->create();
+        Charge::factory()->for($patient)->create(['amount' => 200]);
+        $this->actingAs(User::factory()->reception()->create());
+
+        $window = Livewire::test(ManagePayments::class)
+            ->mountAction('registerPayment')
+            ->setActionData(['patient_id' => $patient->id]);
+
+        foreach ([PaymentMethod::Yape, PaymentMethod::Plin, PaymentMethod::Transfer] as $method) {
+            $window->fillForm(['amount' => 50, 'method' => $method->value, 'reference' => null])
+                ->callMountedAction()
+                ->assertHasFormErrors(['reference' => 'required']);
+        }
+
+        // Basta con los últimos 4 números; menos no alcanza para cuadrar el cierre.
+        $window->fillForm(['method' => PaymentMethod::Yape->value, 'reference' => '12'])
+            ->callMountedAction()
+            ->assertHasFormErrors(['reference']);
+        $window->fillForm(['reference' => '4512'])
+            ->callMountedAction()
+            ->assertHasNoFormErrors()
+            ->assertNotified('Pago registrado');
+
+        // En efectivo no se pide, y con tarjeta queda opcional.
+        foreach ([PaymentMethod::Cash, PaymentMethod::Card] as $method) {
+            Livewire::test(ManagePayments::class)
+                ->mountAction('registerPayment')
+                ->setActionData(['patient_id' => $patient->id])
+                ->fillForm(['amount' => 10, 'method' => $method->value])
+                ->callMountedAction()
+                ->assertHasNoFormErrors();
+        }
+
+        $this->assertSame(['4512', null, null], Payment::query()->orderBy('id')->pluck('reference')->all());
     }
 
     public function test_owing_balances_are_collected_from_caja_with_who_owes_most_first(): void
@@ -329,6 +368,7 @@ class BillingPanelTest extends TestCase
             ->mountAction(TestAction::make('checkout')->table($appointment))
             ->assertSchemaStateSet(['lines' => [], 'previous' => 500.0, 'amount' => 500.0])
             ->assertMountedActionModalSee(['Total a pagar', 'S/ 500.00', 'Incluye el saldo anterior de S/ 500.00 (Ortodoncia · cuota 1 de 3 S/ 500.00)'])
+            ->fillForm(['reference' => '8812'])
             ->callMountedAction()
             ->assertHasNoFormErrors()
             ->assertNotified('Pago registrado');

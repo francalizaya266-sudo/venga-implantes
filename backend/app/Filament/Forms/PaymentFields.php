@@ -4,6 +4,7 @@ namespace App\Filament\Forms;
 
 use App\Enums\PaymentMethod;
 use App\Support\Money;
+use Closure;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\ToggleButtons;
 use Filament\Schemas\Components\Text;
@@ -13,10 +14,14 @@ use Filament\Support\Enums\TextSize;
 
 /**
  * Monto, medio de pago y n.º de operación: iguales al cobrar una cita o al registrar un pago suelto.
- * En efectivo se puede anotar con cuánto paga, y el sistema dice el vuelto.
+ * En efectivo se puede anotar con cuánto paga, y el sistema dice el vuelto. Con Yape, Plin o transferencia se pide
+ * el n.º de operación: sin él, el cierre no se puede cuadrar contra los movimientos del celular.
  */
 final class PaymentFields
 {
+    /** Los medios que dejan un n.º de operación en el celular o en el banco: se pide siempre. */
+    public const NEEDS_REFERENCE = [PaymentMethod::Yape, PaymentMethod::Plin, PaymentMethod::Transfer];
+
     /** @return list<TextInput|ToggleButtons|Text> */
     public static function make(bool $amountRequired = true): array
     {
@@ -54,9 +59,26 @@ final class PaymentFields
                 ->visible(fn (Get $get) => self::paysInCash($get) && (float) $get('amount') > 0 && filled($get('received'))),
             TextInput::make('reference')
                 ->label('N.º de operación')
+                ->placeholder(fn (Get $get) => self::needsReference($get) ? 'Por ejemplo: 4512' : 'Opcional')
+                ->helperText(fn (Get $get) => self::needsReference($get) ? 'Basta con los últimos 4 números. Están en el celular del paciente o en la constancia del banco.' : null)
                 ->maxLength(50)
+                ->required(fn (Get $get) => self::needsReference($get) && (float) $get('amount') > 0)
+                ->rule(fn (Get $get) => function (string $attribute, mixed $value, Closure $fail) use ($get) {
+                    if (self::needsReference($get) && filled($value) && preg_match_all('/\d/', (string) $value) < 4) {
+                        $fail('Anota al menos los últimos 4 números de la operación.');
+                    }
+                })
+                ->validationMessages(['required' => 'Anota el n.º de operación: basta con los últimos 4 números.'])
                 ->hidden(fn (Get $get) => $get('method') === null || self::paysInCash($get)),
         ];
+    }
+
+    /** Yape, Plin o transferencia: se pide el n.º de operación. */
+    private static function needsReference(Get $get): bool
+    {
+        $method = $get('method');
+
+        return in_array($method instanceof PaymentMethod ? $method : PaymentMethod::tryFrom((string) $method), self::NEEDS_REFERENCE, true);
     }
 
     private static function paysInCash(Get $get): bool
