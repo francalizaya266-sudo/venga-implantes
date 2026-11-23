@@ -10,6 +10,7 @@ use App\Filament\Support\WhatsAppQueue;
 use App\Models\WhatsappMessage;
 use App\Services\WhatsApp\WhatsAppOutbox;
 use App\Support\Phone;
+use Carbon\CarbonInterface;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
@@ -34,9 +35,16 @@ class WhatsappMessagesTable
                     ->badge()
                     ->color('gray')
                     // Abierto en WhatsApp sin que nadie dijera si se envió: se pregunta aquí, para no mandarlo dos veces.
-                    ->description(fn (WhatsappMessage $record) => WhatsAppOutbox::isOpenedUnconfirmed($record)
-                        ? 'Se abrió en WhatsApp '.$record->opened_at->diffForHumans().': ¿se envió?'
-                        : 'Preparado '.$record->created_at->diffForHumans()),
+                    ->description(function (WhatsappMessage $record): string {
+                        if (! WhatsAppOutbox::isOpenedUnconfirmed($record)) {
+                            return 'Preparado '.$record->created_at->diffForHumans();
+                        }
+
+                        /** @var CarbonInterface $openedAt */
+                        $openedAt = $record->opened_at;
+
+                        return 'Se abrió en WhatsApp '.$openedAt->diffForHumans().': ¿se envió?';
+                    }),
                 // El mensaje a la vista, para saber qué se manda sin abrirlo.
                 TextColumn::make('preview')
                     ->label('Mensaje')

@@ -35,6 +35,7 @@ use Filament\Support\Enums\Alignment;
 use Filament\Support\Enums\Size;
 use Filament\Support\Enums\Width;
 use Filament\Support\Icons\Heroicon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\HtmlString;
 
@@ -290,7 +291,10 @@ final class WalkInAction
         $memo = 'walk-in.todays-appointments.'.$patientId;
 
         if (! request()->attributes->has($memo)) {
-            request()->attributes->set($memo, AppointmentResource::getEloquentQuery()
+            /** @var Builder<Appointment> $appointments */
+            $appointments = AppointmentResource::getEloquentQuery();
+
+            request()->attributes->set($memo, $appointments
                 ->with(['treatment', 'doctor'])
                 ->where('patient_id', $patientId)
                 ->startsOn(today())

@@ -155,7 +155,10 @@ class AppointmentReminders
      */
     public function isTimeToRemind(Appointment $appointment): bool
     {
-        return $appointment->starts_at->gte(today()->addDay()) && now()->gte($this->remindAt($appointment));
+        /** @var CarbonInterface $startsAt */
+        $startsAt = $appointment->starts_at;
+
+        return $startsAt->gte(today()->addDay()) && now()->gte($this->remindAt($appointment));
     }
 
     /** El día (a las 00:00) en que se le recuerda la cita: el último en que el consultorio atiende antes de ella. */

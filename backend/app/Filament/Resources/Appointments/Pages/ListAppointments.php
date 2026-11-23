@@ -7,6 +7,7 @@ use App\Filament\Actions\CreateAppointmentAction;
 use App\Filament\Concerns\HasNoBreadcrumbs;
 use App\Filament\Concerns\RefreshesWithToday;
 use App\Filament\Resources\Appointments\AppointmentResource;
+use App\Models\Appointment;
 use Filament\Actions\Action;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Schemas\Components\Callout;
@@ -51,7 +52,7 @@ class ListAppointments extends ListRecords
             'upcoming' => Tab::make('Próximas')
                 ->modifyQueryUsing(fn (Builder $query) => $query->where(fn (Builder $coming) => $coming
                     ->where(fn (Builder $notYet) => $notYet->whereIn('status', AppointmentStatus::changeable())->where('ends_at', '>=', now()))
-                    ->orWhere(fn (Builder $here) => $here->inCourse()))),
+                    ->orWhere(fn (Builder $here) => self::inCourse($here)))),
             // El número es el de la lista. Se pinta de alerta cuando alguna ya toca llamar (está a un día de su cita).
             'pending' => Tab::make('Por confirmar')
                 ->badge(fn () => $this->awaitingConfirmation()['total'] ?: null)
@@ -138,5 +139,16 @@ class ListAppointments extends ListRecords
         }
 
         return $this->awaitingConfirmation;
+    }
+
+    /**
+     * Las que siguen en curso (en sala o en atención) sin haber pasado horas de su hora: Appointment::inCourse.
+     *
+     * @param  Builder<Appointment>  $query
+     * @return Builder<Appointment>
+     */
+    private static function inCourse(Builder $query): Builder
+    {
+        return $query->inCourse();
     }
 }

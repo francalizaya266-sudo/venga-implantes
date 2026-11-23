@@ -688,7 +688,7 @@ class AppointmentForm
         $memo = 'appointment-form.upcoming.'.$patientId.'.'.($forToday ? 'after-today' : 'from-today').'.'.$chosenDate;
 
         if (! request()->attributes->has($memo)) {
-            $upcoming = fn () => AppointmentResource::getEloquentQuery()
+            $upcoming = fn () => self::visibleAppointments()
                 ->where('patient_id', $patientId)
                 ->where('starts_at', '>=', $forToday ? today()->addDay() : today())
                 ->whereIn('status', AppointmentStatus::changeable());
@@ -708,6 +708,19 @@ class AppointmentForm
         }
 
         return request()->attributes->get($memo);
+    }
+
+    /**
+     * Las citas que quien mira puede ver (el doctor, solo las de su agenda), con su tipo.
+     *
+     * @return Builder<Appointment>
+     */
+    private static function visibleAppointments(): Builder
+    {
+        /** @var Builder<Appointment> $appointments */
+        $appointments = AppointmentResource::getEloquentQuery();
+
+        return $appointments;
     }
 
     /** Paciente nuevo, o uno registrado que nunca vino y del que no se sabe cómo llegó. */

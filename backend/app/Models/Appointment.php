@@ -106,7 +106,11 @@ class Appointment extends Model
         return $this->hasMany(RescheduleRequest::class);
     }
 
-    /** El pedido de cambio de horario que todavía espera respuesta (hay uno vivo por cita). */
+    /**
+     * El pedido de cambio de horario que todavía espera respuesta (hay uno vivo por cita).
+     *
+     * @return HasOne<RescheduleRequest, $this>
+     */
     public function pendingRescheduleRequest(): HasOne
     {
         return $this->hasOne(RescheduleRequest::class)->ofMany(['id' => 'max'], fn (Builder $query) => $query->where('status', RescheduleRequestStatus::Pending));
@@ -249,6 +253,9 @@ class Appointment extends Model
     /**
      * En sala de verdad: llegó hoy y su cita no terminó hace horas. Quien sigue "en sala" mucho después es una
      * cita que nadie cerró, no alguien esperando.
+     *
+     * @param  Builder<self>  $query
+     * @return Builder<self>
      */
     #[Scope]
     protected function waitingNow(Builder $query): Builder
@@ -262,6 +269,9 @@ class Appointment extends Model
     /**
      * En el sillón sin atención escrita: recepción tocó "Pasó a consulta" y el doctor todavía no abrió la atención.
      * Como en "waitingNow", si su cita terminó hace horas ya no cuenta: es una cita que nadie cerró.
+     *
+     * @param  Builder<self>  $query
+     * @return Builder<self>
      */
     #[Scope]
     protected function inChairWithoutConsultation(Builder $query): Builder
@@ -326,7 +336,10 @@ class Appointment extends Model
     /** Al reservar escribió un código de promoción que no se aplicó (no es de ninguna vigente): recepción lo revisa. */
     public function hasUnknownPromoCode(): bool
     {
-        return Campaign::codeNotApplied($this->promo_code, $this->campaign);
+        /** @var Campaign|null $campaign */
+        $campaign = $this->campaign;
+
+        return Campaign::codeNotApplied($this->promo_code, $campaign);
     }
 
     /** Ya pasó su hora y nadie anotó que llegó: o vino y se atendió, o no asistió. */

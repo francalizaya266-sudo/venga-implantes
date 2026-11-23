@@ -16,6 +16,7 @@ use App\Models\Consultation;
 use App\Services\Clinical\ConsultationService;
 use App\Services\Clinical\PrescriptionService;
 use App\Services\Clinical\TreatmentPlanService;
+use Carbon\CarbonInterface;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
@@ -42,7 +43,9 @@ class ViewConsultation extends ViewRecord
      */
     protected function getHeaderActions(): array
     {
-        $showsCloseOut = $this->getConsultation()->closed_at?->isToday() ?? false;
+        /** @var CarbonInterface|null $closedAt */
+        $closedAt = $this->getConsultation()->closed_at;
+        $showsCloseOut = $closedAt?->isToday() ?? false;
 
         return array_values(array_filter([
             Action::make('continue')

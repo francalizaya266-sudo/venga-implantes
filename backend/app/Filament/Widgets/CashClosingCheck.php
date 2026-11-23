@@ -7,8 +7,10 @@ use App\Filament\Actions\AppointmentActions;
 use App\Filament\Actions\RegisterPaymentAction;
 use App\Filament\Resources\Appointments\AppointmentResource;
 use App\Models\Appointment;
+use App\Models\Doctor;
 use App\Models\Patient;
 use App\Models\Payment;
+use App\Models\Treatment;
 use App\Models\User;
 use App\Services\Billing\CashClosing;
 use App\Services\Billing\DaySummary;
@@ -26,6 +28,7 @@ use Filament\Support\Enums\Size;
 use Filament\Support\Icons\Heroicon;
 use Filament\Widgets\Concerns\InteractsWithPageFilters;
 use Filament\Widgets\Widget;
+use Illuminate\Database\Eloquent\Builder;
 
 /**
  * Si el día cuadra: lo que había para cobrar, lo cobrado y quién se fue debiendo (con "Cobrar"), las citas que
@@ -71,14 +74,8 @@ class CashClosingCheck extends Widget implements HasActions, HasSchemas
             'expected' => $closing->expected(),
             'pending' => $wholeDay ? $closing->pending() : collect(),
             'pendingTotal' => $wholeDay ? $closing->pendingTotal() : 0.0,
-            'unclosed' => $wholeDay ? $closing->unclosedAppointments()->map(fn (Appointment $appointment) => self::row(
-                $appointment,
-                $appointment->treatment->name.' · '.mb_strtolower($appointment->status->getLabel()).': '.self::unclosedHint($appointment->status),
-            )) : collect(),
-            'inCourse' => $wholeDay ? $closing->inCourseAppointments()->map(fn (Appointment $appointment) => self::row(
-                $appointment,
-                $appointment->treatment->name.' · '.$appointment->doctor->name.' · '.mb_strtolower($appointment->status->getLabel()),
-            )) : collect(),
+            'unclosed' => $wholeDay ? $closing->unclosedAppointments()->map(fn (Appointment $appointment) => self::row($appointment, self::unclosedDetail($appointment))) : collect(),
+            'inCourse' => $wholeDay ? $closing->inCourseAppointments()->map(fn (Appointment $appointment) => self::row($appointment, self::inCourseDetail($appointment))) : collect(),
             'earlierUnclosed' => $wholeDay && $closing->date->isToday() ? $closing->earlierUnclosedCount() : 0,
             'unclosedUrl' => AppointmentResource::getUrl('index', ['tab' => 'unclosed']),
             'record' => $closing->record(),
@@ -200,6 +197,30 @@ class CashClosingCheck extends Widget implements HasActions, HasSchemas
         };
     }
 
+    /** "Limpieza dental · confirmada: marca si vino o si no asistió". */
+    private static function unclosedDetail(Appointment $appointment): string
+    {
+        /** @var Treatment $treatment */
+        $treatment = $appointment->treatment;
+        /** @var AppointmentStatus $status */
+        $status = $appointment->status;
+
+        return $treatment->name.' · '.mb_strtolower($status->getLabel()).': '.self::unclosedHint($status);
+    }
+
+    /** "Limpieza dental · Dra. Ana Torres · en atención". */
+    private static function inCourseDetail(Appointment $appointment): string
+    {
+        /** @var Treatment $treatment */
+        $treatment = $appointment->treatment;
+        /** @var Doctor $doctor */
+        $doctor = $appointment->doctor;
+        /** @var AppointmentStatus $status */
+        $status = $appointment->status;
+
+        return $treatment->name.' · '.$doctor->name.' · '.mb_strtolower($status->getLabel());
+    }
+
     /** Qué falta para cerrar la cita: si no se marcó la llegada, saber si vino; si vino, terminar la atención. */
     private static function unclosedHint(AppointmentStatus $status): string
     {
@@ -247,7 +268,9 @@ class CashClosingCheck extends Widget implements HasActions, HasSchemas
         }
 
         if (! array_key_exists((int) $id, $this->listedAppointments)) {
-            $this->listedAppointments[(int) $id] = AppointmentResource::getEloquentQuery()->with(['consultation', 'planItem'])->find($id);
+            /** @var Builder<Appointment> $appointments */
+            $appointments = AppointmentResource::getEloquentQuery();
+            $this->listedAppointments[(int) $id] = $appointments->with(['consultation', 'planItem'])->find($id);
         }
 
         return $this->listedAppointments[(int) $id];

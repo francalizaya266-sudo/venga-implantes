@@ -10,6 +10,7 @@ use App\Filament\Support\PageLayout;
 use App\Filament\Support\PatientSummary;
 use App\Models\Appointment;
 use App\Models\AppointmentEvent;
+use App\Models\Campaign;
 use App\Models\Charge;
 use App\Models\Payment;
 use App\Models\WhatsappMessage;
@@ -183,7 +184,9 @@ class AppointmentInfolist
     {
         $minutes = (int) $appointment->starts_at->diffInMinutes($appointment->ends_at, true);
         $phone = $appointment->patient->account?->phone;
-        $promoCode = $appointment->promo_code ?? $appointment->campaign?->promo_code;
+        /** @var Campaign|null $campaign */
+        $campaign = $appointment->campaign;
+        $promoCode = $appointment->promo_code ?? $campaign?->promo_code;
 
         return array_values(array_filter([
             [
@@ -234,8 +237,8 @@ class AppointmentInfolist
                 'value' => (string) $promoCode,
                 // Lo escribió el paciente en la web y no es de ninguna promoción vigente: la cita se reservó igual.
                 'hint' => $appointment->hasUnknownPromoCode()
-                    ? collect([$appointment->campaign?->name, 'No es de ninguna promoción vigente: revísalo con el paciente'])->filter()->implode(' · ')
-                    : $appointment->campaign?->name,
+                    ? collect([$campaign?->name, 'No es de ninguna promoción vigente: revísalo con el paciente'])->filter()->implode(' · ')
+                    : $campaign?->name,
             ] : null,
             $appointment->fixed_date ? [
                 'icon' => Heroicon::OutlinedLockClosed,

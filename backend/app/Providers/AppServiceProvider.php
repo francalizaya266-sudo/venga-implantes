@@ -12,7 +12,6 @@ use Illuminate\Auth\Events\Authenticated;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Cache\RateLimiting\Limit;
-use Illuminate\Contracts\Auth\StatefulGuard;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\DevCommands;
 use Illuminate\Foundation\Events\DiagnosingHealth;
@@ -60,9 +59,7 @@ class AppServiceProvider extends ServiceProvider
         // Entró escribiendo su contraseña (no con la sesión recordada): si le falta la doble verificación, al activarla
         // no se le vuelve a pedir.
         Event::listen(Login::class, function (Login $event): void {
-            $guard = Auth::guard($event->guard);
-
-            if ($guard instanceof StatefulGuard && ! $guard->viaRemember()) {
+            if (! Auth::guard($event->guard)->viaRemember()) {
                 SetUpTwoFactor::rememberPasswordWasTyped();
             }
         });

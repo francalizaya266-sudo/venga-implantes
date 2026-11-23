@@ -146,7 +146,7 @@ class ImportPatientsAction extends ImportAction
             return null;
         }
 
-        $rows = array_map(fn (array $row): array => array_map(self::cell(...), array_values($row)), $rows);
+        $rows = array_map(fn (array $row): array => array_map(self::cell(...), $row), $rows);
 
         // Un título encima de los encabezados ("Pacientes 2025") ocupa una sola celda: los encabezados son la primera fila con dos o más.
         while ($rows !== [] && count(array_filter($rows[0], filled(...))) < 2) {
@@ -201,7 +201,7 @@ class ImportPatientsAction extends ImportAction
             $reader->setDelimiter($delimiter);
         }
 
-        $rows = array_values(iterator_to_array($reader->getRecords(), false));
+        $rows = iterator_to_array($reader->getRecords(), false);
 
         if (isset($rows[0][0]) && is_string($rows[0][0])) {
             $rows[0][0] = (string) preg_replace('/^\xEF\xBB\xBF/', '', $rows[0][0]);

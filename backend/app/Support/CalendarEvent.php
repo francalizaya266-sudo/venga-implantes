@@ -4,6 +4,8 @@ namespace App\Support;
 
 use App\Enums\AppointmentStatus;
 use App\Models\Appointment;
+use App\Models\Patient;
+use App\Models\Treatment;
 use App\Services\Web\ClinicInfo;
 use Carbon\CarbonInterface;
 
@@ -68,18 +70,28 @@ final class CalendarEvent
         ];
 
         foreach ($appointments as $appointment) {
-            $state = $appointment->status === AppointmentStatus::Pending ? 'Por confirmar' : $appointment->status->getLabel();
+            /** @var AppointmentStatus $status */
+            $status = $appointment->status;
+            /** @var CarbonInterface $startsAt */
+            $startsAt = $appointment->starts_at;
+            /** @var CarbonInterface $endsAt */
+            $endsAt = $appointment->ends_at;
+            /** @var Patient $patient */
+            $patient = $appointment->patient;
+            /** @var Treatment $treatment */
+            $treatment = $appointment->treatment;
+            $state = $status === AppointmentStatus::Pending ? 'Por confirmar' : $status->getLabel();
 
             array_push(
                 $lines,
                 'BEGIN:VEVENT',
                 'UID:agenda-'.$appointment->getKey().'@'.$host,
                 'DTSTAMP:'.$stamp(now()),
-                'DTSTART:'.$stamp($appointment->starts_at),
-                'DTEND:'.$stamp($appointment->ends_at),
-                'SUMMARY:'.self::escape($appointment->patient->short_name.' · '.$appointment->treatment->name),
-                'DESCRIPTION:'.self::escape($appointment->treatment->name.' · '.str_replace("\u{00A0}", ' ', Dates::duration($appointment->durationMinutes())).' · '.$state),
-                'STATUS:'.($appointment->status === AppointmentStatus::Pending ? 'TENTATIVE' : 'CONFIRMED'),
+                'DTSTART:'.$stamp($startsAt),
+                'DTEND:'.$stamp($endsAt),
+                'SUMMARY:'.self::escape($patient->short_name.' · '.$treatment->name),
+                'DESCRIPTION:'.self::escape($treatment->name.' · '.str_replace("\u{00A0}", ' ', Dates::duration($appointment->durationMinutes())).' · '.$state),
+                'STATUS:'.($status === AppointmentStatus::Pending ? 'TENTATIVE' : 'CONFIRMED'),
                 $clinic->fullAddress() ? 'LOCATION:'.self::escape($clinic->fullAddress()) : null,
                 'END:VEVENT',
             );

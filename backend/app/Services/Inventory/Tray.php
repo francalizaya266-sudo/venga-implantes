@@ -82,7 +82,9 @@ final class Tray
      */
     private static function categoryPosition(Supply $supply): int
     {
-        $position = array_search($supply->category, SupplyCategory::cases(), true);
+        /** @var SupplyCategory $category */
+        $category = $supply->category;
+        $position = array_search($category, SupplyCategory::cases(), true);
 
         return $position === false ? count(SupplyCategory::cases()) : $position;
     }

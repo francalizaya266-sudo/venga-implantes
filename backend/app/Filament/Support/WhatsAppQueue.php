@@ -35,7 +35,12 @@ final class WhatsAppQueue
         return self::query($tab, $except)->count();
     }
 
-    /** Primero lo de la cita más próxima; lo que no es de una cita, por cuándo se preparó. Como la lista. */
+    /**
+     * Primero lo de la cita más próxima; lo que no es de una cita, por cuándo se preparó. Como la lista.
+     *
+     * @param  Builder<WhatsappMessage>  $query
+     * @return Builder<WhatsappMessage>
+     */
     public static function soonestFirst(Builder $query): Builder
     {
         return $query
@@ -43,11 +48,16 @@ final class WhatsAppQueue
             ->orderBy('id');
     }
 
-    /** @param  list<int>  $except */
+    /**
+     * @param  list<int>  $except
+     * @return Builder<WhatsappMessage>
+     */
     private static function query(string $tab, array $except): Builder
     {
-        return WhatsappMessageResource::getEloquentQuery()
-            ->when($tab === 'promotions', fn (Builder $query) => $query->promotions(), fn (Builder $query) => $query->due())
+        /** @var Builder<WhatsappMessage> $messages */
+        $messages = WhatsappMessageResource::getEloquentQuery();
+
+        return ($tab === 'promotions' ? $messages->promotions() : $messages->due())
             ->whereNull('opened_at')
             ->whereKeyNot($except);
     }

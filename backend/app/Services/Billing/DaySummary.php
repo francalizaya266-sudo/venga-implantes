@@ -10,6 +10,7 @@ use App\Enums\UserRole;
 use App\Models\Appointment;
 use App\Models\Charge;
 use App\Models\DailyClosing;
+use App\Models\Patient;
 use App\Models\Setting;
 use App\Models\User;
 use App\Models\WhatsappMessage;
@@ -75,13 +76,15 @@ class DaySummary
         // El día que sigue al cerrado (si se cierra un día pasado, desde hoy) y que tiene citas: el sábado importa el
         // lunes, no el domingo sin atención.
         $next = self::nextDayWithAppointments($date->addDay()->max(CarbonImmutable::today()));
+        /** @var User|null $closedBy */
+        $closedBy = $record->closedBy;
 
         return [
             'dia' => $date->toDateString(),
             'fecha' => $date->translatedFormat('l j \d\e F'),
             'cobrado' => self::collected($closing),
             'arqueo' => self::cashCount($record),
-            'cerro' => $record->closedBy?->name ?? 'alguien que ya no está',
+            'cerro' => $closedBy->name ?? 'alguien que ya no está',
             'atendidos' => (string) $appointments->where('status', AppointmentStatus::Completed)->pluck('patient_id')->unique()->count(),
             'faltas' => (string) $appointments->where('status', AppointmentStatus::NoShow)->count(),
             'sin_cerrar' => (string) $closing->unclosedAppointments()->count(),
@@ -154,7 +157,12 @@ class DaySummary
         }
 
         $named = $charges->take(self::NAMED_DISCOUNTS)
-            ->map(fn (Charge $charge) => collect([$charge->patient?->full_name, $charge->discount_reason])->filter(fn (?string $part) => filled($part))->implode(': '))
+            ->map(function (Charge $charge): string {
+                /** @var Patient|null $patient */
+                $patient = $charge->patient;
+
+                return collect([$patient?->full_name, $charge->discount_reason])->filter(fn (?string $part) => filled($part))->implode(': ');
+            })
             ->implode(' · ');
         $more = $charges->count() > self::NAMED_DISCOUNTS ? ' y '.($charges->count() - self::NAMED_DISCOUNTS).' más' : '';
 

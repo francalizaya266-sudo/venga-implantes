@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Api\V1;
 
 use App\Enums\DayPeriod;
+use App\Models\Account;
 use App\Models\RememberedDevice;
 use App\Services\Access\PatientAccess;
 use App\Support\Phone;
@@ -39,7 +40,10 @@ class StoreWaitlistRequest extends FormRequest
 
     public function privacyAlreadyAccepted(): bool
     {
-        return $this->device()?->account->privacy_accepted_at !== null;
+        /** @var Account|null $account */
+        $account = $this->device()?->account;
+
+        return $account?->privacy_accepted_at !== null;
     }
 
     /**

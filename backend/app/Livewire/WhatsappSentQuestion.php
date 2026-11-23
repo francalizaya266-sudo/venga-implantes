@@ -3,9 +3,11 @@
 namespace App\Livewire;
 
 use App\Enums\MessageStatus;
+use App\Enums\MessageTemplateKey;
 use App\Filament\Actions\SendWhatsAppAction;
 use App\Filament\Pages\Dashboard;
 use App\Filament\Support\WhatsAppQueue;
+use App\Models\Patient;
 use App\Models\WhatsappMessage;
 use App\Services\WhatsApp\WhatsAppOutbox;
 use App\Support\Phone;
@@ -129,12 +131,12 @@ class WhatsappSentQuestion extends Component implements HasActions, HasSchemas
     private function description(): string
     {
         if ($next = $this->upNext()) {
-            return $next->template_key->getLabel().'. El anterior quedó en Por enviar.'.$this->remainingText($next);
+            return self::templateLabel($next).'. El anterior quedó en Por enviar.'.$this->remainingText($next);
         }
 
         $message = $this->asked();
 
-        return trim(($message ? $message->template_key->getLabel().'.' : '')
+        return trim(($message ? self::templateLabel($message).'.' : '')
             .($message && $this->queue ? $this->remainingText($message) : '')
             .($this->url ? ' Si WhatsApp no se abrió, toca «Abrir de nuevo».' : ''));
     }
@@ -205,14 +207,16 @@ class WhatsappSentQuestion extends Component implements HasActions, HasSchemas
 
         $sent = ($arguments['answer'] ?? 'yes') === 'yes';
         $outbox = app(WhatsAppOutbox::class);
+        /** @var MessageStatus $status */
+        $status = $message->status;
 
         if ($sent) {
             $outbox->markSent($message, auth()->user());
             $this->sent++;
-        } elseif ($message->status === MessageStatus::Pending && $this->composed) {
+        } elseif ($status === MessageStatus::Pending && $this->composed) {
             // Se vuelve a armar desde donde salió: si quedara en "Por enviar", podría salir dos veces.
             $message->update(['status' => MessageStatus::Cancelled]);
-        } elseif ($message->status === MessageStatus::Pending) {
+        } elseif ($status === MessageStatus::Pending) {
             $outbox->markNotSent($message);
             $this->notSent[] = $message->getKey();
         }
@@ -284,10 +288,12 @@ class WhatsappSentQuestion extends Component implements HasActions, HasSchemas
     private function notifyAnswer(WhatsappMessage $message, bool $sent): void
     {
         $to = $this->recipient($message);
+        /** @var MessageStatus $status */
+        $status = $message->status;
 
         match (true) {
             $sent => Notification::make()->success()->title("Aviso para {$to} enviado")->send(),
-            $message->status === MessageStatus::Sent => Notification::make()->title('Queda como estaba')->body('Ya se había enviado antes.')->send(),
+            $status === MessageStatus::Sent => Notification::make()->title('Queda como estaba')->body('Ya se había enviado antes.')->send(),
             $this->composed => Notification::make()->warning()->title("Aviso para {$to} sin enviar")->body('No quedó en Avisos. Para enviarlo, ábrelo de nuevo desde aquí.')->send(),
             default => Notification::make()->warning()->title("Aviso para {$to} sin enviar")->body('Quedó en Avisos › Por enviar.')->send(),
         };
@@ -331,6 +337,18 @@ class WhatsappSentQuestion extends Component implements HasActions, HasSchemas
 
     private function recipient(WhatsappMessage $message): string
     {
-        return $message->patient?->full_name ?? Phone::display($message->phone);
+        /** @var Patient|null $patient */
+        $patient = $message->patient;
+
+        return $patient->full_name ?? Phone::display($message->phone);
+    }
+
+    /** El nombre del aviso: "Recordatorio de la cita". */
+    private static function templateLabel(WhatsappMessage $message): string
+    {
+        /** @var MessageTemplateKey $template */
+        $template = $message->template_key;
+
+        return $template->getLabel();
     }
 }

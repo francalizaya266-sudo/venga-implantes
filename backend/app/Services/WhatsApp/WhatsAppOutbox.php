@@ -238,7 +238,10 @@ class WhatsAppOutbox
     /** Se abrió en WhatsApp y nadie dijo todavía si se envió: sigue en "Por enviar", con la pregunta pendiente. */
     public static function isOpenedUnconfirmed(WhatsappMessage $message): bool
     {
-        return $message->status === MessageStatus::Pending && $message->opened_at !== null;
+        /** @var MessageStatus $status */
+        $status = $message->status;
+
+        return $status === MessageStatus::Pending && $message->opened_at !== null;
     }
 
     /** Lo abrió una persona con WhatsApp hace poco: todavía puede decir que no llegó a enviarse. */

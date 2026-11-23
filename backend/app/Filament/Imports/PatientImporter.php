@@ -188,8 +188,8 @@ class PatientImporter extends Importer
             }
         }
 
-        if ($this->record->isDirty('document_number')) {
-            $this->record->document_type ??= DocumentType::Dni;
+        if ($this->record->isDirty('document_number') && $this->record->getAttribute('document_type') === null) {
+            $this->record->setAttribute('document_type', DocumentType::Dni);
         }
     }
 
@@ -207,10 +207,11 @@ class PatientImporter extends Importer
             return;
         }
 
-        $this->record->save();
+        $patient = $this->patient();
+        $patient->save();
 
-        if ($this->record->account_id === null && filled($phone)) {
-            app(PatientRegistrar::class)->moveToPhone($this->record, $phone);
+        if ($patient->account_id === null && filled($phone)) {
+            app(PatientRegistrar::class)->moveToPhone($patient, $phone);
         }
     }
 
@@ -255,6 +256,15 @@ class PatientImporter extends Importer
         return $body.' '.$failures.' Descarga el archivo para ver '.($failed === 1 ? 'cuál' : 'cuáles').' y por qué.';
     }
 
+    /** El paciente de la fila: el que ya estaba o el nuevo (resolveRecord). */
+    private function patient(): Patient
+    {
+        /** @var Patient $patient */
+        $patient = $this->record;
+
+        return $patient;
+    }
+
     /**
      * El paciente que ya está registrado y por qué se sabe, o [null, null]. Primero por DNI; luego por celular, con el
      * mismo nombre (otro nombre con ese celular es un familiar, y se suma a la familia); y sin DNI ni celular, por
@@ -287,7 +297,8 @@ class PatientImporter extends Importer
         $phone = $this->data['phone'] ?? null;
 
         if (filled($phone) && Phone::isValid($phone)) {
-            $relative = Account::query()->where('phone', Phone::normalize($phone))->first()?->patients
+            $account = Account::query()->where('phone', Phone::normalize($phone))->first();
+            $relative = $account === null ? null : Patient::query()->whereBelongsTo($account)->get()
                 ->first(fn (Patient $patient): bool => self::samePerson($patient, $firstName, $lastName));
 
             if ($relative !== null) {
