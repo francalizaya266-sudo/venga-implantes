@@ -153,6 +153,7 @@ class WhereItAppearsTest extends TestCase
     {
         $own = Treatment::factory()->create(['name' => 'Endodoncia', 'duration_minutes' => 60, 'buffer_minutes' => 20]);
         $general = Treatment::factory()->create(['name' => 'Limpieza dental', 'duration_minutes' => 30, 'buffer_minutes' => null]);
+        $quick = Treatment::factory()->create(['name' => 'Control', 'duration_minutes' => 15, 'buffer_minutes' => 0]);
         $slow = Doctor::factory()->create(['name' => 'Dra. Ana Torres']);
         $slow->treatments()->attach($own, ['duration_minutes' => 90]);
         $slow->treatments()->attach($general);
@@ -164,6 +165,8 @@ class WhereItAppearsTest extends TestCase
             ->assertSeeInOrder(['Duración de la cita', 'Precio normal', 'Dónde aparece'])
             ->assertTableColumnHasDescription('duration_minutes', '+20 min para preparar el sillón (tiempo propio) · Dra. Ana Torres: 90 min', $own)
             ->assertTableColumnHasDescription('duration_minutes', '+10 min para preparar el sillón (tiempo general)', $general)
+            // Con 0 no se suma nada: no un "+0 min".
+            ->assertTableColumnHasDescription('duration_minutes', 'Sin tiempo para preparar el sillón', $quick)
             // En su ficha, la misma cuenta con palabras.
             ->mountAction(TestAction::make('edit')->table($own))
             ->assertMountedActionModalSee('A Dra. Ana Torres se le reservan 90 min (puesta en su ficha). Con los demás doctores se reserva esta duración.')

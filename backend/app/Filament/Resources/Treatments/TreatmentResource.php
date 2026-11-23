@@ -401,13 +401,15 @@ class TreatmentResource extends Resource
                     ->placeholder('Nadie')
                     ->wrap(),
                 // El tiempo que de verdad se usa y de dónde viene: el propio para preparar el sillón o el general, y los
-                // doctores a los que se les reserva otra duración.
+                // doctores a los que se les reserva otra duración. Con 0 no se suma nada, y no se dice "+0 min".
                 TextColumn::make('duration_minutes')
                     ->label('Duración de la cita')
                     ->wrapHeader()
                     ->suffix(' min')
                     ->description(fn (Treatment $record) => collect([
-                        '+'.$record->bufferMinutes().' min para preparar el sillón'.($record->buffer_minutes === null ? ' (tiempo general)' : ' (tiempo propio)'),
+                        $record->bufferMinutes() > 0
+                            ? '+'.$record->bufferMinutes().' min para preparar el sillón'.($record->buffer_minutes === null ? ' (tiempo general)' : ' (tiempo propio)')
+                            : 'Sin tiempo para preparar el sillón',
                         ...array_map(fn (array $duration) => "{$duration['doctor']}: {$duration['minutes']} min", $record->ownDurations()),
                     ])->implode(' · '))
                     ->wrap(),
