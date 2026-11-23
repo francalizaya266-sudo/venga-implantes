@@ -1,5 +1,5 @@
-import { useQuery } from '@tanstack/react-query';
-import { useEffect } from 'react';
+import { onlineManager, useQuery } from '@tanstack/react-query';
+import { useEffect, useSyncExternalStore } from 'react';
 import { ApiError, apiUrl, cacheKey, get, type Query } from '@/api/client';
 import type { DataResponse, PageMeta, PageResponse, Site } from '@/api/types';
 import { applyMeta } from '@/lib/meta';
@@ -15,6 +15,18 @@ export function retry(failures: number, error: unknown): boolean {
  */
 export function pageError(data: unknown, error: Error | null): Error | null {
   return data !== undefined && !(error instanceof ApiError) ? null : error;
+}
+
+/**
+ * Si hay señal, según React Query: el navegador avisa cuando se va y cuando vuelve. Sin ella, lo que se pide queda
+ * en pausa hasta que vuelva (en vez de fallar), así que una página nueva espera sus datos todo ese rato.
+ */
+export function useOnline(): boolean {
+  return useSyncExternalStore(
+    (onChange) => onlineManager.subscribe(onChange),
+    () => onlineManager.isOnline(),
+    () => true,
+  );
 }
 
 /** Lo que comparten todas las páginas: los datos del consultorio y los textos que se editan en el panel. */

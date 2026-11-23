@@ -1607,6 +1607,9 @@ a.chip { text-decoration: none; display: inline-flex; align-items: center; }
 /* Mientras llegan los datos: el hueco de la página, para que el pie no salte, y la línea que avisa que algo se está enviando. */
 
 .page-loading { min-height: 70vh; }
+/* Sin señal, en el hueco de la página: qué pasa y cómo seguir. */
+.page-offline { display: grid; justify-items: start; gap: 16px; margin-top: 24px; }
+.page-offline p { margin: 0; font-weight: 600; }
 
 .loading-line { height: 3px; background: var(--accent); border-radius: 999px; animation: loading 1s ease-in-out infinite; transform-origin: left; }
 @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
