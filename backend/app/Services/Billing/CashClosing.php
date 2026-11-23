@@ -361,13 +361,19 @@ final class CashClosing
         return $tables;
     }
 
-    /** @return Builder<Appointment> Las citas de ese día, por hora, con lo que muestran sus filas. */
+    /**
+     * Las citas de ese día, por hora, con lo que muestran sus filas. Las de la misma hora van en el orden en que se
+     * agendaron: si no, cada base de datos las daría en otro orden.
+     *
+     * @return Builder<Appointment>
+     */
     private function appointmentsOfTheDay(): Builder
     {
         return Appointment::query()
             ->with(['patient', 'treatment', 'doctor'])
             ->whereBetween('starts_at', [$this->date->startOfDay(), $this->date->endOfDay()])
-            ->orderBy('starts_at');
+            ->orderBy('starts_at')
+            ->orderBy('id');
     }
 
     /** @return Builder<Payment> */

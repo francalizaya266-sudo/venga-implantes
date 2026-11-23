@@ -518,7 +518,7 @@ class TodayAppointments extends TableWidget
             $someoneIsLate = (clone $toCome)->where('starts_at', '<', now())->where('ends_at', '>=', now())->exists();
 
             $this->nextId = $someoneIsLate
-                ? $toCome->where('starts_at', '>=', now())->orderBy('starts_at')->toBase()->value('id') ?? false
+                ? $toCome->where('starts_at', '>=', now())->orderBy('starts_at')->orderBy('id')->toBase()->value('id') ?? false
                 : false;
         }
 

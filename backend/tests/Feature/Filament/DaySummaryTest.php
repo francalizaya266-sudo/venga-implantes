@@ -168,6 +168,29 @@ class DaySummaryTest extends TestCase
         ]), app(WhatsAppOutbox::class)->draft(WhatsappMessage::sole()));
     }
 
+    public function test_of_several_discounts_charged_at_the_same_time_it_names_the_first_three_charged(): void
+    {
+        // Una familia pagó todo junto al final: sus cuatro cargos tienen la misma hora y el descuento familiar.
+        foreach (['Sofía', 'Luis', 'Ana', 'Pedro'] as $hour => $firstName) {
+            $visit = $this->visit($firstName, '2026-11-02 1'.$hour.':00', AppointmentStatus::Completed);
+            Charge::factory()->for($visit->patient)->for($visit)->create(['description' => 'Limpieza dental', 'amount' => 120, 'discount' => 20, 'discount_reason' => 'Familiar', 'charged_at' => '2026-11-02 13:45']);
+        }
+
+        User::factory()->admin()->create(['phone' => '+51987654321']);
+        $this->travelTo(CarbonImmutable::parse('2026-11-02 19:30', 'America/Lima'));
+        $this->actingAs($this->reception);
+
+        Livewire::test(CashClosingCheck::class, ['pageFilters' => ['date' => '2026-11-02']])
+            ->callAction('closeDay', ['opening_cash' => 100, 'counted_cash' => 100])
+            ->assertHasNoErrors();
+
+        // Los tres primeros en el orden en que se cobraron (el mismo en cualquier base de datos) y cuántos más hubo.
+        $this->assertStringContainsString(
+            'Descuentos puestos antes de cobrar: S/ 80.00 en 4 cargos (Sofía Prueba: Familiar · Luis Prueba: Familiar · Ana Prueba: Familiar y 1 más)',
+            app(WhatsAppOutbox::class)->draft(WhatsappMessage::sole()),
+        );
+    }
+
     public function test_the_saved_summary_text_tells_apart_the_discounts_put_before_checkout_unless_the_clinic_changed_it(): void
     {
         $firstBody = "Resumen del {fecha} en {consultorio}\nCobrado: {cobrado}\nArqueo: {arqueo} · cerró {cerro}\nPacientes atendidos: {atendidos} · Faltas: {faltas} · Citas sin cerrar: {sin_cerrar}\nDescuentos: {descuentos}\nCitas del {siguiente} sin confirmar: {sin_confirmar}";

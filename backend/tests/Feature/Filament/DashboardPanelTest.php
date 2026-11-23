@@ -277,12 +277,15 @@ class DashboardPanelTest extends TestCase
         // Si en la agenda que se ve no queda nada más, las terminadas están a la vista y no hay nada que plegar.
         Livewire::test(TodayAppointments::class)->call('showDoctor', $luis->id)->assertSeeInOrder(['Terminadas', 'Gina Prueba'])->assertDontSeeHtml('dash-agenda-finished');
 
-        // Si alguien de "Por llegar" ya debía haber llegado, la línea de "ahora" lo separa de lo que viene.
+        // Si alguien de "Por llegar" ya debía haber llegado, la línea de "ahora" lo separa de lo que viene. Si lo que
+        // viene son dos citas a la misma hora, va antes de la que se ve primero (la que se agendó antes).
         $visit('Hugo', '2026-11-02 11:45', AppointmentStatus::Pending);
+        $visit('Iris', '2026-11-02 13:00', AppointmentStatus::Pending, $luis);
         Livewire::test(TodayAppointments::class)
             ->call('showDoctor', null)
-            ->assertSeeInOrder(['Sin cerrar', 'Diana Prueba', 'Por llegar', 'Hugo Prueba', 'Fabio Prueba'])
-            ->assertSeeHtml('dash-appt-confirmed dash-appt-next');
+            ->assertSeeInOrder(['Sin cerrar', 'Diana Prueba', 'Por llegar', 'Hugo Prueba', 'Fabio Prueba', 'Iris Prueba'])
+            ->assertSeeHtml('dash-appt-confirmed dash-appt-next')
+            ->assertDontSeeHtml('dash-appt-pending dash-appt-next');
 
         // El doctor no cobra: quien debe es una atendida más, plegada con las otras.
         $this->actingAs($ana->user);

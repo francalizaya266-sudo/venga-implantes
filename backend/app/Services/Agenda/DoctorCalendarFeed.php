@@ -88,6 +88,7 @@ final class DoctorCalendarFeed
             ->where('starts_at', '>=', today()->subDays(self::PAST_DAYS))
             ->where('starts_at', '<', today()->addDays(self::FUTURE_DAYS + 1))
             ->orderBy('starts_at')
+            ->orderBy('id')
             ->get();
     }
 }

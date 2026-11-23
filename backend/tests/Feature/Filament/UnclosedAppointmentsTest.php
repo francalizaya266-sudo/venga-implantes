@@ -109,6 +109,20 @@ class UnclosedAppointmentsTest extends TestCase
         $this->assertSame(120.0, $pedro->patient->balance());
     }
 
+    public function test_unclosed_appointments_at_the_same_hour_are_listed_in_the_order_they_were_booked(): void
+    {
+        // Las dos a las 4 p. m., cada una con su doctor: primero se agendó la de Sofía.
+        $sofia = $this->visit('Sofía', '2026-11-02 16:00', AppointmentStatus::Confirmed);
+        $andres = $this->visit('Andrés', '2026-11-02 16:00', AppointmentStatus::Pending, $this->doctorOffering($this->treatment));
+        $this->travelTo(CarbonImmutable::parse('2026-11-02 19:30', 'America/Lima'));
+        $this->actingAs(User::factory()->reception()->create());
+
+        // El mismo orden en cualquier base de datos, aunque tengan la misma hora.
+        $this->assertSame([$sofia->id, $andres->id], (new CashClosing(CarbonImmutable::today()))->unclosedAppointments()->pluck('id')->all());
+        Livewire::test(CashClosingCheck::class, ['pageFilters' => ['date' => '2026-11-02']])
+            ->assertSeeInOrder(['Citas sin cerrar', '16:00 · Sofía Prueba', '16:00 · Andrés Prueba']);
+    }
+
     public function test_before_closing_the_day_it_says_what_is_still_open(): void
     {
         $this->visit('Pedro', '2026-11-02 16:00', AppointmentStatus::Confirmed);
@@ -137,10 +151,10 @@ class UnclosedAppointmentsTest extends TestCase
         $this->assertLessThanOrEqual($withOneRow + 3 * 8, $this->queriesToShowTheClosing());
     }
 
-    private function visit(string $firstName, string $when, AppointmentStatus $status): Appointment
+    private function visit(string $firstName, string $when, AppointmentStatus $status, ?Doctor $doctor = null): Appointment
     {
         return Appointment::factory()
-            ->for($this->doctor)
+            ->for($doctor ?? $this->doctor)
             ->for($this->treatment)
             ->for(Patient::factory()->create(['first_name' => $firstName, 'last_name' => 'Prueba']))
             ->at($when)

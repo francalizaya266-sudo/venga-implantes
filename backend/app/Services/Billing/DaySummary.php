@@ -154,6 +154,7 @@ class DaySummary
             ->whereBetween('charged_at', $day)
             ->where('discount', '>', 0)
             ->orderBy('charged_at')
+            ->orderBy('id')
             ->get()
             ->filter(fn (Charge $charge) => self::discountBeforeCheckout($charge) > 0)
             ->values();
