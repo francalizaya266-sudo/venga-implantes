@@ -46,7 +46,7 @@ class AppointmentCalendarControllerTest extends TestCase
         $this->assertContains('DTEND:20261104T154500Z', $lines);
         $this->assertContains('SUMMARY:Limpieza dental\, con flúor · Clínica Vega Implant', $lines);
         $this->assertContains('LOCATION:Jr. Apurímac 648\, segundo piso\; frente a la plaza\, Juliaca', $lines);
-        $this->assertContains('DESCRIPTION:Cita de María con Dra. Vega.', $lines);
+        $this->assertContains('DESCRIPTION:Cita de María con la Dra. Vega.', $lines);
         $this->assertContains('TRIGGER:-PT120M', $lines);
 
         foreach (explode("\r\n", $response->getContent()) as $line) {

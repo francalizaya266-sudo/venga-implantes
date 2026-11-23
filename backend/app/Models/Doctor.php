@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -22,6 +23,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 /**
  * Perfil del doctor: datos públicos, horario y agenda. La clave del enlace de su agenda para el celular va oculta:
  * no sale en la web ni en el historial de cambios.
+ *
+ * @property-read string $name_with_article
  */
 #[Fillable(['user_id', 'name', 'slug', 'specialty', 'cop_number', 'rne_number', 'bio', 'education', 'photo_path', 'agenda_color', 'is_public', 'accepts_online_booking', 'sort_order', 'is_active'])]
 #[Hidden(['calendar_token'])]
@@ -103,6 +106,19 @@ class Doctor extends Model
         $learned = $pivot?->learned_minutes !== null ? (int) $pivot->learned_minutes : null;
 
         return LearnedDurations::applies($learned, (int) $treatment->duration_minutes) ? $learned : (int) $treatment->duration_minutes;
+    }
+
+    /**
+     * El nombre como se dice dentro de una frase al paciente, con su artículo: "con la Dra. Ana Torres", "con el Dr.
+     * Luis Ramos". Sin "Dr." ni "Dra." delante va tal cual. Es la misma regla de la web (withArticle).
+     */
+    protected function nameWithArticle(): Attribute
+    {
+        return Attribute::get(fn (): string => match (true) {
+            (bool) preg_match('/^(dra\.|doctora)\s/iu', (string) $this->name) => 'la '.$this->name,
+            (bool) preg_match('/^(dr\.|doctor)\s/iu', (string) $this->name) => 'el '.$this->name,
+            default => (string) $this->name,
+        });
     }
 
     /** Con un solo doctor activo, la columna, el filtro y las tablas "por doctor" sobran. */

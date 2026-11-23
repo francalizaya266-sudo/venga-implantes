@@ -296,7 +296,7 @@ class BookingController extends Controller
             'page_url' => self::confirmationUrl($appointment),
             'treatment' => $appointment->treatment->name,
             'when' => $day.', '.$hour,
-            'who' => $appointment->patient->full_name.' · con '.$appointment->doctor->name,
+            'who' => $appointment->patient->full_name.' · con '.$appointment->doctor->name_with_article,
             'price_line' => CampaignText::price($appointment->treatment, $appointment->campaign),
             'phone' => Phone::display($appointment->patient->account->phone),
             'remembered' => $device !== null || $newNumber,

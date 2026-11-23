@@ -15,7 +15,8 @@ export function keepAmountTogether(price: string): string {
 
 /**
  * El nombre de un doctor como se dice dentro de una frase, con su artículo: "con la Dra. Ana Torres", "con el Dr.
- * Luis Ramos". Sin "Dr." ni "Dra." delante, va tal cual.
+ * Luis Ramos". Sin "Dr." ni "Dra." delante, va tal cual. La API arma sus frases con la misma regla
+ * (name_with_article del doctor).
  */
 export function withArticle(name: string): string {
   if (/^(dra\.|doctora)\s/i.test(name)) {

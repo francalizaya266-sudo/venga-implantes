@@ -32,7 +32,7 @@ final class CalendarEvent
             'DTEND:'.$stamp($appointment->ends_at),
             'SUMMARY:'.self::escape($appointment->treatment->name.' · '.$clinic->name()),
             $clinic->fullAddress() ? 'LOCATION:'.self::escape($clinic->fullAddress()) : null,
-            'DESCRIPTION:'.self::escape("Cita de {$appointment->patient->first_name} con {$appointment->doctor->name}."),
+            'DESCRIPTION:'.self::escape("Cita de {$appointment->patient->first_name} con {$appointment->doctor->name_with_article}."),
             'BEGIN:VALARM',
             'ACTION:DISPLAY',
             'DESCRIPTION:'.self::escape('Tu cita en '.$clinic->name()),
