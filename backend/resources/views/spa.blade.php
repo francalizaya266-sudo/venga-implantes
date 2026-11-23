@@ -8,6 +8,7 @@
     preload: las respuestas de la API que el frontend usaría para pintar esta página, por su dirección.
     error: el estado, si Laravel está respondiendo con un error (403, 404, 429…).
     clinic: el nombre del consultorio.
+    module: el código de la página, si el frontend lo baja aparte (SpaController::MODULES).
 --}}
 <!DOCTYPE html>
 <html lang="es-PE">
@@ -43,6 +44,10 @@
     <script>document.documentElement.classList.add('js')</script>
     @viteReactRefresh
     @vite('src/main.tsx', 'app')
+    @if ($module ?? null)
+        {{-- Llega junto con el archivo principal: la página no espera a pedirlo después. --}}
+        <link rel="modulepreload" as="script" href="{{ $module }}">
+    @endif
     @foreach ($meta['json_ld'] as $data)
         <script type="application/ld+json">{!! json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP) !!}</script>
     @endforeach

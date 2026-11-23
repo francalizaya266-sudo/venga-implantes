@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Site;
 
 use App\Http\Controllers\Controller;
 use App\Services\Web\SpaDocument;
+use Illuminate\Foundation\Vite;
+use Illuminate\Foundation\ViteException;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 
@@ -39,9 +41,36 @@ class SpaController extends Controller
         'patient.link.change' => ['api.v1.links.change'],
     ];
 
-    public function __invoke(Request $request, SpaDocument $document): Response
+    /**
+     * El código de cada página que el frontend baja aparte (frontend/src/app/router.tsx): el documento lo pide junto
+     * con el archivo principal, y la página abierta directamente sale de una vez, sin esperar a pedirlo después. El
+     * inicio viene en el archivo principal.
+     *
+     * @var array<string, string>
+     */
+    public const MODULES = [
+        'site.treatments' => 'src/pages/TreatmentsPage.tsx',
+        'site.treatment' => 'src/pages/TreatmentPage.tsx',
+        'site.promotions' => 'src/pages/PromotionsPage.tsx',
+        'site.promotion' => 'src/pages/PromotionPage.tsx',
+        'site.team' => 'src/pages/TeamPage.tsx',
+        'site.cases' => 'src/pages/CasesPage.tsx',
+        'site.reviews' => 'src/pages/ReviewsPage.tsx',
+        'site.faq' => 'src/pages/FaqPage.tsx',
+        'site.contact' => 'src/pages/ContactPage.tsx',
+        'site.privacy' => 'src/pages/PrivacyPage.tsx',
+        'site.booking' => 'src/pages/booking/BookingPage.tsx',
+        'site.account' => 'src/pages/account/AccountPage.tsx',
+        'site.account.change' => 'src/pages/change/ChangePage.tsx',
+        'site.account.health' => 'src/pages/account/HealthPage.tsx',
+        'patient.link' => 'src/pages/link/LinkPage.tsx',
+        'patient.link.change' => 'src/pages/change/ChangePage.tsx',
+    ];
+
+    public function __invoke(Request $request, SpaDocument $document, Vite $vite): Response
     {
-        [$resource, $query] = self::PAGES[$request->route()->getName()] + [1 => []];
+        $page = $request->route()->getName();
+        [$resource, $query] = self::PAGES[$page] + [1 => []];
 
         $data = $document->forPage(
             $request,
@@ -50,6 +79,21 @@ class SpaController extends Controller
             array_filter($request->only($query), fn (mixed $value): bool => is_string($value) && $value !== ''),
         );
 
-        return response()->view('spa', $data, $data['status']);
+        return response()->view('spa', [...$data, 'module' => $this->moduleUrl($vite, $page)], $data['status']);
+    }
+
+    /** La dirección del código de la página, o null si viene en el archivo principal o no está en la compilación. */
+    private function moduleUrl(Vite $vite, string $page): ?string
+    {
+        if (! isset(self::MODULES[$page])) {
+            return null;
+        }
+
+        try {
+            return $vite->asset(self::MODULES[$page], 'app') ?: null;
+        } catch (ViteException) {
+            // Sin él la página abre igual: el frontend lo pide al pintarla.
+            return null;
+        }
     }
 }

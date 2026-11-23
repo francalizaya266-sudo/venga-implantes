@@ -691,14 +691,17 @@ details.more[open] > summary::after { transform: translateY(.06em) rotate(225deg
     .services-grid .name { font-size: .9375rem; }
     .services-grid .price { padding: 3px 9px; font-size: .875rem; }
 }
-/* En el celular, dos filas de dos y debajo "Ver todos los tratamientos", que reemplaza al enlace de arriba. */
+/* Donde no entran todas (celular y tableta angosta), debajo va "Ver todos los tratamientos", que reemplaza al enlace de arriba. */
 .services-all { display: none; }
-@media (max-width: 559px) {
-    .services-grid li:nth-child(n + 5) { display: none; }
+@media (max-width: 719px) {
     .services .section-head .arrow { display: none; }
     .services-all { display: block; margin: 16px 0 0; }
 }
-/* De tres en tres se muestran dos filas completas; los demás están en "Ver los tratamientos". */
+/* En el celular, dos filas de dos. */
+@media (max-width: 559px) {
+    .services-grid li:nth-child(n + 5) { display: none; }
+}
+/* De tres en tres se muestran dos filas completas; los demás están en "Ver todos los tratamientos". */
 @media (min-width: 560px) and (max-width: 719px) {
     .services-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     .services-grid li:nth-child(n + 7) { display: none; }

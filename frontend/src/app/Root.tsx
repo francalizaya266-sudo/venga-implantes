@@ -25,7 +25,7 @@ export function Root({ documentError }: Props) {
   return (
     <FlashProvider>
       <ScrollRestoration getKey={scrollKey} />
-      {/* Mientras llega el código de una página abierta directamente: la cabecera, el pie y el hueco de la página. */}
+      {/* Si el código de la página no llegó antes de pintarla (main.tsx lo espera): la cabecera, el pie y el hueco. */}
       <Suspense
         fallback={
           <SiteLayout>
