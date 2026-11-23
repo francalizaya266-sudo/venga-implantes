@@ -329,6 +329,26 @@ class PatientImportTest extends TestCase
         $this->assertSame('info', PatientImporter::modifyCompletedNotification(Notification::make()->danger(), $this->lastImport())->getStatus());
     }
 
+    public function test_the_file_to_fix_keeps_the_columns_in_the_order_of_the_template(): void
+    {
+        $this->actingAs($user = User::factory()->reception()->create());
+        $import = Import::query()->create([
+            'file_name' => 'pacientes.csv', 'file_path' => 'pacientes.csv', 'importer' => PatientImporter::class,
+            'total_rows' => 1, 'processed_rows' => 1, 'successful_rows' => 0, 'user_id' => $user->id,
+        ]);
+        // Así devuelve MySQL la fila: las claves del JSON ordenadas por largo, no como venían en el archivo.
+        $import->failedRows()->create([
+            'data' => ['Sexo' => 'M', 'Hobby' => 'Fútbol', 'Correo' => '', 'Celular' => '912345678', 'Nombres' => 'Luis', 'N° DNI' => '1234', 'Apellidos' => 'Torres', 'Observaciones' => '', 'Fecha de nacimiento' => ''],
+            'validation_error' => 'El DNI tiene 8 dígitos.',
+        ]);
+
+        $download = $this->get(URL::signedRoute('filament.imports.failed-rows.download', ['authGuard' => 'web', 'import' => $import], absolute: false))->assertOk();
+        $rows = $this->excelRows($download->getContent());
+
+        $this->assertSame(['Nombres', 'Apellidos', 'N° DNI', 'Celular', 'Fecha de nacimiento', 'Correo', 'Sexo', 'Observaciones', 'Hobby', 'Qué corregir'], $rows[0]);
+        $this->assertSame(['Luis', 'Torres', '1234', '912345678', '', '', 'M', '', 'Fútbol', 'El DNI tiene 8 dígitos.'], array_pad($rows[1], 10, ''));
+    }
+
     public function test_the_summary_only_names_what_happened(): void
     {
         $import = Import::query()->create([
