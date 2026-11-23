@@ -12,7 +12,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * El cierre de caja de un día: el fondo con que se abrió, el efectivo que debía haber, el que se contó y lo
- * que quedó por cobrar. Con el día cerrado, sus pagos ya no se anulan ni se registran sin la administradora.
+ * que quedó por cobrar. Con el día cerrado, sus pagos ya no se anulan ni se registran sin quien administra.
  */
 #[Fillable(['date', 'opening_cash', 'expected_cash', 'counted_cash', 'collected', 'pending', 'notes', 'closed_by_user_id'])]
 class DailyClosing extends Model
@@ -21,7 +21,7 @@ class DailyClosing extends Model
     use Auditable, HasFactory;
 
     /** Lo que se le dice a quien quiere cambiar un día cerrado. */
-    public const LOCKED = 'La caja de ese día ya se cerró. Pide a la administradora que lo reabra.';
+    public const LOCKED = 'La caja de ese día ya se cerró. Pide a quien administra que lo reabra.';
 
     protected function casts(): array
     {
@@ -52,7 +52,7 @@ class DailyClosing extends Model
         return static::query()->whereDate('date', Carbon::parse($day)->toDateString())->exists();
     }
 
-    /** Si el día está cerrado para esta persona: la administradora sí puede corregirlo. */
+    /** Si el día está cerrado para esta persona: quien administra sí puede corregirlo. */
     public static function locksFor(User $user, mixed $day): bool
     {
         return ! $user->isAdmin() && static::isClosed($day);

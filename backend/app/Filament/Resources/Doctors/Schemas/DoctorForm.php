@@ -383,7 +383,7 @@ class DoctorForm
                             ->dehydrated(false),
                         Select::make('user_id')
                             ->label('Usuario del panel')
-                            ->helperText('Por ejemplo, la administradora que también atiende.')
+                            ->helperText('Por ejemplo, quien administra y también atiende.')
                             ->options(fn (?Doctor $record) => User::query()
                                 ->where(fn (Builder $q) => $q->where('role', UserRole::Doctor)->orWhere(fn (Builder $a) => $a->where('role', UserRole::Admin)->where('is_dentist', true)))
                                 ->where(fn (Builder $q) => $q->whereDoesntHave('doctor')->when($record, fn (Builder $w) => $w->orWhere('id', $record->user_id)))

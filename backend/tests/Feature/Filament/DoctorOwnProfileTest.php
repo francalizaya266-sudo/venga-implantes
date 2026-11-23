@@ -106,7 +106,7 @@ class DoctorOwnProfileTest extends TestCase
         Livewire::test(EditProfile::class)
             ->assertSeeInOrder([
                 'Tu horario de atención',
-                'Lo cambia el administrador',
+                'Lo cambia quien administra el panel',
                 'Lunes: 09:00–13:00 y 15:00–19:00',
                 'Sábado: 09:00–12:00 (solo del 15/12/2026 al 15/03/2027)',
             ])

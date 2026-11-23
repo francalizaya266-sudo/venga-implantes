@@ -56,7 +56,7 @@ class EditProfile extends BaseEditProfile
                             ->helperText('Una línea por estudio.'),
                     ]),
                 Section::make('Tu horario de atención')
-                    ->description('Lo cambia el administrador, en Configuración › Doctores. Si no es el que haces, avísale.')
+                    ->description('Lo cambia quien administra el panel, en Configuración › Doctores. Si no es el que haces, avísale.')
                     ->inlineLabel(false)
                     ->visible(fn () => $this->doctor() !== null)
                     ->schema([

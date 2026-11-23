@@ -164,7 +164,7 @@ class TextSnippetResource extends Resource
                     ->color('gray')
                     ->requiresConfirmation()
                     ->modalHeading('¿Proponer esta opción para todo el equipo?')
-                    ->modalDescription('El administrador podrá sumarla a las opciones del equipo.')
+                    ->modalDescription('Quien administra el panel podrá sumarla a las opciones del equipo.')
                     ->modalSubmitActionLabel('Proponer')
                     ->visible(fn (TextSnippet $record) => $record->user_id === auth()->id() && $record->status === SnippetStatus::Active && ! auth()->user()->isAdmin())
                     ->authorize('update')

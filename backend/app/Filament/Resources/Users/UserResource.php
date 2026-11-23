@@ -74,7 +74,7 @@ class UserResource extends Resource
                         ->mapWithKeys(fn (UserRole $role) => [$role->value => $role->getLabel()])
                         ->all())
                     ->descriptions([
-                        UserRole::Admin->value => 'Todo el panel: agenda, pacientes, caja, reportes, inventario y Configuración. La historia clínica, solo si además es odontólogo.',
+                        UserRole::Admin->value => 'Todo el panel: agenda, pacientes, caja, reportes, inventario y Configuración. La historia clínica, solo si además es dentista.',
                         UserRole::Reception->value => 'La agenda de todos los doctores, los pacientes, los avisos, los cobros y la caja. No ve la historia clínica, los reportes ni Configuración.',
                         UserRole::Doctor->value => 'Su agenda, sus pacientes y la historia clínica: atiende, arma planes y receta. No ve la caja del consultorio.',
                     ])
@@ -84,14 +84,14 @@ class UserResource extends Resource
                     ->live()
                     ->columnSpanFull(),
                 Toggle::make('is_dentist')
-                    ->label('Es odontólogo (puede ver historias clínicas)')
+                    ->label('Es dentista (puede ver historias clínicas)')
                     ->visible(fn (Get $get) => in_array($get('role'), [UserRole::Admin, UserRole::Admin->value], true)),
                 Toggle::make('is_active')
                     ->label('Puede entrar al panel')
                     ->default(true)
                     // Ni se quita su propio acceso: si es el único administrador, nadie se lo podría devolver.
                     ->disabled(fn (?User $record) => self::isMe($record))
-                    ->helperText(fn (?User $record) => self::isMe($record) ? 'Tu propio acceso y tu rol solo los puede cambiar otro administrador.' : null),
+                    ->helperText(fn (?User $record) => self::isMe($record) ? 'Tu propio acceso y tu rol solo los puede cambiar otra persona que administre el panel.' : null),
                 TextInput::make('password')
                     ->label(fn (string $operation) => $operation === 'create' ? 'Contraseña' : 'Nueva contraseña')
                     ->password()

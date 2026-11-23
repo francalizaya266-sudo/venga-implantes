@@ -477,7 +477,7 @@ class TreatmentResource extends Resource
                     ->iconButton()
                     ->tooltip('Editar')
                     ->mutateDataUsing(fn (array $data) => self::withPresence($data))
-                    ->modalDescription(fn () => self::decidesTheOffer() ? null : 'Puedes cambiar la duración, la limpieza, las sesiones, el tipo, el seguimiento y las indicaciones. El nombre, el precio, quién lo atiende y dónde aparece los cambia el administrador.')
+                    ->modalDescription(fn () => self::decidesTheOffer() ? null : 'Puedes cambiar la duración, la limpieza, las sesiones, el tipo, el seguimiento y las indicaciones. El nombre, el precio, quién lo atiende y dónde aparece los cambia quien administra el panel.')
                     ->successNotificationTitle('Tratamiento guardado'),
                 // Borrar va en el menú para que la fila entre entera. Con citas o cobros no se borra: avisa que se apaga "Activo".
                 ActionGroup::make([

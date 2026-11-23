@@ -29,7 +29,7 @@ use Filament\Widgets\Widget;
 /**
  * Si el día cuadra: lo que había para cobrar, lo cobrado y quién se fue debiendo (con "Cobrar"), las citas que
  * quedaron sin cerrar (con "Atendido" y "No asistió", para resolverlas ahí mismo), las que siguen en curso y el
- * arqueo del efectivo. Cerrado el día, sus pagos ya no cambian sin la administradora.
+ * arqueo del efectivo. Cerrado el día, sus pagos ya no cambian sin quien administra.
  */
 class CashClosingCheck extends Widget implements HasActions, HasSchemas
 {
@@ -114,7 +114,7 @@ class CashClosingCheck extends Widget implements HasActions, HasSchemas
             ->icon(Heroicon::OutlinedLockClosed)
             ->visible(fn () => $this->closing()->receivedBy === null && $this->closing()->record() === null)
             ->modalHeading(fn () => 'Cerrar la caja del '.$this->closing()->date->translatedFormat('l j \d\e F'))
-            ->modalDescription('Cuenta el efectivo de la caja. Después del cierre, anular un pago de este día o registrar uno con esta fecha lo hace solo la administradora.')
+            ->modalDescription('Cuenta el efectivo de la caja. Después del cierre, anular un pago de este día o registrar uno con esta fecha lo hace solo quien administra.')
             ->modalSubmitActionLabel('Cerrar el día')
             ->modalWidth('lg')
             ->fillForm(fn () => ['opening_cash' => $this->closing()->suggestedOpeningCash()])
@@ -159,7 +159,7 @@ class CashClosingCheck extends Widget implements HasActions, HasSchemas
             });
     }
 
-    /** Solo la administradora reabre un día cerrado (para corregir un pago de ese día). */
+    /** Solo quien administra reabre un día cerrado (para corregir un pago de ese día). */
     public function reopenDayAction(): Action
     {
         return Action::make('reopenDay')

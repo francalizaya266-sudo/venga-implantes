@@ -21,11 +21,11 @@
     @unless ($canDownload)
         <x-filament::section icon="heroicon-o-lock-closed" icon-color="gray">
             <x-slot name="heading">Tú las ves, pero no las descargas</x-slot>
-            Las copias traen las historias clínicas de los pacientes, por eso las descarga solo el administrador que también es odontólogo.
+            Las copias traen las historias clínicas de los pacientes, por eso las descarga solo quien administra el panel y además es dentista.
             @if ($whoDownloads)
                 Hoy puede descargarlas: {{ $whoDownloads }}.
             @else
-                Hoy nadie puede descargarlas. En Usuarios, marca "Es odontólogo" en el administrador que atiende pacientes.
+                Hoy nadie puede descargarlas. En Usuarios, marca "Es dentista" en quien administra y atiende pacientes.
             @endif
             Tú puedes ver que estén al día, crear una copia y borrar las viejas.
         </x-filament::section>
