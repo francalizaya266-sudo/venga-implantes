@@ -1917,6 +1917,13 @@ a.ap-visit:hover { background: var(--gray-50); }
 .dark .cc-rows li { border-color: rgb(255 255 255 / .06); }
 .dark .cc-status { background: rgb(59 130 246 / .1); box-shadow: inset 0 0 0 1px rgb(59 130 246 / .28); }
 @media (max-width: 40rem) { .cc-figures dd { font-size: 1rem; } .cc-rows li, .cc-status { flex-wrap: wrap; } .cc-status .cc-row-text { flex: 1 1 calc(100% - 2rem); } .cc-status > .fi-btn { margin-left: 2rem; } }
+/* Precios cambiados y descuentos: cuántos y por cuánto arriba; lo que se rebajó, en ámbar. */
+.cc-adjust-total { margin: 0 0 .25rem; font-size: .875rem; color: var(--gray-700); }
+.cc-adjust-total strong { font-weight: 700; color: var(--gray-950); font-variant-numeric: tabular-nums; }
+.cc-adjust-total .is-lowered, .cc-amount.is-lowered { color: var(--warning-700); }
+.dark .cc-adjust-total { color: var(--gray-300); }
+.dark .cc-adjust-total strong { color: #fff; }
+.dark .cc-adjust-total .is-lowered, .dark .cc-amount.is-lowered { color: var(--warning-400); }
 
 /* Opciones rápidas: junto al nombre, solo lo que no es lo de siempre ("Solo tuya", "Propuesta de Ana"). */
 .snip-note { display: inline-block; margin-left: .35rem; padding: 0 .45rem; border-radius: 9999px; font-size: .72rem; font-weight: 500; line-height: 1.25rem; vertical-align: 1px; color: var(--gray-600); background: var(--gray-100); }

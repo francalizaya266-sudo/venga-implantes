@@ -8,10 +8,12 @@ use App\Enums\UserRole;
 use App\Filament\Forms\WeeklySchedule;
 use App\Filament\Pages\Settings;
 use App\Models\AuditLog;
+use App\Models\Charge;
 use App\Models\ConsentTemplate;
 use App\Models\Doctor;
 use App\Models\DoctorSchedule;
 use App\Models\MessageTemplate;
+use App\Models\Patient;
 use App\Models\Setting;
 use App\Models\Treatment;
 use App\Models\TreatmentPackage;
@@ -28,6 +30,7 @@ use Throwable;
 /**
  * El historial de cambios de Configuración dicho con palabras: de cada registro guardado saca dónde fue, sobre qué
  * y qué cambió ("Duración de la cita: 30 → 45"), con los mismos nombres que tienen los datos en cada pantalla.
+ * También los precios y descuentos que se cambiaron al cobrar.
  */
 final class ChangeHistory
 {
@@ -41,6 +44,8 @@ final class ChangeHistory
         TreatmentPackage::class => 'Paquetes',
         ConsentTemplate::class => 'Textos de consentimiento',
         MessageTemplate::class => 'Textos de aviso',
+        // De la caja, solo los precios y descuentos que se cambiaron al cobrar: ver withoutRoutineCharges().
+        Charge::class => 'Cobros',
     ];
 
     /** Las copias de seguridad no cambian ningún dato, pero cada una trae los de todos los pacientes: queda quién la bajó o la borró. */
@@ -185,14 +190,29 @@ final class ChangeHistory
             'api_language' => 'Idioma',
             'is_active' => 'En uso',
         ],
+        // De un cobro, solo lo que se ve en la ventana Cobrar: lo demás lo lleva el sistema.
+        Charge::class => [
+            'description' => 'Concepto',
+            'amount' => 'Precio',
+            'discount' => 'Descuento',
+            'adjustment_reason' => 'Motivo',
+        ],
     ];
 
     /** Datos que el sistema lleva por dentro: no son cambios que alguien hizo en una pantalla. */
     public const INTERNAL = ['id', 'key', 'doctor_id', 'created_by_user_id', 'last_login_at', 'email_verified_at', 'deleted_at'];
 
+    /** @var array<class-string, list<string>> Lo que el sistema lleva por dentro de cada cosa: no sale en el historial. */
+    public const HIDDEN = [
+        Charge::class => [
+            'patient_id', 'appointment_id', 'consultation_id', 'treatment_plan_item_id', 'treatment_id', 'discount_reason', 'suggested_amount',
+            'original_amount', 'original_discount', 'adjusted_by_user_id', 'adjusted_at', 'campaign_id', 'charged_at', 'voided_at', 'voided_by_user_id', 'void_reason',
+        ],
+    ];
+
     private const YES_NO = ['is_dentist', 'is_active', 'must_change_password', 'is_public', 'accepts_online_booking', 'show_price', 'is_evaluation', 'online_bookable', 'for_two', 'allows_upfront', 'allows_installments', 'reports.doctors_see_own', 'inventory.deduct_on_close'];
 
-    private const MONEY = ['price_from', 'price', 'upfront_discount', 'down_payment', 'monthly_amount', 'reports.monthly_goal'];
+    private const MONEY = ['price_from', 'price', 'upfront_discount', 'down_payment', 'monthly_amount', 'reports.monthly_goal', 'amount', 'discount'];
 
     private const HOURS = ['starts_at', 'ends_at', 'reminders.day_before_at', 'reminders.flag_unconfirmed_at'];
 
@@ -241,6 +261,20 @@ final class ChangeHistory
     private static function isFile(string $name): bool
     {
         return in_array($name, self::FILES, true) || self::pageField($name) === 'photo';
+    }
+
+    /**
+     * De los cobros entra solo lo que se cambió al cobrar (otro precio, un descuento, un concepto agregado o quitado):
+     * cada cargo que arma el sistema o se paga no es un cambio que alguien tenga que revisar.
+     */
+    public static function withoutRoutineCharges(Builder $query): Builder
+    {
+        return $query->whereNot(fn (Builder $charges) => $charges
+            ->where('auditable_type', Charge::class)
+            ->whereNull('new_values->adjusted_at')
+            ->where(fn (Builder $routine) => $routine
+                ->where('event', '!=', 'updated')
+                ->orWhere(fn (Builder $other) => $other->whereNull('new_values->amount')->whereNull('new_values->discount'))));
     }
 
     /** La sección de Configuración donde se hizo el cambio. */
@@ -309,6 +343,13 @@ final class ChangeHistory
             return ($doctor?->name ?? 'Un doctor').' · horario del '.mb_strtolower(WeeklySchedule::DAYS[(int) ($values['weekday'] ?? 0)] ?? 'día');
         }
 
+        if ($log->auditable_type === Charge::class) {
+            // "Limpieza dental · Rosa Huamán".
+            $patient = Patient::withTrashed()->find($record?->patient_id ?? $values['patient_id'] ?? null);
+
+            return ($record?->description ?? $values['description'] ?? 'Un cobro').($patient ? ' · '.$patient->full_name : '');
+        }
+
         if ($log->auditable_type === MessageTemplate::class) {
             $key = $record?->key ?? MessageTemplateKey::tryFrom((string) ($values['key'] ?? ''));
 
@@ -323,6 +364,10 @@ final class ChangeHistory
     {
         $schedule = $log->auditable_type === DoctorSchedule::class;
 
+        if ($log->auditable_type === Charge::class) {
+            return self::chargeInWords($log);
+        }
+
         return match ($log->event) {
             'created' => $schedule ? 'Se agregó el tramo '.self::range($log->new_values ?? []) : 'Se creó',
             'deleted' => $schedule ? 'Se quitó el tramo '.self::range($log->old_values ?? []) : 'Se borró',
@@ -331,6 +376,29 @@ final class ChangeHistory
             OffsiteCopies::DOWNLOADED, OffsiteCopies::DELETED => self::BACKUP_EVENTS[$log->event],
             default => self::changesInWords($log),
         };
+    }
+
+    /** "Precio: S/ 120.00 → S/ 70.00 · Motivo: paciente frecuente", "Se agregó al cobrar: S/ 30.00" o "Se quitó al cobrar". */
+    private static function chargeInWords(AuditLog $log): string
+    {
+        $new = $log->new_values ?? [];
+        $reason = filled($new['adjustment_reason'] ?? null) ? 'Motivo: '.$new['adjustment_reason'] : null;
+
+        if ($log->event === 'created') {
+            return collect(['Se agregó al cobrar: '.Money::format($new['amount'] ?? 0), (float) ($new['discount'] ?? 0) > 0 ? 'Descuento: '.Money::format($new['discount']) : null, $reason])
+                ->filter()
+                ->implode(' · ');
+        }
+
+        $changes = collect(self::changes($log))
+            ->reject(fn (array $change) => $change['field'] === 'Motivo')
+            ->map(fn (array $change) => $change['field'].': '.$change['before'].' → '.$change['after']);
+
+        if (filled($new['voided_at'] ?? null)) {
+            $changes->prepend('Se quitó al cobrar');
+        }
+
+        return $changes->push($reason)->filter()->implode(' · ') ?: 'Se guardó sin cambios que mostrar';
     }
 
     /** "Duración de la cita: 30 min → 45 min · Activo: Sí → No". */
@@ -371,6 +439,10 @@ final class ChangeHistory
 
         foreach ($attributes as $attribute) {
             if (in_array($attribute, self::INTERNAL, true)) {
+                continue;
+            }
+
+            if (in_array($attribute, self::HIDDEN[$log->auditable_type] ?? [], true)) {
                 continue;
             }
 

@@ -13,6 +13,7 @@
         .voided { margin-bottom: 12px; padding: 8px 10px; border: 2px solid #b91c1c; border-radius: 6px; color: #b91c1c; font-weight: 800; text-align: center; }
         .voided span { display: block; font-weight: 400; font-size: .85rem; }
         tfoot td { font-weight: 800; font-size: 1rem; border-bottom: 0; border-top: 2px solid var(--ink); }
+        .line-note { display: block; font-size: .75rem; color: var(--muted); }
         .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 6px 16px; margin-top: 14px; }
         .facts span { display: block; font-size: .75rem; color: var(--muted); }
         .balance { margin-top: 14px; padding: 8px 10px; background: #f1f5f9; border-radius: 6px; font-weight: 700; }
@@ -36,7 +37,12 @@
         <tbody>
             @foreach ($lines as $line)
                 <tr>
-                    <td>{{ $line['description'] }}</td>
+                    <td>
+                        {{ $line['description'] }}
+                        @if (filled($line['note'] ?? null))
+                            <span class="line-note">{{ $line['note'] }}</span>
+                        @endif
+                    </td>
                     <td class="num">{{ Money::format(abs($line['amount'])) }}</td>
                 </tr>
             @endforeach

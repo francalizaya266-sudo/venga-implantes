@@ -68,6 +68,8 @@ class BillingPanelTest extends TestCase
                     ['id' => $charge->id, 'description' => 'Limpieza dental', 'amount' => 150, 'discount' => 0],
                     ['id' => null, 'description' => 'Flúor', 'amount' => 30, 'discount' => 0],
                 ],
+                // Otro precio y un concepto agregado: se dice por qué.
+                'adjustment_reason' => 'Limpieza profunda',
                 'amount' => 180,
                 'method' => PaymentMethod::Yape->value,
                 'reference' => '004512',
@@ -78,7 +80,7 @@ class BillingPanelTest extends TestCase
             // Pagado todo, el botón ya no aparece.
             ->assertActionHidden(TestAction::make('checkout')->table($appointment));
 
-        $this->assertSame('150.00', $charge->fresh()->amount);
+        $this->assertSame(['150.00', '120.00', 'Limpieza profunda'], [$charge->fresh()->amount, $charge->fresh()->original_amount, $charge->fresh()->adjustment_reason]);
         $payment = Payment::sole();
         $this->assertSame(['180.00', PaymentMethod::Yape, '004512'], [$payment->amount, $payment->method, $payment->reference]);
         $this->assertTrue($payment->receivedBy->is($reception));

@@ -73,6 +73,13 @@ final class CheckoutAction
                         'amount' => (float) $c->amount,
                         'discount' => (float) $c->discount,
                     ])->all(),
+                    // Cómo llegó cada cargo a caja: si se cambia, se pide el motivo.
+                    'arrived' => $lines->map(fn (Charge $c) => [
+                        'id' => $c->getKey(),
+                        'description' => $c->description,
+                        'amount' => (float) $c->amount,
+                        'discount' => (float) $c->discount,
+                    ])->all(),
                     'previous' => $previous,
                     'paid_here' => round((float) $record->payments()->whereNull('voided_at')->sum('amount'), 2),
                     'amount' => $balance > 0 ? $balance : null,
@@ -86,6 +93,7 @@ final class CheckoutAction
                 Hidden::make('previous_items'),
                 Hidden::make('paid_here'),
                 Hidden::make('upcoming'),
+                Hidden::make('arrived')->dehydrated(false),
                 Repeater::make('lines')
                     ->label('Lo de esta cita')
                     ->table([
@@ -126,6 +134,16 @@ final class CheckoutAction
                     ->defaultItems(0)
                     ->live()
                     ->afterStateUpdated(fn (Get $get, Set $set) => self::refreshAmount($get, $set)),
+                // Si no se cobra como llegó (otro precio, un descuento, un concepto agregado o quitado), se dice por qué:
+                // sale en el cierre del día y en la constancia, y quien administra recibe una alerta.
+                TextInput::make('adjustment_reason')
+                    ->label('Motivo del cambio')
+                    ->placeholder('Por ejemplo: paciente frecuente')
+                    ->helperText(fn (Get $get) => 'Cambios: '.implode('; ', self::changes($get)).'. Quien administra lo ve en el cierre del día.')
+                    ->maxLength(255)
+                    ->required(fn (Get $get) => self::changes($get) !== [])
+                    ->visible(fn (Get $get) => self::changes($get) !== [])
+                    ->validationMessages(['required' => 'Escribe por qué cambia el cobro: sale en el cierre del día.']),
                 View::make('filament.forms.total-to-pay')
                     ->viewData(fn (Get $get) => self::totalToPay($get)),
                 Text::make(fn (Get $get) => $get('upcoming'))
@@ -142,7 +160,7 @@ final class CheckoutAction
                 $user = self::user();
 
                 $payment = DB::transaction(function () use ($billing, $data, $record, $user) {
-                    $billing->reviseCharges($record, array_values($data['lines'] ?? []), $user);
+                    $billing->reviseCharges($record, array_values($data['lines'] ?? []), $user, $data['adjustment_reason'] ?? null);
 
                     return (float) ($data['amount'] ?? 0) > 0 ? $billing->registerPayment($record->patient, $data, $user, $record) : null;
                 });
@@ -160,6 +178,51 @@ final class CheckoutAction
                     ->body('Saldo del paciente: '.Money::balance($record->patient->balance()))
                     ->send();
             });
+    }
+
+    /**
+     * Lo que no queda como llegó a caja, en palabras: "el precio de Limpieza dental, de S/ 120.00 a S/ 70.00",
+     * "un descuento de S/ 20.00 en Limpieza dental", "se agregó Radiografía" o "se quitó Flúor".
+     *
+     * @return list<string>
+     */
+    private static function changes(Get $get): array
+    {
+        $arrived = collect($get('arrived') ?? [])->keyBy(fn (array $line) => (int) $line['id']);
+        $lines = collect($get('lines') ?? []);
+        $changes = [];
+
+        foreach ($lines as $line) {
+            $description = trim((string) ($line['description'] ?? '')) ?: 'un concepto';
+            $before = filled($line['id'] ?? null) ? $arrived->get((int) $line['id']) : null;
+
+            if ($before === null) {
+                $changes[] = 'se agregó '.$description;
+
+                continue;
+            }
+
+            $amount = round((float) ($line['amount'] ?? 0), 2);
+            $discount = round((float) ($line['discount'] ?? 0), 2);
+
+            if (abs($amount - (float) $before['amount']) >= 0.005) {
+                $changes[] = 'el precio de '.$description.', de '.Money::format($before['amount']).' a '.Money::format($amount);
+            }
+
+            if (abs($discount - (float) $before['discount']) >= 0.005) {
+                $changes[] = $discount > 0
+                    ? 'un descuento de '.Money::format($discount).' en '.$description
+                    : 'el descuento de '.$description.' a cero';
+            }
+        }
+
+        $kept = $lines->pluck('id')->filter()->map(fn (mixed $id) => (int) $id)->all();
+
+        foreach ($arrived->except($kept) as $removed) {
+            $changes[] = 'se quitó '.$removed['description'];
+        }
+
+        return $changes;
     }
 
     /** Saldo anterior más lo de esta cita. $path lleva del campo que cambió a la raíz del formulario. */

@@ -27,9 +27,10 @@ final class PaymentReceipt
 
     /**
      * Lo que cubrió el pago: los cargos que todavía se debían al pagar, en el orden en que se cubren.
-     * Lo que sobra queda a cuenta. Una devolución es una sola línea.
+     * Lo que sobra queda a cuenta. Una devolución es una sola línea. Lo que no se cobró a su precio (otro precio o
+     * un descuento) lleva una nota con el precio y el motivo.
      *
-     * @return list<array{description: string, amount: float}>
+     * @return list<array{description: string, amount: float, note?: string}>
      */
     public function lines(Payment $payment): array
     {
@@ -50,7 +51,8 @@ final class PaymentReceipt
             $covers = round(min($left, $net - $coveredBefore), 2);
 
             if ($covers > 0) {
-                $lines[] = ['description' => $charge->description, 'amount' => $covers];
+                $note = PriceAdjustments::receiptNote($charge);
+                $lines[] = ['description' => $charge->description, 'amount' => $covers] + ($note !== null ? ['note' => $note] : []);
                 $left = round($left - $covers, 2);
             }
 
