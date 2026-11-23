@@ -92,7 +92,7 @@
             <p class="backup-meta">
                 Todavía no hay una carpeta elegida: las copias se quedan solo aquí.
                 @unless ($canDownload)
-                    {{ $whoDownloads ? 'La elige '.$whoDownloads.', porque las copias traen las historias clínicas.' : 'La elige el administrador que también es odontólogo.' }}
+                    {{ $whoDownloads ? 'La elige '.$whoDownloads.', porque las copias traen las historias clínicas.' : 'La elige quien administra el panel y además es dentista.' }}
                 @endunless
             </p>
         @elseif ($extraCopy['problem'])
