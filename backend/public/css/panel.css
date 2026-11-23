@@ -385,14 +385,16 @@
     .agenda-frame.is-fit { overflow: clip; max-height: none; }
     .agenda-frame.is-fit .agenda-head { top: 4rem; }
 }
-/* Con el dedo, cada botón de la barra y el siguiente paso de una cita miden 44 px: el riel crece con ellos. */
+/* Con el dedo, cada botón de la barra mide 44 px: el riel crece con ellos. El siguiente paso de una cita se ve del
+   tamaño de siempre (con 44 px tapaba el nombre y la hora de una cita de media hora), pero el dedo lo alcanza en 44 px
+   de alto: se toca también un poco por encima y por debajo del botón. */
 @media (pointer: coarse) {
     .agenda-nav { height: 3.125rem; }
     .agenda-toolbar-group .agenda-find-toggle { height: 2.75rem; }
     .agenda-nav-btn.is-icon { width: 2.75rem; }
     .agenda-modes .fi-tabs-item { padding-block: .4375rem; }
     .agenda-help summary { display: inline-flex; align-items: center; min-height: 2.75rem; }
-    .agenda-appt-step .fi-btn { min-height: 2.75rem; padding-inline: .75rem; }
+    .agenda-appt-step .fi-btn::after { content: ""; position: absolute; inset-inline: -.25rem; top: calc(50% - 1.375rem); height: 2.75rem; }
 }
 @media (prefers-reduced-motion: reduce) {
     .agenda-appt { animation-name: agenda-fade; }
