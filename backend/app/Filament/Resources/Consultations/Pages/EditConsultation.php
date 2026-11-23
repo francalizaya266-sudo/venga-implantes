@@ -85,6 +85,16 @@ class EditConsultation extends EditRecord
         return $this->isStale ? Response::deny() : parent::getDefaultActionAuthorizationResponse($action);
     }
 
+    /** En la pantalla que quedó atrás, "Guardar ahora" tampoco guarda ni rebota: la pantalla ya pasa a la atención terminada. */
+    public function save(bool $shouldRedirect = true, bool $shouldSendSavedNotification = true): void
+    {
+        if ($this->isStale) {
+            return;
+        }
+
+        parent::save($shouldRedirect, $shouldSendSavedNotification);
+    }
+
     /** Hora del último guardado automático, para mostrarla en la barra fija. */
     #[Locked]
     public ?string $autosavedAt = null;

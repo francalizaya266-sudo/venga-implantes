@@ -71,6 +71,23 @@ class FinishedConsultationTest extends TestCase
             ->assertActionNotMounted();
     }
 
+    public function test_saving_by_hand_in_a_tab_left_behind_leads_to_the_finished_visit(): void
+    {
+        $this->freezeMonday();
+        $doctor = Doctor::factory()->create();
+        $consultation = Consultation::factory()->for($doctor)->create(['closed_at' => null, 'chief_complaint' => 'Dolor de muela']);
+        $this->actingAs($doctor->user);
+
+        $page = Livewire::test(EditConsultation::class, ['record' => $consultation->getRouteKey()])
+            ->set('data.chief_complaint', 'Escrito después de terminar');
+        $consultation->update(['closed_at' => now()]);
+
+        // "Guardar ahora" en la pestaña que quedó atrás no rebota con un cuadro de error ni cambia la atención terminada.
+        $page->call('save')
+            ->assertRedirect(ConsultationResource::getUrl('view', ['record' => $consultation]));
+        $this->assertSame('Dolor de muela', $consultation->fresh()->chief_complaint);
+    }
+
     public function test_the_finished_visit_offers_collecting_and_booking_once_next_to_their_explanation(): void
     {
         $this->freezeMonday();
