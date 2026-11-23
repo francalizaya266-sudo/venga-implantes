@@ -12,6 +12,7 @@ use App\Models\Appointment;
 use App\Models\Charge;
 use App\Models\DailyClosing;
 use App\Models\Doctor;
+use App\Models\MessageTemplate;
 use App\Models\Patient;
 use App\Models\Payment;
 use App\Models\Setting;
@@ -165,6 +166,26 @@ class DaySummaryTest extends TestCase
             'Descuentos puestos antes de cobrar: S/ 10.00 en 1 cargo (Pedro Prueba)',
             'Precios cambiados y descuentos al cobrar: 2 cambios, se cobró S/ 5.00 menos, S/ 20.00 más por precios subidos (Pedro Prueba: La promoción era hasta ayer · Pedro Prueba: La promoción era hasta ayer)',
         ]), app(WhatsAppOutbox::class)->draft(WhatsappMessage::sole()));
+    }
+
+    public function test_the_saved_summary_text_tells_apart_the_discounts_put_before_checkout_unless_the_clinic_changed_it(): void
+    {
+        $firstBody = "Resumen del {fecha} en {consultorio}\nCobrado: {cobrado}\nArqueo: {arqueo} · cerró {cerro}\nPacientes atendidos: {atendidos} · Faltas: {faltas} · Citas sin cerrar: {sin_cerrar}\nDescuentos: {descuentos}\nCitas del {siguiente} sin confirmar: {sin_confirmar}";
+        $oldBody = "Resumen del {fecha} en {consultorio}\nCobrado: {cobrado}\nArqueo: {arqueo} · cerró {cerro}\nPacientes atendidos: {atendidos} · Faltas: {faltas} · Citas sin cerrar: {sin_cerrar}\nDescuentos: {descuentos}\nPrecios cambiados y descuentos al cobrar: {precios}\nCitas del {siguiente} sin confirmar: {sin_confirmar}";
+        $migration = require database_path('migrations/2026_11_23_090607_update_day_summary_template_counts_each_discount_once.php');
+        $savedBody = fn () => MessageTemplate::query()->where('key', MessageTemplateKey::DaySummary)->value('body');
+
+        // Con el texto de antes, y con el primero, que no traía los precios cambiados al cobrar, pasa al de ahora.
+        foreach ([$oldBody, $firstBody] as $body) {
+            MessageTemplate::query()->where('key', MessageTemplateKey::DaySummary)->update(['body' => $body]);
+            $migration->up();
+            $this->assertSame(MessageTemplateKey::DaySummary->defaultBody(), $savedBody());
+        }
+
+        // Si el consultorio ya lo había cambiado, se respeta.
+        MessageTemplate::query()->where('key', MessageTemplateKey::DaySummary)->update(['body' => 'Resumen del {fecha}: {cobrado}']);
+        $migration->up();
+        $this->assertSame('Resumen del {fecha}: {cobrado}', $savedBody());
     }
 
     public function test_without_a_phone_of_their_own_it_goes_to_the_clinic_and_closing_again_replaces_it(): void
