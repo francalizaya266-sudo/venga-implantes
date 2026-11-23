@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\V1\Account\AccountController;
 use App\Http\Controllers\Api\V1\Account\HealthController;
 use App\Http\Controllers\Api\V1\Account\LinkController;
 use App\Http\Controllers\Api\V1\Booking\BookingController;
+use App\Http\Controllers\Api\V1\Booking\WaitlistController;
 use App\Http\Controllers\Api\V1\Site\FaqController;
 use App\Http\Controllers\Api\V1\Site\HomeController;
 use App\Http\Controllers\Api\V1\Site\PageController;
@@ -54,6 +55,8 @@ Route::controller(BookingController::class)
             ->middleware(['signed:relative', 'throttle:30,1'])
             ->name('origin');
     });
+// "Avísame si se libera un horario": quien no encuentra un horario que le sirva se anota en la lista de espera.
+Route::post('booking/waitlist', [WaitlistController::class, 'store'])->name('booking.waitlist');
 
 // Mi cuenta: entra con el celular recordado (sin contraseña).
 Route::prefix('account')

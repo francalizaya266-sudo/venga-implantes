@@ -44,7 +44,9 @@ class WaitlistEntriesTable
                 TextColumn::make('patient')
                     ->label('Paciente')
                     ->state(fn (WaitlistEntry $record) => $record->patient->full_name)
-                    ->description(fn (WaitlistEntry $record) => $record->patient->account ? Phone::display($record->patient->account->phone) : 'Sin celular')
+                    // Quien se anotó solo desde la web ("Avísame si se libera un horario") todavía no habló con nadie.
+                    ->description(fn (WaitlistEntry $record) => ($record->patient->account ? Phone::display($record->patient->account->phone) : 'Sin celular')
+                        .($record->from_web ? ' · Desde la web' : ''))
                     ->searchable(query: fn (Builder $query, string $search) => $query->whereHas('patient', fn (Builder $patient) => $patient->search($search)))
                     ->weight('bold'),
                 TextColumn::make('wants')

@@ -842,7 +842,7 @@
             }
           },
           "422": {
-            "description": "Validación, o una regla del consultorio (tratamiento que no se reserva en la web, familiar que no es de este celular, código que no existe…).",
+            "description": "Validación, o una regla del consultorio (tratamiento que no se reserva en la web, familiar que no es de este celular…). Un código de promoción que no existe no impide reservar: la respuesta lo dice en promo_notice.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1019,6 +1019,83 @@
           },
           "429": {
             "description": "Demasiados pedidos seguidos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/booking/waitlist": {
+      "post": {
+        "operationId": "booking.waitlist",
+        "tags": [
+          "Reserva"
+        ],
+        "summary": "Avísame si se libera un horario",
+        "description": "Quien no encuentra un horario que le sirva queda en la lista de espera del consultorio, marcado como anotado desde la web, y recepción recibe el aviso. Si ya esperaba el mismo tratamiento, se actualiza lo que pidió. Con celular recordado no pide el número y puede ser para un familiar.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Xsrf"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WaitlistRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Quedó en la lista de espera.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Message"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Elegir a un familiar registrado desde un celular que no está recordado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "419": {
+            "description": "La sesión venció y la cabecera X-XSRF-TOKEN ya no vale: la web pide /site para renovarla y reintenta una vez.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validación, o una regla del consultorio (tratamiento que no se reserva en la web, familiar que no es de este celular, número bloqueado).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rejected"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Varias anotaciones seguidas desde la misma conexión.",
             "content": {
               "application/json": {
                 "schema": {
@@ -5861,6 +5938,78 @@
             }
           }
         }
+      },
+      "WaitlistRequest": {
+        "type": "object",
+        "required": [
+          "treatment_id",
+          "preferred_period"
+        ],
+        "properties": {
+          "treatment_id": {
+            "type": "integer"
+          },
+          "doctor_id": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "El doctor que eligió al ver los horarios; vacío: cualquiera."
+          },
+          "patient_id": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Un familiar del celular recordado; vacío para una persona nueva."
+          },
+          "phone": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 20,
+            "description": "Obligatorio sin celular recordado. Celular peruano de 9 dígitos."
+          },
+          "first_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 80,
+            "description": "Obligatorio para una persona nueva."
+          },
+          "last_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 80,
+            "description": "Obligatorio para una persona nueva."
+          },
+          "preferred_period": {
+            "type": "string",
+            "enum": [
+              "any",
+              "morning",
+              "afternoon"
+            ],
+            "description": "A qué hora puede venir (App\\Enums\\DayPeriod)."
+          },
+          "days": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 120,
+            "description": "Qué días le sirven, con sus palabras (\"lunes o sábados\")."
+          },
+          "accepts_privacy": {
+            "type": "boolean",
+            "description": "Debe ser true la primera vez (Ley N.º 29733)."
+          }
+        },
+        "additionalProperties": false
       },
       "Welcome": {
         "type": "object",
