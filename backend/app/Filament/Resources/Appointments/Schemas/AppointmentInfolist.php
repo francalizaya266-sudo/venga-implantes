@@ -230,9 +230,10 @@ class AppointmentInfolist
                 'label' => 'Código de campaña',
                 'value' => (string) $promoCode,
                 // Lo escribió el paciente en la web y no es de ninguna promoción vigente: la cita se reservó igual.
-                'hint' => $appointment->hasUnknownPromoCode()
-                    ? collect([$appointment->campaign?->name, 'No es de ninguna promoción vigente: revísalo con el paciente'])->filter()->implode(' · ')
-                    : $appointment->campaign?->name,
+                'hint' => collect([
+                    $appointment->campaign?->name,
+                    $appointment->hasUnknownPromoCode() ? 'No es de ninguna promoción vigente: revísalo con el paciente' : null,
+                ])->filter()->implode(' · ') ?: null,
             ] : null,
             $appointment->fixed_date ? [
                 'icon' => Heroicon::OutlinedLockClosed,

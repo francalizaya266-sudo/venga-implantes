@@ -358,7 +358,9 @@ final class WaitlistService
     public function addFromWeb(WebWaitlistData $data, Treatment $treatment, ?Doctor $doctor = null, ?RememberedDevice $device = null): WaitlistEntry
     {
         $phone = Phone::normalize($data->phone);
-        $recognized = $device !== null && $device->account->phone === $phone;
+        /** @var Account|null $deviceAccount La familia del celular recordado, si lo hay. */
+        $deviceAccount = $device?->account;
+        $recognized = $device !== null && $deviceAccount?->phone === $phone;
         $fromVerifiedDevice = $recognized && $device->isVerified();
 
         return DB::transaction(function () use ($data, $treatment, $doctor, $phone, $recognized, $fromVerifiedDevice) {
@@ -425,11 +427,15 @@ final class WaitlistService
             }
 
             // Como al reservar: quien está "por confirmar" en este número no es de la familia y no se puede elegir.
-            return $account->patients()->whereKeyNot($account->guestIds())->find($data->patientId)
-                ?? throw new BookingException('No encontramos a esa persona en este celular. Elige de nuevo para quién es.');
+            /** @var Patient|null $relative */
+            $relative = $account->patients()->whereKeyNot($account->guestIds())->find($data->patientId);
+
+            return $relative ?? throw new BookingException('No encontramos a esa persona en este celular. Elige de nuevo para quién es.');
         }
 
-        $existing = $account->patients()->get()->first(
+        /** @var Collection<int, Patient> $patients */
+        $patients = $account->patients()->get();
+        $existing = $patients->first(
             fn (Patient $patient) => FamilyNames::comparable((string) $patient->first_name) === FamilyNames::comparable((string) $data->firstName)
                 && FamilyNames::comparable((string) $patient->last_name) === FamilyNames::comparable((string) $data->lastName)
         );

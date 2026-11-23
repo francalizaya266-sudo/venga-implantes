@@ -6,6 +6,7 @@ use App\Enums\DayPeriod;
 use App\Exceptions\BookingException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\StoreWaitlistRequest;
+use App\Models\Account;
 use App\Services\Booking\WaitlistService;
 use App\Services\Booking\WebAvailability;
 use App\Services\Booking\WebWaitlistData;
@@ -41,7 +42,9 @@ class WaitlistController extends Controller
 
         // El doctor que eligió al ver los horarios, si atiende ese tratamiento; si no, cualquiera.
         $doctor = $availability->doctorsFor($treatment)->firstWhere('id', (int) ($data['doctor_id'] ?? 0));
-        $phone = $device ? $device->account->phone : (string) $data['phone'];
+        /** @var Account|null $account La familia del celular recordado, si lo hay. */
+        $account = $device?->account;
+        $phone = $account !== null ? $account->phone : (string) $data['phone'];
 
         try {
             $waitlist->addFromWeb(new WebWaitlistData(

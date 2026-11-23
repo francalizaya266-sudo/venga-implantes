@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1\Booking;
 
 use App\Enums\AppointmentOrigin;
+use App\Enums\AppointmentStatus;
 use App\Enums\PatientRelationship;
 use App\Exceptions\BookingException;
 use App\Http\Controllers\Controller;
@@ -217,13 +218,17 @@ class BookingController extends Controller
      */
     public function show(Request $request, Appointment $appointment, PageMeta $meta): array
     {
-        abort_unless(self::hasValidConfirmationSignature($request, $appointment) && $appointment->status->isChangeable(), 404);
+        /** @var AppointmentStatus $status */
+        $status = $appointment->status;
+        abort_unless(self::hasValidConfirmationSignature($request, $appointment) && $status->isChangeable(), 404);
 
         $appointment->load(['patient.account', 'doctor', 'treatment', 'campaign']);
+        /** @var Patient $patient */
+        $patient = $appointment->patient;
         $device = $this->access->device($request);
 
         return [
-            'data' => $this->confirmation($appointment, $device?->account_id === $appointment->patient->account_id ? $device : null, false),
+            'data' => $this->confirmation($appointment, $device?->account_id === $patient->account_id ? $device : null, false),
             'meta' => $meta->for(title: 'Tu cita quedó reservada', noindex: true),
         ];
     }
