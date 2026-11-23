@@ -1,5 +1,6 @@
 <?php
 
+use App\Services\Database\DatabaseObjects;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -36,7 +37,9 @@ return new class extends Migration
     /**
      * Deja la base como debe quedar, sin importar lo que hizo antes 2026_11_18_210452: en MySQL 8 creó los cinco, en
      * MariaDB declarada como "mariadb" no creó ninguno y desde su arreglo crea los tres normales. Se revisa cada índice
-     * antes de tocarlo, así que se puede correr sobre cualquiera de esas bases.
+     * antes de tocarlo, así que se puede correr sobre cualquiera de esas bases. Al final vuelve a crear los objetos de
+     * database/sql/mysql: la vista v_agenda_del_dia ahora también busca el día como un rango de horas, con el índice de
+     * starts_at (en otro motor, DatabaseObjects no hace nada).
      */
     public function up(): void
     {
@@ -53,6 +56,8 @@ return new class extends Migration
                 }
             }
         }
+
+        (new DatabaseObjects)->install();
     }
 
     /**
