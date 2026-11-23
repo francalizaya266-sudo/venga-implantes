@@ -1,6 +1,9 @@
 import { isValidElement, lazy, type ComponentType } from 'react';
 import { createBrowserRouter, matchRoutes, useRouteError, type RouteObject } from 'react-router';
+import type { Site } from '@/api/types';
 import { Root } from '@/app/Root';
+import { mainNav, moreNav } from '@/components/layout/navigation';
+import { paths } from '@/lib/paths';
 import { ErrorPage } from '@/pages/ErrorPage';
 import { HomePage } from '@/pages/HomePage';
 
@@ -36,28 +39,52 @@ function onDemand<Name extends string, Module extends Record<Name, ComponentType
  * mostrar antes el hueco de la página. Si no llega (sin señal), se pinta igual y la página lo vuelve a pedir.
  */
 export function loadPage(pathname: string): Promise<unknown> {
-  const element = matchRoutes(pages, pathname)?.at(-1)?.route.element;
-  const load = isValidElement(element) ? pageLoaders.get(element.type) : undefined;
+  const load = loaderOf(pathname);
 
   return load ? load().catch(() => undefined) : Promise.resolve();
 }
 
-/**
- * Con la primera página ya en pantalla, el navegador baja el código de las demás en un rato libre: así, al tocar
- * "Reservar cita" o el menú, la página sale de una vez y no espera su archivo. Con el ahorro de datos activado no
- * se adelanta nada: cada página se baja al abrirla.
- */
-export function prefetchPages(): void {
-  const connection = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection;
+/** Cómo se baja el código de la página de una dirección, si viene aparte del archivo principal. */
+function loaderOf(pathname: string): (() => Promise<unknown>) | undefined {
+  const element = matchRoutes(pages, pathname)?.at(-1)?.route.element;
 
-  if (connection?.saveData) {
+  return isValidElement(element) ? pageLoaders.get(element.type) : undefined;
+}
+
+/**
+ * Las páginas que se adelantan: las del menú (las secciones apagadas no están en él: darían 404), Mi cuenta, la
+ * reserva y la de un servicio, a la que llevan las tarjetas del inicio (todos los servicios usan el mismo código).
+ * Las que se abren desde un enlace (la cita reservada, los de WhatsApp, la privacidad…) se bajan al abrirlas.
+ */
+function pagesAhead(sections: Site['sections']): string[] {
+  return [
+    ...[...mainNav(sections), ...moreNav(sections)].map((item) => item.href),
+    paths.account,
+    paths.booking(),
+    paths.treatment('servicio'),
+  ];
+}
+
+/** Cómo avisa el navegador que la señal es muy lenta (2G): ahí no se baja nada que no se pidió. */
+const SLOW_CONNECTION = ['slow-2g', '2g'];
+
+/**
+ * Con la primera página ya en pantalla, el navegador baja el código de las que siguen en un rato libre: así, al
+ * tocar "Reservar cita" o el menú, la página sale de una vez y no espera su archivo. Con el ahorro de datos
+ * activado o con una señal muy lenta no se adelanta nada: cada página se baja al abrirla.
+ */
+export function prefetchPages(sections: Site['sections']): void {
+  const connection = (navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } })
+    .connection;
+
+  if (connection?.saveData || SLOW_CONNECTION.includes(connection?.effectiveType ?? '')) {
     return;
   }
 
   const prefetch = () => {
-    for (const load of pageLoaders.values()) {
+    for (const pathname of pagesAhead(sections)) {
       // Es solo un adelanto: si no llega (sin señal), no hay nada que avisar.
-      load().catch(() => undefined);
+      loaderOf(pathname)?.().catch(() => undefined);
     }
   };
 

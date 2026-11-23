@@ -3,7 +3,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { RouterProvider } from 'react-router/dom';
 import { preloadedData } from '@/api/client';
-import { retry } from '@/api/queries';
+import { cachedSite, retry } from '@/api/queries';
 import { createAppRouter, loadPage, prefetchPages } from '@/app/router';
 import '@/styles/site.css';
 
@@ -41,6 +41,11 @@ firstPage.then(() => {
     </StrictMode>,
   );
 
-  // Las demás páginas se bajan en un rato libre, después de pintar la primera.
-  prefetchPages();
+  // Las páginas que siguen (las del menú, según las secciones que tiene la web) se bajan en un rato libre, después
+  // de pintar la primera.
+  const site = cachedSite(queryClient);
+
+  if (site) {
+    prefetchPages(site.sections);
+  }
 });

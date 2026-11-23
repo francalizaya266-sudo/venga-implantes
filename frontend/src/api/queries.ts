@@ -1,4 +1,4 @@
-import { onlineManager, useQuery } from '@tanstack/react-query';
+import { onlineManager, useQuery, type QueryClient } from '@tanstack/react-query';
 import { useEffect, useSyncExternalStore } from 'react';
 import { ApiError, apiUrl, cacheKey, get, type Query } from '@/api/client';
 import type { DataResponse, PageMeta, PageResponse, Site } from '@/api/types';
@@ -38,6 +38,11 @@ export function useSite(): Site | undefined {
   });
 
   return data?.data;
+}
+
+/** Los datos del consultorio, si ya están: el documento con que se abrió la web los trae escritos. */
+export function cachedSite(client: QueryClient): Site | undefined {
+  return client.getQueryData<DataResponse<Site>>([cacheKey(apiUrl('site'))])?.data;
 }
 
 /** Pone el título y lo demás de la página en el documento cuando llegan (o cambian) sus datos. */

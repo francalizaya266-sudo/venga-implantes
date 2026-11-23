@@ -1,6 +1,8 @@
+import { QueryClient } from '@tanstack/react-query';
 import { describe, expect, it } from 'vitest';
 import { ApiError } from '@/api/client';
-import { pageError, retry } from '@/api/queries';
+import { cachedSite, pageError, retry } from '@/api/queries';
+import { site } from '@/test/fixtures';
 
 const offline = new TypeError('Failed to fetch');
 const notFound = new ApiError(404, { message: 'No encontramos esta página' });
@@ -28,5 +30,18 @@ describe('pageError', () => {
 
   it('shows what the API answered even with the page on screen', () => {
     expect(pageError({ data: 'la página' }, notFound)).toBe(notFound);
+  });
+});
+
+describe('cachedSite', () => {
+  it('gives the data of the clinic that the document brought written, as main.tsx leaves them', () => {
+    const client = new QueryClient();
+    client.setQueryData(['/api/v1/site'], { data: site() });
+
+    expect(cachedSite(client)?.clinic.name).toBe('Clínica Vega');
+  });
+
+  it('gives nothing while they have not arrived', () => {
+    expect(cachedSite(new QueryClient())).toBeUndefined();
   });
 });
