@@ -2,6 +2,7 @@
 
 namespace App\Services\Inventory;
 
+use App\Enums\SupplyCategory;
 use App\Filament\Support\ClinicalAlerts;
 use App\Models\Appointment;
 use App\Models\Supply;
@@ -48,7 +49,7 @@ final class Tray
         return $appointments->map(function (Appointment $appointment) use ($recipes, $supplies, &$used) {
             $items = collect($recipes->get($appointment->treatment_id, []))
                 ->filter(fn (object $row) => $supplies->has($row->supply_id))
-                ->sortBy(fn (object $row) => [$supplies[$row->supply_id]->category, $supplies[$row->supply_id]->name])
+                ->sortBy(fn (object $row) => [self::categoryPosition($supplies[$row->supply_id]), $supplies[$row->supply_id]->name])
                 ->map(function (object $row) use ($supplies, &$used) {
                     /** @var Supply $supply */
                     $supply = $supplies[$row->supply_id];
@@ -73,6 +74,17 @@ final class Tray
                 'items' => $items,
             ];
         })->all();
+    }
+
+    /**
+     * El lugar de la categoría del insumo en la bandeja: el orden de SupplyCategory (la anestesia primero). Comparar
+     * las categorías mismas no ordena nada, y el orden quedaba al azar de la base de datos.
+     */
+    private static function categoryPosition(Supply $supply): int
+    {
+        $position = array_search($supply->category, SupplyCategory::cases(), true);
+
+        return $position === false ? count(SupplyCategory::cases()) : $position;
     }
 
     /**
