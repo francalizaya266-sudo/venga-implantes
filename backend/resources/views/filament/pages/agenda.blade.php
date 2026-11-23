@@ -50,10 +50,10 @@
                         <x-filament::icon icon="heroicon-m-chevron-right" class="agenda-nav-icon" />
                     </button>
                 </div>
-                <x-filament::input.wrapper class="agenda-date">
-                    {{-- Al escribir la fecha a mano se espera a que termine: cada tecla no recarga la agenda. --}}
-                    <x-filament::input type="date" wire:model.live.debounce.800ms="date" aria-label="Ir a la fecha" />
-                </x-filament::input.wrapper>
+                {{-- El calendario del panel: en español y dd/mm/aaaa, aunque la computadora esté en inglés. --}}
+                <div class="agenda-date">
+                    {{ $this->dateForm }}
+                </div>
             </div>
 
             <div class="agenda-toolbar-group">

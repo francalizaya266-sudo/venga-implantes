@@ -385,6 +385,26 @@ class AgendaCalendarTest extends TestCase
             ->assertSet('date', '2026-11-06');
     }
 
+    public function test_the_date_is_chosen_with_the_panel_calendar_in_spanish_not_the_browsers(): void
+    {
+        $this->freezeMonday();
+        $this->doctorOffering(Treatment::factory()->create());
+
+        $this->actingAs(User::factory()->reception()->create());
+
+        // Un Chrome en inglés mostraba 11/23/2026 junto a "Lunes 23 de noviembre": ahora es el calendario del panel.
+        Livewire::test(Agenda::class)
+            ->assertDontSeeHtml('type="date"')
+            ->assertSeeHtml(['dateTimePickerFormComponent', "locale: 'es'", 'Ir a la fecha'])
+            // El calendario manda el día con su hora: cuenta el día.
+            ->set('date', '2026-11-05 00:00:00')
+            ->assertSet('date', '2026-11-05')
+            ->assertSee('Jueves 5 de noviembre')
+            // Si se borra la fecha, la agenda se queda en el día que se miraba.
+            ->set('date', null)
+            ->assertSet('date', '2026-11-05');
+    }
+
     public function test_a_past_day_is_only_looked_at_and_tapping_it_says_why(): void
     {
         $this->freezeMonday();
