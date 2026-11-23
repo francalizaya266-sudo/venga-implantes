@@ -47,4 +47,24 @@ class CashChangeTest extends TestCase
         $this->assertSame(['80.00', PaymentMethod::Cash], [$payment->amount, $payment->method]);
         $this->assertSame(0.0, $patient->balance());
     }
+
+    public function test_touching_the_chosen_method_again_keeps_it_chosen(): void
+    {
+        $this->freezeMonday();
+        $patient = Patient::factory()->create();
+        Charge::factory()->for($patient)->create(['amount' => 80, 'charged_at' => now()]);
+        $this->actingAs(User::factory()->reception()->create());
+
+        // El botón del medio ya elegido lo desmarca: vuelve solo, y con él "¿Con cuánto paga?".
+        Livewire::test(Dashboard::class)
+            ->mountAction('registerPayment')
+            ->setActionData(['patient_id' => $patient->id, 'method' => PaymentMethod::Cash->value])
+            ->setActionData(['method' => null])
+            ->assertActionDataSet(['method' => PaymentMethod::Cash])
+            ->assertMountedActionModalSee('¿Con cuánto paga?')
+            // Tocar otro sí lo cambia.
+            ->setActionData(['method' => PaymentMethod::Yape->value])
+            ->assertActionDataSet(['method' => PaymentMethod::Yape])
+            ->assertMountedActionModalDontSee('¿Con cuánto paga?');
+    }
 }
