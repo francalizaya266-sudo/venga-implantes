@@ -1651,7 +1651,7 @@ summary.dash-block-title:focus-visible { outline: 2px solid var(--primary-500); 
     .dash-month { gap: .75rem; }
     .dash-month .fi-wi-stats-overview-stat { padding: .85rem; }
     .dash-month .fi-wi-stats-overview-stat-value { font-size: 1.2rem; line-height: 1.5rem; overflow-wrap: anywhere; }
-    .dash-month .fi-wi-stats-overview-stat-description { font-size: .75rem; }
+    .dash-month .fi-wi-stats-overview-stat-description { font-size: .72rem; }
 }
 
 .dash-rows { margin: .5rem 0 0; padding: 0; list-style: none; display: grid; }
