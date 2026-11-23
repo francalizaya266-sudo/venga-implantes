@@ -3,6 +3,8 @@
 {{-- "Dictar" y el odontograma van antes que Alpine, sin defer: el odontograma registra su componente y usa "Dictar". --}}
 <script src="{{ asset('js/dictation.js') }}?v={{ @filemtime(public_path('js/dictation.js')) }}"></script>
 <script src="{{ asset('js/odontogram.js') }}?v={{ @filemtime(public_path('js/odontogram.js')) }}"></script>
+{{-- Los avisos de campo vacío o mal escrito, en español y no en el idioma del navegador. --}}
+<script src="{{ asset('js/validation-messages.js') }}?v={{ @filemtime(public_path('js/validation-messages.js')) }}" defer></script>
 {{-- Safari del iPhone solo muestra el estado "tocado" (:active) si la página escucha los toques. --}}
 <script>document.addEventListener('touchstart', function () {}, { passive: true });</script>
 {{--
