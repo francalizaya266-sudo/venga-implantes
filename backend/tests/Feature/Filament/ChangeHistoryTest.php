@@ -160,6 +160,32 @@ class ChangeHistoryTest extends TestCase
             ->assertDontSee('Se guardó sin cambios que mostrar');
     }
 
+    public function test_saving_a_doctor_whose_schedule_comes_back_with_seconds_adds_no_row(): void
+    {
+        // Así devuelven MySQL y MariaDB la hora de un tramo; el selector del panel la manda sin segundos.
+        $this->actingAs(User::factory()->admin()->create());
+        $doctor = Doctor::factory()->create(['name' => 'Dra. Ana Torres']);
+        DoctorSchedule::create(['doctor_id' => $doctor->id, 'weekday' => 1, 'starts_at' => '09:00:00', 'ends_at' => '13:00:00']);
+        $before = AuditLog::query()->count();
+
+        Livewire::test(EditDoctor::class, ['record' => $doctor->getRouteKey()])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $this->assertSame($before, AuditLog::query()->count());
+    }
+
+    public function test_a_new_hour_for_a_range_saved_with_seconds_is_still_a_change(): void
+    {
+        $range = DoctorSchedule::create(['doctor_id' => Doctor::factory()->create()->id, 'weekday' => 1, 'starts_at' => '09:00:00', 'ends_at' => '13:00:00']);
+
+        $range->update(['starts_at' => '09:30', 'ends_at' => '13:00']);
+
+        // SQLite la devuelve como "09:30" y MySQL o MariaDB como "09:30:00".
+        $this->assertStringStartsWith('09:30', $range->fresh()->starts_at);
+        $this->assertSame(['starts_at' => '09:30'], AuditLog::query()->where('auditable_type', DoctorSchedule::class)->where('event', 'updated')->sole()->new_values);
+    }
+
     public function test_the_history_of_doctors_and_treatments_that_was_already_kept_can_now_be_read(): void
     {
         $this->actingAs(User::factory()->admin()->create());
