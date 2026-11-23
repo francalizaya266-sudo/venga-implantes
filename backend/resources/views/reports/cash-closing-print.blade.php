@@ -39,7 +39,7 @@
 
     <div class="tables">
         @foreach ($closing->tables() as $table)
-            <section @class(['wide' => in_array($table['key'], ['payments', 'voided'], true)])>
+            <section @class(['wide' => in_array($table['key'], ['payments', 'voided'], true)]) tabindex="0" aria-label="{{ $table['title'] }}">
                 <h2>{{ $table['title'] }}</h2>
                 @include('reports.partials.table', ['table' => $table, 'empty' => 'Sin pagos este día.'])
             </section>

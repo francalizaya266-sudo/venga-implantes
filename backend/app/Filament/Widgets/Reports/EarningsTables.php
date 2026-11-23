@@ -19,10 +19,46 @@ class EarningsTables extends Widget
 
     protected int|string|array $columnSpan = 'full';
 
-    /** @return array{tables: list<array<string, mixed>>, best: string|null} */
+    /** @return array{tables: list<array<string, mixed>>, best: string|null, fullWidth: list<string>} */
     protected function getViewData(): array
     {
-        return ['tables' => Tables::for($this->earnings()), 'best' => $this->best()];
+        $tables = Tables::for($this->earnings());
+
+        return ['tables' => $tables, 'best' => $this->best(), 'fullWidth' => self::fullWidth($tables, ['period'])];
+    }
+
+    /**
+     * Las tablas que van a todo el ancho: las anchas de por sí y la angosta que quedaría sola en su fila (las angostas
+     * van de a dos), para no dejar media fila vacía. Lo usan Ingresos y el cierre del día.
+     *
+     * @param  list<array<string, mixed>>  $tables
+     * @param  list<string>  $wide
+     * @return list<string>
+     */
+    public static function fullWidth(array $tables, array $wide): array
+    {
+        $fullWidth = [];
+        $narrow = [];
+
+        foreach ([...array_column($tables, 'key'), null] as $key) {
+            if ($key !== null && ! in_array($key, $wide, true)) {
+                $narrow[] = $key;
+
+                continue;
+            }
+
+            if (count($narrow) % 2 === 1) {
+                $fullWidth[] = end($narrow);
+            }
+
+            $narrow = [];
+
+            if ($key !== null) {
+                $fullWidth[] = $key;
+            }
+        }
+
+        return $fullWidth;
     }
 
     private function best(): ?string

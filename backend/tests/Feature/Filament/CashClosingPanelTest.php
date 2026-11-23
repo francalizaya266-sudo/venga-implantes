@@ -78,6 +78,17 @@ class CashClosingPanelTest extends TestCase
         $this->assertSame('2026-11-01', Closing::fromFilters(['date' => '2026-11-01'])->date->toDateString());
     }
 
+    public function test_the_day_chosen_in_the_page_is_the_one_the_closing_shows(): void
+    {
+        $this->actingAs($this->rosa);
+
+        // El calendario deja el día con la hora ("2026-11-01 00:00:00"): el cierre es el de ese día, no el de hoy.
+        $page = Livewire::withQueryParams(['filters' => ['date' => '2026-11-01']])->test(CashClosing::class);
+
+        $this->assertSame('2026-11-01', Closing::fromFilters($page->get('filters'))->date->toDateString());
+        $this->assertSame(500.0, Closing::fromFilters($page->get('filters'))->total());
+    }
+
     public function test_reception_sees_the_closing_and_prints_it(): void
     {
         $this->actingAs($this->rosa);

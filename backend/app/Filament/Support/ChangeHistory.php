@@ -115,7 +115,7 @@ final class ChangeHistory
             'name' => 'Nombre',
             'email' => 'Correo',
             'role' => 'Rol',
-            'is_dentist' => 'Es odontólogo',
+            'is_dentist' => 'Es dentista',
             'phone' => 'Celular',
             'is_active' => 'Puede entrar al panel',
             'must_change_password' => 'Tiene que elegir su contraseña al entrar',

@@ -9,7 +9,7 @@ class ClinicalException extends RuntimeException
 {
     public static function noDoctorProfile(): self
     {
-        return new self('Tu usuario no tiene perfil de doctor. Pide al administrador que lo active en "Doctores".');
+        return new self('Tu usuario no tiene perfil de doctor. Pide a quien administra el panel que lo active en "Doctores".');
     }
 
     public static function notYourAppointment(): self

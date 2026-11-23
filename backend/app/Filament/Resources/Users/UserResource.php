@@ -7,7 +7,9 @@ use App\Filament\Concerns\HasSettingsMenuGroup;
 use App\Filament\Concerns\HasSpanishLabels;
 use App\Filament\Resources\Users\Pages\ManageUsers;
 use App\Models\User;
+use App\Support\Phone;
 use BackedEnum;
+use Closure;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
@@ -74,7 +76,7 @@ class UserResource extends Resource
                         ->mapWithKeys(fn (UserRole $role) => [$role->value => $role->getLabel()])
                         ->all())
                     ->descriptions([
-                        UserRole::Admin->value => 'Todo el panel: agenda, pacientes, caja, reportes, inventario y Configuración. La historia clínica, solo si además es odontólogo.',
+                        UserRole::Admin->value => 'Todo el panel: agenda, pacientes, caja, reportes, inventario y Configuración. La historia clínica, solo si además es dentista.',
                         UserRole::Reception->value => 'La agenda de todos los doctores, los pacientes, los avisos, los cobros y la caja. No ve la historia clínica, los reportes ni Configuración.',
                         UserRole::Doctor->value => 'Su agenda, sus pacientes y la historia clínica: atiende, arma planes y receta. No ve la caja del consultorio.',
                     ])
@@ -84,14 +86,28 @@ class UserResource extends Resource
                     ->live()
                     ->columnSpanFull(),
                 Toggle::make('is_dentist')
-                    ->label('Es odontólogo (puede ver historias clínicas)')
+                    ->label('Es dentista (puede ver historias clínicas)')
+                    ->visible(fn (Get $get) => in_array($get('role'), [UserRole::Admin, UserRole::Admin->value], true)),
+                // A este celular va el resumen del día que se arma al cerrar la caja (DaySummary).
+                TextInput::make('phone')
+                    ->label('Celular')
+                    ->tel()
+                    ->placeholder('987 654 321')
+                    ->maxLength(20)
+                    ->helperText('Al cerrar la caja, el resumen del día queda en Avisos para enviárselo por WhatsApp.')
+                    ->rule(fn () => function (string $attribute, mixed $value, Closure $fail) {
+                        if (filled($value) && ($problem = Phone::problem((string) $value)) !== null) {
+                            $fail($problem);
+                        }
+                    })
+                    ->dehydrateStateUsing(fn (?string $state) => filled($state) && Phone::isValid($state) ? Phone::normalize($state) : $state)
                     ->visible(fn (Get $get) => in_array($get('role'), [UserRole::Admin, UserRole::Admin->value], true)),
                 Toggle::make('is_active')
                     ->label('Puede entrar al panel')
                     ->default(true)
                     // Ni se quita su propio acceso: si es el único administrador, nadie se lo podría devolver.
                     ->disabled(fn (?User $record) => self::isMe($record))
-                    ->helperText(fn (?User $record) => self::isMe($record) ? 'Tu propio acceso y tu rol solo los puede cambiar otro administrador.' : null),
+                    ->helperText(fn (?User $record) => self::isMe($record) ? 'Tu propio acceso y tu rol solo los puede cambiar otra persona que administre el panel.' : null),
                 TextInput::make('password')
                     ->label(fn (string $operation) => $operation === 'create' ? 'Contraseña' : 'Nueva contraseña')
                     ->password()
@@ -121,7 +137,7 @@ class UserResource extends Resource
                 TextColumn::make('role')
                     ->label('Rol')
                     ->badge()
-                    ->description(fn (User $record) => $record->isAdmin() && $record->is_dentist ? 'Odontólogo' : null),
+                    ->description(fn (User $record) => $record->isAdmin() && $record->is_dentist ? 'Dentista' : null),
                 TextColumn::make('last_login_at')
                     ->label('Último ingreso')
                     ->since()

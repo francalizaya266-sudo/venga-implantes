@@ -150,8 +150,10 @@ class Appointment extends Model
     }
 
     /**
-     * "Sin cerrar", con una sola regla para todo el panel: ya pasó su hora y nadie marcó si vino o si faltó, o
-     * llegó otro día y su atención nunca se cerró. La de hoy que está en sala o en consulta no cuenta: sigue su curso.
+     * "Sin cerrar", con una sola regla para todo el panel (Hoy, Citas, la agenda y el cierre del día): ya pasó su hora
+     * y nadie marcó si vino o si faltó, o vino y su atención nunca se cerró (llegó otro día, o sigue "en sala" o "en
+     * atención" horas después de su hora, WAIT_EXPIRES_HOURS). La de hoy que está en sala o en consulta no cuenta:
+     * sigue su curso (inCourse).
      */
     #[Scope]
     protected function unclosed(Builder $query): Builder
@@ -161,8 +163,23 @@ class Appointment extends Model
                 ->whereIn('status', AppointmentStatus::changeable())
                 ->where('ends_at', '<', now()))
             ->orWhere(fn (Builder $unfinished) => $unfinished
-                ->whereIn('status', [AppointmentStatus::CheckedIn, AppointmentStatus::InProgress])
-                ->where('starts_at', '<', today())));
+                ->whereIn('status', AppointmentStatus::inClinic())
+                ->where(fn (Builder $forgotten) => $forgotten
+                    ->where('starts_at', '<', today())
+                    ->orWhere('ends_at', '<=', now()->subHours(self::WAIT_EXPIRES_HOURS)))));
+    }
+
+    /**
+     * "En curso": llegó hoy y sigue en sala o en atención. Todavía no se cobra, pero no es un olvido: lo es recién
+     * cuando pasan horas desde su hora, y entonces cuenta como "sin cerrar" (unclosed).
+     */
+    #[Scope]
+    protected function inCourse(Builder $query): Builder
+    {
+        return $query
+            ->whereIn('status', AppointmentStatus::inClinic())
+            ->where('starts_at', '>=', today())
+            ->where('ends_at', '>', now()->subHours(self::WAIT_EXPIRES_HOURS));
     }
 
     /**
@@ -302,10 +319,13 @@ class Appointment extends Model
         return $this->isFromAnEarlierDay() && in_array($this->status, AppointmentStatus::open(), true);
     }
 
-    /** Como en "unclosed": ya pasó su hora sin que nadie marcara si vino, o llegó otro día y no se cerró su atención. */
+    /**
+     * Como en "unclosed" (la misma regla en todo el panel): ya pasó su hora sin que nadie marcara si vino, o su
+     * atención no se cerró (llegó otro día, o sigue en sala o en atención horas después de su hora).
+     */
     public function isUnclosed(): bool
     {
-        return $this->endedWithoutArriving() || $this->isLeftOpen();
+        return $this->endedWithoutArriving() || $this->isLeftOpen() || $this->isForgottenInClinic();
     }
 
     /**

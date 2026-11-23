@@ -17,7 +17,6 @@ use App\Services\Billing\CashClosing;
 use App\Support\Dates;
 use App\Support\Money;
 use Carbon\CarbonImmutable;
-use Carbon\CarbonInterface;
 use Filament\Widgets\Widget;
 use Illuminate\Database\Eloquent\Collection;
 
@@ -75,7 +74,7 @@ class TodayStats extends Widget
             ->whereDate('starts_at', today())
             ->where('status', '!=', AppointmentStatus::Cancelled)
             ->withoutEagerLoads()
-            ->get(['id', 'status', 'ends_at']);
+            ->get(['id', 'status', 'starts_at', 'ends_at']);
         $parts = $today->countBy(fn (Appointment $appointment): string => self::dayPart($appointment));
         $done = (int) $parts->get('done', 0);
         $here = (int) $parts->get('here', 0);
@@ -107,9 +106,9 @@ class TodayStats extends Widget
 
     /**
      * En qué parte del día va cada cita de hoy, para que las partes de "Citas de hoy" sumen el total: atendida, en
-     * la clínica (en sala o con el doctor), por llegar, sin cerrar o no asistió. "Sin cerrar" es la que ya pasó su
-     * hora sin que nadie marcara si vino, y también la que sigue "en sala" o "en atención" horas después de su hora
-     * (Appointment::WAIT_EXPIRES_HOURS): como en la sala de espera, eso es una cita que nadie cerró.
+     * la clínica (en sala o con el doctor), por llegar, sin cerrar o no asistió. "Sin cerrar" sale de la misma regla
+     * que "Citas sin cerrar" y el cierre del día (Appointment::isUnclosed): la que ya pasó su hora sin que nadie
+     * marcara si vino, y también la que sigue "en sala" o "en atención" horas después de su hora.
      *
      * @return 'done'|'here'|'toCome'|'unmarked'|'missed'
      */
@@ -117,13 +116,12 @@ class TodayStats extends Widget
     {
         /** @var AppointmentStatus $status */
         $status = $appointment->status;
-        /** @var CarbonInterface $endsAt */
-        $endsAt = $appointment->ends_at;
 
         return match (true) {
             $status === AppointmentStatus::Completed => 'done',
-            in_array($status, AppointmentStatus::inClinic(), true) => $appointment->isForgottenInClinic() ? 'unmarked' : 'here',
-            $status->isChangeable() => $endsAt->isFuture() ? 'toCome' : 'unmarked',
+            $appointment->isUnclosed() => 'unmarked',
+            in_array($status, AppointmentStatus::inClinic(), true) => 'here',
+            $status->isChangeable() => 'toCome',
             default => 'missed',
         };
     }

@@ -154,7 +154,7 @@ class OwnPasswordAtFirstLoginTest extends TestCase
 
         Livewire::test(ManageUsers::class)
             ->mountAction('create')
-            ->assertMountedActionModalSee(['Administrador', 'Todo el panel: agenda, pacientes, caja, reportes, inventario y Configuración.', 'Recepción', 'No ve la historia clínica, los reportes ni Configuración.'])
+            ->assertMountedActionModalSee(['Administración', 'Todo el panel: agenda, pacientes, caja, reportes, inventario y Configuración.', 'Recepción', 'No ve la historia clínica, los reportes ni Configuración.'])
             // Aquí no se crea un doctor: va en Doctores, con su ficha.
             ->assertMountedActionModalDontSee('Su agenda, sus pacientes y la historia clínica')
             ->unmountAction()

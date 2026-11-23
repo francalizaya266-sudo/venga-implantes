@@ -124,7 +124,7 @@ class BackupsPanelTest extends TestCase
         $this->actingAs(User::factory()->admin(isDentist: false)->create());
 
         Livewire::test(Backups::class)
-            ->assertSee('Hoy nadie puede descargarlas. En Usuarios, marca "Es odontólogo" en el administrador que atiende pacientes.', false);
+            ->assertSee('Hoy nadie puede descargarlas. En Usuarios, marca "Es dentista" en quien administra y atiende pacientes.', false);
     }
 
     public function test_old_copies_are_deleted_but_the_latest_always_stays(): void

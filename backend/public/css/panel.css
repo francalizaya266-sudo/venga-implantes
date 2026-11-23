@@ -1317,6 +1317,10 @@ button.pt-chip { transition: transform 160ms ease-out; }
         linear-gradient(to left, var(--scroll-shade), transparent) right center / .875rem 100% no-repeat scroll;
 }
 .dark .earnings-scroll { --scroll-surface: var(--gray-900); --scroll-shade: rgb(0 0 0 / .55); }
+/* La zona que se desliza se alcanza con el teclado (tabindex="0"): al llegar, se ve dónde está. */
+.earnings-scroll:focus-visible { outline: 2px solid var(--primary-500); outline-offset: 2px; border-radius: .25rem; }
+/* Las cifras de arriba de los reportes y del cierre: un monto no se parte en dos líneas ("S/" arriba, "120.00" abajo). */
+.fi-wi-stats-overview-stat-value { white-space: nowrap; font-variant-numeric: tabular-nums; }
 .report-table { width: 100%; border-collapse: collapse; font-size: .875rem; font-variant-numeric: tabular-nums; }
 .report-table th, .report-table td { padding: .5rem .75rem; text-align: left; border-bottom: 1px solid var(--gray-200); white-space: nowrap; }
 .report-table th:first-child, .report-table td:first-child { padding-left: 0; }
@@ -1888,7 +1892,7 @@ a.ap-visit:hover { background: var(--gray-50); }
 .cc-figures { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .75rem; margin: 0 0 1rem; }
 .cc-figures div { padding: .6rem .75rem; border-radius: .6rem; background: var(--gray-50); box-shadow: inset 0 0 0 1px var(--gray-200); }
 .cc-figures dt { font-size: .75rem; color: var(--gray-600); }
-.cc-figures dd { margin: 0; font-size: 1.125rem; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--gray-950); }
+.cc-figures dd { margin: 0; font-size: 1.125rem; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--gray-950); }
 .cc-figures .is-short { background: var(--warning-50); box-shadow: inset 0 0 0 1px var(--warning-200); }
 .cc-figures .is-short dd { color: var(--warning-700); }
 .cc-title { margin: 1rem 0 .25rem; font-size: .8125rem; font-weight: 600; color: var(--gray-700); }
@@ -1902,6 +1906,12 @@ a.ap-visit:hover { background: var(--gray-50); }
 .dark .cc-title { color: var(--gray-300); }
 .cc-title-amount { margin-left: .375rem; font-variant-numeric: tabular-nums; color: var(--danger-600); }
 .dark .cc-title-amount { color: var(--danger-400); }
+/* Cuántas hay en cada lista del cuadre ("Citas sin cerrar 2", "En curso 1"): la misma cuenta que en Hoy. */
+.cc-title-count { display: inline-block; min-width: 1.4rem; margin-left: .375rem; padding: 0 .4rem; border-radius: 999px; background: var(--gray-100); color: var(--gray-700); font-size: .75rem; font-weight: 700; line-height: 1.25rem; text-align: center; font-variant-numeric: tabular-nums; }
+.dark .cc-title-count { background: rgb(255 255 255 / .08); color: var(--gray-300); }
+/* Las citas sin cerrar de días anteriores: no son de este cierre, pero Hoy las cuenta. */
+.cc-aside { display: flex; flex-wrap: wrap; align-items: baseline; gap: .25rem .5rem; margin: .5rem 0 0; font-size: .8125rem; color: var(--gray-600); }
+.dark .cc-aside { color: var(--gray-400); }
 .cc-amount { font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .cc-ok { margin: 0; font-size: .875rem; color: var(--gray-600); }
 .cc-status { display: flex; align-items: center; gap: .75rem; margin-top: 1rem; padding: .65rem .75rem; border-radius: .75rem; background: var(--primary-50); box-shadow: inset 0 0 0 1px var(--primary-200); }
@@ -1924,6 +1934,37 @@ a.ap-visit:hover { background: var(--gray-50); }
 .dark .cc-adjust-total { color: var(--gray-300); }
 .dark .cc-adjust-total strong { color: #fff; }
 .dark .cc-adjust-total .is-lowered, .dark .cc-amount.is-lowered { color: var(--warning-400); }
+/* En el celular las tres cifras del cuadre van una debajo de otra, el nombre a la izquierda y el monto entero a la derecha. */
+@media (max-width: 40rem) {
+    .cc-figures { grid-template-columns: minmax(0, 1fr); gap: .375rem; }
+    .cc-figures div { display: flex; align-items: baseline; justify-content: space-between; gap: .75rem; padding: .5rem .75rem; }
+}
+/* En el celular, una cita con botones (Atendido, No asistió, Ver cita): el nombre con todo el ancho y los botones debajo. */
+@media (max-width: 40rem) { .cc-rows.has-actions .cc-row-text { flex-basis: 100%; } .cc-rows.has-actions .cc-row-actions { flex-wrap: wrap; gap: .5rem .875rem; } }
+/*
+ * En el celular, los pagos, los gastos y lo anulado del cierre van como tarjetas de dos líneas, sin barra de lado:
+ * arriba quién (o qué) y el monto; abajo la hora, el concepto, el medio y lo demás. Cada celda trae el título de su
+ * columna (data-label): se muestra donde el dato solo no se entiende (el número de operación, quién recibió).
+ */
+@media (max-width: 40rem) {
+    .cc-cards, .cc-cards tbody, .cc-cards tfoot { display: block; }
+    .cc-cards thead { display: none; }
+    .cc-cards tr { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: .375rem; padding: .625rem 0; border-bottom: 1px solid var(--gray-200); }
+    .cc-cards tr::after { content: ''; order: 2; flex-basis: 100%; }
+    .cc-cards td { order: 3; padding: 0 !important; border: 0 !important; font-size: .75rem; line-height: 1.125rem; color: var(--gray-600); white-space: normal; }
+    .cc-cards td:empty { display: none; }
+    .cc-cards td:nth-child(2) { order: 1; flex: 1 1 0; min-width: 0; font-size: .875rem; line-height: 1.25rem; font-weight: 600; color: var(--gray-950); }
+    .cc-cards td.num { order: 2; margin-left: .375rem; font-size: .875rem; line-height: 1.25rem; font-weight: 700; color: var(--gray-950); white-space: nowrap; }
+    .cc-cards td:nth-child(n+3):not(.num)::before { content: '· '; }
+    .cc-cards td:not(.num):is([data-label="N.º de operación"], [data-label="Recibió"], [data-label="Anotó"], [data-label="Anuló"], [data-label="Motivo"])::before { content: '· ' attr(data-label) ' '; }
+    .cc-cards tfoot tr { border-bottom: 0; }
+    .cc-cards tfoot td:first-child { order: 1; flex: 1 1 0; font-size: .875rem; font-weight: 700; color: var(--gray-950); }
+    .cc-cards tfoot td:not(:first-child):not(.num) { display: none; }
+    .cc-cards td.empty { order: 1; flex: 1 1 100%; font-size: .875rem; }
+    .dark .cc-cards tr { border-color: rgb(255 255 255 / .08); }
+    .dark .cc-cards td { color: var(--gray-400); }
+    .dark .cc-cards td:nth-child(2), .dark .cc-cards td.num, .dark .cc-cards tfoot td:first-child { color: #fff; }
+}
 
 /* Opciones rápidas: junto al nombre, solo lo que no es lo de siempre ("Solo tuya", "Propuesta de Ana"). */
 .snip-note { display: inline-block; margin-left: .35rem; padding: 0 .45rem; border-radius: 9999px; font-size: .72rem; font-weight: 500; line-height: 1.25rem; vertical-align: 1px; color: var(--gray-600); background: var(--gray-100); }
@@ -1983,7 +2024,7 @@ a.ap-visit:hover { background: var(--gray-50); }
     .dark .report-stack tr { border-color: rgb(255 255 255 / .08); }
     .report-stack td { padding: 0 !important; border: 0 !important; white-space: normal; }
     .report-stack td:not(.num) { grid-column: 1; }
-    .report-stack td.num { grid-column: 2; grid-row: 1; font-weight: 600; }
+    .report-stack td.num { grid-column: 2; grid-row: 1; font-weight: 600; white-space: nowrap; }
     .report-stack .is-lead { order: -1; }
     .report-stack td.empty { grid-column: 1 / -1; }
     .report-stack tfoot tr { border-bottom: 0; }

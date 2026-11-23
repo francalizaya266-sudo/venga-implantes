@@ -122,7 +122,7 @@ class ChangeHistoryTest extends TestCase
             ->assertTableColumnStateSet('section', 'Usuarios', $logs[1])
             ->assertTableColumnStateSet('subject', 'Rosa Quispe', $logs[1])
             // La contraseña que le puso el administrador es temporal: al entrar elige la suya.
-            ->assertTableColumnStateSet('summary', 'Rol: Recepción → Administrador · Tiene que elegir su contraseña al entrar: No → Sí', $logs[1])
+            ->assertTableColumnStateSet('summary', 'Rol: Recepción → Administración · Tiene que elegir su contraseña al entrar: No → Sí', $logs[1])
             ->assertTableColumnStateSet('summary', 'Se cambió su contraseña', $logs[2])
             ->assertTableColumnStateSet('summary', 'Se creó', $logs[0]);
     }
