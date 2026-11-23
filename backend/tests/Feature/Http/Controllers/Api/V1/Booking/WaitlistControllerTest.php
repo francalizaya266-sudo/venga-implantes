@@ -103,6 +103,23 @@ class WaitlistControllerTest extends TestCase
         $this->assertSame(1, $this->reception->notifications()->count());
     }
 
+    public function test_asking_from_the_web_keeps_what_reception_wrote_down(): void
+    {
+        $patient = Patient::factory()
+            ->for(Account::factory()->create(['phone' => '+51987654321']))
+            ->create(['first_name' => 'María', 'last_name' => 'Quispe Rojas']);
+        $entry = WaitlistEntry::factory()->for($patient)->create(['treatment_id' => $this->cleaning->id, 'notes' => 'Quiere adelantar la del 20/11']);
+
+        $this->ask($this->asking(['days' => 'martes']))->assertCreated();
+        $this->ask($this->asking(['days' => 'jueves']))->assertCreated();
+
+        // Los días que escribe en la web reemplazan los de la vez anterior, no lo que anotó recepción.
+        $entry->refresh();
+        $this->assertSame('Quiere adelantar la del 20/11 · Días que le sirven: jueves', $entry->notes);
+        $this->assertFalse($entry->from_web);
+        $this->assertSame(1, WaitlistEntry::count());
+    }
+
     public function test_it_asks_for_the_same_details_as_booking(): void
     {
         $this->ask($this->asking(['phone' => '12345', 'first_name' => '', 'accepts_privacy' => false, 'preferred_period' => 'night']))

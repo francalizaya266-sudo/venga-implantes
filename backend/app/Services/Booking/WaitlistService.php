@@ -393,7 +393,7 @@ final class WaitlistService
             $entry->fill([
                 'doctor_id' => $doctor?->getKey(),
                 'preferred_period' => $data->period,
-                'notes' => filled($data->days) ? 'Días que le sirven: '.trim((string) $data->days) : $entry->notes,
+                'notes' => self::notesWithDays($entry->notes, $data->days),
             ])->save();
 
             if ($entry->wasRecentlyCreated) {
@@ -437,6 +437,21 @@ final class WaitlistService
                 ? PatientRelationship::Other
                 : PatientRelationship::Self,
         ]);
+    }
+
+    /**
+     * La nota con los días que le sirven: los que escribe ahora reemplazan los que dejó la web la vez anterior (siempre
+     * al final), y lo que anotó recepción se conserva.
+     */
+    private static function notesWithDays(?string $notes, ?string $days): ?string
+    {
+        if (blank($days)) {
+            return $notes;
+        }
+
+        $kept = rtrim((string) preg_replace('/(?:\s*·\s*)?Días que le sirven: .*$/u', '', (string) $notes));
+
+        return ($kept === '' ? '' : $kept.' · ').'Días que le sirven: '.trim($days);
     }
 
     /** Ya no quiere esperar (consiguió otro horario, se atendió en otro lado...). */
