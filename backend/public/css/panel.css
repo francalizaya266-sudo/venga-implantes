@@ -451,7 +451,7 @@
 /* Mini calendario: cada día con una rayita de lo lleno que está. El día que se mira va en el círculo azul;
    en la semana, la semana entera lleva un fondo suave. */
 .agenda-month { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); row-gap: .125rem; }
-.agenda-month-weekday { padding-bottom: .25rem; text-align: center; font-size: .75rem; font-weight: 600; color: var(--gray-400); }
+.agenda-month-weekday { padding-bottom: .25rem; text-align: center; font-size: .75rem; font-weight: 600; color: var(--gray-500); }
 .agenda-month-day { display: grid; justify-items: center; gap: .1875rem; padding: .1875rem 0 .3125rem; border-radius: .5rem; font-variant-numeric: tabular-nums; -webkit-tap-highlight-color: transparent; transition: background-color 150ms ease, transform 160ms var(--ag-ease); }
 .agenda-month-num { display: grid; place-items: center; width: 1.75rem; height: 1.75rem; border-radius: 9999px; font-size: .8125rem; font-weight: 500; color: var(--gray-900); transition: background-color 150ms ease, color 150ms ease; }
 .agenda-month-day:active { transform: scale(.94); }
@@ -555,9 +555,9 @@ button.agenda-slot:focus-visible { outline: 2px solid var(--primary-600); outlin
 .agenda-day { display: grid; justify-items: center; gap: .1875rem; padding: .5rem 0 .5625rem; border-radius: .75rem; background: var(--ag-surface); box-shadow: inset 0 0 0 1px var(--ag-line); -webkit-tap-highlight-color: transparent; transition: background-color 150ms ease, transform 160ms var(--ag-ease); }
 .agenda-day:active { transform: scale(.95); }
 .agenda-day:focus-visible { outline: 2px solid var(--primary-600); outline-offset: 2px; }
-.agenda-day-letter { font-size: .75rem; font-weight: 600; color: var(--gray-400); }
+.agenda-day-letter { font-size: .75rem; font-weight: 600; color: var(--gray-500); }
 .agenda-day-num { font-size: 1.125rem; font-weight: 600; line-height: 1.2; letter-spacing: -.02em; color: var(--gray-950); font-variant-numeric: tabular-nums; }
-.agenda-day.is-past .agenda-day-num { color: var(--gray-400); }
+.agenda-day.is-past .agenda-day-num { color: var(--gray-500); }
 .agenda-day.is-today:not(.is-selected) .agenda-day-num { color: var(--primary-600); }
 .agenda-day.is-selected { background: var(--primary-600); box-shadow: 0 4px 12px -3px color-mix(in oklab, var(--primary-600) 45%, transparent); }
 .agenda-day.is-selected .agenda-day-letter { color: var(--primary-100); }
@@ -568,6 +568,7 @@ button.agenda-slot:focus-visible { outline: 2px solid var(--primary-600); outlin
 .dark .agenda-day.is-past .agenda-day-num { color: var(--gray-500); }
 .dark .agenda-day.is-today:not(.is-selected) .agenda-day-num { color: var(--primary-300); }
 .dark .agenda-day.is-selected { background: var(--primary-500); box-shadow: none; }
+.dark .agenda-day.is-selected .agenda-day-letter { color: var(--primary-50); }
 .agenda-list-summary { margin: 0; font-size: .875rem; color: var(--gray-600); }
 .dark .agenda-list-summary { color: var(--gray-400); }
 .agenda-list-items { display: grid; grid-template-columns: minmax(0, 1fr); gap: .625rem; margin: 0; padding: 0; list-style: none; }
@@ -1832,7 +1833,7 @@ a.dash-name:hover { color: var(--primary-600); }
 .appointment-summary-rows > div:last-child { border-bottom: 0; padding-bottom: 0; }
 .appointment-summary-rows dt { flex: none; color: var(--gray-500); }
 .appointment-summary-rows dd { margin: 0; font-weight: 600; text-align: right; color: var(--gray-950); font-variant-numeric: tabular-nums; }
-.appointment-summary-rows .is-pending dd { font-weight: 500; color: var(--gray-400); }
+.appointment-summary-rows .is-pending dd { font-weight: 500; color: var(--gray-500); }
 .dark .appointment-summary-rows > div { border-bottom-color: rgb(255 255 255 / .08); }
 .dark .appointment-summary-rows dt { color: var(--gray-400); }
 .dark .appointment-summary-rows dd { color: #fff; }
@@ -2381,8 +2382,10 @@ a.ap-visit:hover { background: var(--gray-50); }
 /* Las pestañas de cada lista: la elegida, en el azul de la marca. */
 .fi-tabs-item.fi-active { background: var(--primary-50); }
 .dark .fi-tabs-item.fi-active { background: color-mix(in oklab, var(--primary-400) 16%, transparent); }
-/* En oscuro, el nombre de la elegida en el azul claro: el de fábrica no se leía sobre el fondo de la pestaña (3.99 a 1). */
-.dark .fi-tabs-item.fi-active .fi-tabs-item-label, .dark .fi-tabs-item.fi-active > .fi-icon { color: var(--primary-300); }
+/* En oscuro, el nombre de la elegida en el azul claro: el de fábrica no se leía sobre el fondo de la pestaña (3.99 a 1).
+   Igual el número de la página en que estás, abajo de cada lista (3.69 a 1). */
+.dark .fi-tabs-item.fi-active .fi-tabs-item-label, .dark .fi-tabs-item.fi-active > .fi-icon,
+.dark .fi-pagination-item.fi-active .fi-pagination-item-label { color: var(--primary-300); }
 /* Lo mismo con "Examinar" de los campos para subir un archivo (4.27 a 1). */
 .dark .fi-fo-file-upload .filepond--label-action { color: var(--primary-300); }
 
