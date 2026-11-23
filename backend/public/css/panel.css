@@ -180,7 +180,7 @@
 .agenda-head.is-week .agenda-head-title { font-weight: 500; color: var(--gray-600); }
 .agenda-head.is-today .agenda-head-num { background: var(--primary-600); color: #fff; }
 .agenda-head.is-today .agenda-head-title { font-weight: 600; color: var(--primary-600); }
-.agenda-head.is-past .agenda-head-num, .agenda-head.is-past .agenda-head-title { color: var(--gray-400); }
+.agenda-head.is-past .agenda-head-num, .agenda-head.is-past .agenda-head-title { color: var(--gray-500); }
 .agenda-head-avatar { --doc: var(--primary-600); display: inline-grid; place-items: center; flex: none; width: 2.25rem; height: 2.25rem; border-radius: 9999px; font-size: .8125rem; font-weight: 700; letter-spacing: .02em; background: color-mix(in oklab, var(--doc) 14%, #fff); color: color-mix(in oklab, var(--doc) 80%, #000); }
 .dark .agenda-head-num, .dark .agenda-head-title { color: #fff; }
 .dark .agenda-head.is-week .agenda-head-title { color: var(--gray-300); }
@@ -434,8 +434,10 @@
 .agenda-month-num { display: grid; place-items: center; width: 1.75rem; height: 1.75rem; border-radius: 9999px; font-size: .8125rem; font-weight: 500; color: var(--gray-900); transition: background-color 150ms ease, color 150ms ease; }
 .agenda-month-day:active { transform: scale(.94); }
 .agenda-month-day:focus-visible { outline: 2px solid var(--primary-600); outline-offset: -2px; }
-.agenda-month-day.is-past .agenda-month-num, .agenda-month-day.is-closed .agenda-month-num { color: var(--gray-400); }
-.agenda-month-day.is-other { opacity: .45; }
+.agenda-month-day.is-past .agenda-month-num, .agenda-month-day.is-closed .agenda-month-num { color: var(--gray-500); }
+/* Los días del mes de al lado, en gris y sin negrita (no transparentes: así su número se sigue leyendo). */
+.agenda-month-day.is-other .agenda-month-num { font-weight: 400; color: var(--gray-500); }
+.agenda-month-day.is-other .agenda-load { opacity: .45; }
 .agenda-month-day.is-today .agenda-month-num { font-weight: 700; color: var(--primary-600); box-shadow: inset 0 0 0 1.5px var(--primary-200); }
 .agenda-month-day.is-selected { border-radius: 0; background: var(--primary-50); }
 .agenda-month-day.is-range-start { border-radius: .5rem 0 0 .5rem; }
@@ -554,8 +556,8 @@ button.agenda-slot:focus-visible { outline: 2px solid var(--primary-600); outlin
 .agenda-item.is-unclosed { box-shadow: 0 0 0 1.5px color-mix(in oklab, var(--danger-500) 40%, transparent); }
 .agenda-item-time { display: grid; flex: none; align-content: start; gap: .125rem; width: 3.25rem; padding-top: .0625rem; font-variant-numeric: tabular-nums; }
 .agenda-item-time b { font-size: .9375rem; font-weight: 700; letter-spacing: -.01em; color: var(--gray-950); }
-.agenda-item-time small { font-size: .75rem; color: var(--gray-400); }
-.agenda-item.s-completed .agenda-item-time b, .agenda-item.s-no_show .agenda-item-time b { color: var(--gray-400); }
+.agenda-item-time small { font-size: .75rem; color: var(--gray-500); }
+.agenda-item.s-completed .agenda-item-time b, .agenda-item.s-no_show .agenda-item-time b { color: var(--gray-500); }
 .agenda-item-body { display: grid; grid-template-columns: minmax(0, 1fr); flex: 1 1 auto; gap: .1875rem; min-width: 0; }
 .agenda-item-title { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem; min-width: 0; }
 .agenda-item-name { max-width: 100%; overflow: hidden; font-size: .9375rem; font-weight: 600; color: var(--gray-950); white-space: nowrap; text-overflow: ellipsis; text-decoration: none; }
@@ -1869,7 +1871,7 @@ a.ap-visit:hover { background: var(--gray-50); }
 .dark .ap-visit-text b { color: #fff; }
 .ap-visit-text small { display: block; font-size: .78rem; color: var(--gray-500); }
 .ap-visit-here { font-size: .72rem; font-weight: 600; color: var(--primary-600); white-space: nowrap; }
-.dark .ap-visit-here { color: var(--primary-400); }
+.dark .ap-visit-here { color: var(--primary-300); }
 .ap-visits-note { margin: 0; padding: .25rem .6rem; font-size: .8rem; color: var(--gray-500); }
 .ap-visits-links { display: flex; flex-wrap: wrap; gap: .25rem 1rem; padding: .5rem .6rem 0; }
 /* Angosta (el costado de la cita con el menú cerrado), el estado va debajo del nombre en vez de cortarse. */
@@ -2272,6 +2274,15 @@ a.ap-visit:hover { background: var(--gray-50); }
     --menu-to: color-mix(in oklab, var(--primary-950) 55%, var(--gray-950));
 }
 
+/*
+ * El gris de los textos secundarios (subtítulo y ruta de cada pantalla, pestañas sin elegir, descripciones) es el
+ * 500 de Filament, y en todo el panel se cambia aquí, en un solo lugar. El de fábrica (#62748e) no llegaba al
+ * contraste mínimo de 4.5 a 1 sobre el fondo azulado (4.15) ni sobre las pestañas (4.35): un tono más oscuro queda
+ * en 5.15 y 5.40. En oscuro, ese gris sobre el azul noche se apagaba (3.74): ahí toma el tono claro (6.78).
+ */
+:root { --gray-500: #55657e; }
+:root.dark { --gray-500: #90a1b9; }
+
 /* La marca: el diente en su cuadrito azul, como en la página web. */
 .fi-logo:has(.brand-mark) { align-items: center; gap: .65rem; }
 .brand-mark { display: grid; place-items: center; flex: none; width: 2.125rem; height: 2.125rem; border-radius: .7rem; background: linear-gradient(135deg, var(--primary-500), var(--primary-700)); color: #fff; box-shadow: 0 2px 6px rgb(30 79 145 / .35); }
@@ -2332,6 +2343,8 @@ a.ap-visit:hover { background: var(--gray-50); }
 .fi-ta-header-cell { font-size: .8125rem; color: var(--gray-600); }
 .dark .fi-ta-table > thead > tr { background: rgb(255 255 255 / .03); }
 .dark .fi-ta-header-cell { color: var(--gray-400); }
+/* La rayita "—" de una celda o un dato vacío, en el gris de los textos secundarios: la de fábrica casi no se veía (2.63 a 1). */
+.fi-ta-cell .fi-ta-placeholder, .fi-in-entry .fi-in-placeholder { color: var(--gray-500); }
 @media (hover: hover) and (pointer: fine) {
     .fi-ta-table > tbody > .fi-ta-row:not(.fi-ta-group-header-row):hover { background: color-mix(in oklab, var(--primary-50) 60%, transparent); }
     .dark .fi-ta-table > tbody > .fi-ta-row:not(.fi-ta-group-header-row):hover { background: rgb(255 255 255 / .035); }
@@ -2340,6 +2353,10 @@ a.ap-visit:hover { background: var(--gray-50); }
 /* Las pestañas de cada lista: la elegida, en el azul de la marca. */
 .fi-tabs-item.fi-active { background: var(--primary-50); }
 .dark .fi-tabs-item.fi-active { background: color-mix(in oklab, var(--primary-400) 16%, transparent); }
+/* En oscuro, el nombre de la elegida en el azul claro: el de fábrica no se leía sobre el fondo de la pestaña (3.99 a 1). */
+.dark .fi-tabs-item.fi-active .fi-tabs-item-label, .dark .fi-tabs-item.fi-active > .fi-icon { color: var(--primary-300); }
+/* Lo mismo con "Examinar" de los campos para subir un archivo (4.27 a 1). */
+.dark .fi-fo-file-upload .filepond--label-action { color: var(--primary-300); }
 
 /* Una lista vacía: el ícono en el azul de la marca en vez de una equis gris. */
 .fi-ta-empty-state-icon-bg { background: var(--primary-50); }
