@@ -95,6 +95,23 @@ class WhatsAppOutbox
         ]);
     }
 
+    /**
+     * Aviso a un celular del equipo y no de un paciente, como el resumen del día para quien administra. Queda en
+     * "Por enviar" como los demás y se envía igual.
+     *
+     * @param  array<string, string>  $params
+     */
+    public function queueForPhone(string $phone, MessageTemplateKey $key, array $params = []): WhatsappMessage
+    {
+        return WhatsappMessage::create([
+            'template_key' => $key,
+            'phone' => Phone::normalize($phone),
+            'params' => $params + ['consultorio' => Setting::get('clinic.name')],
+            'status' => MessageStatus::Pending,
+            'channel' => $this->channel(),
+        ]);
+    }
+
     /** Descarta avisos pendientes de una cita (por ejemplo, al cancelarla o moverla). */
     public function discardPending(Appointment $appointment, ?MessageTemplateKey $key = null): void
     {

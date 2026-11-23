@@ -7,7 +7,9 @@ use App\Filament\Concerns\HasSettingsMenuGroup;
 use App\Filament\Concerns\HasSpanishLabels;
 use App\Filament\Resources\Users\Pages\ManageUsers;
 use App\Models\User;
+use App\Support\Phone;
 use BackedEnum;
+use Closure;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
@@ -85,6 +87,20 @@ class UserResource extends Resource
                     ->columnSpanFull(),
                 Toggle::make('is_dentist')
                     ->label('Es dentista (puede ver historias clínicas)')
+                    ->visible(fn (Get $get) => in_array($get('role'), [UserRole::Admin, UserRole::Admin->value], true)),
+                // A este celular va el resumen del día que se arma al cerrar la caja (DaySummary).
+                TextInput::make('phone')
+                    ->label('Celular')
+                    ->tel()
+                    ->placeholder('987 654 321')
+                    ->maxLength(20)
+                    ->helperText('Al cerrar la caja, el resumen del día queda en Avisos para enviárselo por WhatsApp.')
+                    ->rule(fn () => function (string $attribute, mixed $value, Closure $fail) {
+                        if (filled($value) && ($problem = Phone::problem((string) $value)) !== null) {
+                            $fail($problem);
+                        }
+                    })
+                    ->dehydrateStateUsing(fn (?string $state) => filled($state) && Phone::isValid($state) ? Phone::normalize($state) : $state)
                     ->visible(fn (Get $get) => in_array($get('role'), [UserRole::Admin, UserRole::Admin->value], true)),
                 Toggle::make('is_active')
                     ->label('Puede entrar al panel')

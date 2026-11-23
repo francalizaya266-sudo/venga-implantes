@@ -11,6 +11,7 @@ use App\Models\Patient;
 use App\Models\Payment;
 use App\Models\User;
 use App\Services\Billing\CashClosing;
+use App\Services\Billing\DaySummary;
 use App\Support\Money;
 use Filament\Actions\Action;
 use Filament\Actions\Concerns\InteractsWithActions;
@@ -29,7 +30,8 @@ use Filament\Widgets\Widget;
 /**
  * Si el día cuadra: lo que había para cobrar, lo cobrado y quién se fue debiendo (con "Cobrar"), las citas que
  * quedaron sin cerrar (con "Atendido" y "No asistió", para resolverlas ahí mismo), las que siguen en curso y el
- * arqueo del efectivo. Cerrado el día, sus pagos ya no cambian sin quien administra.
+ * arqueo del efectivo. Cerrado el día, sus pagos ya no cambian sin quien administra, y a quien administra le llega el
+ * resumen del día (DaySummary).
  */
 class CashClosingCheck extends Widget implements HasActions, HasSchemas
 {
@@ -150,11 +152,15 @@ class CashClosingCheck extends Widget implements HasActions, HasSchemas
             ])
             ->action(function (array $data) {
                 $record = $this->closing()->close((float) $data['opening_cash'], (float) $data['counted_cash'], $data['notes'] ?? null, self::user());
+                $summaries = app(DaySummary::class)->send($this->closing(), $record);
 
                 Notification::make()
                     ->success()
                     ->title('Día cerrado')
-                    ->body(self::differenceText($record->difference()))
+                    ->body(collect([
+                        self::differenceText($record->difference()),
+                        $summaries > 0 ? 'El resumen del día para quien administra quedó en Avisos, listo para enviar por WhatsApp.' : null,
+                    ])->filter()->implode('<br>'))
                     ->send();
             });
     }
