@@ -23,6 +23,7 @@ use Filament\Actions\Testing\TestAction;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\Repeater;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
+use Illuminate\Support\Collection;
 use Livewire\Livewire;
 use Tests\Concerns\CreatesAgenda;
 use Tests\TestCase;
@@ -106,7 +107,8 @@ class PriceChangesAtCheckoutTest extends TestCase
         // El cierre del día: un bloque propio con cuántos, por cuánto y el detalle.
         $this->actingAs($this->admin);
         Livewire::test(CashClosingAdjustments::class, ['pageFilters' => ['date' => '2026-11-02']])
-            ->assertSee(['Precios cambiados y descuentos de hoy', '1 cambio', 'S/ 50.00', 'Ana Flores · Limpieza dental', 'Precio de S/ 120.00 a S/ 70.00', 'Motivo: Paciente frecuente', 'Rosa Pérez']);
+            // La hora, como en el resto del cierre.
+            ->assertSee(['Precios cambiados y descuentos de hoy', '1 cambio', 'S/ 50.00', 'menos de su precio', 'Ana Flores · Limpieza dental', 'Precio de S/ 120.00 a S/ 70.00', 'Motivo: Paciente frecuente', 'Rosa Pérez, 08:00']);
         $this->get(Filament::getPanel('admin')->route('cash-closing.print', ['date' => '2026-11-02']))
             ->assertOk()
             ->assertSee(['Precios cambiados y descuentos · 1 cambio · S/ 50.00 menos', 'Precio de S/ 120.00 a S/ 70.00']);
@@ -199,6 +201,41 @@ class PriceChangesAtCheckoutTest extends TestCase
         $billing->reviseCharges($appointment, [['id' => $charge->id, 'description' => 'Limpieza dental', 'amount' => 120, 'discount' => 0]], $this->reception);
         $this->assertNull($charge->fresh()->adjusted_at);
         $this->assertTrue($billing->reviseCharges($appointment, [['id' => $charge->id, 'description' => 'Limpieza dental', 'amount' => 120, 'discount' => 0]], $this->reception)->isEmpty());
+    }
+
+    public function test_a_charge_changed_at_checkout_and_voided_later_shows_each_change_on_its_day(): void
+    {
+        $appointment = $this->completedCleaning();
+        $charge = Charge::sole();
+        $billing = app(BillingService::class);
+        $prices = app(PriceAdjustments::class);
+        $describe = fn (Collection $rows) => $rows->map(fn (array $row) => [$row['kind'], $row['change'], $row['reason'], $row['by'], $row['lowered']])->all();
+
+        $this->travelTo('2026-11-02 10:40');
+        $billing->reviseCharges($appointment, [['id' => $charge->id, 'description' => 'Limpieza dental', 'amount' => 70, 'discount' => 0]], $this->reception, 'Paciente frecuente');
+
+        // Al día siguiente, quien administra anula ese cargo desde la cuenta del paciente.
+        $this->travelTo('2026-11-03 09:15');
+        $billing->void($charge->fresh(), $this->admin, 'Se atendió gratis');
+
+        // El lunes sigue diciendo lo que pasó el lunes: el precio que cambió recepción, con su motivo y quién.
+        $this->assertSame([[PriceAdjustments::PRICE, 'Precio de S/ 120.00 a S/ 70.00', 'Paciente frecuente', 'Rosa Pérez', 50.0]], $describe($prices->ofDay(today()->subDay())));
+        // Y el martes sale la anulación, con su propio motivo y quién la hizo.
+        $this->assertSame([[PriceAdjustments::REMOVED, 'Se anuló el cargo: era S/ 70.00', 'Se atendió gratis', 'Carla Vega', 70.0]], $describe($prices->ofDay(today())));
+        $this->assertSame([], $describe($prices->ofDay(today(), $this->reception->id)));
+
+        // En un mismo día salen las dos cosas, y entre las dos suman lo que valía.
+        $other = $this->completedCleaning();
+        $otherCharge = Charge::query()->whereBelongsTo($other)->sole();
+        $billing->reviseCharges($other, [['id' => $otherCharge->id, 'description' => 'Limpieza dental', 'amount' => 100, 'discount' => 0]], $this->reception, 'Promoción');
+        $billing->void($otherCharge->fresh(), $this->admin, 'No vino a la cita');
+
+        $rows = $prices->ofDay(today())->filter(fn (array $row) => $row['charge']->is($otherCharge))->values();
+        $this->assertSame([
+            [PriceAdjustments::PRICE, 'Precio de S/ 120.00 a S/ 100.00', 'Promoción', 'Rosa Pérez', 20.0],
+            [PriceAdjustments::REMOVED, 'Se anuló el cargo: era S/ 100.00', 'No vino a la cita', 'Carla Vega', 100.0],
+        ], $describe($rows));
+        $this->assertSame(['count' => 2, 'lowered' => 120.0, 'raised' => 0.0], PriceAdjustments::totals($rows));
     }
 
     public function test_voiding_a_charge_or_a_payment_and_a_refund_alert_whoever_administers(): void
