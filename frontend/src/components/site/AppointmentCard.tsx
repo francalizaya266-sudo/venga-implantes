@@ -60,33 +60,40 @@ export function AppointmentCard({ appointment, clinic, confirmUrl, changeHref, c
         <HealthAsk patientId={appointment.ask_health.patient_id} text={appointment.ask_health.text} />
       ) : null}
 
+      {/* El pedido de cambio espera respuesta: se dice en la tarjeta, también al volver o recargar la página. */}
       {appointment.pending_request ? (
         <p className="note">
+          <strong>Pediste cambiarla.</strong> Te avisamos por WhatsApp. <br />
           {/* La última hora ya termina en punto ("3:00 p. m."): no se le pone otro. */}
-          Pediste cambiar esta cita a: {appointment.pending_request}
-          {appointment.pending_request.endsWith('.') ? '' : '.'} Te avisaremos por WhatsApp cuál quedó.
+          Propusiste: {appointment.pending_request}
+          {appointment.pending_request.endsWith('.') ? '' : '.'}
         </p>
       ) : null}
 
       {appointment.can_change ? (
         <>
-          <div className="actions">
-            {appointment.can_confirm ? (
-              <form
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  void run(confirmUrl);
-                }}
-              >
-                <button type="submit" className="btn small" disabled={busy}>
-                  Confirmar asistencia
-                </button>
-              </form>
-            ) : null}
-            <AppLink href={changeHref} className="btn small quiet">
-              Cambiar horario
-            </AppLink>
-          </div>
+          {appointment.can_confirm || !appointment.pending_request ? (
+            <div className="actions">
+              {appointment.can_confirm ? (
+                <form
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    void run(confirmUrl);
+                  }}
+                >
+                  <button type="submit" className="btn small" disabled={busy}>
+                    Confirmar asistencia
+                  </button>
+                </form>
+              ) : null}
+              {/* Mientras espera respuesta no se ofrece pedirlo otra vez: un pedido nuevo reemplazaría al anterior. */}
+              {appointment.pending_request ? null : (
+                <AppLink href={changeHref} className="btn small quiet">
+                  Cambiar horario
+                </AppLink>
+              )}
+            </div>
+          ) : null}
 
           {cancelUrl && appointment.can_cancel ? (
             <details className="more">

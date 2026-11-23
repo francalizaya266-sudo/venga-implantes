@@ -7,6 +7,7 @@ use App\Enums\AppointmentStatus;
 use App\Enums\BookingChannel;
 use App\Enums\CancelledBy;
 use App\Enums\ConfirmationChannel;
+use App\Enums\RescheduleRequestStatus;
 use App\Models\Concerns\Auditable;
 use Carbon\CarbonInterface;
 use Database\Factories\AppointmentFactory;
@@ -102,6 +103,12 @@ class Appointment extends Model
     public function rescheduleRequests(): HasMany
     {
         return $this->hasMany(RescheduleRequest::class);
+    }
+
+    /** El pedido de cambio de horario que todavía espera respuesta (hay uno vivo por cita). */
+    public function pendingRescheduleRequest(): HasOne
+    {
+        return $this->hasOne(RescheduleRequest::class)->ofMany(['id' => 'max'], fn (Builder $query) => $query->where('status', RescheduleRequestStatus::Pending));
     }
 
     public function messages(): HasMany
