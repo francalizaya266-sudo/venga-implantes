@@ -121,6 +121,21 @@ class WaitlistControllerTest extends TestCase
         $this->assertSame(1, WaitlistEntry::count());
     }
 
+    public function test_a_long_note_from_reception_is_shortened_so_the_days_fit_in_the_500_letters_of_the_note(): void
+    {
+        $patient = Patient::factory()
+            ->for(Account::factory()->create(['phone' => '+51987654321']))
+            ->create(['first_name' => 'María', 'last_name' => 'Quispe Rojas']);
+        // Lo más que dejan escribir el panel (500 letras) y la web (120).
+        $entry = WaitlistEntry::factory()->for($patient)->create(['treatment_id' => $this->cleaning->id, 'notes' => 'Prefiere que la llamen. '.str_repeat('a', 476)]);
+        $days = str_repeat('b', 120);
+
+        $this->ask($this->asking(['days' => $days]))->assertCreated();
+
+        // MySQL no guarda más de 500: se acorta lo que anotó recepción y los días entran completos.
+        $this->assertSame('Prefiere que la llamen. '.str_repeat('a', 332).'… · Días que le sirven: '.$days, $entry->fresh()->notes);
+    }
+
     public function test_it_asks_for_the_same_details_as_booking(): void
     {
         $this->ask($this->asking(['phone' => '12345', 'first_name' => '', 'accepts_privacy' => false, 'preferred_period' => 'night']))

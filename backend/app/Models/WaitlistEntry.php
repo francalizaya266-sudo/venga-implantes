@@ -28,6 +28,9 @@ class WaitlistEntry extends Model
     /** Sigue esperando: todavía no se le agendó ni se retiró. */
     public const ACTIVE_STATUSES = [WaitlistStatus::Waiting, WaitlistStatus::Offered];
 
+    /** Cuántas letras guarda la nota (waitlist_entries.notes es de 500). */
+    public const NOTES_LENGTH = 500;
+
     protected $attributes = [
         'status' => 'waiting',
         'preferred_period' => 'any',

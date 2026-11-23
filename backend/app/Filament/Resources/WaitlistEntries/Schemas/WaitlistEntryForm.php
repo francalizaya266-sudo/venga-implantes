@@ -195,7 +195,7 @@ final class WaitlistEntryForm
                     ->placeholder('Ej.: solo puede sábados; prefiere que lo llamen.')
                     ->helperText('No la ve el paciente.')
                     ->rows(3)
-                    ->maxLength(500),
+                    ->maxLength(WaitlistEntry::NOTES_LENGTH),
             ]);
     }
 

@@ -594,6 +594,21 @@ class WaitlistPanelTest extends TestCase
         $this->assertSame("Prefiere sábados\nRetirado: Se atendió en otro lado", $entry->fresh()->notes);
     }
 
+    public function test_removing_someone_with_a_full_note_shortens_the_note_so_the_reason_fits(): void
+    {
+        // La nota y el motivo, cada uno con lo más que deja escribir el panel (500 y 200 letras).
+        $entry = WaitlistEntry::factory()->for($this->treatment)->create(['notes' => 'Prefiere sábados. '.str_repeat('a', 482)]);
+        $reason = str_repeat('b', 200);
+        $this->actingAs(User::factory()->reception()->create());
+
+        Livewire::test(ManageWaitlistEntries::class)
+            ->callTableAction('remove', $entry, ['reason' => $reason])
+            ->assertHasNoTableActionErrors();
+
+        // MySQL no guarda más de 500: se acorta la nota y el motivo entra completo.
+        $this->assertSame('Prefiere sábados. '.str_repeat('a', 270)."…\nRetirado: ".$reason, $entry->fresh()->notes);
+    }
+
     public function test_the_held_slot_shows_in_the_agenda_and_can_be_released(): void
     {
         $entry = WaitlistEntry::factory()

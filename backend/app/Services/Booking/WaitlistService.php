@@ -459,7 +459,29 @@ final class WaitlistService
 
         $kept = rtrim((string) preg_replace('/(?:\s*·\s*)?Días que le sirven: .*$/u', '', (string) $notes));
 
-        return ($kept === '' ? '' : $kept.' · ').'Días que le sirven: '.trim($days);
+        return self::noteEndingWith($kept, ' · ', 'Días que le sirven: '.trim($days));
+    }
+
+    /**
+     * La nota con algo nuevo al final. Guarda hasta WaitlistEntry::NOTES_LENGTH letras (MySQL no deja guardar más y
+     * daría un error): si no entra todo, se acorta lo que ya decía, que termina en "…", y lo nuevo entra completo.
+     */
+    private static function noteEndingWith(?string $note, string $glue, string $added): string
+    {
+        $note = trim((string) $note);
+        $added = trim($added);
+
+        if ($note === '') {
+            return $added;
+        }
+
+        $room = WaitlistEntry::NOTES_LENGTH - mb_strlen($glue.$added);
+
+        if (mb_strlen($note) > $room) {
+            $note = rtrim(mb_substr($note, 0, max(0, $room - 1))).'…';
+        }
+
+        return $note.$glue.$added;
     }
 
     /** Ya no quiere esperar (consiguió otro horario, se atendió en otro lado...). */
@@ -467,7 +489,7 @@ final class WaitlistService
     {
         $entry->update([
             'status' => WaitlistStatus::Removed,
-            'notes' => trim(collect([$entry->notes, $reason ? 'Retirado: '.$reason : null])->filter()->implode("\n")) ?: null,
+            'notes' => $reason ? self::noteEndingWith($entry->notes, "\n", 'Retirado: '.$reason) : (trim((string) $entry->notes) ?: null),
         ]);
     }
 
