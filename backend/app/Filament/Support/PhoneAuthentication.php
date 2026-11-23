@@ -2,6 +2,7 @@
 
 namespace App\Filament\Support;
 
+use App\Filament\Pages\Auth\SetUpTwoFactor;
 use Filament\Actions\Action;
 use Filament\Auth\MultiFactor\App\AppAuthentication;
 use Filament\Facades\Filament;
@@ -24,13 +25,20 @@ class PhoneAuthentication extends AppAuthentication
         );
     }
 
-    /** El "Apagar" de Filament, con otro nombre (ver lang/vendor/.../disable.php): al confirmar lleva a activarla en el nuevo. */
+    /**
+     * El "Apagar" de Filament, con otro nombre (ver lang/vendor/.../disable.php): al confirmar lleva a activarla en el
+     * nuevo. Para confirmar ya escribió su contraseña: en la pantalla de los tres pasos no se le vuelve a pedir.
+     */
     private static function changePhone(Action $action): Action
     {
         return $action
             ->color('gray')
             ->icon(Heroicon::OutlinedDevicePhoneMobile)
             ->modalIcon(Heroicon::OutlinedDevicePhoneMobile)
-            ->after(fn (Component $livewire) => $livewire->redirect((string) Filament::getSetUpRequiredMultiFactorAuthenticationUrl()));
+            ->after(function (Component $livewire): void {
+                SetUpTwoFactor::rememberPasswordWasTyped();
+
+                $livewire->redirect((string) Filament::getSetUpRequiredMultiFactorAuthenticationUrl());
+            });
     }
 }

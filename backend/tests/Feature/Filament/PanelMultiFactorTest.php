@@ -13,6 +13,7 @@ use Filament\Auth\MultiFactor\App\AppAuthentication;
 use Filament\Auth\Pages\Login;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Livewire\Features\SupportLockedProperties\CannotUpdateLockedPropertyException;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -230,6 +231,19 @@ class PanelMultiFactorTest extends TestCase
 
         $this->assertNull($user->fresh()->getAppAuthenticationSecret());
         $this->get(Filament::getPanel('admin')->getUrl())->assertRedirect($this->setUpUrl());
+
+        // Acaba de escribir su contraseña para confirmar: en los tres pasos no se le vuelve a pedir.
+        Livewire::test(SetUpTwoFactor::class)->assertFormFieldHidden('password');
+    }
+
+    public function test_the_double_check_screen_cannot_be_marked_as_activated_from_the_browser(): void
+    {
+        $this->actingAs(User::factory()->reception()->withoutMfa()->create());
+
+        // Lo que la pantalla guarda (el secreto por activar y si ya se activó) solo lo cambia el sistema.
+        $this->expectException(CannotUpdateLockedPropertyException::class);
+
+        Livewire::test(SetUpTwoFactor::class)->set('isActivated', true);
     }
 
     public function test_the_secret_is_stored_encrypted_and_never_in_the_history(): void
