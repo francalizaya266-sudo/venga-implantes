@@ -39,9 +39,9 @@ export function FeatureArt({ art }: { art: string }) {
 
 /**
  * Una capa del implante de la portada ("implante-portada" o su cinta de luz), en dos tamaños: el celular baja
- * la chica. Con foto en la portada el implante solo se ve en pantallas anchas: ahí se pide cuando hace falta.
+ * la chica. Solo sale sin foto en la portada, y entonces es lo primero en cargar.
  */
-export function CoverLayer({ name, lazy }: { name: string; lazy: boolean }) {
+export function CoverLayer({ name }: { name: string }) {
   return (
     <img
       src={artUrl(`${name}-640`)}
@@ -50,8 +50,7 @@ export function CoverLayer({ name, lazy }: { name: string; lazy: boolean }) {
       width={1120}
       height={1120}
       alt=""
-      loading={lazy ? 'lazy' : undefined}
-      fetchPriority={lazy ? undefined : 'high'}
+      fetchPriority="high"
     />
   );
 }

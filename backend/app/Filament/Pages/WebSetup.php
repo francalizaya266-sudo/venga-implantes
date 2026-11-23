@@ -142,7 +142,7 @@ class WebSetup extends Page
                         WebPhotoUpload::make('web.hero_image', 'inicio')
                             ->label('Foto del inicio')
                             ->imageEditor()
-                            ->helperText('Una foto real del consultorio o del equipo, horizontal. Sale en la portada del inicio: en computadora, a la derecha del título.')
+                            ->helperText('Una foto real del doctor en el consultorio o del equipo, horizontal. Sale en la portada del inicio, en lugar del implante: en computadora, a la derecha del título. Sin ella, sale la foto del primer doctor del equipo, si la tiene.')
                             ->columnSpanFull(),
                         // El logo se guarda tal cual (PNG con fondo transparente, JPG o WebP): no se pasa a JPG como las fotos.
                         FileUpload::make('web.logo')
