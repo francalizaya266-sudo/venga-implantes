@@ -102,7 +102,7 @@ final class ReturningPatient
                     'patient' => $patient,
                     'done' => (int) $items->sum(fn (TreatmentPlanItem $item) => $item->status === PlanItemStatus::Done ? $planned($item) : min((int) $item->sessions_done, $planned($item))),
                     'total' => (int) $items->sum($planned),
-                    'doctor' => $plans->first()->doctor?->name,
+                    'doctor' => $plans->first()->doctor?->name_with_article,
                     'requested' => RateLimiter::attempts(self::sessionRequestKey($patient)) > 0,
                 ];
             })
