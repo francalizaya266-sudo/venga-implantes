@@ -191,6 +191,15 @@ class OdontogramChartTest extends TestCase
         $this->assertEqualsCanonicalizing([14, 15, 16, 36], $preview);
     }
 
+    public function test_the_drawing_that_slides_sideways_on_a_phone_is_reached_with_the_keyboard_and_has_a_name(): void
+    {
+        [$doctor, $consultation] = $this->consultation();
+        $this->actingAs($doctor->user);
+
+        Livewire::test(OdontogramChart::class, ['record' => $consultation, 'editable' => true])
+            ->assertSeeHtml('<div class="odv-scroll" tabindex="0" role="region" aria-label="Dibujo de los dientes, se desliza de lado">');
+    }
+
     public function test_the_findings_fit_one_row_and_a_child_gets_the_sealant_before_the_implant(): void
     {
         [$doctor, $consultation] = $this->consultation();

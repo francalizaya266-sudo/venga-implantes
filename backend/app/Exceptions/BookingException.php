@@ -27,7 +27,7 @@ class BookingException extends RuntimeException
     {
         return new self(match (true) {
             $with instanceof Appointment => "Ese horario se cruza con la cita de {$with->patient->full_name}, de {$with->starts_at->format('H:i')} a {$with->ends_at->format('H:i')}"
-                .($with->buffer_minutes > 0 ? " (más {$with->buffer_minutes} min de esterilización)" : '').'. Elige otro.',
+                .($with->buffer_minutes > 0 ? " (más {$with->buffer_minutes} min para preparar el sillón)" : '').'. Elige otro.',
             $with instanceof ScheduleBlock => 'Ese horario cae en un bloqueo de la agenda: '.($with->reason ?: $with->type->getLabel())
                 .', '.$with->span().'. Elige otro.',
             default => 'Ese horario se cruza con otra cita o con un bloqueo de la agenda. Elige otro.',

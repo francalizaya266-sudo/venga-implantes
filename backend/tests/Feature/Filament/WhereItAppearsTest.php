@@ -162,8 +162,8 @@ class WhereItAppearsTest extends TestCase
 
         Livewire::test(ManageTreatments::class)
             ->assertSeeInOrder(['Duración de la cita', 'Precio normal', 'Dónde aparece'])
-            ->assertTableColumnHasDescription('duration_minutes', '+20 de limpieza (propia) · Dra. Ana Torres: 90 min', $own)
-            ->assertTableColumnHasDescription('duration_minutes', '+10 de limpieza (la general)', $general)
+            ->assertTableColumnHasDescription('duration_minutes', '+20 min para preparar el sillón (tiempo propio) · Dra. Ana Torres: 90 min', $own)
+            ->assertTableColumnHasDescription('duration_minutes', '+10 min para preparar el sillón (tiempo general)', $general)
             // En su ficha, la misma cuenta con palabras.
             ->mountAction(TestAction::make('edit')->table($own))
             ->assertMountedActionModalSee('A Dra. Ana Torres se le reservan 90 min (puesta en su ficha). Con los demás doctores se reserva esta duración.')

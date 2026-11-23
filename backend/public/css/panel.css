@@ -2,6 +2,11 @@
  * Estilos del panel en un solo archivo (el hosting no compila CSS: se escribe a mano).
  * Usa las variables de color de Filament (--gray-200, --primary-500…) para seguir el tema y el modo oscuro.
  * Se carga en el <head> de todas las pantallas del panel; el navegador lo guarda en caché.
+ *
+ * Tamaños de letra: 12, 13, 14, 16, 18 y 22 px (.75, .8125, .875, 1, 1.125 y 1.375rem). Nada más chico que 12 px,
+ * salvo donde no entra: las letras dentro del dibujo de los dientes (crecen con el dibujo) y las horas libres de la
+ * semana en Hoy ("11 h 20" en el ancho de un día). Los títulos de pantalla y las cifras grandes (los números de Hoy,
+ * el total al cobrar) van aparte.
  */
 
 /* ---------- Ajustes generales del panel ---------- */
@@ -37,8 +42,15 @@
     .dark .fi-ta-actions > .fi-dropdown .fi-icon-btn,
     .dark .fi-ta-actions > .fi-icon-btn { background: rgb(255 255 255 / .07); }
     .fi-modal-footer-actions .fi-btn { min-height: 2.75rem; }
+    /* Las pestañas y los enlaces que hacen de botón ("Ver", "Ocultar", "Ver antecedentes"): 44 px de alto, lo
+       cómodo para un dedo (de fábrica, 31 a 34 y 20). El nombre del enlace, centrado como su ícono (de fábrica va
+       pegado arriba: con el alto nuevo quedaba más alto que el ícono). */
+    .fi-tabs-item, .fi-link { min-height: 2.75rem; }
+    .fi-link > .fi-link-label { align-self: center; }
     /* "Ctrl + K" no sirve sin teclado y le quita espacio al buscador. */
     .fi-global-search-field .fi-input-wrp-suffix { display: none; }
+    /* Letra de 16 px al escribir: con menos (los campos traen 14), el iPhone acerca la pantalla y hay que alejarla a mano. */
+    :root :is(input:not([type=checkbox], [type=radio], [type=range], [type=color], [type=file], [type=hidden]), select, textarea, [contenteditable="true"]) { font-size: 16px; }
 }
 
 /* En el celular, cada fila de una lista es una tarjeta: la primera columna, en negrita y sin etiqueta;
@@ -48,7 +60,7 @@
     .fi-ta-table-stacked-on-mobile > tbody > tr > .fi-ta-cell > .fi-ta-cell-label { padding-top: .3rem; font-size: .75rem; line-height: 1.2rem; font-weight: 500; }
     .fi-ta-table-stacked-on-mobile > tbody > tr > .fi-ta-cell:is(:first-child, .fi-ta-selection-cell + .fi-ta-cell):has(> .fi-ta-cell-label) { grid-template-columns: minmax(0, 1fr); padding-top: .5rem; }
     .fi-ta-table-stacked-on-mobile > tbody > tr > .fi-ta-cell:is(:first-child, .fi-ta-selection-cell + .fi-ta-cell) > .fi-ta-cell-label { display: none; }
-    .fi-ta-table-stacked-on-mobile > tbody > tr > .fi-ta-cell:is(:first-child, .fi-ta-selection-cell + .fi-ta-cell) .fi-ta-text-item { font-size: .9375rem; font-weight: 600; }
+    .fi-ta-table-stacked-on-mobile > tbody > tr > .fi-ta-cell:is(:first-child, .fi-ta-selection-cell + .fi-ta-cell) .fi-ta-text-item { font-size: 1rem; font-weight: 600; }
     .fi-ta-table-stacked-on-mobile > tbody > tr > .fi-ta-cell:has(> .fi-ta-cell-content .fi-ta-placeholder),
     .fi-ta-table-stacked-on-mobile > tbody > tr > .fi-ta-cell:has(> .fi-ta-cell-content:empty) { display: none; }
     .fi-ta-table-stacked-on-mobile > tbody > tr > .fi-ta-cell { text-align: start; }
@@ -69,7 +81,7 @@
     @media (prefers-reduced-motion: no-preference) { .mobile-bar-item:active { transform: scale(.94); } }
     .mobile-bar-glyph { position: relative; display: grid; }
     /* Cuántos avisos toca enviar, en ámbar como en el menú. */
-    .mobile-bar-badge { position: absolute; top: -.35rem; inset-inline-start: calc(100% - .55rem); min-width: 1.15rem; height: 1.15rem; padding: 0 .3rem; border-radius: 999px; background: var(--warning-500); color: var(--gray-950); font-size: .6875rem; line-height: 1.15rem; font-weight: 700; text-align: center; font-variant-numeric: tabular-nums; letter-spacing: 0; box-shadow: 0 0 0 2px #fff; }
+    .mobile-bar-badge { position: absolute; top: -.35rem; inset-inline-start: calc(100% - .55rem); min-width: 1.15rem; height: 1.15rem; padding: 0 .3rem; border-radius: 999px; background: var(--warning-500); color: var(--gray-950); font-size: .75rem; line-height: 1.15rem; font-weight: 700; text-align: center; font-variant-numeric: tabular-nums; letter-spacing: 0; box-shadow: 0 0 0 2px #fff; }
     .dark .mobile-bar-badge { background: var(--warning-400); box-shadow: 0 0 0 2px rgb(24 24 27); }
     .mobile-bar-item.is-active { color: var(--primary-600); }
     .dark .mobile-bar-item { color: var(--gray-400); }
@@ -80,7 +92,13 @@
     .dark .mobile-bar-item.is-primary { color: var(--gray-200); }
     /* Que lo último de la página no quede tapado por la barra. */
     body:has(.mobile-bar) .fi-main { padding-bottom: calc(5rem + env(safe-area-inset-bottom)); }
+    /* Con el celular de costado, los botones de las puntas no quedan bajo la muesca. */
+    .mobile-bar { padding-inline: max(.4rem, env(safe-area-inset-left)) max(.4rem, env(safe-area-inset-right)); }
 }
+/* La cabecera pide viewport-fit=cover (panel-styles.blade.php): la página llega a los bordes del iPhone y las franjas
+   "safe-area-inset" dejan libre lo que tapan la barra del sistema y la muesca. De costado, la muesca no tapa nada. */
+.fi-body { padding-inline: env(safe-area-inset-left) env(safe-area-inset-right); }
+.fi-main-sidebar { padding-inline-start: env(safe-area-inset-left); }
 @media print { .mobile-bar { display: none !important; } }
 
 /* ---------- Agenda en calendario ---------- */
@@ -147,7 +165,7 @@
 .agenda-help { font-size: .875rem; color: var(--gray-600); }
 .agenda-help summary { cursor: pointer; font-weight: 500; color: var(--primary-600); list-style: none; }
 .agenda-help summary::-webkit-details-marker { display: none; }
-.agenda-help summary::before { content: "?"; display: inline-grid; place-items: center; width: 1.1rem; height: 1.1rem; margin-right: .35rem; border-radius: 9999px; background: var(--primary-50); font-size: .7rem; font-weight: 700; }
+.agenda-help summary::before { content: "?"; display: inline-grid; place-items: center; width: 1.1rem; height: 1.1rem; margin-right: .35rem; border-radius: 9999px; background: var(--primary-50); font-size: .75rem; font-weight: 700; }
 .agenda-help p { margin: .35rem 0 0; max-width: 60ch; }
 .agenda-help .agenda-legend { margin: .6rem 0 .2rem; }
 .agenda-help-short { display: none; }
@@ -182,7 +200,7 @@
 .agenda-head.is-week .agenda-head-title { font-weight: 500; color: var(--gray-600); }
 .agenda-head.is-today .agenda-head-num { background: var(--primary-600); color: #fff; }
 .agenda-head.is-today .agenda-head-title { font-weight: 600; color: var(--primary-600); }
-.agenda-head.is-past .agenda-head-num, .agenda-head.is-past .agenda-head-title { color: var(--gray-400); }
+.agenda-head.is-past .agenda-head-num, .agenda-head.is-past .agenda-head-title { color: var(--gray-500); }
 .agenda-head-avatar { --doc: var(--primary-600); display: inline-grid; place-items: center; flex: none; width: 2.25rem; height: 2.25rem; border-radius: 9999px; font-size: .8125rem; font-weight: 700; letter-spacing: .02em; background: color-mix(in oklab, var(--doc) 14%, #fff); color: color-mix(in oklab, var(--doc) 80%, #000); }
 .dark .agenda-head-num, .dark .agenda-head-title { color: #fff; }
 .dark .agenda-head.is-week .agenda-head-title { color: var(--gray-300); }
@@ -203,7 +221,7 @@
 
 /* Las horas, a la altura de su línea. La de ahora va en rojo y tapa la hora en punto que le queda encima. */
 .agenda-times { position: sticky; left: 0; z-index: 3; background: var(--ag-surface); box-shadow: inset -1px 0 0 var(--ag-line-soft); }
-.agenda-times span { position: absolute; right: .5rem; transform: translateY(-50%); font-size: .6875rem; font-weight: 500; color: var(--gray-500); font-variant-numeric: tabular-nums; }
+.agenda-times span { position: absolute; right: .5rem; transform: translateY(-50%); font-size: .75rem; font-weight: 500; color: var(--gray-500); font-variant-numeric: tabular-nums; }
 .agenda-times span.is-first { transform: translateY(.3rem); }
 .agenda-times span.is-hidden { visibility: hidden; }
 .agenda-times .agenda-now-label { right: .3rem; z-index: 1; padding: .0625rem .375rem; border-radius: 9999px; background: var(--danger-600); color: #fff; font-weight: 600; }
@@ -220,7 +238,7 @@
 .agenda-block { position: absolute; left: 0; right: 0; overflow: hidden; padding: .375rem .5rem; pointer-events: none; font-size: .75rem; font-weight: 500; color: var(--gray-500); background: repeating-linear-gradient(135deg, color-mix(in oklab, var(--gray-300) 45%, transparent) 0 1px, transparent 1px 7px), var(--ag-off); }
 .dark .agenda-block { color: var(--gray-400); background: repeating-linear-gradient(135deg, rgb(255 255 255 / .06) 0 1px, transparent 1px 7px), var(--ag-off); }
 /* En la semana de todo el consultorio, el bloqueo de un solo doctor (sus vacaciones) va en su carril, no en todo el día. */
-.agenda-block.in-lane { left: calc(100% * var(--lane) / var(--lanes)); right: auto; width: calc(100% * var(--span) / var(--lanes)); padding: .25rem .3rem; font-size: .6875rem; line-height: 1.2; word-break: break-word; }
+.agenda-block.in-lane { left: calc(100% * var(--lane) / var(--lanes)); right: auto; width: calc(100% * var(--span) / var(--lanes)); padding: .25rem .3rem; font-size: .75rem; line-height: 1.2; word-break: break-word; }
 /* Un horario ofrecido a la lista de espera: apartado mientras responde, en ámbar y con borde punteado (todavía no es una cita). */
 .agenda-block.is-hold { margin: 1px 2px; border-radius: .5rem; color: #92400e; background: rgb(254 243 199 / .7); outline: 1px dashed #f59e0b; outline-offset: -1px; }
 .dark .agenda-block.is-hold { color: #fcd34d; background: rgb(245 158 11 / .12); outline-color: rgb(245 158 11 / .6); }
@@ -238,7 +256,7 @@
 /* Dónde cae la cita que se arrastra. */
 .agenda-drop { position: absolute; left: 3px; right: 4px; z-index: 3; pointer-events: none; border-radius: .5rem; background: color-mix(in oklab, var(--primary-500) 12%, transparent); box-shadow: inset 0 0 0 1.5px var(--primary-500); }
 .agenda-drop.is-refused { background: color-mix(in oklab, var(--danger-500) 8%, transparent); box-shadow: inset 0 0 0 1.5px var(--danger-500); }
-.agenda-drop span { position: absolute; top: -.25rem; left: 0; transform: translateY(-100%); padding: .0625rem .4rem; border-radius: 9999px; background: var(--primary-600); color: #fff; font-size: .6875rem; font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.agenda-drop span { position: absolute; top: -.25rem; left: 0; transform: translateY(-100%); padding: .0625rem .4rem; border-radius: 9999px; background: var(--primary-600); color: #fff; font-size: .75rem; font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .agenda-drop.is-refused span { background: var(--danger-600); }
 .agenda-drop.is-outside:not(.is-refused) { background: color-mix(in oklab, var(--warning-500) 12%, transparent); box-shadow: inset 0 0 0 1.5px var(--warning-500); }
 .agenda-drop.is-outside:not(.is-refused) span { background: var(--warning-600); }
@@ -289,7 +307,7 @@
 
 /* Etiquetas junto al nombre: una píldora clara con el texto del color de lo que avisa.
    "Sin cerrar" es lo único que pide algo ya: por eso va llena de rojo. "En bloqueo" (hay que moverla) va como "Llamar". */
-:is(.agenda-appt, .agenda-item) .tag { display: inline-block; margin-left: .3rem; padding: 0 .375rem; border-radius: 9999px; font-size: .6875rem; font-weight: 600; line-height: 1.0625rem; letter-spacing: 0; vertical-align: 1px; background: rgb(255 255 255 / .8); box-shadow: inset 0 0 0 1px var(--t-ring, transparent); }
+:is(.agenda-appt, .agenda-item) .tag { display: inline-block; margin-left: .3rem; padding: 0 .375rem; border-radius: 9999px; font-size: .75rem; font-weight: 600; line-height: 1.0625rem; letter-spacing: 0; vertical-align: 1px; background: rgb(255 255 255 / .8); box-shadow: inset 0 0 0 1px var(--t-ring, transparent); }
 :is(.agenda-appt, .agenda-item) :is(.tag-call, .tag-block) { color: var(--danger-700); --t-ring: color-mix(in oklab, var(--danger-500) 30%, transparent); }
 :is(.agenda-appt, .agenda-item) .tag-new { color: var(--info-700); --t-ring: color-mix(in oklab, var(--info-500) 30%, transparent); }
 :is(.agenda-appt, .agenda-item) .tag-owes { color: var(--warning-800); --t-ring: color-mix(in oklab, var(--warning-500) 40%, transparent); }
@@ -369,10 +387,14 @@
     .agenda-frame.is-fit { overflow: clip; max-height: none; }
     .agenda-frame.is-fit .agenda-head { top: 4rem; }
 }
+/* Con el dedo, cada botón de la barra y el siguiente paso de una cita miden 44 px: el riel crece con ellos. */
 @media (pointer: coarse) {
-    .agenda-nav, .agenda-find-toggle { height: 2.5rem; }
-    .agenda-nav-btn.is-icon { width: 2.375rem; }
+    .agenda-nav { height: 3.125rem; }
+    .agenda-toolbar-group .agenda-find-toggle { height: 2.75rem; }
+    .agenda-nav-btn.is-icon { width: 2.75rem; }
     .agenda-modes .fi-tabs-item { padding-block: .4375rem; }
+    .agenda-help summary { display: inline-flex; align-items: center; min-height: 2.75rem; }
+    .agenda-appt-step .fi-btn { min-height: 2.75rem; padding-inline: .75rem; }
 }
 @media (prefers-reduced-motion: reduce) {
     .agenda-appt { animation-name: agenda-fade; }
@@ -417,7 +439,7 @@
 }
 .agenda-card { display: grid; gap: .75rem; padding: 1rem; border-radius: 1rem; background: var(--ag-surface); box-shadow: 0 0 0 1px var(--ag-line); }
 .agenda-card-head { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
-.agenda-card-title { margin: 0; font-size: .9375rem; font-weight: 600; letter-spacing: -.005em; color: var(--gray-950); }
+.agenda-card-title { margin: 0; font-size: 1rem; font-weight: 600; letter-spacing: -.005em; color: var(--gray-950); }
 .agenda-card-sub { margin: .25rem 0 0; font-size: .8125rem; line-height: 1.4; color: var(--gray-600); }
 .agenda-card-hint { margin: 0; font-size: .8125rem; line-height: 1.4; color: var(--gray-500); }
 .agenda-card-link { justify-self: start; font-size: .8125rem; font-weight: 600; color: var(--primary-600); text-decoration: none; }
@@ -431,13 +453,15 @@
 /* Mini calendario: cada día con una rayita de lo lleno que está. El día que se mira va en el círculo azul;
    en la semana, la semana entera lleva un fondo suave. */
 .agenda-month { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); row-gap: .125rem; }
-.agenda-month-weekday { padding-bottom: .25rem; text-align: center; font-size: .6875rem; font-weight: 600; color: var(--gray-400); }
+.agenda-month-weekday { padding-bottom: .25rem; text-align: center; font-size: .75rem; font-weight: 600; color: var(--gray-500); }
 .agenda-month-day { display: grid; justify-items: center; gap: .1875rem; padding: .1875rem 0 .3125rem; border-radius: .5rem; font-variant-numeric: tabular-nums; -webkit-tap-highlight-color: transparent; transition: background-color 150ms ease, transform 160ms var(--ag-ease); }
 .agenda-month-num { display: grid; place-items: center; width: 1.75rem; height: 1.75rem; border-radius: 9999px; font-size: .8125rem; font-weight: 500; color: var(--gray-900); transition: background-color 150ms ease, color 150ms ease; }
 .agenda-month-day:active { transform: scale(.94); }
 .agenda-month-day:focus-visible { outline: 2px solid var(--primary-600); outline-offset: -2px; }
-.agenda-month-day.is-past .agenda-month-num, .agenda-month-day.is-closed .agenda-month-num { color: var(--gray-400); }
-.agenda-month-day.is-other { opacity: .45; }
+.agenda-month-day.is-past .agenda-month-num, .agenda-month-day.is-closed .agenda-month-num { color: var(--gray-500); }
+/* Los días del mes de al lado, en gris y sin negrita (no transparentes: así su número se sigue leyendo). */
+.agenda-month-day.is-other .agenda-month-num { font-weight: 400; color: var(--gray-500); }
+.agenda-month-day.is-other .agenda-load { opacity: .45; }
 .agenda-month-day.is-today .agenda-month-num { font-weight: 700; color: var(--primary-600); box-shadow: inset 0 0 0 1.5px var(--primary-200); }
 .agenda-month-day.is-selected { border-radius: 0; background: var(--primary-50); }
 .agenda-month-day.is-range-start { border-radius: .5rem 0 0 .5rem; }
@@ -501,9 +525,9 @@ button.agenda-card-link { padding: 0; background: none; cursor: pointer; }
 .agenda-slot { display: inline-flex; align-items: center; gap: .375rem; height: 2rem; padding: 0 .75rem; border-radius: 9999px; background: var(--primary-50); color: var(--primary-800); font-size: .8125rem; font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; -webkit-tap-highlight-color: transparent; transition: background-color 150ms ease, transform 160ms var(--ag-ease); }
 button.agenda-slot:active { transform: scale(.96); }
 button.agenda-slot:focus-visible { outline: 2px solid var(--primary-600); outline-offset: 2px; }
-.agenda-slot-star { margin-left: -.25rem; font-size: .6875rem; color: var(--primary-500); }
+.agenda-slot-star { margin-left: -.25rem; font-size: .75rem; color: var(--primary-500); }
 .dark .agenda-slot-star { color: var(--primary-300); }
-.agenda-slot-doc { --doc: var(--primary-600); display: inline-grid; place-items: center; min-width: 1.25rem; height: 1.25rem; margin-right: -.4375rem; padding: 0 .1875rem; border-radius: 9999px; font-size: .625rem; font-weight: 700; letter-spacing: .02em; background: color-mix(in oklab, var(--doc) 16%, #fff); color: color-mix(in oklab, var(--doc) 80%, #000); }
+.agenda-slot-doc { --doc: var(--primary-600); display: inline-grid; place-items: center; min-width: 1.25rem; height: 1.25rem; margin-right: -.4375rem; padding: 0 .1875rem; border-radius: 9999px; font-size: .75rem; font-weight: 700; letter-spacing: .02em; background: color-mix(in oklab, var(--doc) 16%, #fff); color: color-mix(in oklab, var(--doc) 80%, #000); }
 @media (hover: hover) and (pointer: fine) {
     button.agenda-slot:hover { background: var(--primary-100); }
     .dark button.agenda-slot:hover { background: color-mix(in oklab, var(--primary-500) 32%, transparent); }
@@ -533,9 +557,9 @@ button.agenda-slot:focus-visible { outline: 2px solid var(--primary-600); outlin
 .agenda-day { display: grid; justify-items: center; gap: .1875rem; padding: .5rem 0 .5625rem; border-radius: .75rem; background: var(--ag-surface); box-shadow: inset 0 0 0 1px var(--ag-line); -webkit-tap-highlight-color: transparent; transition: background-color 150ms ease, transform 160ms var(--ag-ease); }
 .agenda-day:active { transform: scale(.95); }
 .agenda-day:focus-visible { outline: 2px solid var(--primary-600); outline-offset: 2px; }
-.agenda-day-letter { font-size: .6875rem; font-weight: 600; color: var(--gray-400); }
+.agenda-day-letter { font-size: .75rem; font-weight: 600; color: var(--gray-500); }
 .agenda-day-num { font-size: 1.125rem; font-weight: 600; line-height: 1.2; letter-spacing: -.02em; color: var(--gray-950); font-variant-numeric: tabular-nums; }
-.agenda-day.is-past .agenda-day-num { color: var(--gray-400); }
+.agenda-day.is-past .agenda-day-num { color: var(--gray-500); }
 .agenda-day.is-today:not(.is-selected) .agenda-day-num { color: var(--primary-600); }
 .agenda-day.is-selected { background: var(--primary-600); box-shadow: 0 4px 12px -3px color-mix(in oklab, var(--primary-600) 45%, transparent); }
 .agenda-day.is-selected .agenda-day-letter { color: var(--primary-100); }
@@ -546,6 +570,7 @@ button.agenda-slot:focus-visible { outline: 2px solid var(--primary-600); outlin
 .dark .agenda-day.is-past .agenda-day-num { color: var(--gray-500); }
 .dark .agenda-day.is-today:not(.is-selected) .agenda-day-num { color: var(--primary-300); }
 .dark .agenda-day.is-selected { background: var(--primary-500); box-shadow: none; }
+.dark .agenda-day.is-selected .agenda-day-letter { color: var(--primary-50); }
 .agenda-list-summary { margin: 0; font-size: .875rem; color: var(--gray-600); }
 .dark .agenda-list-summary { color: var(--gray-400); }
 .agenda-list-items { display: grid; grid-template-columns: minmax(0, 1fr); gap: .625rem; margin: 0; padding: 0; list-style: none; }
@@ -555,12 +580,12 @@ button.agenda-slot:focus-visible { outline: 2px solid var(--primary-600); outlin
 .agenda-item.s-in_progress { box-shadow: 0 0 0 1.5px color-mix(in oklab, var(--primary-500) 45%, transparent), 0 1px 2px rgb(0 0 0 / .04); }
 .agenda-item.is-unclosed { box-shadow: 0 0 0 1.5px color-mix(in oklab, var(--danger-500) 40%, transparent); }
 .agenda-item-time { display: grid; flex: none; align-content: start; gap: .125rem; width: 3.25rem; padding-top: .0625rem; font-variant-numeric: tabular-nums; }
-.agenda-item-time b { font-size: .9375rem; font-weight: 700; letter-spacing: -.01em; color: var(--gray-950); }
-.agenda-item-time small { font-size: .75rem; color: var(--gray-400); }
-.agenda-item.s-completed .agenda-item-time b, .agenda-item.s-no_show .agenda-item-time b { color: var(--gray-400); }
+.agenda-item-time b { font-size: 1rem; font-weight: 700; letter-spacing: -.01em; color: var(--gray-950); }
+.agenda-item-time small { font-size: .75rem; color: var(--gray-500); }
+.agenda-item.s-completed .agenda-item-time b, .agenda-item.s-no_show .agenda-item-time b { color: var(--gray-500); }
 .agenda-item-body { display: grid; grid-template-columns: minmax(0, 1fr); flex: 1 1 auto; gap: .1875rem; min-width: 0; }
 .agenda-item-title { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem; min-width: 0; }
-.agenda-item-name { max-width: 100%; overflow: hidden; font-size: .9375rem; font-weight: 600; color: var(--gray-950); white-space: nowrap; text-overflow: ellipsis; text-decoration: none; }
+.agenda-item-name { max-width: 100%; overflow: hidden; font-size: 1rem; font-weight: 600; color: var(--gray-950); white-space: nowrap; text-overflow: ellipsis; text-decoration: none; }
 .agenda-item-name:hover { text-decoration: underline; text-underline-offset: 2px; text-decoration-color: var(--gray-300); }
 .agenda-item.s-completed .agenda-item-name { color: var(--gray-600); }
 .agenda-item.s-no_show .agenda-item-name { color: var(--gray-500); text-decoration: line-through; text-decoration-color: color-mix(in oklab, var(--danger-500) 60%, transparent); }
@@ -591,7 +616,7 @@ button.agenda-slot:focus-visible { outline: 2px solid var(--primary-600); outlin
 .agenda-gap { display: flex; align-items: center; gap: .875rem; padding: .75rem .875rem; border: 1.5px dashed color-mix(in oklab, var(--primary-400) 55%, transparent); border-radius: .875rem; background: color-mix(in oklab, var(--primary-50) 55%, var(--ag-surface)); }
 .agenda-gap .agenda-item-time b { color: var(--primary-700); }
 .agenda-gap .agenda-item-time small { color: var(--primary-500); }
-.agenda-gap-title { font-size: .9375rem; font-weight: 600; color: var(--primary-800); font-variant-numeric: tabular-nums; }
+.agenda-gap-title { font-size: 1rem; font-weight: 600; color: var(--primary-800); font-variant-numeric: tabular-nums; }
 .agenda-gap-btn { flex: none; height: 2.25rem; padding: 0 .875rem; border-radius: .5rem; background: var(--primary-600); color: #fff; font-size: .875rem; font-weight: 600; -webkit-tap-highlight-color: transparent; transition: background-color 150ms ease, transform 160ms var(--ag-ease); }
 .agenda-gap-btn:active { transform: scale(.96); }
 .agenda-gap-btn:focus-visible { outline: 2px solid var(--primary-600); outline-offset: 2px; }
@@ -622,8 +647,8 @@ button.agenda-slot:focus-visible { outline: 2px solid var(--primary-600); outlin
 .agenda-list-empty { padding: 2.5rem 1rem; border-radius: .875rem; text-align: center; color: var(--gray-500); background: var(--ag-surface); box-shadow: 0 0 0 1px var(--ag-line); }
 
 @media (pointer: coarse) {
-    .agenda-item-actions .fi-btn, .agenda-call { min-height: 2.5rem; }
-    .agenda-gap-btn { height: 2.5rem; }
+    .agenda-item-actions .fi-btn, .agenda-call { min-height: 2.75rem; }
+    .agenda-gap-btn { height: 2.75rem; }
 }
 @media (prefers-reduced-motion: reduce) {
     .agenda-item, .agenda-find-day { animation-name: agenda-fade; }
@@ -636,7 +661,7 @@ button.agenda-slot:focus-visible { outline: 2px solid var(--primary-600); outlin
 .backup-status { display: flex; align-items: flex-start; gap: .5rem; margin: .25rem .75rem .75rem; padding: .55rem .65rem; border-radius: .6rem; font-size: .75rem; line-height: 1.3; text-decoration: none; background: rgb(255 255 255 / .06); color: rgb(255 255 255 / .84); box-shadow: inset 0 0 0 1px rgb(255 255 255 / .08); }
 .backup-status:hover { background: rgb(255 255 255 / .1); }
 .backup-status strong { display: block; font-weight: 600; color: #fff; }
-.backup-status small { display: block; color: rgb(255 255 255 / .65); }
+.backup-status small { display: block; font-size: .75rem; color: rgb(255 255 255 / .65); }
 .backup-status-icon { width: 1rem; height: 1rem; flex: none; margin-top: .05rem; color: var(--success-400); }
 .backup-status.is-warning .backup-status-icon { color: var(--warning-400); }
 .backup-status.is-danger { box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--danger-400) 60%, transparent); }
@@ -667,7 +692,7 @@ button.agenda-slot:focus-visible { outline: 2px solid var(--primary-600); outlin
 
 /* Quién es: las iniciales en un círculo, el celular para tocar y llamar, el documento y las píldoras de estado. */
 .appt-panel-who { display: flex; gap: .75rem; align-items: flex-start; }
-.appt-panel-avatar { flex: none; display: grid; place-items: center; width: 2.75rem; height: 2.75rem; border-radius: 9999px; background: var(--primary-50); color: var(--primary-700); font-weight: 700; font-size: .95rem; letter-spacing: .02em; }
+.appt-panel-avatar { flex: none; display: grid; place-items: center; width: 2.75rem; height: 2.75rem; border-radius: 9999px; background: var(--primary-50); color: var(--primary-700); font-weight: 700; font-size: 1rem; letter-spacing: .02em; }
 .dark .appt-panel-avatar { background: color-mix(in oklab, var(--primary-500) 18%, transparent); color: var(--primary-300); }
 .appt-panel-who-body { display: grid; gap: .45rem; min-width: 0; }
 .appt-panel-contact { margin: 0; display: flex; flex-wrap: wrap; gap: .25rem 1rem; align-items: center; color: var(--gray-500); }
@@ -723,7 +748,7 @@ button.agenda-slot:focus-visible { outline: 2px solid var(--primary-600); outlin
 .cb-flag-ask { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0 .35rem; cursor: default; }
 .cb-flag-ask button { font-weight: 700; text-decoration: underline; text-underline-offset: 2px; }
 .cb-flag-ask button:hover { text-decoration-thickness: 2px; }
-.cb-flag { font-size: .74rem; font-weight: 600; line-height: 1.35; border: 1px solid; border-radius: 9999px; padding: .12rem .6rem; }
+.cb-flag { font-size: .75rem; font-weight: 600; line-height: 1.35; border: 1px solid; border-radius: 9999px; padding: .12rem .6rem; }
 .cb-flag.is-danger { font-weight: 700; color: var(--danger-700); background: var(--danger-50); border-color: var(--danger-200); }
 .cb-flag.is-warning { color: var(--warning-800); background: var(--warning-50); border-color: var(--warning-300); cursor: pointer; }
 .cb-flag.is-warning:hover { border-color: var(--warning-500); }
@@ -740,7 +765,7 @@ button.agenda-slot:focus-visible { outline: 2px solid var(--primary-600); outlin
 .cb-sections a:hover, .cb-sections a.is-current { background: var(--primary-50); color: var(--primary-700); }
 .cb-sections a.is-current { box-shadow: inset 0 0 0 1px var(--primary-300); font-weight: 600; }
 /* El número del paso, y un punto verde si ya tiene algo escrito. */
-.cb-step-num { display: inline-grid; place-items: center; width: 1.15rem; height: 1.15rem; border-radius: 9999px; font-size: .68rem; font-weight: 700; font-variant-numeric: tabular-nums; background: var(--gray-200); color: var(--gray-700); }
+.cb-step-num { display: inline-grid; place-items: center; width: 1.15rem; height: 1.15rem; border-radius: 9999px; font-size: .75rem; font-weight: 700; font-variant-numeric: tabular-nums; background: var(--gray-200); color: var(--gray-700); }
 .cb-sections a.is-current .cb-step-num { background: var(--primary-600); color: #fff; }
 .dark .cb-step-num { background: rgb(255 255 255 / .12); color: var(--gray-200); }
 .dark .cb-sections a.is-current .cb-step-num { background: var(--primary-500); }
@@ -888,7 +913,7 @@ button.agenda-slot:focus-visible { outline: 2px solid var(--primary-600); outlin
 .odv-keys[open] summary { background: var(--odv-hover); color: var(--odv-ink); }
 .odv-keys dl { position: absolute; right: 0; top: calc(100% + .375rem); z-index: 30; display: grid; grid-template-columns: auto auto; gap: .5rem .875rem; align-items: center; width: max-content; padding: .875rem 1rem; border-radius: .75rem; background: var(--odv-surface); box-shadow: 0 0 0 1px var(--odv-line), 0 12px 32px -8px rgb(15 23 42 / .22); font-size: .8125rem; color: var(--odv-ink); }
 .odv-keys dt { display: flex; gap: .25rem; justify-content: flex-end; }
-.odv kbd { display: inline-grid; place-items: center; min-width: 1.375rem; height: 1.375rem; padding: 0 .3125rem; border-radius: .3125rem; font: 600 .6875rem/1 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--odv-soft); background: var(--odv-hover); box-shadow: inset 0 0 0 1px var(--odv-line), inset 0 -1px 0 var(--odv-line); }
+.odv kbd { display: inline-grid; place-items: center; min-width: 1.375rem; height: 1.375rem; padding: 0 .3125rem; border-radius: .3125rem; font: 600 .75rem/1 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--odv-soft); background: var(--odv-hover); box-shadow: inset 0 0 0 1px var(--odv-line), inset 0 -1px 0 var(--odv-line); }
 @media (hover: none) { .odv-keys, .odv-omni-key { display: none !important; } }
 
 /* El buscador: un hallazgo por nombre, o varios escritos o dictados («36 MO caries, 18 ausente»). */
@@ -979,8 +1004,9 @@ button.agenda-slot:focus-visible { outline: 2px solid var(--primary-600); outlin
     .dark .odv-svg .odv-midline, .dark .odv-svg .odv-bite { stroke: #8f9aab; }
 }
 .odv-sheet:focus-visible { box-shadow: inset 0 0 0 2px var(--primary-500); }
-.odv-sides { display: flex; justify-content: space-between; padding: .125rem .375rem .25rem; font-size: .6875rem; font-weight: 500; color: #94a3b8; }
+.odv-sides { display: flex; justify-content: space-between; padding: .125rem .375rem .25rem; font-size: .75rem; font-weight: 500; color: var(--odv-soft); }
 .odv-scroll { overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: thin; }
+.odv-scroll:focus-visible { outline: 2px solid var(--primary-500); outline-offset: 2px; border-radius: .5rem; }
 .odv-scroll .odv-svg { width: 100%; height: auto; max-width: 69rem; min-width: 38rem; }
 /*
  * En el celular, ampliado de entrada sin tapar el resto: cada pieza mide 3rem (los números se leen y se toca cómodo
@@ -1067,7 +1093,7 @@ button.agenda-slot:focus-visible { outline: 2px solid var(--primary-600); outlin
 .odv-card-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .odv-card-text small { font-size: .75rem; color: var(--odv-soft); }
 .odv-card-actions { display: flex; align-items: center; gap: .125rem; flex: none; }
-.odv-new { flex: none; padding: .0625rem .4375rem; border-radius: 999px; font-size: .6875rem; font-weight: 600; color: #92400e; background: #fef3c7; }
+.odv-new { flex: none; padding: .0625rem .4375rem; border-radius: 999px; font-size: .75rem; font-weight: 600; color: #92400e; background: #fef3c7; }
 .dark .odv-new { color: #fcd34d; background: rgb(245 158 11 / .15); }
 .odv-treat { padding: .25rem .5rem; border-radius: .375rem; white-space: nowrap; font-size: .8125rem; font-weight: 600; color: var(--odv-accent); }
 .odv-treat:hover { background: var(--odv-accent-soft); }
@@ -1122,7 +1148,7 @@ html.odv-locked :has(.odv.is-expanded) { z-index: 45 !important; }
 .odv-plan-sub { font-size: .75rem; color: var(--odv-soft); }
 .odv-plan-side { display: flex; flex-direction: column; align-items: flex-end; gap: .125rem; white-space: nowrap; font-size: .8125rem; }
 .odv-plan-price { font-weight: 600; font-variant-numeric: tabular-nums; color: var(--odv-ink); }
-.odv-tag { padding: .0625rem .4375rem; border-radius: 999px; font-size: .6875rem; color: var(--odv-soft); background: var(--odv-fill); }
+.odv-tag { padding: .0625rem .4375rem; border-radius: 999px; font-size: .75rem; color: var(--odv-soft); background: var(--odv-fill); }
 .odv-plan-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem 1rem; padding-top: .625rem; border-top: 1px solid var(--odv-line); font-size: .875rem; color: var(--odv-ink); }
 
 /* Especificaciones y observaciones. */
@@ -1162,7 +1188,7 @@ a.pt-plan:focus-visible { outline: 2px solid var(--primary-500); outline-offset:
 .pt-plan-top b { font-weight: 600; color: var(--gray-950); }
 .pt-plan-total { font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--gray-950); }
 .pt-plan-state { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem .5rem; }
-.pt-plan-state small, .pt-plan-pay { font-size: .78rem; color: var(--gray-500); }
+.pt-plan-state small, .pt-plan-pay { font-size: .8125rem; color: var(--gray-500); }
 .pt-plan-pay .plan-pay { display: inline; white-space: normal; }
 .pt-plan-pay .plan-pay + .plan-pay::before { content: ' · '; font-weight: 400; color: var(--gray-400); }
 .pt-plan.is-closed .pt-plan-top b, .pt-plan.is-closed .pt-plan-total { font-weight: 500; color: var(--gray-600); }
@@ -1189,13 +1215,13 @@ a.pt-event:hover { background: var(--gray-50); }
 .dark .pt-icon { background: rgb(255 255 255 / .06); }
 .pt-text b { display: block; font-size: .875rem; font-weight: 600; color: var(--gray-950); }
 .dark .pt-text b { color: #fff; }
-.pt-text small { display: block; font-size: .78rem; color: var(--gray-500); }
-.pt-meta { font-size: .72rem; color: var(--gray-500); white-space: nowrap; text-align: right; }
+.pt-text small { display: block; font-size: .8125rem; color: var(--gray-500); }
+.pt-meta { font-size: .75rem; color: var(--gray-500); white-space: nowrap; text-align: right; }
 .pt-empty { color: var(--gray-500); font-size: .875rem; }
 /* El filtro de la línea de tiempo: Todo, Citas, Atenciones, Pagos, Mensajes; el elegido queda relleno. */
 .pt-filter { display: flex; flex-wrap: wrap; gap: .4rem; }
 .pt-filter-chip { display: inline-flex; align-items: center; gap: .35rem; min-height: 2rem; padding: .25rem .75rem; border-radius: 9999px; font-size: .8125rem; font-weight: 500; color: var(--gray-700); background: #fff; box-shadow: 0 0 0 1px rgb(3 7 18 / .1); transition: background-color .15s ease, color .15s ease, transform .16s cubic-bezier(.23, 1, .32, 1); }
-.pt-filter-chip span { font-size: .72rem; color: var(--gray-500); font-variant-numeric: tabular-nums; }
+.pt-filter-chip span { font-size: .75rem; color: var(--gray-500); font-variant-numeric: tabular-nums; }
 .pt-filter-chip:active { transform: scale(.97); }
 .pt-filter-chip:focus-visible { outline: 2px solid var(--primary-500); outline-offset: 2px; }
 .pt-filter-chip[aria-pressed="true"] { background: var(--primary-600); color: #fff; box-shadow: none; }
@@ -1204,7 +1230,7 @@ a.pt-event:hover { background: var(--gray-50); }
 .dark .pt-filter-chip[aria-pressed="true"] { background: var(--primary-500); color: #fff; }
 @media (hover: hover) and (pointer: fine) { .pt-filter-chip:not([aria-pressed="true"]):hover { background: var(--gray-50); } .dark .pt-filter-chip:not([aria-pressed="true"]):hover { background: rgb(255 255 255 / .08); } }
 /* Lo que se hace con un pago, bajo su línea: la constancia y, si se puede, anularlo. */
-.pt-event-actions { display: flex; gap: .9rem; margin-top: .2rem; font-size: .78rem; font-weight: 500; }
+.pt-event-actions { display: flex; gap: .9rem; margin-top: .2rem; font-size: .8125rem; font-weight: 500; }
 .pt-event-actions a { color: var(--primary-600); text-decoration: none; }
 .pt-event-actions button { color: var(--gray-500); }
 .dark .pt-event-actions a { color: var(--primary-400); }
@@ -1236,7 +1262,7 @@ a.pt-chip:hover { filter: brightness(.97); text-decoration: underline; text-unde
 .pt-step-icon { width: 1.25rem; height: 1.25rem; flex: none; color: var(--primary-600); }
 .pt-step-text { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: .05rem .5rem; }
 .pt-step-kicker { flex-basis: 100%; font-size: .75rem; font-weight: 600; letter-spacing: .01em; color: var(--primary-700); }
-.pt-step-label { font-size: .9375rem; font-weight: 600; color: var(--gray-950); }
+.pt-step-label { font-size: 1rem; font-weight: 600; color: var(--gray-950); }
 .pt-step-detail { font-size: .8125rem; color: var(--gray-600); }
 .pt-step-button { flex: none; }
 .dark .pt-step { background: rgb(59 130 246 / .1); box-shadow: inset 0 0 0 1px rgb(59 130 246 / .28); }
@@ -1363,7 +1389,7 @@ button.pt-chip { transition: transform 160ms ease-out; }
 .backup-actions { display: flex; align-items: center; gap: .5rem; }
 .backup-date { font-weight: 600; color: var(--gray-950); }
 .dark .backup-date { color: #fff; }
-.backup-meta { font-size: .8rem; color: var(--gray-500); }
+.backup-meta { font-size: .8125rem; color: var(--gray-500); }
 .backup-note { margin-top: .75rem; display: grid; gap: .35rem; }
 .backup-help { font-size: .875rem; color: var(--gray-600); display: grid; gap: .5rem; }
 .dark .backup-help { color: var(--gray-400); }
@@ -1525,9 +1551,9 @@ button.pt-chip { transition: transform 160ms ease-out; }
 .dash-appt-time { min-width: 3.25rem; }
 .dash-appt-time .fi-ta-text-item { font-size: 1.05rem; line-height: 1.3; font-variant-numeric: tabular-nums; color: var(--gray-950); }
 .dark .dash-appt-time .fi-ta-text-item { color: #fff; }
-.dash-appt-time .fi-ta-text-description { font-size: .72rem; color: var(--gray-500); white-space: nowrap; }
+.dash-appt-time .fi-ta-text-description { font-size: .75rem; color: var(--gray-500); white-space: nowrap; }
 .dash-appt-next { border-top: 1px solid var(--primary-500) !important; }
-.dash-appt-next::before { content: "Ahora"; position: absolute; top: 0; left: .75rem; transform: translateY(-50%); z-index: 2; padding: .05rem .5rem; border-radius: 999px; background: var(--primary-600); color: #fff; font-size: .6875rem; font-weight: 600; letter-spacing: .01em; line-height: 1.1rem; pointer-events: none; }
+.dash-appt-next::before { content: "Ahora"; position: absolute; top: 0; left: .75rem; transform: translateY(-50%); z-index: 2; padding: .05rem .5rem; border-radius: 999px; background: var(--primary-600); color: #fff; font-size: .75rem; font-weight: 600; letter-spacing: .01em; line-height: 1.1rem; pointer-events: none; }
 .dark .dash-appt-next { border-top-color: var(--primary-400) !important; }
 .dark .dash-appt-next::before { background: var(--primary-500); }
 /* Un rótulo chico encima de cada parte ("En la clínica", "Por cobrar", "Sin cerrar", "Por llegar", "Terminadas"): la
@@ -1625,7 +1651,7 @@ details[open] > summary.dash-task::after { transform: rotate(-135deg) translate(
 /* Los dos bloques, "Resolver hoy" y "Seguimiento": un rótulo chico en gris, sin color; lo urgente ya lo dice su
    número. "Seguimiento" se pliega cuando es largo y hay algo que resolver. */
 .dash-block + .dash-block { margin-top: .9rem; }
-.dash-block-title { display: flex; align-items: baseline; flex-wrap: wrap; gap: .1rem .5rem; margin: 0 0 .1rem; font-size: .7rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--gray-500); }
+.dash-block-title { display: flex; align-items: baseline; flex-wrap: wrap; gap: .1rem .5rem; margin: 0 0 .1rem; font-size: .75rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--gray-500); }
 .dark .dash-block-title { color: var(--gray-400); }
 .dash-block-title small { font-size: .75rem; font-weight: 400; letter-spacing: 0; text-transform: none; }
 summary.dash-block-title { margin: 0 -.5rem; padding: .45rem .5rem; border-radius: .5rem; cursor: pointer; list-style: none; }
@@ -1713,7 +1739,7 @@ a.dash-name:hover { color: var(--primary-600); }
 .dark .dash-week-day { border-color: rgb(255 255 255 / .1); color: var(--gray-400); }
 .dark .dash-week-day:hover { border-color: rgb(255 255 255 / .2); }
 .dark .dash-week-day.is-selected { border-color: var(--primary-400); background: color-mix(in oklab, var(--primary-400) 10%, transparent); box-shadow: inset 0 0 0 1px var(--primary-400); }
-.dash-week-name { font-size: .6875rem; font-weight: 500; line-height: 1rem; color: var(--gray-500); }
+.dash-week-name { font-size: .75rem; font-weight: 500; line-height: 1rem; color: var(--gray-500); }
 .dash-week-number { font-size: .9375rem; font-weight: 600; line-height: 1.25rem; color: var(--gray-950); font-variant-numeric: tabular-nums; }
 .dark .dash-week-number { color: #fff; }
 .dash-week-day .dash-meter { width: calc(100% - .6rem); height: .25rem; margin: .2rem 0 .1rem; }
@@ -1807,7 +1833,7 @@ a.dash-name:hover { color: var(--primary-600); }
 }
 .choice-chip:hover { background: var(--gray-50); }
 .choice-chip-input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; }
-.choice-chip-description { margin-top: .1rem; font-size: .7rem; font-weight: 500; color: var(--gray-500); }
+.choice-chip-description { margin-top: .1rem; font-size: .75rem; font-weight: 500; color: var(--gray-500); }
 .choice-chip.is-highlighted { box-shadow: inset 0 0 0 1.5px var(--success-500); }
 .choice-chip.is-highlighted .choice-chip-description { color: var(--success-700); }
 .choice-chip:has(.choice-chip-input:checked) { background: var(--primary-600); color: #fff; box-shadow: inset 0 0 0 1px var(--primary-600); }
@@ -1847,7 +1873,7 @@ a.dash-name:hover { color: var(--primary-600); }
 .appointment-summary-rows > div:last-child { border-bottom: 0; padding-bottom: 0; }
 .appointment-summary-rows dt { flex: none; color: var(--gray-500); }
 .appointment-summary-rows dd { margin: 0; font-weight: 600; text-align: right; color: var(--gray-950); font-variant-numeric: tabular-nums; }
-.appointment-summary-rows .is-pending dd { font-weight: 500; color: var(--gray-400); }
+.appointment-summary-rows .is-pending dd { font-weight: 500; color: var(--gray-500); }
 .dark .appointment-summary-rows > div { border-bottom-color: rgb(255 255 255 / .08); }
 .dark .appointment-summary-rows dt { color: var(--gray-400); }
 .dark .appointment-summary-rows dd { color: #fff; }
@@ -1907,10 +1933,10 @@ a.ap-visit:hover { background: var(--gray-50); }
 .ap-visit-text { min-width: 0; }
 .ap-visit-text b { display: block; font-size: .875rem; font-weight: 600; color: var(--gray-950); }
 .dark .ap-visit-text b { color: #fff; }
-.ap-visit-text small { display: block; font-size: .78rem; color: var(--gray-500); }
-.ap-visit-here { font-size: .72rem; font-weight: 600; color: var(--primary-600); white-space: nowrap; }
-.dark .ap-visit-here { color: var(--primary-400); }
-.ap-visits-note { margin: 0; padding: .25rem .6rem; font-size: .8rem; color: var(--gray-500); }
+.ap-visit-text small { display: block; font-size: .8125rem; color: var(--gray-500); }
+.ap-visit-here { font-size: .75rem; font-weight: 600; color: var(--primary-600); white-space: nowrap; }
+.dark .ap-visit-here { color: var(--primary-300); }
+.ap-visits-note { margin: 0; padding: .25rem .6rem; font-size: .8125rem; color: var(--gray-500); }
 .ap-visits-links { display: flex; flex-wrap: wrap; gap: .25rem 1rem; padding: .5rem .6rem 0; }
 /* Angosta (el costado de la cita con el menú cerrado), el estado va debajo del nombre en vez de cortarse. */
 @container (max-width: 15rem) { .ap-visit { flex-direction: column; align-items: flex-start; gap: .3rem; } }
@@ -2003,7 +2029,7 @@ a.ap-visit:hover { background: var(--gray-50); }
 }
 
 /* Opciones rápidas: junto al nombre, solo lo que no es lo de siempre ("Solo tuya", "Propuesta de Ana"). */
-.snip-note { display: inline-block; margin-left: .35rem; padding: 0 .45rem; border-radius: 9999px; font-size: .72rem; font-weight: 500; line-height: 1.25rem; vertical-align: 1px; color: var(--gray-600); background: var(--gray-100); }
+.snip-note { display: inline-block; margin-left: .35rem; padding: 0 .45rem; border-radius: 9999px; font-size: .75rem; font-weight: 500; line-height: 1.25rem; vertical-align: 1px; color: var(--gray-600); background: var(--gray-100); }
 .dark .snip-note { color: var(--gray-300); background: rgb(255 255 255 / .08); }
 
 /* ---------- Bandeja del día (Inventario) ---------- */
@@ -2050,7 +2076,7 @@ a.ap-visit:hover { background: var(--gray-50); }
 .report-link:hover { text-decoration: underline; }
 .dark .report-link { color: var(--primary-400); }
 .report-muted { color: var(--gray-500); font-size: .75rem; }
-.report-tag { display: inline-block; margin-left: .375rem; padding: 0 .375rem; border-radius: .375rem; font-size: .7rem; font-weight: 600; color: var(--warning-700); background: var(--warning-50); }
+.report-tag { display: inline-block; margin-left: .375rem; padding: 0 .375rem; border-radius: .375rem; font-size: .75rem; font-weight: 600; color: var(--warning-700); background: var(--warning-50); }
 .dark .report-tag { color: var(--warning-400); background: rgb(245 158 11 / .12); }
 .report-more { display: inline-block; margin-top: .75rem; }
 /* En el celular, cada fila es una tarjeta: el paciente arriba, el monto a la derecha y el resto debajo, sin barra horizontal. */
@@ -2086,7 +2112,7 @@ a.ap-visit:hover { background: var(--gray-50); }
 .setup-icon { width: 1.25rem; height: 1.25rem; flex: none; color: var(--primary-600); }
 .dark .setup-icon { color: var(--primary-400); }
 .setup-text { flex: 1; min-width: 0; display: grid; gap: .125rem; }
-.setup-text strong { font-size: .9375rem; font-weight: 600; color: var(--gray-950); }
+.setup-text strong { font-size: 1rem; font-weight: 600; color: var(--gray-950); }
 .dark .setup-text strong { color: #fff; }
 .setup-text span { font-size: .8125rem; color: var(--gray-600); }
 .dark .setup-text span { color: var(--gray-400); }
@@ -2151,12 +2177,12 @@ a.ap-visit:hover { background: var(--gray-50); }
 @media (min-width: 64rem) {
     .user-badge { display: grid; gap: .05rem; margin-inline-end: -.25rem; text-align: right; line-height: 1.15; }
     .user-badge strong { max-width: 12rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .8125rem; font-weight: 600; color: var(--gray-950); }
-    .user-badge small { font-size: .6875rem; color: var(--gray-500); }
+    .user-badge small { font-size: .75rem; color: var(--gray-500); }
     .dark .user-badge strong { color: #fff; }
     .dark .user-badge small { color: var(--gray-400); }
 }
 .user-menu-who { display: grid; gap: .1rem; padding: .5rem .75rem .6rem; border-bottom: 1px solid var(--gray-100); margin-bottom: .25rem; }
-.user-menu-who small { font-size: .6875rem; color: var(--gray-500); }
+.user-menu-who small { font-size: .75rem; color: var(--gray-500); }
 .user-menu-who strong { font-size: .875rem; font-weight: 600; color: var(--gray-950); overflow-wrap: anywhere; }
 .user-menu-who span { font-size: .75rem; color: var(--gray-600); overflow-wrap: anywhere; }
 .dark .user-menu-who { border-color: rgb(255 255 255 / .08); }
@@ -2164,7 +2190,7 @@ a.ap-visit:hover { background: var(--gray-50); }
 .dark .user-menu-who :is(small, span) { color: var(--gray-400); }
 /* Su plan de tratamiento en la atención: cada procedimiento con su precio y en qué va. */
 .visit-plans { display: grid; gap: 1.25rem; }
-.visit-plan-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .35rem .5rem; margin-bottom: .5rem; font-size: .9375rem; }
+.visit-plan-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .35rem .5rem; margin-bottom: .5rem; font-size: 1rem; }
 .visit-plan-items { display: grid; }
 .visit-plan-items li { display: grid; grid-template-columns: 1fr auto; gap: .05rem .75rem; padding: .5rem 0; border-top: 1px solid var(--gray-100); font-size: .875rem; }
 .visit-plan-items li:first-child { border-top: 0; }
@@ -2241,9 +2267,14 @@ a.ap-visit:hover { background: var(--gray-50); }
 .dark .ap-step.is-done .ap-step-label, .dark .ap-step.is-skipped .ap-step-label { color: var(--gray-100); }
 .dark .ap-step.is-current .ap-step-label { color: var(--primary-300); }
 .dark .ap-step-at { color: var(--gray-400); }
+/* En el celular los cinco nombres no caben y quedaban pegados ("ReservadaConfirmada"): solo el paso en que va la
+   cita lleva su nombre y su hora, en una línea; los demás quedan como puntos y su nombre lo oye solo un lector de pantalla. */
 @media (max-width: 30rem) {
-    .ap-step-label { font-size: .6875rem; }
-    .ap-step-at { font-size: .6875rem; }
+    .ap-step { grid-template-columns: minmax(0, 1fr); }
+    .ap-step:not(.is-shown) :is(.ap-step-label, .ap-step-at) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+    .ap-step.is-shown :is(.ap-step-label, .ap-step-at) { white-space: nowrap; }
+    .ap-step.is-shown:first-child :is(.ap-step-label, .ap-step-at) { justify-self: start; }
+    .ap-step.is-shown:last-child :is(.ap-step-label, .ap-step-at) { justify-self: end; }
 }
 
 /* Cómo terminó una cita que no se dio, o el aviso de que falta llamar. */
@@ -2255,15 +2286,15 @@ a.ap-visit:hover { background: var(--gray-50); }
 .dark .ap-closed.is-danger { background: rgb(239 68 68 / .1); color: var(--danger-300); box-shadow: inset 0 0 0 1px rgb(239 68 68 / .3); }
 .dark .ap-closed.is-warning { background: rgb(245 158 11 / .1); color: var(--warning-300); box-shadow: inset 0 0 0 1px rgb(245 158 11 / .3); }
 
-/* Los datos de la cita: un ícono en su cuadrito, la etiqueta chica y el dato en negrita. */
+/* Los datos de la cita: un ícono en su cuadrito, la etiqueta chica y el dato en negrita. El ícono va dentro de la
+   etiqueta (<dt>) y la aclaración dentro del dato (<dd>), para que la lista quede bien armada; el ícono se pone a la izquierda. */
 .ap-facts { display: grid; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); gap: 1rem 1.5rem; margin: 0; }
-.ap-fact { display: flex; gap: .75rem; align-items: flex-start; min-width: 0; }
-.ap-fact-icon { display: grid; place-items: center; flex: none; width: 2.25rem; height: 2.25rem; border-radius: .7rem; background: var(--primary-50); color: var(--primary-600); }
+.ap-fact { position: relative; display: grid; align-content: start; min-width: 0; min-height: 2.25rem; padding-left: 3rem; }
+.ap-fact-icon { position: absolute; top: 0; left: 0; display: grid; place-items: center; width: 2.25rem; height: 2.25rem; border-radius: .7rem; background: var(--primary-50); color: var(--primary-600); }
 .ap-fact-icon svg { width: 1.2rem; height: 1.2rem; }
-.ap-fact-text { display: grid; min-width: 0; }
 .ap-fact dt { font-size: .75rem; font-weight: 500; color: var(--gray-500); }
-.ap-fact dd { margin: 0; font-size: .9375rem; font-weight: 600; line-height: 1.35; color: var(--gray-950); overflow-wrap: anywhere; }
-.ap-fact small { font-size: .78rem; line-height: 1.35; color: var(--gray-500); }
+.ap-fact dd { margin: 0; font-size: 1rem; font-weight: 600; line-height: 1.35; color: var(--gray-950); overflow-wrap: anywhere; }
+.ap-fact small { display: block; font-size: .8125rem; font-weight: 400; line-height: 1.35; color: var(--gray-500); }
 .dark .ap-fact-icon { background: color-mix(in oklab, var(--primary-400) 16%, transparent); color: var(--primary-300); }
 .dark .ap-fact dt, .dark .ap-fact small { color: var(--gray-400); }
 .dark .ap-fact dd { color: #fff; }
@@ -2278,7 +2309,7 @@ a.ap-visit:hover { background: var(--gray-50); }
 .ap-billing { display: grid; gap: 1rem; }
 .ap-money { display: grid; grid-template-columns: repeat(auto-fit, minmax(12.5rem, 1fr)); gap: .75rem; }
 .ap-money-tile { display: grid; align-content: start; gap: .2rem; padding: .9rem 1rem; border-radius: .8rem; background: var(--gray-50); box-shadow: inset 0 0 0 1px var(--gray-200); }
-.ap-money-label { font-size: .78rem; font-weight: 500; color: var(--gray-600); }
+.ap-money-label { font-size: .8125rem; font-weight: 500; color: var(--gray-600); }
 .ap-money-value { font-size: 1.375rem; line-height: 1.2; font-weight: 700; letter-spacing: -.01em; font-variant-numeric: tabular-nums; color: var(--gray-950); }
 .ap-money-lines { display: grid; gap: .15rem; margin: .35rem 0 0; padding: 0; list-style: none; font-size: .8125rem; color: var(--gray-600); }
 .ap-money-lines li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0 .75rem; }
@@ -2307,7 +2338,7 @@ a.ap-visit:hover { background: var(--gray-50); }
 .ap-balance strong { font-weight: 600; color: var(--gray-950); }
 .ap-balance.is-owing strong { color: var(--danger-600); }
 .ap-balance.is-clear strong { color: var(--success-700); }
-.ap-balance small { font-size: .78rem; color: var(--gray-500); }
+.ap-balance small { font-size: .8125rem; color: var(--gray-500); }
 .dark .ap-balance { border-top-color: rgb(255 255 255 / .15); }
 .dark .ap-balance strong { color: #fff; }
 .dark .ap-balance.is-owing strong { color: var(--danger-400); }
@@ -2328,7 +2359,7 @@ a.ap-visit:hover { background: var(--gray-50); }
 .ap-history-row.is-danger { --dot: var(--danger-500); }
 .ap-history-text { display: grid; min-width: 0; }
 .ap-history-text b { font-size: .875rem; font-weight: 600; line-height: 1.3; color: var(--gray-950); }
-.ap-history-text small { font-size: .78rem; color: var(--gray-500); overflow-wrap: anywhere; }
+.ap-history-text small { font-size: .8125rem; color: var(--gray-500); overflow-wrap: anywhere; }
 .dark .ap-history-row::before { background: rgb(255 255 255 / .12); }
 .dark .ap-history-text b { color: #fff; }
 .dark .ap-history-text small { color: var(--gray-400); }
@@ -2356,6 +2387,15 @@ a.ap-visit:hover { background: var(--gray-50); }
     --menu-to: color-mix(in oklab, var(--primary-950) 55%, var(--gray-950));
 }
 
+/*
+ * El gris de los textos secundarios (subtítulo y ruta de cada pantalla, pestañas sin elegir, descripciones) es el
+ * 500 de Filament, y en todo el panel se cambia aquí, en un solo lugar. El de fábrica (#62748e) no llegaba al
+ * contraste mínimo de 4.5 a 1 sobre el fondo azulado (4.15) ni sobre las pestañas (4.35): un tono más oscuro queda
+ * en 5.15 y 5.40. En oscuro, ese gris sobre el azul noche se apagaba (3.74): ahí toma el tono claro (6.78).
+ */
+:root { --gray-500: #55657e; }
+:root.dark { --gray-500: #90a1b9; }
+
 /* La marca: el diente en su cuadrito azul, como en la página web. */
 .fi-logo:has(.brand-mark) { align-items: center; gap: .65rem; }
 .brand-mark { display: grid; place-items: center; flex: none; width: 2.125rem; height: 2.125rem; border-radius: .7rem; background: linear-gradient(135deg, var(--primary-500), var(--primary-700)); color: #fff; box-shadow: 0 2px 6px rgb(30 79 145 / .35); }
@@ -2380,7 +2420,7 @@ a.ap-visit:hover { background: var(--gray-50); }
 .fi-main-sidebar .fi-sidebar-item-grouped-border-part-not-last { background: rgb(255 255 255 / .18); }
 .fi-main-sidebar .fi-sidebar-item.fi-active > .fi-sidebar-item-btn .fi-sidebar-item-grouped-border-part { background: var(--menu-accent); }
 /* Dentro de "Configuración", el nombre del grupo (Consultorio, Catálogo, Equipo, Textos) va sobre su primera entrada. */
-.fi-main-sidebar .fi-sidebar-item[data-menu-group]::before { content: attr(data-menu-group); display: block; padding: .7rem .75rem .2rem 3.1rem; font-size: .6875rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: rgb(255 255 255 / .5); }
+.fi-main-sidebar .fi-sidebar-item[data-menu-group]::before { content: attr(data-menu-group); display: block; padding: .7rem .75rem .2rem 3.1rem; font-size: .75rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: rgb(255 255 255 / .5); }
 .fi-main-sidebar .fi-sidebar-item[data-menu-group]:first-child::before { padding-top: .3rem; }
 .fi-main-sidebar .fi-sidebar-item[data-menu-group="Consultorio"] ~ .fi-sidebar-item[data-menu-group="Consultorio"]::before,
 .fi-main-sidebar .fi-sidebar-item[data-menu-group="Catálogo"] ~ .fi-sidebar-item[data-menu-group="Catálogo"]::before,
@@ -2416,6 +2456,8 @@ a.ap-visit:hover { background: var(--gray-50); }
 .fi-ta-header-cell { font-size: .8125rem; color: var(--gray-600); }
 .dark .fi-ta-table > thead > tr { background: rgb(255 255 255 / .03); }
 .dark .fi-ta-header-cell { color: var(--gray-400); }
+/* La rayita "—" de una celda o un dato vacío, en el gris de los textos secundarios: la de fábrica casi no se veía (2.63 a 1). */
+.fi-ta-cell .fi-ta-placeholder, .fi-in-entry .fi-in-placeholder { color: var(--gray-500); }
 @media (hover: hover) and (pointer: fine) {
     .fi-ta-table > tbody > .fi-ta-row:not(.fi-ta-group-header-row):hover { background: color-mix(in oklab, var(--primary-50) 60%, transparent); }
     .dark .fi-ta-table > tbody > .fi-ta-row:not(.fi-ta-group-header-row):hover { background: rgb(255 255 255 / .035); }
@@ -2424,6 +2466,12 @@ a.ap-visit:hover { background: var(--gray-50); }
 /* Las pestañas de cada lista: la elegida, en el azul de la marca. */
 .fi-tabs-item.fi-active { background: var(--primary-50); }
 .dark .fi-tabs-item.fi-active { background: color-mix(in oklab, var(--primary-400) 16%, transparent); }
+/* En oscuro, el nombre de la elegida en el azul claro: el de fábrica no se leía sobre el fondo de la pestaña (3.99 a 1).
+   Igual el número de la página en que estás, abajo de cada lista (3.69 a 1). */
+.dark .fi-tabs-item.fi-active .fi-tabs-item-label, .dark .fi-tabs-item.fi-active > .fi-icon,
+.dark .fi-pagination-item.fi-active .fi-pagination-item-label { color: var(--primary-300); }
+/* Lo mismo con "Examinar" de los campos para subir un archivo (4.27 a 1). */
+.dark .fi-fo-file-upload .filepond--label-action { color: var(--primary-300); }
 
 /* Una lista vacía: el ícono en el azul de la marca en vez de una equis gris. */
 .fi-ta-empty-state-icon-bg { background: var(--primary-50); }
@@ -2508,7 +2556,7 @@ a.ap-visit:hover { background: var(--gray-50); }
 /* ---------- "¿Olvidaste tu contraseña?" sin correo en el hosting ---------- */
 
 /* No hay formulario que llenar: una nota que dice a quién pedirle la contraseña nueva. */
-.auth-note { display: grid; gap: .5rem; padding: 1rem 1.1rem; border-radius: .85rem; background: var(--primary-50); box-shadow: inset 0 0 0 1px var(--primary-200); font-size: .9375rem; line-height: 1.5; color: var(--gray-700); }
+.auth-note { display: grid; gap: .5rem; padding: 1rem 1.1rem; border-radius: .85rem; background: var(--primary-50); box-shadow: inset 0 0 0 1px var(--primary-200); font-size: .875rem; line-height: 1.5; color: var(--gray-700); }
 .auth-note-lead { font-size: 1rem; font-weight: 600; color: var(--gray-950); }
 .auth-note-muted { font-size: .8125rem; color: var(--gray-500); }
 .dark .auth-note { background: color-mix(in oklab, var(--primary-400) 12%, transparent); box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--primary-400) 30%, transparent); color: var(--gray-300); }

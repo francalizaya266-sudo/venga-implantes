@@ -149,7 +149,7 @@ class AgendaCalendarTest extends TestCase
         // El aviso dice con quién choca y a qué hora, para no tener que buscarlo en la agenda.
         Livewire::test(Agenda::class, ['date' => '2026-11-04'])
             ->callAction('move', arguments: ['id' => $appointment->id, 'column' => "{$doctor->id}|2026-11-04", 'time' => '16:15'])
-            ->assertNotified('Ese horario se cruza con la cita de Rosa Quispe, de 16:00 a 16:30'.($inTheWay->buffer_minutes > 0 ? " (más {$inTheWay->buffer_minutes} min de esterilización)" : '').'. Elige otro.');
+            ->assertNotified('Ese horario se cruza con la cita de Rosa Quispe, de 16:00 a 16:30'.($inTheWay->buffer_minutes > 0 ? " (más {$inTheWay->buffer_minutes} min para preparar el sillón)" : '').'. Elige otro.');
 
         $this->assertSame('10:00', $appointment->fresh()->starts_at->format('H:i'));
     }

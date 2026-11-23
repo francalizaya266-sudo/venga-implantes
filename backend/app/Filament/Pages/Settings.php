@@ -199,7 +199,7 @@ class Settings extends Page
                                     ->headerActions([self::recommendedAction('recommendedAgenda', ['agenda.buffer_minutes', 'agenda.slot_step_minutes', 'agenda.min_useful_gap_minutes'])])
                                     ->columns(2)
                                     ->schema([
-                                        self::minutes('agenda.buffer_minutes', 'Limpieza y esterilización entre citas', 0, 60)
+                                        self::minutes('agenda.buffer_minutes', 'Tiempo para preparar el sillón entre citas', 0, 60)
                                             ->helperText('Cada tratamiento puede tener su propio tiempo.'),
                                         // Una lista en vez de un número libre: con "cada 7 minutos" los horarios salían a horas raras.
                                         Select::make('agenda.slot_step_minutes')
