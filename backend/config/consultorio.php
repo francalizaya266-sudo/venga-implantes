@@ -36,15 +36,18 @@ return [
 
         // Textos de la página de inicio.
         'web' => [
-            // La frase corta que va arriba del título del inicio. Vacía en la puesta a punto = no sale.
-            'tagline' => 'Innovación y cuidado dental',
-            'headline' => 'Atención dental sin esperas',
-            'intro' => 'Evaluaciones, limpiezas, implantes y más. Elige tu horario aquí mismo y te confirmamos por WhatsApp.',
+            // La frase corta que va arriba del título del inicio. Viene vacía (un lema no le dice nada al paciente) y así no sale.
+            'tagline' => null,
+            // El título y la frase bajo él. Vacíos, salen "Implantes y odontología en Juliaca" y "Tu dentista en
+            // Juliaca. Reserva en 2 minutos.", con la ciudad de arriba (App\Services\Web\ClinicInfo).
+            'headline' => null,
+            'intro' => null,
             'about' => null,
             // Foto real del consultorio o del equipo, arriba del inicio.
             'hero_image' => null,
             // El encabezado y la franja de cierre de cada página (Página web › Textos de las páginas). En el título,
-            // la última palabra sale en azul; para elegir otra parte se encierra entre asteriscos.
+            // la última palabra sale en azul; para elegir otra parte se encierra entre asteriscos. La frase corta sobre
+            // el título (kicker) viene vacía: el título ya dice qué hay y un lema encima solo suma ruido.
             'pages' => [
                 // El cierre del inicio y de las páginas que no tienen el suyo.
                 'inicio' => [
@@ -52,7 +55,7 @@ return [
                     'closing_text' => 'Reserva tu cita hoy y luce una sonrisa saludable.',
                 ],
                 'servicios' => [
-                    'kicker' => 'Tu sonrisa, nuestra prioridad',
+                    'kicker' => null,
                     'title' => 'Nuestros servicios',
                     'lead' => 'Cuánto dura cada uno y desde cuánto cuesta. El precio exacto te lo da el doctor en tu evaluación, antes de empezar, y se paga en el consultorio.',
                     'photo' => null,
@@ -60,24 +63,25 @@ return [
                     'closing_text' => 'Reserva tu cita en línea y te confirmamos por WhatsApp.',
                 ],
                 'equipo' => [
-                    'kicker' => 'Profesionales comprometidos con tu salud',
+                    'kicker' => null,
                     'title' => 'Nuestro equipo',
                     'lead' => 'Conoce a quienes te atienden: su especialidad, su formación y su número de colegiatura.',
                     'photo' => null,
-                    // Lo que distingue al equipo, en una franja bajo los doctores. Un punto sin título no sale.
-                    'value1_title' => 'Colegiados',
-                    'value1_text' => 'Cada doctor con su número de colegiatura',
-                    'value2_title' => 'Te explicamos todo',
-                    'value2_text' => 'El presupuesto, antes de empezar',
-                    'value3_title' => 'Compromiso',
-                    'value3_text' => 'Con tu salud bucal',
-                    'value4_title' => 'Trato humano',
-                    'value4_text' => 'Tu bienestar es primero',
+                    // Lo que distingue al equipo, en una franja bajo los doctores. Un punto sin título no sale: vienen vacíos,
+                    // porque la colegiatura y los estudios ya van en cada doctor y un adjetivo ("Compromiso") no informa.
+                    'value1_title' => null,
+                    'value1_text' => null,
+                    'value2_title' => null,
+                    'value2_text' => null,
+                    'value3_title' => null,
+                    'value3_text' => null,
+                    'value4_title' => null,
+                    'value4_text' => null,
                     'closing_title' => 'Reserva tu cita con nuestro equipo',
                     'closing_text' => 'Estamos listos para cuidar de tu sonrisa.',
                 ],
                 'contacto' => [
-                    'kicker' => 'Estamos aquí para ayudarte',
+                    'kicker' => null,
                     'title' => 'Contácta*nos*',
                     'lead' => 'Escríbenos, llámanos o visítanos. Con gusto resolvemos tus dudas y reservamos tu cita.',
                     'photo' => null,
@@ -85,7 +89,7 @@ return [
                     'closing_text' => 'Elige el día y la hora en línea; te confirmamos por WhatsApp.',
                 ],
                 'preguntas' => [
-                    'kicker' => 'Resolvemos tus dudas',
+                    'kicker' => null,
                     'title' => 'Preguntas frecuentes',
                     'lead' => 'Encuentra aquí las respuestas a las dudas más comunes sobre nuestros servicios y tus citas.',
                     'photo' => null,
@@ -93,25 +97,25 @@ return [
                     'closing_text' => 'Escríbenos y con gusto te ayudamos.',
                 ],
                 'promociones' => [
-                    'kicker' => 'Ofertas vigentes',
+                    'kicker' => null,
                     'title' => 'Promociones',
                     'lead' => 'Las promociones se aplican al pagar en el consultorio. Reserva desde aquí y el código queda guardado en tu cita.',
                     'photo' => null,
                 ],
                 'casos' => [
-                    'kicker' => 'Resultados reales',
+                    'kicker' => null,
                     'title' => 'Antes y después',
                     'lead' => 'Resultados de pacientes que nos autorizaron a mostrar sus fotos. Cada caso es distinto: en tu evaluación el doctor te dice qué puedes esperar.',
                     'photo' => null,
                 ],
                 'opiniones' => [
-                    'kicker' => 'Lo que dicen nuestros pacientes',
+                    'kicker' => null,
                     'title' => 'Opiniones de pacientes',
                     'lead' => 'Copiadas tal como las escribieron nuestros pacientes.',
                     'photo' => null,
                 ],
                 'cuenta' => [
-                    'kicker' => 'Tu espacio personal',
+                    'kicker' => null,
                     'title' => 'Mi cuenta',
                     'lead' => 'Consulta las citas de tu familia, cambia el horario o cancela, y revisa tus pagos.',
                     'photo' => null,
@@ -120,7 +124,7 @@ return [
                 ],
                 // Mientras se reserva, el cierre ofrece ayuda por WhatsApp en vez de invitar a reservar.
                 'reservar' => [
-                    'kicker' => 'Reserva tu cita',
+                    'kicker' => null,
                     'title' => 'Reservar cita',
                     'lead' => 'Elige el servicio, el día y la hora que prefieras. Te confirmamos por WhatsApp.',
                     'photo' => null,

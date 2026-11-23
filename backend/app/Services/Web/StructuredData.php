@@ -16,7 +16,9 @@ final class StructuredData
     public function dentist(): array
     {
         $clinic = $this->clinic;
-        $phone = $clinic->phone() ?? ($clinic->whatsapp() ? Phone::display($clinic->whatsapp()) : null);
+        // Con el +51 delante, como lo pide Google: el fijo o, si no hay (o no se entiende), el WhatsApp.
+        $phone = ($clinic->phone() ? Phone::international($clinic->phone()) : null)
+            ?? ($clinic->whatsapp() ? Phone::international($clinic->whatsapp()) : null);
         $minPrice = Treatment::query()->active()->where('is_public', true)->where('show_price', true)->min('price_from');
         $photo = Doctor::query()->active()->where('is_public', true)->whereNotNull('photo_path')->orderBy('sort_order')->value('photo_path');
 

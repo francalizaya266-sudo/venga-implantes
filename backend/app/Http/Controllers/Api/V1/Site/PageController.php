@@ -23,7 +23,12 @@ class PageController extends Controller
             'data' => ['heading' => 'Nuestra ubicación'],
             'meta' => $this->meta->for(
                 title: 'Contacto y cómo llegar',
-                description: 'Dirección, horario de atención, WhatsApp y mapa'.($clinic->fullAddress() ? ': '.$clinic->fullAddress() : '').'.',
+                description: PageMeta::describe(
+                    'Cómo llegar a '.$clinic->name().($clinic->fullAddress() ? ': '.$clinic->fullAddress() : '').'.',
+                    'Horario de atención, WhatsApp y mapa.',
+                    'Escríbenos o reserva tu cita en línea.',
+                    'Te esperamos.',
+                ),
                 jsonLd: [
                     $structuredData->dentist(),
                     $structuredData->breadcrumbs(['Contacto' => route('site.contact')]),
@@ -47,7 +52,7 @@ class PageController extends Controller
             ],
             'meta' => $this->meta->for(
                 title: 'Política de privacidad',
-                description: 'Cómo '.$clinic->name().' cuida tus datos personales y de salud (Ley N.º 29733).',
+                description: 'Cómo '.$clinic->name().' cuida tus datos personales y de salud (Ley N.º 29733): qué datos usamos, para qué, quién los ve, cuánto los guardamos y tus derechos.',
             ),
         ];
     }

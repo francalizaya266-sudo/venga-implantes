@@ -1,8 +1,8 @@
 import { screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import type { HomeData } from '@/api/types';
+import type { Doctor, HomeData } from '@/api/types';
 import { mockApi, renderApp } from '@/test/app';
-import { appointment, homeData, page, treatment } from '@/test/fixtures';
+import { appointment, homeData, page, site, treatment } from '@/test/fixtures';
 
 const HOME = '/api/v1/home';
 
@@ -12,7 +12,7 @@ function openHome(home: Partial<HomeData> = {}, answers: Parameters<typeof mockA
   return { calls, ...renderApp('/') };
 }
 
-const title = () => screen.findByRole('heading', { level: 1, name: 'Atención dental sin esperas' });
+const title = () => screen.findByRole('heading', { level: 1, name: 'Implantes y odontología en Juliaca' });
 
 describe('HomePage', () => {
   it('opens with the phrase of the clinic, what calms before booking and the services', async () => {
@@ -32,14 +32,86 @@ describe('HomePage', () => {
     );
     expect(services.getByRole('link', { name: /Ortodoncia.*Precio en la evaluación/ })).toBeInTheDocument();
     expect(services.getByRole('link', { name: 'Ver los 12 servicios' })).toHaveAttribute('href', '/tratamientos');
+    // En el celular salen cuatro tarjetas y, debajo, el enlace a todos (site.css).
+    expect(services.getByRole('link', { name: 'Ver todos los tratamientos' })).toHaveAttribute('href', '/tratamientos');
     // El inicio ya muestra dónde queda y el horario: el pie no los repite.
     expect(within(screen.getByRole('contentinfo')).queryByText('Abierto ahora')).not.toBeInTheDocument();
+  });
+
+  it('answers under the buttons where it is, which days it opens and from how much, leaving out what is not set', async () => {
+    openHome({ facts: { address: 'Jr. Apurímac 648', days: 'Lunes a sábado', price: 'Evaluación desde S/ 50' } });
+
+    await title();
+    const facts = screen.getByRole('list', { name: 'Dónde, cuándo y desde cuánto' });
+    expect(
+      within(facts)
+        .getAllByRole('listitem')
+        .map((item) => item.textContent),
+    ).toEqual(['Jr. Apurímac 648', 'Lunes a sábado', 'Evaluación desde S/ 50']);
+  });
+
+  describe('the image of the cover', () => {
+    const doctor = (photo: string | null): Doctor => ({
+      id: 1,
+      slug: 'jassmanny-vega',
+      name: 'Dr. Jassmanny Vega',
+      specialty: 'Implantólogo',
+      cop_number: '29668',
+      rne_number: null,
+      photo_url: photo,
+      initials: 'JV',
+      bio_short: null,
+      bio_html: null,
+      education: [],
+      accepts_online_booking: true,
+    });
+    const cover = () => within(screen.getByRole('region', { name: 'Implantes y odontología en Juliaca' }));
+    const implant = () => document.querySelector('.hero-art');
+
+    it('is the photo of the home instead of the 3D implant when the clinic uploaded one', async () => {
+      mockApi({
+        '/api/v1/site': { data: site({ home: { ...site().home, hero_image_url: '/media/inicio/consultorio.jpg' } }) },
+        [HOME]: page(homeData({ doctor: doctor('/media/equipo/vega.jpg') })),
+      });
+      renderApp('/');
+
+      await title();
+      expect(screen.getByRole('img', { name: 'Clínica Vega' })).toHaveAttribute('src', '/media/inicio/consultorio.jpg');
+      expect(cover().queryByRole('img', { name: 'Dr. Jassmanny Vega' })).not.toBeInTheDocument();
+      expect(implant()).not.toBeInTheDocument();
+    });
+
+    it('is the face of whoever heads the team when there is no photo of the home', async () => {
+      openHome({ doctor: doctor('/media/equipo/vega.jpg') });
+
+      await title();
+      expect(cover().getByRole('img', { name: 'Dr. Jassmanny Vega' })).toHaveAttribute('src', '/media/equipo/vega.jpg');
+      expect(cover().getByText('Implantólogo · COP 29668')).toBeInTheDocument();
+      expect(implant()).not.toBeInTheDocument();
+    });
+
+    it('stays the 3D implant of the brand while there is no photo at all', async () => {
+      openHome({ doctor: doctor(null) });
+
+      await title();
+      expect(implant()).toBeInTheDocument();
+      expect(cover().queryByRole('img', { name: 'Dr. Jassmanny Vega' })).not.toBeInTheDocument();
+    });
+  });
+
+  it('leaves out the line under the buttons when nothing in it is set', async () => {
+    openHome({ facts: { address: null, days: null, price: null } });
+
+    await title();
+    expect(screen.queryByRole('list', { name: 'Dónde, cuándo y desde cuánto' })).not.toBeInTheDocument();
   });
 
   it('promises nothing about booking when the clinic does not take bookings on the web', async () => {
     openHome({ can_book: false, shows_prices: false });
 
     await title();
+    // Con un solo servicio, en el celular no hay nada más que ver.
+    expect(screen.queryByRole('link', { name: 'Ver todos los tratamientos' })).not.toBeInTheDocument();
     expect(screen.queryByText('Horarios libres de verdad')).not.toBeInTheDocument();
     expect(screen.queryByText('Precios a la vista')).not.toBeInTheDocument();
   });

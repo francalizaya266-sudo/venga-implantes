@@ -4370,7 +4370,8 @@
           "other_doctors",
           "cases",
           "reviews",
-          "faqs"
+          "faqs",
+          "facts"
         ],
         "properties": {
           "welcome": {
@@ -4454,6 +4455,39 @@
             "items": {
               "$ref": "#/components/schemas/Faq"
             }
+          },
+          "facts": {
+            "type": "object",
+            "description": "La línea bajo los botones de la portada: dónde queda, qué días atiende y desde cuánto cuesta la evaluación. Lo que no está configurado va en null y no sale.",
+            "required": [
+              "address",
+              "days",
+              "price"
+            ],
+            "properties": {
+              "address": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "\"Jr. Apurímac 648\", sin la ciudad (va en el título)."
+              },
+              "days": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "\"Lunes a sábado\", \"Lunes, miércoles y viernes\" o \"Todos los días\"."
+              },
+              "price": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "\"Evaluación desde S/ 50\" o \"Evaluación gratis\"."
+              }
+            },
+            "additionalProperties": false
           }
         },
         "additionalProperties": false

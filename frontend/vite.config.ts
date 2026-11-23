@@ -30,8 +30,21 @@ export default defineConfig({
         },
       }
     : undefined,
-  // La carpeta de salida queda fuera del proyecto: hay que decir que sí se vacía antes de compilar.
-  build: { emptyOutDir: true },
+  // La carpeta de salida queda fuera del proyecto: hay que decir que sí se vacía antes de compilar. Cada página va
+  // en su archivo (src/app/router.tsx); React y las demás librerías, que comparten todas, en "libs".
+  build: {
+    emptyOutDir: true,
+    rolldownOptions: {
+      output: {
+        codeSplitting: {
+          groups: [
+            { name: 'libs', test: /node_modules/ },
+            { name: 'site', test: /src\/(api|components|lib)\// },
+          ],
+        },
+      },
+    },
+  },
   resolve: {
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
   },

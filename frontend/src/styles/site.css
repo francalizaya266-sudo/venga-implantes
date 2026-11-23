@@ -79,6 +79,8 @@ body {
 #app { display: contents; }
 
 a { color: var(--accent); text-underline-offset: .18em; }
+/* Lo que se toca responde al instante: el navegador no espera a ver si es un doble toque para acercar. */
+a, button, summary, label { touch-action: manipulation; }
 
 img { max-width: 100%; display: block; }
 
@@ -121,7 +123,8 @@ img { max-width: 100%; display: block; }
 @media (max-width: 479px) { .site-header .long { display: none; } }
 /* Reservar cita: la salida al inicio, discreta, para que no compita con los pasos. */
 .header-back { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); text-decoration: none; font-weight: 600; font-size: .9375rem; padding: 10px; border-radius: 999px; white-space: nowrap; transition: color .15s ease, background-color .15s ease; }
-.header-back:hover { color: var(--accent); background: var(--surface); }
+/* Solo con mouse: en el celular el botón quedaba marcado después de tocarlo. */
+@media (hover: hover) and (pointer: fine) { .header-back:hover { color: var(--accent); background: var(--surface); } }
 /* Sin la barra de abajo (el enlace de una cita), "Reservar" no entra en un celular junto al nombre y "Menú". */
 @media (max-width: 559px) { .site-header .btn { display: none; } }
 @media (max-width: 359px) { .action-bar .long { display: none; } }
@@ -387,8 +390,11 @@ a.choice { text-decoration: none; }
 .chip, .day, .time { transition: background-color .15s ease, color .15s ease, transform .16s var(--ease-out); }
 .chip:active, .day:active, .time:active { transform: scale(.96); }
 
-.days { display: grid; grid-auto-flow: column; grid-auto-columns: 68px; gap: 8px; overflow-x: auto; padding: 2px 2px 8px; margin: 0 -2px; scroll-snap-type: x proximity; scrollbar-width: none; }
+/* En el celular la tira se desliza: entran cuatro días y medio, y el último, cortado, avisa que siguen más a la derecha. */
+.days { display: grid; grid-auto-flow: column; grid-auto-columns: calc((100% - 4 * 8px) / 4.5); gap: 8px; overflow-x: auto; padding: 2px 2px 8px; margin: 0 -2px; scroll-snap-type: x proximity; scrollbar-width: none; }
 .days::-webkit-scrollbar { display: none; }
+/* En los más angostos, tres y medio: con cuatro y medio, "Mañana" no entraría. */
+@media (max-width: 359px) { .days { grid-auto-columns: calc((100% - 3 * 8px) / 3.5); } }
 /* Con mouse no hay cómo deslizar la tira: en pantallas anchas los días van en filas, todos a la vista. */
 @media (min-width: 600px) {
     .days { grid-auto-flow: row; grid-template-columns: repeat(6, 1fr); overflow: visible; }
@@ -585,6 +591,10 @@ details.more[open] > summary::after { transform: translateY(.06em) rotate(225deg
 .hero .rating-stars { color: rgb(255 255 255 / .26); }
 .hero .rating-stars::after { color: #ffc24d; }
 .hero a.rating > span:last-child { text-decoration-color: rgb(255 255 255 / .45); }
+/* Bajo los botones, lo que todos preguntan antes de ir: dónde queda, qué días atiende y desde cuánto cuesta empezar. */
+.hero-facts { display: flex; flex-wrap: wrap; gap: 8px 22px; margin: 22px 0 0; padding: 0; list-style: none; color: #dbe7fb; font-size: .9375rem; font-weight: 600; line-height: 1.35; }
+.hero-facts li { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+.hero-facts svg { flex: none; width: 18px; height: 18px; color: var(--sky-vivid); }
 /* El implante con su cinta de luz en espiral: la imagen de la marca. Son dos capas, una sobre otra: el implante, de bordes limpios, y la cinta, que es la única que lleva resplandor. */
 .hero-art { position: relative; display: grid; place-items: center; justify-self: center; width: min(78vw, 320px); aspect-ratio: 1; margin: -4px 0 -14px; pointer-events: none; }
 .hero-art::before {
@@ -593,13 +603,25 @@ details.more[open] > summary::after { transform: translateY(.06em) rotate(225deg
 }
 .hero-art img { position: relative; grid-area: 1 / 1; width: 100%; height: auto; }
 .hero-art img + img { filter: drop-shadow(0 0 1.5px rgb(96 196 255)) drop-shadow(0 0 6px rgb(56 164 255 / .95)) drop-shadow(0 0 18px rgb(40 130 255 / .7)); }
-/* Con la foto real del consultorio: en el celular va bajo el texto y el implante le deja el sitio. */
+/* Sin la foto del inicio, la del doctor ocupa el sitio del implante, sobre la misma luz, con su nombre al pie. */
+.hero-portrait { position: relative; justify-self: center; width: min(64vw, 260px); margin: 6px 0 0; }
+.hero-portrait::before {
+    content: ""; position: absolute; z-index: -1; inset: -14% -22%; border-radius: 50%;
+    background: radial-gradient(closest-side, rgb(84 176 255 / .5), rgb(46 132 248 / .18) 62%, transparent 76%);
+}
+.hero-portrait img { display: block; width: 100%; height: auto; aspect-ratio: 4 / 5; object-fit: cover; object-position: 50% 20%; border-radius: 24px; background: rgb(255 255 255 / .08); box-shadow: 0 0 0 1px rgb(255 255 255 / .2), 0 30px 60px -30px rgb(3 12 32 / .85); }
+.hero-portrait figcaption {
+    position: relative; display: grid; gap: 2px; margin: -34px 14px 0; padding: 10px 14px; border-radius: 16px; text-align: center;
+    background: var(--ground); color: var(--ink); box-shadow: 0 18px 36px -18px rgb(3 12 32 / .75);
+}
+.hero-portrait figcaption strong { font-size: .9375rem; font-weight: 750; line-height: 1.25; overflow-wrap: anywhere; }
+.hero-portrait figcaption span { color: var(--muted); font-size: .8125rem; line-height: 1.35; }
+/* Con la foto del inicio, va en lugar del implante: en el celular, arriba del texto. */
 .hero-photo { margin: 0; }
 .hero-photo img { width: 100%; height: 100%; object-fit: cover; }
 .hero-band.with-photo { padding-top: 0; }
 .hero-band.with-photo .hero-photo { aspect-ratio: 16 / 9; -webkit-mask: linear-gradient(180deg, #000 62%, transparent); mask: linear-gradient(180deg, #000 62%, transparent); }
 .hero-band.with-photo .hero { padding-top: 0; margin-top: -8px; }
-.hero.with-photo .hero-art { display: none; }
 /* Quien vuelve ve primero lo suyo: en el celular la foto no se pone delante de su tarjeta. */
 .hero-band.with-photo:has(.welcome) { padding-top: 20px; }
 .hero-band.with-photo:has(.welcome) .hero-photo { display: none; }
@@ -669,6 +691,13 @@ details.more[open] > summary::after { transform: translateY(.06em) rotate(225deg
     .services-grid .name { font-size: .9375rem; }
     .services-grid .price { padding: 3px 9px; font-size: .875rem; }
 }
+/* En el celular, dos filas de dos y debajo "Ver todos los tratamientos", que reemplaza al enlace de arriba. */
+.services-all { display: none; }
+@media (max-width: 559px) {
+    .services-grid li:nth-child(n + 5) { display: none; }
+    .services .section-head .arrow { display: none; }
+    .services-all { display: block; margin: 16px 0 0; }
+}
 /* De tres en tres se muestran dos filas completas; los demás están en "Ver los tratamientos". */
 @media (min-width: 560px) and (max-width: 719px) {
     .services-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -718,6 +747,7 @@ a.rating > span:last-child { text-decoration: underline; text-decoration-color: 
     .hero-band { padding: 28px 0 96px; }
     .hero.with-art { grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 24px; }
     .hero.with-art .hero-art { width: clamp(220px, 34vw, 320px); margin: 0; }
+    .hero-portrait { width: clamp(200px, 28vw, 260px); margin: 0; }
     .hero-band.with-photo .hero-photo { aspect-ratio: 5 / 2; }
     .hero-band.with-photo:has(.welcome) { padding-top: 28px; }
     .trust { padding: 18px 24px; }
@@ -729,6 +759,7 @@ a.rating > span:last-child { text-decoration: underline; text-decoration-color: 
     /* El título entra en dos líneas al lado de la imagen. */
     .hero h1 { font-size: clamp(2.25rem, 4.2vw, 3.25rem); }
     .hero.with-art .hero-art { justify-self: center; width: min(100%, 440px); }
+    .hero-portrait { width: min(100%, 340px); }
     .hero-band .welcome { margin: 0 0 44px; }
     .next-free { padding: 36px; }
     /* La foto del consultorio llena el lado derecho de la portada y se funde con el azul hacia el texto. */
@@ -751,11 +782,6 @@ a.rating > span:last-child { text-decoration: underline; text-decoration-color: 
         mask: var(--to-text), linear-gradient(180deg, transparent 0, #000 24%); mask-composite: intersect;
     }
     .hero-band.with-photo:has(.welcome) .hero { padding-top: 0; }
-    /* El implante flota donde la foto se funde, sin tapar a quien sale en ella: en pantallas anchas se arrima al texto. */
-    .hero.with-photo { gap: 24px; }
-    .hero.with-photo .hero-art { display: grid; justify-self: start; width: clamp(200px, 36vw - 150px, 340px); margin: 0 0 0 clamp(-165px, 141.7px - 21.3vw, -50px); }
-    /* Detrás, una sombra azul suave para que la corona blanca no se pierda si la foto es clara. */
-    .hero.with-photo .hero-art::before { inset: -6%; background: radial-gradient(closest-side, rgb(9 44 116 / .5), rgb(11 54 134 / .26) 56%, transparent 78%); }
     /* Las frases, en una sola fila con forma de píldora. */
     .trust { display: flex; max-width: 1020px; margin: -64px auto 0; padding: 20px 12px; border-radius: 999px; }
     .trust li { flex: 1 1 0; justify-content: center; padding: 2px 20px; }
@@ -1393,8 +1419,12 @@ main.with-band > .wrap:first-child .flash { margin: 16px 0; }
 }
 .pill:active { transform: scale(.97); }
 .map-block { display: grid; overflow: hidden; }
-.map { width: 100%; background: var(--surface); aspect-ratio: 4 / 3; }
-.map iframe { width: 100%; height: 100%; border: 0; display: block; }
+.map { position: relative; display: grid; place-items: center; width: 100%; background: var(--surface); aspect-ratio: 4 / 3; }
+/* La dirección escrita queda debajo del mapa: se ve mientras carga o si Google no carga. */
+.map-behind { display: grid; justify-items: center; gap: 2px; margin: 0; padding: 24px; text-align: center; color: var(--muted); line-height: 1.4; }
+.map-behind svg { width: 32px; height: 32px; margin-bottom: 6px; color: var(--accent); }
+.map-behind strong { color: var(--ink); }
+.map iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; display: block; }
 .map-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; padding: 14px 20px; }
 .map-foot p { margin: 0; display: grid; line-height: 1.35; }
 .map-foot p span { color: var(--muted); font-size: .9375rem; }

@@ -122,6 +122,12 @@ export function Contact({ clinic, heading = 'Dónde estamos', headingLevel: Head
       {map ? (
         <div className="map-block">
           <div className="map">
+            {/* Debajo del mapa, la dirección escrita: mientras carga, o si Google no carga, la caja no queda vacía. */}
+            <p className="map-behind" aria-hidden="true">
+              <Icon name="pin" />
+              <strong>{clinic.name}</strong>
+              {clinic.address ? <span>{clinic.address}</span> : null}
+            </p>
             <iframe
               src={map}
               title={`Mapa: ${clinic.address ?? ''}`}

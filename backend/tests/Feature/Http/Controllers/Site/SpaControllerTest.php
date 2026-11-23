@@ -54,13 +54,13 @@ class SpaControllerTest extends TestCase
     {
         Setting::set('clinic.name', 'Clínica Vega');
         Setting::set('clinic.district', 'Juliaca');
-        Treatment::factory()->create(['name' => 'Limpieza dental', 'slug' => 'limpieza', 'summary' => 'Deja tus dientes sin sarro.']);
+        Treatment::factory()->create(['name' => 'Limpieza dental', 'slug' => 'limpieza', 'summary' => 'Deja tus dientes sin sarro.', 'price_from' => 120, 'show_price' => true]);
 
         $response = $this->get(route('site.treatment', 'limpieza'));
 
         $response->assertOk()
             ->assertSee('<title>Limpieza dental en Juliaca · Clínica Vega</title>', false)
-            ->assertSee('<meta name="description" content="Deja tus dientes sin sarro.">', false)
+            ->assertSee('<meta name="description" content="Limpieza dental en Juliaca. Deja tus dientes sin sarro. Precio referencial: desde S/ 120. Reserva en línea en Clínica Vega. Te confirmamos por WhatsApp.">', false)
             ->assertSee('<link rel="canonical" href="'.route('site.treatment', 'limpieza').'">', false)
             ->assertSee('<meta property="og:title" content="Limpieza dental en Juliaca">', false)
             ->assertSee('<script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList"', false)

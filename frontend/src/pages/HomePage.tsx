@@ -24,14 +24,19 @@ import { ErrorPage } from '@/pages/ErrorPage';
 /** Junto al acceso rápido entran dos filas de tratamientos; el resto está en su página. */
 const SERVICES_SHOWN = 8;
 
+/** En el celular, dos filas de dos: con las ocho, la portada medía más de ocho pantallas (site.css). */
+const SERVICES_ON_PHONE = 4;
+
 /**
- * La portada, en azul noche a todo el ancho: si está abierto, la frase del consultorio, qué es y el implante 3D
- * de la marca. Con la foto real del consultorio, la foto va a la derecha. Quien vuelve desde su celular recordado
- * ve primero lo suyo, dentro de la misma franja.
+ * La portada, en azul noche a todo el ancho: si está abierto, la frase del consultorio, qué es y una imagen. La
+ * imagen es una cara antes que un objeto: la foto del inicio (Página web › Puesta a punto) va a la derecha; sin
+ * ella, la foto de quien encabeza el equipo; sin ninguna, el implante 3D de la marca. Quien vuelve desde su
+ * celular recordado ve primero lo suyo, dentro de la misma franja.
  */
 function Hero({ site, home }: { site: Site; home: HomeData }) {
   const { clinic } = site;
   const { title, hero_image_url: photo } = site.home;
+  const portrait = !photo && home.doctor?.photo_url ? home.doctor : null;
   // Lo que tranquiliza antes de reservar. Sin reserva en línea no se promete nada de eso.
   const trust = home.can_book
     ? [
@@ -54,7 +59,11 @@ function Hero({ site, home }: { site: Site; home: HomeData }) {
           {home.welcome ? <Welcome welcome={home.welcome} clinic={clinic} /> : null}
 
           <section
-            className={['hero', photo ? 'with-photo' : 'with-art', home.can_book ? '' : 'plain']
+            className={[
+              'hero',
+              photo ? 'with-photo' : portrait ? 'with-art with-portrait' : 'with-art',
+              home.can_book ? '' : 'plain',
+            ]
               .filter(Boolean)
               .join(' ')}
             aria-labelledby="titulo"
@@ -93,17 +102,21 @@ function Hero({ site, home }: { site: Site; home: HomeData }) {
                   </a>
                 ) : null}
               </div>
+              <CoverFacts facts={home.facts} />
             </div>
 
             {/*
-              El implante con su cinta de luz: es la imagen de la marca, con foto o sin ella. Va en dos capas, el
-              implante de bordes limpios y encima la cinta, que es la que lleva el resplandor (site.css). Con foto,
-              en el celular no se ve: se pide solo cuando hace falta, y lo primero en cargar es la foto.
+              Sin ninguna foto, el implante con su cinta de luz, la imagen de la marca. Va en dos capas, el implante
+              de bordes limpios y encima la cinta, que es la que lleva el resplandor (site.css).
             */}
-            <figure className="hero-art">
-              <CoverLayer name="implante-portada" lazy={Boolean(photo)} />
-              <CoverLayer name="implante-portada-luz" lazy={Boolean(photo)} />
-            </figure>
+            {photo ? null : portrait ? (
+              <HeroPortrait doctor={portrait} />
+            ) : (
+              <figure className="hero-art">
+                <CoverLayer name="implante-portada" />
+                <CoverLayer name="implante-portada-luz" />
+              </figure>
+            )}
           </section>
         </div>
       </div>
@@ -122,6 +135,41 @@ function Hero({ site, home }: { site: Site; home: HomeData }) {
       ) : null}
     </>
   );
+}
+
+/** La foto de quien encabeza el equipo, en el sitio del implante, con su nombre y su colegiatura al pie. */
+function HeroPortrait({ doctor }: { doctor: Doctor }) {
+  const about = [doctor.specialty, doctor.cop_number ? `COP ${doctor.cop_number}` : null].filter(Boolean);
+
+  return (
+    <figure className="hero-portrait">
+      <img src={doctor.photo_url ?? ''} alt={doctor.name} width={480} height={600} fetchPriority="high" />
+      <figcaption>
+        <strong>{doctor.name}</strong>
+        {about.length ? <span>{about.join(' · ')}</span> : null}
+      </figcaption>
+    </figure>
+  );
+}
+
+/** Lo que todos preguntan antes de ir, en una línea: dónde queda, qué días atiende y desde cuánto cuesta empezar. */
+function CoverFacts({ facts }: { facts: HomeData['facts'] }) {
+  const shown = [
+    { icon: 'pin', text: facts.address },
+    { icon: 'calendar', text: facts.days },
+    { icon: 'tag', text: facts.price },
+  ].filter((fact): fact is { icon: string; text: string } => fact.text !== null);
+
+  return shown.length ? (
+    <ul className="hero-facts" aria-label="Dónde, cuándo y desde cuánto">
+      {shown.map(({ icon, text }) => (
+        <li key={icon}>
+          <Icon name={icon} />
+          {text}
+        </li>
+      ))}
+    </ul>
+  ) : null;
 }
 
 /**
@@ -174,6 +222,14 @@ function Start({ clinic, home }: { clinic: Clinic; home: HomeData }) {
             ) : null}
           </div>
           <ServiceCards treatments={shown} />
+          {home.treatments_count > SERVICES_ON_PHONE ? (
+            <p className="services-all">
+              <AppLink href={paths.treatments} className="btn quiet block">
+                Ver todos los tratamientos
+                <Icon name="arrow-right" />
+              </AppLink>
+            </p>
+          ) : null}
         </section>
       ) : null}
     </div>

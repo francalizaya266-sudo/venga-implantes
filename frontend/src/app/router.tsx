@@ -1,23 +1,38 @@
+import { lazy, type ComponentType } from 'react';
 import { createBrowserRouter, type RouteObject } from 'react-router';
 import { Root } from '@/app/Root';
-import { AccountPage } from '@/pages/account/AccountPage';
-import { HealthPage } from '@/pages/account/HealthPage';
-import { BookedPage } from '@/pages/booking/BookedPage';
-import { BookingPage } from '@/pages/booking/BookingPage';
-import { CasesPage } from '@/pages/CasesPage';
-import { AccountChangePage, LinkChangePage } from '@/pages/change/ChangePage';
-import { ContactPage } from '@/pages/ContactPage';
 import { ErrorPage } from '@/pages/ErrorPage';
-import { FaqPage } from '@/pages/FaqPage';
 import { HomePage } from '@/pages/HomePage';
-import { LinkPage } from '@/pages/link/LinkPage';
-import { PrivacyPage } from '@/pages/PrivacyPage';
-import { PromotionPage } from '@/pages/PromotionPage';
-import { PromotionsPage } from '@/pages/PromotionsPage';
-import { ReviewsPage } from '@/pages/ReviewsPage';
-import { TeamPage } from '@/pages/TeamPage';
-import { TreatmentPage } from '@/pages/TreatmentPage';
-import { TreatmentsPage } from '@/pages/TreatmentsPage';
+
+/**
+ * Una página cuyo código se descarga recién al abrirla. El inicio, que es por donde entra casi todo el mundo, va
+ * en el archivo principal; la reserva, Mi cuenta y las demás páginas, cada una en el suyo. Al pasar de una página
+ * a otra se queda la de antes hasta que llega la nueva; al abrir una directamente, Root muestra la página vacía.
+ */
+function onDemand<Name extends string, Module extends Record<Name, ComponentType>>(
+  name: Name,
+  load: () => Promise<Module>,
+) {
+  return lazy(async () => ({ default: (await load())[name] }));
+}
+
+const AccountPage = onDemand('AccountPage', () => import('@/pages/account/AccountPage'));
+const HealthPage = onDemand('HealthPage', () => import('@/pages/account/HealthPage'));
+const BookedPage = onDemand('BookedPage', () => import('@/pages/booking/BookedPage'));
+const BookingPage = onDemand('BookingPage', () => import('@/pages/booking/BookingPage'));
+const CasesPage = onDemand('CasesPage', () => import('@/pages/CasesPage'));
+const AccountChangePage = onDemand('AccountChangePage', () => import('@/pages/change/ChangePage'));
+const LinkChangePage = onDemand('LinkChangePage', () => import('@/pages/change/ChangePage'));
+const ContactPage = onDemand('ContactPage', () => import('@/pages/ContactPage'));
+const FaqPage = onDemand('FaqPage', () => import('@/pages/FaqPage'));
+const LinkPage = onDemand('LinkPage', () => import('@/pages/link/LinkPage'));
+const PrivacyPage = onDemand('PrivacyPage', () => import('@/pages/PrivacyPage'));
+const PromotionPage = onDemand('PromotionPage', () => import('@/pages/PromotionPage'));
+const PromotionsPage = onDemand('PromotionsPage', () => import('@/pages/PromotionsPage'));
+const ReviewsPage = onDemand('ReviewsPage', () => import('@/pages/ReviewsPage'));
+const TeamPage = onDemand('TeamPage', () => import('@/pages/TeamPage'));
+const TreatmentPage = onDemand('TreatmentPage', () => import('@/pages/TreatmentPage'));
+const TreatmentsPage = onDemand('TreatmentsPage', () => import('@/pages/TreatmentsPage'));
 
 /**
  * Las páginas de la web. Las direcciones son las mismas rutas con nombre de Laravel (backend/routes/web.php):

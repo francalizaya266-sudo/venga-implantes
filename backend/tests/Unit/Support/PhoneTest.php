@@ -25,6 +25,20 @@ class PhoneTest extends TestCase
         $this->assertSame('+51987654321', Phone::normalize($input));
     }
 
+    public function test_google_gets_mobiles_and_landlines_with_the_country_code(): void
+    {
+        $this->assertSame('+51 987 654 321', Phone::international('987 654 321'));
+        $this->assertSame('+51 987 654 321', Phone::international('51987654321'));
+        $this->assertSame('+51 987 654 321', Phone::international('+51987654321'));
+        $this->assertSame('+51 51 321456', Phone::international('+51 51 321456'));
+        $this->assertSame('+51 51 321456', Phone::international('051 321456'));
+        $this->assertSame('+51 51 321456', Phone::international('(051) 32-1456'));
+        $this->assertSame('+51 1 4567890', Phone::international('01 456 7890'));
+        $this->assertSame('+54 9 11 2345-6789', Phone::international('+54 9 11 2345-6789'));
+        // Un fijo sin el código de su ciudad no se puede completar.
+        $this->assertNull(Phone::international('321456'));
+    }
+
     public function test_keeps_foreign_numbers_with_their_country_code(): void
     {
         $this->assertSame('+5491123456789', Phone::normalize('+54 9 11 2345-6789'));
