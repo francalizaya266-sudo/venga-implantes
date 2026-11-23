@@ -62,10 +62,30 @@
         return '';
     };
 
+    /*
+     * Los campos que llevan un mensaje del panel. Solo esos se corrigen aquí: el aviso que un campo trae de otra parte
+     * (por ejemplo, el cargador de archivos cuando un archivo no se pudo subir) se deja como está.
+     */
+    const marked = new WeakSet();
+
     /* El mensaje del panel en lugar del del navegador, o ninguno si el campo ya está bien. */
     const mark = (field) => {
         field.setCustomValidity('');
-        field.setCustomValidity(message(field));
+
+        const text = message(field);
+
+        field.setCustomValidity(text);
+
+        if (text) {
+            marked.add(field);
+        } else {
+            marked.delete(field);
+        }
+    };
+
+    const unmark = (field) => {
+        field.setCustomValidity('');
+        marked.delete(field);
     };
 
     /* Las opciones de una misma pregunta (radio) se corrigen juntas: basta con elegir una. */
@@ -81,15 +101,17 @@
 
     /* Al intentar guardar, el navegador avisa del primer campo con problema: ya con el mensaje del panel. */
     document.addEventListener('invalid', (event) => {
-        if (isField(event.target)) {
-            mark(event.target);
+        const field = event.target;
+
+        if (isField(field) && (marked.has(field) || ! field.validity.customError)) {
+            mark(field);
         }
     }, true);
 
     /* Mientras se corrige, el mensaje sigue al campo: cambia si sigue mal y se va cuando queda bien. */
     const follow = (event) => {
         if (isField(event.target)) {
-            group(event.target).filter((field) => field.validity.customError).forEach(mark);
+            group(event.target).filter((field) => marked.has(field)).forEach(mark);
         }
     };
 
@@ -107,6 +129,6 @@
             return;
         }
 
-        [...button.form.elements].filter((field) => isField(field) && field.validity.customError).forEach((field) => field.setCustomValidity(''));
+        [...button.form.elements].filter((field) => marked.has(field)).forEach(unmark);
     }, true);
 })();
