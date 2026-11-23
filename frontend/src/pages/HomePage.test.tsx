@@ -36,6 +36,25 @@ describe('HomePage', () => {
     expect(within(screen.getByRole('contentinfo')).queryByText('Abierto ahora')).not.toBeInTheDocument();
   });
 
+  it('answers under the buttons where it is, which days it opens and from how much, leaving out what is not set', async () => {
+    openHome({ facts: { address: 'Jr. Apurímac 648', days: 'Lunes a sábado', price: 'Evaluación desde S/ 50' } });
+
+    await title();
+    const facts = screen.getByRole('list', { name: 'Dónde, cuándo y desde cuánto' });
+    expect(within(facts).getAllByRole('listitem').map((item) => item.textContent)).toEqual([
+      'Jr. Apurímac 648',
+      'Lunes a sábado',
+      'Evaluación desde S/ 50',
+    ]);
+  });
+
+  it('leaves out the line under the buttons when nothing in it is set', async () => {
+    openHome({ facts: { address: null, days: null, price: null } });
+
+    await title();
+    expect(screen.queryByRole('list', { name: 'Dónde, cuándo y desde cuánto' })).not.toBeInTheDocument();
+  });
+
   it('promises nothing about booking when the clinic does not take bookings on the web', async () => {
     openHome({ can_book: false, shows_prices: false });
 

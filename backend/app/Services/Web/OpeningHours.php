@@ -85,6 +85,43 @@ final class OpeningHours
         ], $groups);
     }
 
+    /**
+     * Los días en que se atiende, sin las horas, para una línea corta: "Lunes a sábado", "Lunes a viernes y domingo",
+     * "Lunes, martes y jueves" o "Todos los días". Tres días seguidos o más van como tramo. Null si no hay horario.
+     */
+    public function openDays(): ?string
+    {
+        $runs = [];
+
+        foreach (array_keys(self::DAYS) as $day) {
+            if ($this->forDay($day) === []) {
+                continue;
+            }
+
+            $last = array_key_last($runs);
+
+            if ($last !== null && $runs[$last]['to'] === $day - 1) {
+                $runs[$last]['to'] = $day;
+            } else {
+                $runs[] = ['from' => $day, 'to' => $day];
+            }
+        }
+
+        if ($runs === []) {
+            return null;
+        }
+
+        if ($runs === [['from' => 1, 'to' => 7]]) {
+            return 'Todos los días';
+        }
+
+        return ucfirst(collect($runs)
+            ->flatMap(fn (array $run) => $run['to'] - $run['from'] >= 2
+                ? [self::DAYS[$run['from']].' a '.self::DAYS[$run['to']]]
+                : array_map(fn (int $day) => self::DAYS[$day], range($run['from'], $run['to'])))
+            ->join(', ', ' y '));
+    }
+
     public function isOpen(CarbonImmutable $now): bool
     {
         $time = $now->format('H:i');

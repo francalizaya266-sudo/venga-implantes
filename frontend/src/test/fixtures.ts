@@ -314,6 +314,7 @@ export function homeData(changes: Partial<HomeData> = {}): HomeData {
     cases: [],
     reviews: [],
     faqs: [],
+    facts: { address: 'Jr. Apurímac 648', days: 'Lunes a sábado', price: null },
     ...changes,
   };
 }

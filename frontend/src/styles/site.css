@@ -585,6 +585,10 @@ details.more[open] > summary::after { transform: translateY(.06em) rotate(225deg
 .hero .rating-stars { color: rgb(255 255 255 / .26); }
 .hero .rating-stars::after { color: #ffc24d; }
 .hero a.rating > span:last-child { text-decoration-color: rgb(255 255 255 / .45); }
+/* Bajo los botones, lo que todos preguntan antes de ir: dónde queda, qué días atiende y desde cuánto cuesta empezar. */
+.hero-facts { display: flex; flex-wrap: wrap; gap: 8px 22px; margin: 22px 0 0; padding: 0; list-style: none; color: #dbe7fb; font-size: .9375rem; font-weight: 600; line-height: 1.35; }
+.hero-facts li { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+.hero-facts svg { flex: none; width: 18px; height: 18px; color: var(--sky-vivid); }
 /* El implante con su cinta de luz en espiral: la imagen de la marca. Son dos capas, una sobre otra: el implante, de bordes limpios, y la cinta, que es la única que lleva resplandor. */
 .hero-art { position: relative; display: grid; place-items: center; justify-self: center; width: min(78vw, 320px); aspect-ratio: 1; margin: -4px 0 -14px; pointer-events: none; }
 .hero-art::before {

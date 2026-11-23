@@ -56,6 +56,19 @@ class OpeningHoursTest extends TestCase
         $this->assertNull((new OpeningHours([]))->status($this->at('2026-11-02 10:00')));
     }
 
+    public function test_the_short_line_says_only_the_days_it_opens(): void
+    {
+        $days = fn (array $weekdays): ?string => (new OpeningHours(array_fill_keys($weekdays, self::MORNING_AND_AFTERNOON)))->openDays();
+
+        $this->assertSame('Lunes a sábado', $days([1, 2, 3, 4, 5, 6]));
+        $this->assertSame('Todos los días', $days([1, 2, 3, 4, 5, 6, 7]));
+        $this->assertSame('Lunes a viernes y domingo', $days([1, 2, 3, 4, 5, 7]));
+        // Dos días seguidos no hacen tramo: "lunes a martes" se lee raro.
+        $this->assertSame('Lunes, martes y jueves', $days([1, 2, 4]));
+        $this->assertSame('Sábado', $days([6]));
+        $this->assertNull($days([]));
+    }
+
     public function test_google_gets_one_block_per_time_range_with_its_days(): void
     {
         $hours = new OpeningHours([1 => self::MORNING_AND_AFTERNOON, 2 => self::MORNING_AND_AFTERNOON, 6 => [['09:00', '13:00']]]);

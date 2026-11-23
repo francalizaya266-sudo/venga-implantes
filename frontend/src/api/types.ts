@@ -210,6 +210,8 @@ export interface HomeData {
   cases: SmileCase[];
   reviews: Review[];
   faqs: Faq[];
+  /** La línea bajo los botones de la portada: dónde queda, qué días atiende y desde cuánto cuesta la evaluación. */
+  facts: { address: string | null; days: string | null; price: string | null };
 }
 
 export interface TreatmentsData {

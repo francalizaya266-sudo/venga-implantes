@@ -165,6 +165,30 @@ class SiteContentTest extends TestCase
             ->assertJsonPath('meta.json_ld.0.@type', 'Dentist');
     }
 
+    public function test_under_the_buttons_the_cover_says_where_which_days_and_from_how_much(): void
+    {
+        $facts = fn (): array => $this->getJson(route('api.v1.home'))->assertOk()->json('data.facts');
+        Setting::set('clinic.address', 'Jr. Apurímac 648');
+        Doctor::factory()->withSchedule()->create();
+        $evaluation = Treatment::factory()->evaluation()->create(['price_from' => 50]);
+
+        $this->assertSame(['address' => 'Jr. Apurímac 648', 'days' => 'Lunes a sábado', 'price' => 'Evaluación desde S/ 50'], $facts());
+
+        $evaluation->update(['price_from' => 0]);
+        $this->assertSame('Evaluación gratis', $facts()['price']);
+    }
+
+    public function test_what_is_not_set_up_stays_out_of_the_line_under_the_buttons(): void
+    {
+        // Sin dirección, sin horarios y con la evaluación sin precio publicado, la línea no tiene nada que decir.
+        Setting::set('clinic.address', null);
+        Treatment::factory()->evaluation()->create(['price_from' => 50, 'show_price' => false]);
+
+        $this->getJson(route('api.v1.home'))
+            ->assertOk()
+            ->assertJsonPath('data.facts', ['address' => null, 'days' => null, 'price' => null]);
+    }
+
     public function test_without_online_booking_the_home_promises_no_free_times(): void
     {
         Treatment::factory()->clinicOnly()->create();

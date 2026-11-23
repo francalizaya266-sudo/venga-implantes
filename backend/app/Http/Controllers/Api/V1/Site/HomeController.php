@@ -19,6 +19,7 @@ use App\Models\SmileCase;
 use App\Models\Treatment;
 use App\Services\Access\PatientAccess;
 use App\Services\Booking\WebAvailability;
+use App\Services\Web\ClinicInfo;
 use App\Services\Web\PageMeta;
 use App\Services\Web\ReturningPatient;
 use App\Services\Web\StructuredData;
@@ -39,7 +40,7 @@ class HomeController extends Controller
     /**
      * @return array{data: array<string, mixed>, meta: array<string, mixed>}
      */
-    public function __invoke(Request $request, WebAvailability $availability, StructuredData $structuredData, PatientAccess $access, ReturningPatient $returning, PageMeta $meta): array
+    public function __invoke(Request $request, WebAvailability $availability, StructuredData $structuredData, PatientAccess $access, ReturningPatient $returning, PageMeta $meta, ClinicInfo $clinic): array
     {
         $device = $access->device($request);
 
@@ -65,8 +66,28 @@ class HomeController extends Controller
                 'cases' => SmileCaseResource::collection(SmileCase::query()->published()->with('treatment')->limit(3)->get()),
                 'reviews' => ReviewResource::collection(Review::query()->published()->limit(3)->get()),
                 'faqs' => FaqResource::collection(Faq::query()->published()->whereNull('treatment_id')->limit(4)->get()),
+                'facts' => $this->facts($clinic, $treatments),
             ],
             'meta' => $meta->for(jsonLd: [$structuredData->dentist()]),
+        ];
+    }
+
+    /**
+     * La línea bajo los botones de la portada, con lo que todos preguntan antes de ir: dónde queda, qué días atiende
+     * y desde cuánto cuesta la evaluación, que es por donde se empieza. Lo que no está configurado va en null.
+     *
+     * @param  Collection<int, Treatment>  $treatments
+     * @return array{address: string|null, days: string|null, price: string|null}
+     */
+    private function facts(ClinicInfo $clinic, Collection $treatments): array
+    {
+        $price = $treatments->firstWhere('is_evaluation', true)?->webPrice();
+
+        return [
+            'address' => $clinic->address(),
+            'days' => $clinic->hours()->openDays(),
+            // "desde S/ 50" o "Gratis".
+            'price' => $price !== null ? 'Evaluación '.lcfirst($price) : null,
         ];
     }
 

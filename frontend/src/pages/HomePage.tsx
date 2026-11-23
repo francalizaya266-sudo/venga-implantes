@@ -93,6 +93,7 @@ function Hero({ site, home }: { site: Site; home: HomeData }) {
                   </a>
                 ) : null}
               </div>
+              <CoverFacts facts={home.facts} />
             </div>
 
             {/*
@@ -122,6 +123,28 @@ function Hero({ site, home }: { site: Site; home: HomeData }) {
       ) : null}
     </>
   );
+}
+
+/** Lo que todos preguntan antes de ir, en una línea: dónde queda, qué días atiende y desde cuánto cuesta empezar. */
+function CoverFacts({ facts }: { facts: HomeData['facts'] }) {
+  const shown = (
+    [
+      ['pin', facts.address],
+      ['calendar', facts.days],
+      ['tag', facts.price],
+    ] as const
+  ).filter((fact): fact is readonly [string, string] => fact[1] !== null);
+
+  return shown.length ? (
+    <ul className="hero-facts" aria-label="Dónde, cuándo y desde cuánto">
+      {shown.map(([icon, text]) => (
+        <li key={icon}>
+          <Icon name={icon} />
+          {text}
+        </li>
+      ))}
+    </ul>
+  ) : null;
 }
 
 /**
