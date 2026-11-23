@@ -86,7 +86,7 @@ class DaySummary
             'descuentos' => self::discounts($day),
             'precios' => self::priceChanges($date),
             'siguiente' => $next->translatedFormat('l j'),
-            'sin_confirmar' => (string) Appointment::query()->awaitingConfirmation()->whereDate('starts_at', $next)->count(),
+            'sin_confirmar' => (string) Appointment::query()->awaitingConfirmation()->startsOn($next)->count(),
         ];
     }
 
