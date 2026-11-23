@@ -9,6 +9,7 @@ use App\Models\Concerns\HasWebSlug;
 use App\Services\Agenda\LearnedDurations;
 use Database\Factories\DoctorFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -18,8 +19,12 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-/** Perfil del doctor: datos públicos, horario y agenda. */
+/**
+ * Perfil del doctor: datos públicos, horario y agenda. La clave del enlace de su agenda para el celular va oculta:
+ * no sale en la web ni en el historial de cambios.
+ */
 #[Fillable(['user_id', 'name', 'slug', 'specialty', 'cop_number', 'rne_number', 'bio', 'education', 'photo_path', 'agenda_color', 'is_public', 'accepts_online_booking', 'sort_order', 'is_active'])]
+#[Hidden(['calendar_token'])]
 class Doctor extends Model
 {
     /** @use HasFactory<DoctorFactory> */
@@ -31,6 +36,7 @@ class Doctor extends Model
             'is_public' => 'boolean',
             'accepts_online_booking' => 'boolean',
             'is_active' => 'boolean',
+            'calendar_token' => 'encrypted',
         ];
     }
 

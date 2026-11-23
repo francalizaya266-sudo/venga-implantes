@@ -328,6 +328,7 @@ final class ChangeHistory
             'deleted' => $schedule ? 'Se quitó el tramo '.self::range($log->old_values ?? []) : 'Se borró',
             'restored' => 'Se restauró',
             'password_changed' => 'Se cambió su contraseña',
+            'calendar_link_changed' => 'Se cambió el enlace de su agenda para el celular',
             OffsiteCopies::DOWNLOADED, OffsiteCopies::DELETED => self::BACKUP_EVENTS[$log->event],
             default => self::changesInWords($log),
         };
