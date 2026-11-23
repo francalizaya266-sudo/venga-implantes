@@ -87,6 +87,25 @@ class BillingPanelTest extends TestCase
         $this->assertSame(0.0, $appointment->patient->balance());
     }
 
+    public function test_the_checkout_window_starts_on_the_amount_and_not_on_the_concept(): void
+    {
+        $this->freezeMonday();
+        $appointment = $this->completedCleaning();
+        $this->actingAs(User::factory()->reception()->create());
+        Repeater::fake();
+
+        // Antes el cursor caía en "Concepto" con el texto marcado: una tecla borraba "Limpieza dental".
+        $html = Livewire::test(TodayAppointments::class)
+            ->mountAction(TestAction::make('checkout')->table($appointment))
+            ->getMountedActionModalHtml();
+
+        preg_match_all('/<input\b[^>]*>/', $html, $inputs);
+        $autofocused = array_values(array_filter($inputs[0], fn (string $input) => str_contains($input, 'autofocus')));
+        $this->assertCount(1, $autofocused);
+        $this->assertStringContainsString('.amount"', $autofocused[0]);
+        $this->assertStringNotContainsString('lines', $autofocused[0]);
+    }
+
     public function test_a_discount_cannot_be_larger_than_the_price(): void
     {
         $this->freezeMonday();

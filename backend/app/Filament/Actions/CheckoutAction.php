@@ -149,7 +149,8 @@ final class CheckoutAction
                 Text::make(fn (Get $get) => $get('upcoming'))
                     ->color('warning')
                     ->visible(fn (Get $get) => filled($get('upcoming'))),
-                ...PaymentFields::make(amountRequired: false),
+                // El cursor va al monto: antes caía en el concepto, con el texto marcado, y una tecla lo borraba.
+                ...PaymentFields::make(amountRequired: false, focusAmount: true),
                 // Se paga hoy: si la caja de hoy ya se cerró, el pago espera a que la administradora la reabra.
                 Hidden::make('paid_at')
                     ->dehydrated(false)

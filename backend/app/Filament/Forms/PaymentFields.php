@@ -26,8 +26,11 @@ final class PaymentFields
     /** Los medios que dejan un n.º de operación en el celular o en el banco: se pide siempre. */
     public const NEEDS_REFERENCE = [PaymentMethod::Yape, PaymentMethod::Plin, PaymentMethod::Transfer];
 
-    /** @return list<TextInput|ToggleButtons|Text|View> */
-    public static function make(bool $amountRequired = true): array
+    /**
+     * @param  bool  $focusAmount  El cursor empieza en el monto (al cobrar una cita, en vez de en el concepto).
+     * @return list<TextInput|ToggleButtons|Text|View>
+     */
+    public static function make(bool $amountRequired = true, bool $focusAmount = false): array
     {
         return [
             TextInput::make('amount')
@@ -37,6 +40,7 @@ final class PaymentFields
                 ->minValue($amountRequired ? 0.01 : 0)
                 ->maxValue(999999)
                 ->required($amountRequired)
+                ->autofocus($focusAmount)
                 ->live(onBlur: true),
             ToggleButtons::make('method')
                 ->label('Medio de pago')
