@@ -7,6 +7,7 @@ use App\Enums\PatientRelationship;
 use App\Enums\PlanItemStatus;
 use App\Models\Account;
 use App\Models\Appointment;
+use App\Models\Doctor;
 use App\Models\Patient;
 use App\Models\TreatmentPlan;
 use App\Models\TreatmentPlanItem;
@@ -96,13 +97,16 @@ final class ReturningPatient
             ->map(function (Collection $plans, int $patientId) use ($family) {
                 $items = $plans->flatMap->items->filter(fn (TreatmentPlanItem $item) => $item->accepted_at !== null && $item->status !== PlanItemStatus::Cancelled);
                 $planned = fn (TreatmentPlanItem $item) => max(1, (int) $item->sessions_planned);
-                $patient = $family->firstWhere('id', $patientId);
+                // Los planes se buscaron por los ids de la familia: el paciente siempre está.
+                $patient = $family->firstOrFail('id', $patientId);
+                /** @var Doctor|null $doctor */
+                $doctor = $plans->first()->doctor;
 
                 return [
                     'patient' => $patient,
                     'done' => (int) $items->sum(fn (TreatmentPlanItem $item) => $item->status === PlanItemStatus::Done ? $planned($item) : min((int) $item->sessions_done, $planned($item))),
                     'total' => (int) $items->sum($planned),
-                    'doctor' => $plans->first()->doctor?->name_with_article,
+                    'doctor' => $doctor?->name_with_article,
                     'requested' => RateLimiter::attempts(self::sessionRequestKey($patient)) > 0,
                 ];
             })

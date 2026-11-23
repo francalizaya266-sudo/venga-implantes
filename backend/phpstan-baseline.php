@@ -3707,7 +3707,7 @@ $ignoreErrors[] = [
 ];
 $ignoreErrors[] = [
     'rawMessage' => 'Access to an undefined property Illuminate\\Database\\Eloquent\\Model::$name.',
-    'count' => 4,
+    'count' => 3,
     'path' => __DIR__.'/app/Http/Controllers/Api/V1/Booking/BookingController.php',
 ];
 $ignoreErrors[] = [
@@ -6766,32 +6766,12 @@ $ignoreErrors[] = [
     'path' => __DIR__.'/app/Services/Web/ReturningPatient.php',
 ];
 $ignoreErrors[] = [
-    'rawMessage' => 'Access to an undefined property Illuminate\\Database\\Eloquent\\Model::$name.',
-    'count' => 1,
-    'path' => __DIR__.'/app/Services/Web/ReturningPatient.php',
-];
-$ignoreErrors[] = [
     'rawMessage' => 'Call to an undefined method Illuminate\\Support\\Collection<int, App\\Models\\Patient>::modelKeys().',
     'count' => 2,
     'path' => __DIR__.'/app/Services/Web/ReturningPatient.php',
 ];
 $ignoreErrors[] = [
     'rawMessage' => 'Cannot call method diffInMonths() on string.',
-    'count' => 1,
-    'path' => __DIR__.'/app/Services/Web/ReturningPatient.php',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Method App\\Services\\Web\\ReturningPatient::sessions() should return Illuminate\\Support\\Collection<int, array{patient: App\\Models\\Patient, done: int, total: int, doctor: string|null, requested: bool}> but returns Illuminate\\Support\\Collection<int, array{patient: App\\Models\\Patient|null, done: int, total: int, doctor: mixed, requested: bool}>.',
-    'count' => 1,
-    'path' => __DIR__.'/app/Services/Web/ReturningPatient.php',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Parameter #1 $callback of method Illuminate\\Database\\Eloquent\\Collection<(int|string),Illuminate\\Database\\Eloquent\\Collection<int, App\\Models\\TreatmentPlan>>::map() contains unresolvable type.',
-    'count' => 1,
-    'path' => __DIR__.'/app/Services/Web/ReturningPatient.php',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Parameter #1 $callback of method Illuminate\\Support\\Collection<(int|string),array<string, mixed>>::filter() contains unresolvable type.',
     'count' => 1,
     'path' => __DIR__.'/app/Services/Web/ReturningPatient.php',
 ];
@@ -6937,7 +6917,7 @@ $ignoreErrors[] = [
 ];
 $ignoreErrors[] = [
     'rawMessage' => 'Access to an undefined property Illuminate\\Database\\Eloquent\\Model::$name.',
-    'count' => 2,
+    'count' => 1,
     'path' => __DIR__.'/app/Support/CalendarEvent.php',
 ];
 $ignoreErrors[] = [

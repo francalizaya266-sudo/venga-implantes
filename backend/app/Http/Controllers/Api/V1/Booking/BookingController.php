@@ -288,6 +288,8 @@ class BookingController extends Controller
     private function confirmation(Appointment $appointment, ?RememberedDevice $device, bool $newNumber): array
     {
         $asksOrigin = $this->asksOrigin($appointment, $device);
+        /** @var Doctor $doctor */
+        $doctor = $appointment->doctor;
         $day = Dates::day($appointment->starts_at->toImmutable());
         $hour = Dates::time($appointment->starts_at->format('H:i'));
 
@@ -296,7 +298,7 @@ class BookingController extends Controller
             'page_url' => self::confirmationUrl($appointment),
             'treatment' => $appointment->treatment->name,
             'when' => $day.', '.$hour,
-            'who' => $appointment->patient->full_name.' · con '.$appointment->doctor->name_with_article,
+            'who' => $appointment->patient->full_name.' · con '.$doctor->name_with_article,
             'price_line' => CampaignText::price($appointment->treatment, $appointment->campaign),
             'phone' => Phone::display($appointment->patient->account->phone),
             'remembered' => $device !== null || $newNumber,

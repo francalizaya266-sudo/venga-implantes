@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Enums\AppointmentStatus;
 use App\Models\Appointment;
+use App\Models\Doctor;
 use App\Models\Patient;
 use App\Models\Treatment;
 use App\Services\Web\ClinicInfo;
@@ -18,6 +19,8 @@ final class CalendarEvent
     public static function forAppointment(Appointment $appointment, ClinicInfo $clinic): string
     {
         $stamp = fn (CarbonInterface $moment): string => $moment->copy()->utc()->format('Ymd\THis\Z');
+        /** @var Doctor $doctor */
+        $doctor = $appointment->doctor;
 
         $lines = [
             'BEGIN:VCALENDAR',
@@ -32,7 +35,7 @@ final class CalendarEvent
             'DTEND:'.$stamp($appointment->ends_at),
             'SUMMARY:'.self::escape($appointment->treatment->name.' · '.$clinic->name()),
             $clinic->fullAddress() ? 'LOCATION:'.self::escape($clinic->fullAddress()) : null,
-            'DESCRIPTION:'.self::escape("Cita de {$appointment->patient->first_name} con {$appointment->doctor->name_with_article}."),
+            'DESCRIPTION:'.self::escape("Cita de {$appointment->patient->first_name} con {$doctor->name_with_article}."),
             'BEGIN:VALARM',
             'ACTION:DISPLAY',
             'DESCRIPTION:'.self::escape('Tu cita en '.$clinic->name()),
