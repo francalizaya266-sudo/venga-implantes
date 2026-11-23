@@ -18,6 +18,7 @@ import { BookingSummary } from '@/pages/booking/BookingSummary';
 import { StepDetails, type BookingDetails } from '@/pages/booking/StepDetails';
 import { StepService } from '@/pages/booking/StepService';
 import { StepTime } from '@/pages/booking/StepTime';
+import { WaitlistAsk } from '@/pages/booking/WaitlistAsk';
 
 const STEPS = ['Servicio', 'Día y hora', 'Tus datos'];
 
@@ -271,6 +272,16 @@ export function BookingWizard({ site, options, onPromoCode }: Props) {
             setPickedDate(date);
             go(addressOf({ treatment, date, time: chosen.time }), { follows: true });
           }}
+        />
+      ) : null}
+
+      {/* Quien no encuentra un horario que le sirva deja su dato, en vez de irse sin nada. */}
+      {step === 2 && treatment && days ? (
+        <WaitlistAsk
+          treatment={treatment}
+          doctor={days.doctor_id !== null ? { id: days.doctor_id, name: doctorOf(days.doctor_id) ?? '' } : null}
+          device={options.device}
+          noTimes={days.days.length === 0}
         />
       ) : null}
 

@@ -300,12 +300,128 @@ describe('BookingPage', () => {
     ).toHaveAttribute('aria-pressed', 'true');
   });
 
-  it('says it when the treatment has no free times', async () => {
+  it('says it when the treatment has no free times, and offers to tell the patient when one frees up', async () => {
     bookingApi({}, { [DAYS]: { data: bookingDays({ days: [], date: null, day: null, slots: [] }) } });
     renderApp('/reservar?tratamiento=limpieza-dental');
 
     await step('Elige día y hora');
     expect(screen.getByText(/No encontramos horarios libres en las próximas semanas\./)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '¿Te avisamos cuando haya uno?' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Avísame si se libera un horario' })).toBeInTheDocument();
+  });
+
+  it('lets whoever finds no time that suits them join the waiting list', async () => {
+    const calls = bookingApi(
+      {},
+      {
+        'POST /api/v1/booking/waitlist': {
+          status: 201,
+          body: { message: 'Listo, te anotamos. Si se libera un horario, te escribimos por WhatsApp al 987 654 321.' },
+        },
+      },
+    );
+    const { user } = renderApp('/reservar?tratamiento=limpieza-dental');
+
+    await step('Elige día y hora');
+    const ask = within(screen.getByRole('region', { name: '¿Ningún horario te sirve?' }));
+    await user.click(ask.getByRole('button', { name: 'Avísame si se libera un horario' }));
+
+    expect(ask.getByLabelText('Tu celular')).toHaveFocus();
+    await user.type(ask.getByLabelText('Tu celular'), '987654321');
+    await user.type(ask.getByLabelText('Nombres'), 'Rosa');
+    await user.type(ask.getByLabelText('Apellidos'), 'Quispe');
+    await user.click(ask.getByRole('button', { name: 'En la tarde' }));
+    await user.type(ask.getByLabelText('¿Qué días te sirven? (opcional)'), 'lunes o sábados');
+    await user.click(ask.getByRole('checkbox', { name: /Acepto la política de privacidad/ }));
+    await user.click(ask.getByRole('button', { name: 'Avísame' }));
+
+    expect(
+      await ask.findByText('Listo, te anotamos. Si se libera un horario, te escribimos por WhatsApp al 987 654 321.'),
+    ).toBeInTheDocument();
+    expect(calls.find((call) => call.method === 'POST')?.body).toEqual({
+      treatment_id: 3,
+      doctor_id: null,
+      patient_id: null,
+      phone: '987654321',
+      first_name: 'Rosa',
+      last_name: 'Quispe',
+      preferred_period: 'afternoon',
+      days: 'lunes o sábados',
+      accepts_privacy: true,
+    });
+    // Sigue en el paso de horarios, por si igual encuentra uno.
+    expect(screen.getByRole('button', { name: '9:00 a. m.' })).toBeInTheDocument();
+  });
+
+  it('marks what the waiting list did not accept next to each field', async () => {
+    bookingApi(
+      {},
+      {
+        'POST /api/v1/booking/waitlist': {
+          status: 422,
+          body: {
+            message: 'Revisa tu celular.',
+            errors: {
+              phone: ['Revisa tu celular: debe tener 9 dígitos y empezar con 9.'],
+              accepts_privacy: ['Para anotarte, acepta la política de privacidad.'],
+            },
+          },
+        },
+      },
+    );
+    const { user } = renderApp('/reservar?tratamiento=limpieza-dental');
+
+    await step('Elige día y hora');
+    await user.click(screen.getByRole('button', { name: 'Avísame si se libera un horario' }));
+    await user.type(screen.getByLabelText('Tu celular'), '12345');
+    await user.click(screen.getByRole('button', { name: 'Avísame' }));
+
+    expect(await screen.findByText('Revisa tu celular: debe tener 9 dígitos y empezar con 9.')).toBeInTheDocument();
+    expect(screen.getByText('Para anotarte, acepta la política de privacidad.')).toBeInTheDocument();
+    expect(screen.getByLabelText('Tu celular')).toHaveAttribute('aria-invalid', 'true');
+  });
+
+  it('from a remembered phone the waiting list does not ask the number and can be for a relative', async () => {
+    const doctors = [
+      { id: 1, name: 'Dra. Vega' },
+      { id: 2, name: 'Dr. Ramos' },
+    ];
+    const calls = bookingApi(
+      { device: bookingDevice() },
+      {
+        [DAYS]: { data: bookingDays({ doctors }) },
+        [`${DAYS}&doctor=2`]: { data: bookingDays({ doctors, doctor_id: 2 }) },
+        'POST /api/v1/booking/waitlist': {
+          status: 201,
+          body: { message: 'Listo, te anotamos. Si se libera un horario, te escribimos por WhatsApp al 987 654 321.' },
+        },
+      },
+    );
+    const { user } = renderApp('/reservar?tratamiento=limpieza-dental');
+
+    await step('Elige día y hora');
+    await user.click(screen.getByRole('button', { name: 'Dr. Ramos' }));
+    expect(await screen.findByText(/si se libera un horario con Dr\. Ramos\./)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Avísame si se libera un horario' }));
+
+    expect(screen.queryByLabelText('Tu celular')).not.toBeInTheDocument();
+    expect(screen.queryByRole('checkbox', { name: /política de privacidad/ })).not.toBeInTheDocument();
+    expect(screen.getByText('Te escribimos al 987 654 321.')).toBeInTheDocument();
+    const who = within(screen.getByRole('group', { name: '¿Para quién es?' }));
+    expect(who.getByRole('button', { name: 'Rosa Quispe' })).toHaveAttribute('aria-pressed', 'true');
+    await user.click(who.getByRole('button', { name: 'Luis Quispe' }));
+    await user.click(screen.getByRole('button', { name: 'Avísame' }));
+
+    await screen.findByText('Listo, te anotamos. Si se libera un horario, te escribimos por WhatsApp al 987 654 321.');
+    expect(calls.find((call) => call.method === 'POST')?.body).toMatchObject({
+      treatment_id: 3,
+      doctor_id: 2,
+      patient_id: 22,
+      phone: null,
+      first_name: null,
+      last_name: null,
+      preferred_period: 'any',
+    });
   });
 
   it('says it when nothing can be booked on the web, and still offers WhatsApp to whoever is in pain', async () => {
