@@ -24,9 +24,10 @@ use Illuminate\Support\Str;
 
 /**
  * El resumen del día para quien administra, al cerrar la caja: lo cobrado por medio de pago, el arqueo, los pacientes
- * atendidos, las faltas, las citas que quedaron sin cerrar, los descuentos, los precios cambiados al cobrar y cuántas
- * citas del día siguiente siguen sin confirmar. Llega a la campana de quien administra y queda en Avisos, listo para
- * enviarlo por WhatsApp a su celular (o, si nadie que administra tiene uno, al del consultorio).
+ * atendidos, las faltas, las citas que quedaron sin cerrar, los descuentos puestos antes de cobrar, los precios y
+ * descuentos cambiados al cobrar y cuántas citas del día siguiente siguen sin confirmar. Cada sol de descuento sale en
+ * una sola de esas dos líneas. Llega a la campana de quien administra y queda en Avisos, listo para enviarlo por
+ * WhatsApp a su celular (o, si nadie que administra tiene uno, al del consultorio).
  */
 class DaySummary
 {
@@ -107,7 +108,7 @@ class DaySummary
             'Cobrado: '.$figures['cobrado'],
             'Arqueo: '.$figures['arqueo'].' · cerró '.$figures['cerro'],
             'Pacientes atendidos: '.$figures['atendidos'].' · Faltas: '.$figures['faltas'].' · Citas sin cerrar: '.$figures['sin_cerrar'],
-            'Descuentos: '.$figures['descuentos'],
+            'Descuentos puestos antes de cobrar: '.$figures['descuentos'],
             'Precios cambiados y descuentos al cobrar: '.$figures['precios'],
             'Citas del '.$figures['siguiente'].' sin confirmar: '.$figures['sin_confirmar'],
         ];
@@ -137,7 +138,10 @@ class DaySummary
     }
 
     /**
-     * "S/ 30.00 en 2 cargos (Ana Flores: familiar · Luis Soto)", o "ninguno".
+     * Los descuentos que los cargos del día ya traían al llegar a caja (de una promoción, de un plan o puestos en la
+     * cuenta del paciente): "S/ 30.00 en 2 cargos (Ana Flores: familiar · Luis Soto)", o "ninguno". Lo que se puso o
+     * se subió al cobrar no va aquí: sale en los precios cambiados al cobrar (priceChanges). De un cargo que se cambió
+     * al cobrar va solo el nombre, porque su motivo puede ser el del cambio.
      *
      * @param  array{CarbonImmutable, CarbonImmutable}  $day
      */
@@ -150,7 +154,9 @@ class DaySummary
             ->whereBetween('charged_at', $day)
             ->where('discount', '>', 0)
             ->orderBy('charged_at')
-            ->get();
+            ->get()
+            ->filter(fn (Charge $charge) => self::discountBeforeCheckout($charge) > 0)
+            ->values();
 
         if ($charges->isEmpty()) {
             return 'ninguno';
@@ -160,15 +166,29 @@ class DaySummary
             ->map(function (Charge $charge): string {
                 /** @var Patient|null $patient */
                 $patient = $charge->patient;
+                $reason = $charge->adjusted_at === null ? $charge->discount_reason : null;
 
-                return collect([$patient?->full_name, $charge->discount_reason])->filter(fn (?string $part) => filled($part))->implode(': ');
+                return collect([$patient?->full_name, $reason])->filter(fn (?string $part) => filled($part))->implode(': ');
             })
             ->implode(' · ');
         $more = $charges->count() > self::NAMED_DISCOUNTS ? ' y '.($charges->count() - self::NAMED_DISCOUNTS).' más' : '';
 
-        return Money::format($charges->sum(fn (Charge $charge) => (float) $charge->discount))
+        return Money::format($charges->sum(fn (Charge $charge) => self::discountBeforeCheckout($charge)))
             .' en '.($charges->count() === 1 ? '1 cargo' : $charges->count().' cargos')
             .' ('.$named.$more.')';
+    }
+
+    /**
+     * Lo que queda del descuento con que el cargo llegó a caja. Uno agregado al cobrar no traía ninguno. Si al cobrar
+     * se subió, cuenta el que traía (lo agregado ya está en los cambios al cobrar); si se bajó, lo que quedó.
+     */
+    private static function discountBeforeCheckout(Charge $charge): float
+    {
+        return match (true) {
+            $charge->adjusted_at === null => (float) $charge->discount,
+            $charge->addedAtCheckout() => 0.0,
+            default => min((float) $charge->discount, (float) $charge->original_discount),
+        };
     }
 
     /** El primer día con citas desde ese, dentro de una semana; si no hay ninguna, ese mismo día. */

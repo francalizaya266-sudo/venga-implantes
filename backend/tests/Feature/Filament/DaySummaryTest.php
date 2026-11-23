@@ -18,6 +18,7 @@ use App\Models\Setting;
 use App\Models\Treatment;
 use App\Models\User;
 use App\Models\WhatsappMessage;
+use App\Services\Billing\BillingService;
 use App\Services\Billing\DaySummary;
 use App\Services\WhatsApp\WhatsAppOutbox;
 use Carbon\CarbonImmutable;
@@ -89,7 +90,7 @@ class DaySummaryTest extends TestCase
             'Cobrado: S/ 230.00 (Efectivo S/ 150.00 · Yape S/ 80.00)',
             'Arqueo: cuadra · cerró Rosa Pérez',
             'Pacientes atendidos: 2 · Faltas: 1 · Citas sin cerrar: 1',
-            'Descuentos: S/ 50.00 en 1 cargo (Ana Prueba: Familiar)',
+            'Descuentos puestos antes de cobrar: S/ 50.00 en 1 cargo (Ana Prueba: Familiar)',
             'Precios cambiados y descuentos al cobrar: 1 cambio, se cobró S/ 40.00 menos (Luis Prueba: Paciente frecuente)',
             'Citas del martes 3 sin confirmar: 2',
         ];
@@ -104,6 +105,66 @@ class DaySummaryTest extends TestCase
         $message = WhatsappMessage::sole();
         $this->assertSame([MessageTemplateKey::DaySummary, '+51987654321', MessageStatus::Pending], [$message->template_key, $message->phone, $message->status]);
         $this->assertSame("Resumen del lunes 2 de noviembre en Clínica Sonrisa\n".implode("\n", $summary), app(WhatsAppOutbox::class)->draft($message));
+    }
+
+    public function test_a_discount_put_at_checkout_is_counted_once_apart_from_the_ones_the_charges_came_with(): void
+    {
+        $billing = app(BillingService::class);
+        $promotion = ['description' => 'Limpieza dental', 'amount' => 120, 'discount' => 30, 'discount_reason' => 'Promoción: Sonrisa de noviembre'];
+
+        // Ana pagó la limpieza con el descuento de la promoción, tal como llegó a caja.
+        $ana = $this->visit('Ana', '2026-11-02 10:00', AppointmentStatus::Completed);
+        Charge::factory()->for($ana->patient)->for($ana)->create([...$promotion, 'charged_at' => '2026-11-02 10:30']);
+        // A Luis se le puso un descuento al cobrar.
+        $luis = $this->visit('Luis', '2026-11-02 11:00', AppointmentStatus::Completed);
+        $luisCleaning = Charge::factory()->for($luis->patient)->for($luis)->create(['description' => 'Limpieza dental', 'amount' => 120, 'charged_at' => '2026-11-02 11:30']);
+        $this->travelTo(CarbonImmutable::parse('2026-11-02 11:35', 'America/Lima'));
+        $billing->reviseCharges($luis, [['id' => $luisCleaning->id, 'description' => 'Limpieza dental', 'amount' => 120, 'discount' => 20]], $this->reception, 'Paciente frecuente');
+        // María llegó con la promoción y al cobrar se le subió el descuento de S/ 30.00 a S/ 50.00.
+        $maria = $this->visit('María', '2026-11-02 12:00', AppointmentStatus::Completed);
+        $mariaCleaning = Charge::factory()->for($maria->patient)->for($maria)->create([...$promotion, 'charged_at' => '2026-11-02 12:30']);
+        $this->travelTo(CarbonImmutable::parse('2026-11-02 12:35', 'America/Lima'));
+        $billing->reviseCharges($maria, [['id' => $mariaCleaning->id, 'description' => 'Limpieza dental', 'amount' => 120, 'discount' => 50]], $this->reception, 'Cumpleaños');
+
+        User::factory()->admin()->create(['phone' => '+51987654321']);
+        $this->travelTo(CarbonImmutable::parse('2026-11-02 19:30', 'America/Lima'));
+        $this->actingAs($this->reception);
+
+        Livewire::test(CashClosingCheck::class, ['pageFilters' => ['date' => '2026-11-02']])
+            ->callAction('closeDay', ['opening_cash' => 100, 'counted_cash' => 100])
+            ->assertHasNoErrors();
+
+        // S/ 100.00 de descuento: S/ 60.00 que traían los cargos y S/ 40.00 puestos al cobrar, cada sol en una sola línea.
+        $this->assertStringContainsString(implode("\n", [
+            'Descuentos puestos antes de cobrar: S/ 60.00 en 2 cargos (Ana Prueba: Promoción: Sonrisa de noviembre · María Prueba)',
+            'Precios cambiados y descuentos al cobrar: 2 cambios, se cobró S/ 40.00 menos (Luis Prueba: Paciente frecuente · María Prueba: Cumpleaños)',
+        ]), app(WhatsAppOutbox::class)->draft(WhatsappMessage::sole()));
+    }
+
+    public function test_what_is_left_of_a_discount_lowered_at_checkout_counts_and_a_concept_added_there_does_not(): void
+    {
+        // Pedro llegó con S/ 30.00 de la promoción; al cobrar quedó en S/ 10.00 y se agregó una radiografía con S/ 5.00 menos.
+        $pedro = $this->visit('Pedro', '2026-11-02 10:00', AppointmentStatus::Completed);
+        $cleaning = Charge::factory()->for($pedro->patient)->for($pedro)->create(['description' => 'Limpieza dental', 'amount' => 120, 'discount' => 30, 'discount_reason' => 'Promoción: Sonrisa de noviembre', 'charged_at' => '2026-11-02 10:30']);
+        $this->travelTo(CarbonImmutable::parse('2026-11-02 10:35', 'America/Lima'));
+        app(BillingService::class)->reviseCharges($pedro, [
+            ['id' => $cleaning->id, 'description' => 'Limpieza dental', 'amount' => 120, 'discount' => 10],
+            ['description' => 'Radiografía', 'amount' => 50, 'discount' => 5],
+        ], $this->reception, 'La promoción era hasta ayer');
+
+        User::factory()->admin()->create(['phone' => '+51987654321']);
+        $this->travelTo(CarbonImmutable::parse('2026-11-02 19:30', 'America/Lima'));
+        $this->actingAs($this->reception);
+
+        Livewire::test(CashClosingCheck::class, ['pageFilters' => ['date' => '2026-11-02']])
+            ->callAction('closeDay', ['opening_cash' => 100, 'counted_cash' => 100])
+            ->assertHasNoErrors();
+
+        // De la promoción quedan S/ 10.00; los S/ 20.00 que se quitaron y la radiografía son cambios al cobrar.
+        $this->assertStringContainsString(implode("\n", [
+            'Descuentos puestos antes de cobrar: S/ 10.00 en 1 cargo (Pedro Prueba)',
+            'Precios cambiados y descuentos al cobrar: 2 cambios, se cobró S/ 5.00 menos, S/ 20.00 más por precios subidos (Pedro Prueba: La promoción era hasta ayer · Pedro Prueba: La promoción era hasta ayer)',
+        ]), app(WhatsAppOutbox::class)->draft(WhatsappMessage::sole()));
     }
 
     public function test_without_a_phone_of_their_own_it_goes_to_the_clinic_and_closing_again_replaces_it(): void
@@ -125,7 +186,7 @@ class DaySummaryTest extends TestCase
             'Cobrado: S/ 0.00',
             'Arqueo: faltan S/ 10.00 (Se dio vuelto de más) · cerró Elena Ríos',
             'Pacientes atendidos: 0 · Faltas: 0 · Citas sin cerrar: 0',
-            'Descuentos: ninguno',
+            'Descuentos puestos antes de cobrar: ninguno',
             'Precios cambiados y descuentos al cobrar: ninguno',
             'Citas del martes 3 sin confirmar: 0',
         ]), app(WhatsAppOutbox::class)->draft($first));

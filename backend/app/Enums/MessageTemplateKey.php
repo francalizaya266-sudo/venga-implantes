@@ -103,7 +103,7 @@ enum MessageTemplateKey: string implements HasLabel
             self::MissedVisit => "Hola {nombre}, te escribimos de {consultorio}.\n{que_paso} ¿Te reservamos otro horario? Respóndenos con el día y la hora que te acomodan.",
             self::Aftercare => "Hola {nombre}, gracias por venir hoy a {consultorio}. Para que tu {tratamiento} quede bien:\n\n{cuidados}\n\nSi tienes dolor fuerte, sangrado que no para o fiebre, escríbenos.",
             // Al cerrar la caja, a quien administra (DaySummary): lo cobrado por medio, el arqueo y quién cerró, cómo fue el día, lo que se cambió al cobrar y lo que queda.
-            self::DaySummary => "Resumen del {fecha} en {consultorio}\nCobrado: {cobrado}\nArqueo: {arqueo} · cerró {cerro}\nPacientes atendidos: {atendidos} · Faltas: {faltas} · Citas sin cerrar: {sin_cerrar}\nDescuentos: {descuentos}\nPrecios cambiados y descuentos al cobrar: {precios}\nCitas del {siguiente} sin confirmar: {sin_confirmar}",
+            self::DaySummary => "Resumen del {fecha} en {consultorio}\nCobrado: {cobrado}\nArqueo: {arqueo} · cerró {cerro}\nPacientes atendidos: {atendidos} · Faltas: {faltas} · Citas sin cerrar: {sin_cerrar}\nDescuentos puestos antes de cobrar: {descuentos}\nPrecios cambiados y descuentos al cobrar: {precios}\nCitas del {siguiente} sin confirmar: {sin_confirmar}",
         };
     }
 }
