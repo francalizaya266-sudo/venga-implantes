@@ -1,6 +1,6 @@
 import { screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { mockApi, renderApp } from '@/test/app';
+import { mockApi, offline, renderApp } from '@/test/app';
 import { meta, page } from '@/test/fixtures';
 
 const robots = () => document.head.querySelector<HTMLMetaElement>('meta[name="robots"]')?.content;
@@ -82,6 +82,16 @@ describe('the pages of the web', () => {
     const main = within(screen.getByRole('main'));
     expect(main.getByRole('button', { name: 'Volver a intentar' })).toBeInTheDocument();
     expect(main.queryByRole('link', { name: 'Ir al inicio' })).not.toBeInTheDocument();
+  });
+
+  it('asks to check the connection when the data of the page does not arrive', async () => {
+    mockApi({ '/api/v1/team': offline });
+    renderApp('/equipo');
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'No pudimos conectarnos' })).toBeInTheDocument();
+    const main = within(screen.getByRole('main'));
+    expect(main.getByText('Revisa tu conexión e inténtalo de nuevo.')).toBeInTheDocument();
+    expect(main.getByRole('button', { name: 'Volver a intentar' })).toBeInTheDocument();
   });
 
   it('shows the error Laravel opened the web with until the patient moves to another page', async () => {

@@ -30,7 +30,7 @@ describe('the page the web is opened with', () => {
     expect(await screen.findByRole('heading', { name: 'Nuestro equipo' })).toBeInTheDocument();
   });
 
-  it('is painted anyway when its code does not arrive, saying so and offering to try again', async () => {
+  it('is painted anyway when its code does not arrive, asking to check the connection and to try again', async () => {
     // React y React Router anotan el error en la consola.
     vi.spyOn(console, 'error').mockImplementation(() => {});
     mockApi();
@@ -38,7 +38,9 @@ describe('the page the web is opened with', () => {
 
     renderApp('/contacto');
 
-    expect(await screen.findByRole('heading', { level: 1, name: 'Algo falló de nuestro lado' })).toBeInTheDocument();
+    // El problema es la señal del paciente, no del consultorio: no se le dice "Algo falló de nuestro lado".
+    expect(await screen.findByRole('heading', { level: 1, name: 'No pudimos conectarnos' })).toBeInTheDocument();
+    expect(screen.getByText('Revisa tu conexión e inténtalo de nuevo.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Volver a intentar' })).toBeInTheDocument();
     expect(screen.queryByText(/Unexpected Application Error/)).not.toBeInTheDocument();
   });
