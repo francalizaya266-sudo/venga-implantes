@@ -24,6 +24,12 @@ class PatientPolicy
         return true;
     }
 
+    /** Importar una lista de pacientes (Excel o CSV): quien administra y recepción, que registran a todos. */
+    public function import(User $user): bool
+    {
+        return $user->managesAllAgendas();
+    }
+
     public function update(User $user, Patient $model): bool
     {
         return $this->treats($user, $model);

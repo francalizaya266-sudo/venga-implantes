@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Agenda\DoctorCalendarController;
 use App\Http\Controllers\Site\AppointmentCalendarController;
 use App\Http\Controllers\Site\SitemapController;
 use App\Http\Controllers\Site\SpaController;
@@ -35,6 +36,13 @@ Route::get('reservar/cita/{appointment}', SpaController::class)
 Route::get('reservar/cita/{appointment}/calendario.ics', AppointmentCalendarController::class)
     ->middleware(['signed:relative', 'throttle:30,1'])
     ->name('site.booking.calendar');
+// La agenda de cada doctor en el calendario de su celular, con el enlace secreto de "Mi perfil". El celular la pide
+// solo y sin sesión: no abre una ni deja cookies. Límite propio, aparte del de la web.
+Route::get('agenda/{doctor}/{token}.ics', DoctorCalendarController::class)
+    ->where(['doctor' => '[0-9]{1,18}', 'token' => '[A-Za-z0-9]{1,128}'])
+    ->middleware('throttle:30,1,doctor-calendar')
+    ->withoutMiddleware('web')
+    ->name('doctor.calendar');
 Route::get('sitemap.xml', [SitemapController::class, 'sitemap'])->name('site.sitemap');
 Route::get('robots.txt', [SitemapController::class, 'robots'])->name('site.robots');
 

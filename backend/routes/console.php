@@ -3,6 +3,7 @@
 use App\Models\Setting;
 use App\Services\Backup\DatabaseBackup;
 use App\Services\Backup\ExtraCopy;
+use App\Services\Reports\MonthlyReport;
 use App\Services\ScheduledTasks;
 use Illuminate\Support\Facades\Schedule;
 
@@ -30,6 +31,13 @@ Schedule::command('citas:marcar-sin-confirmar')
 // Las cuotas de los planes entran al saldo el día que vencen.
 Schedule::command('cuotas:cargar')
     ->dailyAt('06:00')
+    ->withoutOverlapping();
+
+// El día 1, desde las 6:00, el reporte del mes anterior queda listo y quien administra recibe el aviso en la campana.
+// Si ese día la laptop estuvo apagada, se hace en cuanto se prende (una sola vez por mes).
+Schedule::command('reportes:preparar-mes')
+    ->everyFifteenMinutes()
+    ->when(fn () => app(MonthlyReport::class)->isDue())
     ->withoutOverlapping();
 
 // Unos días antes de cada cuota, su aviso queda listo en la bandeja de WhatsApp: desde la hora de los recordatorios
