@@ -38,6 +38,14 @@ if errorlevel 1 (
     exit /b 1
 )
 
+rem  El PHP de Windows trae la configuración de OpenSSL pero no la busca solo: sin ella no se pueden cifrar los
+rem  avisos en el celular. Se indica antes de arrancar PHP, así la tienen el sistema y las tareas automáticas.
+if not defined OPENSSL_CONF (
+    for /f "delims=" %%P in ('where php 2^>nul') do (
+        if not defined OPENSSL_CONF if exist "%%~dpPextras\ssl\openssl.cnf" set "OPENSSL_CONF=%%~dpPextras\ssl\openssl.cnf"
+    )
+)
+
 rem  Si la tarea de Windows ya las corre cada minuto, no hace falta otra ventana.
 rem  Si no, corren una vez enseguida (así Hoy no avisa que están apagadas mientras
 rem  se espera el próximo minuto) y después cada minuto.

@@ -48,6 +48,7 @@ describe('SiteLayout', () => {
     expect(footer.getByText('Jr. Apurímac 648, Juliaca', { exact: false })).toBeInTheDocument();
     expect(footer.getByText('Abierto ahora')).toBeInTheDocument();
     expect(footer.getByText('© 2026 Clínica Vega')).toBeInTheDocument();
+    expect(footer.getByRole('link', { name: 'Acceso del personal' })).toHaveAttribute('href', '/panel');
   });
 
   it('leaves out the quick actions where they would cover the times', async () => {

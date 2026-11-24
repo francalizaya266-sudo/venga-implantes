@@ -3,16 +3,16 @@
 namespace App\Console\Commands;
 
 use App\Models\PushSubscription;
+use App\Services\Notices\PushKeys;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
-use Minishlink\WebPush\VAPID;
 
 #[Signature('avisos:crear-claves {--show : Solo mostrarlas, sin guardarlas en .env} {--force : Cambiar las que ya hay}')]
 #[Description('Crea las claves del consultorio para los avisos en el celular y las guarda en .env (una sola vez)')]
 class CreatePushKeys extends Command
 {
-    public function handle(): int
+    public function handle(PushKeys $pushKeys): int
     {
         $exists = filled(config('consultorio.push.public_key')) && filled(config('consultorio.push.private_key'));
 
@@ -22,7 +22,7 @@ class CreatePushKeys extends Command
             return self::SUCCESS;
         }
 
-        $keys = VAPID::createVapidKeys();
+        $keys = $pushKeys->create();
 
         if ($this->option('show')) {
             $this->line('VAPID_PUBLIC_KEY='.$keys['publicKey']);

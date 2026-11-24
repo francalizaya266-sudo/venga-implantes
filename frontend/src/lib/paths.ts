@@ -35,4 +35,6 @@ export const paths = {
   accountHealth: (patientId: number) => `/mi-cuenta/pacientes/${patientId}/salud`,
   link: (token: string) => `/c/${token}`,
   linkChange: (token: string) => `/c/${token}/cambiar`,
+  /** El panel del personal (Filament): no es parte de esta web, se abre con una carga completa. */
+  panel: '/panel',
 } as const;

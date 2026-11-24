@@ -141,6 +141,12 @@ export function Footer({ site, closing, contact, minimal }: Props) {
           <p>
             <AppLink href={paths.privacy}>Política de privacidad</AppLink>
           </p>
+          {/* El doctor, la administración y la recepción entran al panel desde aquí; los buscadores no lo siguen. */}
+          <p>
+            <a href={paths.panel} rel="nofollow">
+              Acceso del personal
+            </a>
+          </p>
         </div>
       </div>
     </footer>

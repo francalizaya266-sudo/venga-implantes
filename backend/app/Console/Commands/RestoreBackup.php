@@ -36,7 +36,11 @@ class RestoreBackup extends Command
         $this->info("Base de datos restaurada desde {$file} ({$statements} sentencias).");
 
         // La copia guarda tablas y datos; los triggers se fueron con DROP TABLE y las vistas y funciones son del código.
-        if ($objects->install() > 0) {
+        $notInstalled = $objects->installIfAllowed();
+
+        if ($notInstalled !== null) {
+            $this->warn($notInstalled);
+        } elseif ($objects->isSupported()) {
             $this->info('También se volvieron a crear las vistas, funciones, procedimientos y triggers de MySQL.');
         }
 
