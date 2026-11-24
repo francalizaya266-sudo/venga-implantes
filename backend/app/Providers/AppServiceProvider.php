@@ -6,6 +6,7 @@ use App\Filament\Pages\Auth\SetUpTwoFactor;
 use App\Services\Dashboard\TodayPulse;
 use App\Services\Inventory\SupplyForecast;
 use App\Services\Web\ClinicInfo;
+use App\Support\OpenSslConfig;
 use Carbon\Carbon;
 use Carbon\CarbonImmutable;
 use Illuminate\Auth\Events\Authenticated;
@@ -33,6 +34,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        // En una laptop con Windows, sin esto los avisos en el celular no salen (ver OpenSslConfig).
+        OpenSslConfig::useBundled();
+
         // Una vez por petición: el horario se arma con los horarios de los doctores.
         $this->app->scoped(ClinicInfo::class);
         $this->app->scoped(SupplyForecast::class);
