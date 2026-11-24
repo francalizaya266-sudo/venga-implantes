@@ -3,7 +3,9 @@
 namespace App\Services\Database;
 
 use Illuminate\Database\Connection;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use RuntimeException;
 
 /**
@@ -24,6 +26,13 @@ final class DatabaseObjects
     public const PROCEDURES = ['sp_cierre_caja', 'sp_reporte_mensual_ingresos'];
 
     public const TRIGGERS = ['trg_pagos_auditar_cambio', 'trg_pagos_auditar_borrado'];
+
+    /**
+     * Lo que responde MySQL cuando el usuario de la base no puede crear funciones o triggers: en un hosting compartido
+     * (Hostinger) el usuario no tiene SUPER y el registro binario está activo (1419, 1418), o le faltan permisos (1044,
+     * 1142, 1227, 1370).
+     */
+    private const PERMISSION_ERRORS = [1044, 1142, 1227, 1370, 1418, 1419];
 
     /** Donde los triggers anotan lo que se cambió o borró de un pago por fuera de la aplicación. */
     public const AUDIT_TABLE = 'payment_audit_logs';
@@ -61,6 +70,37 @@ final class DatabaseObjects
         }
 
         return $executed;
+    }
+
+    /**
+     * Como install(), pero si la base no deja crearlos por permisos no detiene la migración ni la restauración de una
+     * copia: la aplicación no depende de ellos (son para consultar la base por fuera y para la bitácora de pagos).
+     *
+     * @return string|null Por qué no se crearon, para avisarlo; null si se crearon o si la base no es MySQL.
+     */
+    public function installIfAllowed(): ?string
+    {
+        try {
+            $this->install();
+
+            return null;
+        } catch (QueryException $e) {
+            if (! self::isPermissionError($e)) {
+                throw $e;
+            }
+
+            $reason = 'La base de datos no deja crear las vistas, funciones, procedimientos y triggers de MySQL '
+                .'(pasa en los hostings compartidos). El sistema funciona igual; solo faltan esos reportes y la '
+                .'bitácora de pagos hechos por fuera del sistema. MySQL dijo: '.($e->errorInfo[2] ?? $e->getMessage());
+            Log::warning($reason);
+
+            return $reason;
+        }
+    }
+
+    public static function isPermissionError(QueryException $e): bool
+    {
+        return in_array((int) ($e->errorInfo[1] ?? 0), self::PERMISSION_ERRORS, true);
     }
 
     /** Quita todos los objetos, del último al primero. */
