@@ -5,8 +5,12 @@ namespace App\Support;
 /**
  * En Windows, el PHP descargado de php.net trae la configuración de OpenSSL en extras\ssl\openssl.cnf, pero no la
  * busca ahí: sin ella no se pueden crear las claves de cifrado de cada aviso en el celular, y ninguno sale. Si nadie
- * la indicó (OPENSSL_CONF), se usa esa. Los comandos que corre el programador de tareas (avisos:enviar-al-celular)
- * son procesos nuevos y la heredan.
+ * la indicó (OPENSSL_CONF), se usa esa.
+ *
+ * PHP la lee una sola vez, al arrancar: sirve para los procesos que se abren desde aquí, como los comandos del
+ * programador de tareas (avisos:enviar-al-celular) o el que atiende las páginas con artisan serve. Por eso
+ * iniciar-consultorio.bat ya la indica antes de arrancar PHP, y avisos:crear-claves crea las claves en un proceso
+ * aparte si hace falta (PushKeys).
  */
 class OpenSslConfig
 {
@@ -23,8 +27,9 @@ class OpenSslConfig
             return null;
         }
 
+        // En $_SERVER y no en $_ENV: artisan serve quita del proceso que atiende las páginas lo que esté en $_ENV.
         putenv('OPENSSL_CONF='.$config);
-        $_ENV['OPENSSL_CONF'] = $_SERVER['OPENSSL_CONF'] = $config;
+        $_SERVER['OPENSSL_CONF'] = $config;
 
         return $config;
     }

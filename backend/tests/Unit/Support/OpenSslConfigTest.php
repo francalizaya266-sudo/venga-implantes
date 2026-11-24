@@ -35,6 +35,9 @@ class OpenSslConfigTest extends TestCase
 
         $this->assertSame($this->php.DIRECTORY_SEPARATOR.'extras'.DIRECTORY_SEPARATOR.'ssl'.DIRECTORY_SEPARATOR.'openssl.cnf', $config);
         $this->assertSame($config, getenv('OPENSSL_CONF'));
+        // Los procesos nuevos la heredan, y artisan serve no la quita: solo quita lo que está en $_ENV.
+        $this->assertSame($config, $_SERVER['OPENSSL_CONF']);
+        $this->assertArrayNotHasKey('OPENSSL_CONF', $_ENV);
     }
 
     public function test_it_leaves_alone_a_configuration_already_given_or_another_system(): void
