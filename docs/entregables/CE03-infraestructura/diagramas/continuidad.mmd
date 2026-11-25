@@ -1,0 +1,16 @@
+flowchart LR
+  db[("MySQL Flexible<br/>producción")]
+  app["vm-app"]
+  subgraph n1["Nivel 1 · Azure"]
+    pitr["Copias automáticas de MySQL<br/>7 días · restauración a un punto<br/>RPO de minutos"]
+  end
+  subgraph n2["Nivel 2 · Blob Storage"]
+    blob["Copia diaria 03:00 + archivos clínicos<br/>versiones y borrado suave 14 días<br/>RPO 24 h"]
+  end
+  subgraph n3["Nivel 3 · Sede de la clínica"]
+    dr["vm-wazuh /srv/respaldos<br/>copia cada hora por la VPN<br/>últimas 48 · RPO 1 h"]
+  end
+  db --> pitr
+  app -- "respaldo:crear + azcopy (MSI)" --> blob
+  app -- "mysqldump (consultorio_respaldo) + SSH" --> dr
+  db -.-> app

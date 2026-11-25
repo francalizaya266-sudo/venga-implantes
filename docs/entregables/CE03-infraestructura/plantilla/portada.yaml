@@ -1,0 +1,15 @@
+# Datos de la portada que comparten los Word de CE03. Lo propio de cada documento (qué entregable es, su título y
+# sus evidencias) va en el bloque "portada" de su archivo -metadatos.yaml. Lo usa plantilla/ajustar-docx.py.
+universidad: "Universidad Peruana Unión"
+escuela: "Escuela Profesional de Ingeniería de Sistemas"
+campus: "Campus Juliaca"
+evaluacion: "Evaluación del Perfil de Egreso · Línea de Infraestructura Tecnológica (CE03)"
+sistema: "Sistema web de Clínica Vega Implant"
+integrantes:
+  - "Fran Franklin Calizaya Apaza"
+  - "Jhoel Hairton Apaza Quispe"
+  - "Joselyn Yucra Mamani"
+ciclo: "Ciclo 10 · Semestre 2026-2"
+repositorio: "https://github.com/francalizaya266-sudo/venga-implantes"
+despliegue: "Microsoft Azure: producción en Chile Central y sede en North Central US"
+lugar: "Juliaca, Perú"

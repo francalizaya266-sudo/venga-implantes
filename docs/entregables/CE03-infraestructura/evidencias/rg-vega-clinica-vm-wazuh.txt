@@ -1,0 +1,37 @@
+# Salida de az vm run-command, 19/11/2026 (IP públicas reemplazadas)
+Enable succeeded: 
+[stdout]
+== servicios
+wazuh-manager: active
+wazuh-indexer: active
+wazuh-dashboard: active
+== version
+WAZUH_VERSION="v4.12.0"
+== agentes
+   ID: 000, Name: vm-wazuh (server), IP: 127.0.0.1, Active/Local
+   ID: 001, Name: vm-proxy, IP: any, Active
+   ID: 002, Name: vm-fw-prod, IP: any, Active
+   ID: 003, Name: vm-fw-sede, IP: any, Active
+   ID: 004, Name: vm-app, IP: any, Active
+   ID: 005, Name: vm-recepcion, IP: any, Active
+== alertas hoy
+3442
+1320 nivel 5 Web server 400 error code.
+115 nivel 3 Suricata: Alert - ET INFO Request to Hidden Environment File - Inbound
+82 nivel 10 Multiple web server 400 error codes from same source ip.
+28 nivel 6 Suspicious URL access.
+27 nivel 3 PAM: Login session closed.
+26 nivel 3 PAM: Login session opened.
+10 nivel 3 sshd: authentication success.
+10 nivel 3 Suricata: Alert - ET EXPLOIT GraphQL Introspection Query Attempt
+9 nivel 3 Suricata: Alert - SURICATA Applayer Mismatch protocol both directions
+9 nivel 3 Suricata: Alert - ET HUNTING ZIP file exfiltration over raw TCP
+por agente: {'vm-wazuh': 302, 'vm-proxy': 1194, 'vm-fw-prod': 469, 'vm-fw-sede': 354, 'vm-app': 827, 'vm-recepcion': 296}
+== copias en la sede
+hora_2026-11-19_0815.sql.gz
+hora_2026-11-19_0915.sql.gz
+hora_2026-11-19_1015.sql.gz
+5
+
+[stderr]
+

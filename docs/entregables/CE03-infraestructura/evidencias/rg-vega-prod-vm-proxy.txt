@@ -1,0 +1,24 @@
+# Salida de az vm run-command, 19/11/2026 (IP públicas reemplazadas)
+Enable succeeded: 
+[stdout]
+== pruebas desde la DMZ
+proxy->app http -> 10.20.4.4:80 ABIERTO
+proxy->app SSH -> 10.20.4.4:22 BLOQUEADO
+proxy->wazuh agente (VPN) -> 10.10.50.10:1514 ABIERTO
+proxy->recepcion SSH -> 10.10.30.10:22 BLOQUEADO
+== nginx
+nginx version: nginx/1.24.0 (Ubuntu)
+active
+== modsecurity
+SecRuleEngine DetectionOnly
+eventos en audit log: 615
+== certificado
+    Domains: IP_PUBLICA_PROD.sslip.io
+    Expiry Date: 2027-02-17 10:34:38+00:00 (VALID: 89 days)
+    Domains: vegaimplantes.me www.vegaimplantes.me
+    Expiry Date: 2027-02-17 12:28:44+00:00 (VALID: 89 days)
+== limit_req 429 hoy
+80
+
+[stderr]
+
