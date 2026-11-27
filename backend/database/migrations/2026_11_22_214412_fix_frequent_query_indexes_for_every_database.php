@@ -57,7 +57,7 @@ return new class extends Migration
             }
         }
 
-        (new DatabaseObjects)->install();
+        (new DatabaseObjects)->installIfAllowed();
     }
 
     /**

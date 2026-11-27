@@ -12,7 +12,7 @@ use RuntimeException;
  * Las funciones, vistas, procedimientos y triggers de MySQL que están en database/sql/mysql. Los crea una migración
  * y se vuelven a crear con `php artisan bd:objetos` y al restaurar una copia (DROP TABLE payments se lleva sus
  * triggers). Solo en MySQL: la aplicación no depende de ellos y las pruebas con SQLite no los tienen.
- * Si se cambia un archivo, hace falta una migración nueva que llame otra vez a install().
+ * Si se cambia un archivo, hace falta una migración nueva que llame otra vez a installIfAllowed().
  */
 final class DatabaseObjects
 {
