@@ -12,6 +12,7 @@ use App\Models\Doctor;
 use App\Models\Setting;
 use App\Models\Supply;
 use App\Models\Treatment;
+use App\Services\Catalog\TreatmentCatalog;
 use App\Services\Inventory\InventoryService;
 use App\Support\Money;
 use BackedEnum;
@@ -189,7 +190,7 @@ class TreatmentResource extends Resource
                             ->maxLength(300)
                             ->placeholder('Por ejemplo: ven habiendo comido y trae tus radiografías.')
                             ->helperText('Sale solo en el recordatorio del día anterior. Vacío = el recordatorio va sin indicaciones.')
-                            ->hintAction(self::suggestAction('before_instructions', fn (TreatmentKind $kind) => $kind->suggestedBeforeInstructions()))
+                            ->hintAction(self::suggestAction('before_instructions', 'before', fn (TreatmentKind $kind) => $kind->suggestedBeforeInstructions()))
                             ->columnSpanFull(),
                         Textarea::make('aftercare')
                             ->label('Cuidados después de la atención')
@@ -197,7 +198,7 @@ class TreatmentResource extends Resource
                             ->maxLength(1500)
                             ->placeholder("Por ejemplo:\n- Hoy no escupas ni te enjuagues.\n- Come blando y frío.")
                             ->helperText('Al terminar la cita, queda listo en Avisos para enviarlo por WhatsApp. Vacío = no se prepara ningún aviso.')
-                            ->hintAction(self::suggestAction('aftercare', fn (TreatmentKind $kind) => $kind->suggestedAftercare()))
+                            ->hintAction(self::suggestAction('aftercare', 'aftercare', fn (TreatmentKind $kind) => $kind->suggestedAftercare()))
                             ->columnSpanFull(),
                     ]),
                 // Todo lo de la web en un solo bloque: antes la dirección y el resumen iban arriba, la página plegada
@@ -363,18 +364,22 @@ class TreatmentResource extends Resource
     }
 
     /**
-     * "Usar texto sugerido": propone lo usual para ese tipo de tratamiento. Solo aparece con el campo vacío y
-     * cuando hay algo que sugerir; el consultorio lo revisa y lo cambia antes de guardar.
+     * "Usar texto sugerido": propone el texto que el catálogo trae para un tratamiento con ese nombre y, si no es
+     * uno de los suyos, lo usual para ese tipo de tratamiento. Solo aparece con el campo vacío y cuando hay algo
+     * que sugerir; el consultorio lo revisa y lo cambia antes de guardar.
      *
-     * @param  Closure(TreatmentKind): ?string  $suggestion
+     * @param  'before'|'aftercare'  $catalogKey  Cómo se llama ese texto en el catálogo.
+     * @param  Closure(TreatmentKind): ?string  $usualForKind
      */
-    private static function suggestAction(string $field, Closure $suggestion): Action
+    private static function suggestAction(string $field, string $catalogKey, Closure $usualForKind): Action
     {
+        $suggestion = fn (Get $get): ?string => TreatmentCatalog::find($get('name'))[$catalogKey] ?? $usualForKind(self::kindOf($get));
+
         return Action::make('suggest_'.$field)
             ->label('Usar texto sugerido')
             ->link()
-            ->visible(fn (Get $get) => blank($get($field)) && $suggestion(self::kindOf($get)) !== null)
-            ->action(fn (Get $get, Set $set) => $set($field, $suggestion(self::kindOf($get))));
+            ->visible(fn (Get $get) => blank($get($field)) && $suggestion($get) !== null)
+            ->action(fn (Get $get, Set $set) => $set($field, $suggestion($get)));
     }
 
     public static function table(Table $table): Table

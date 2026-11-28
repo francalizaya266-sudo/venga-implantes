@@ -7,6 +7,7 @@ use App\Enums\MessageTemplateKey;
 use App\Models\Appointment;
 use App\Models\MagicLink;
 use App\Models\MessageTemplate;
+use App\Models\Setting;
 use App\Models\User;
 use App\Services\WhatsApp\WhatsAppOutbox;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
@@ -51,7 +52,45 @@ class WhatsAppOutboxTest extends TestCase
         $appointment->treatment->update(['show_price' => false]);
         $withoutPrice = $outbox->render($outbox->queueForAppointment($appointment->fresh(), MessageTemplateKey::BookingConfirmation));
         $this->assertStringNotContainsString('Precio', $withoutPrice);
-        $this->assertStringContainsString("10:30\u{00A0}a.\u{00A0}m. con {$appointment->doctor->name}.\n\nConfirma tu asistencia", $withoutPrice);
+        $this->assertStringContainsString("10:30\u{00A0}a.\u{00A0}m. con {$appointment->doctor->name}.\nTe esperamos en Jr. Apurímac 648, Juliaca.\n\nConfirma tu asistencia", $withoutPrice);
+    }
+
+    public function test_the_notices_of_an_appointment_say_where_the_clinic_is_once_the_address_is_set(): void
+    {
+        $this->freezeMonday();
+        $appointment = Appointment::factory()->at('2026-11-03 16:00')->create();
+        $appointment->patient->update(['first_name' => 'Jorge']);
+        $appointment->treatment->update(['name' => 'Limpieza dental', 'show_price' => false, 'before_instructions' => 'Ven con los dientes cepillados.']);
+        $doctor = $appointment->doctor->name;
+        $outbox = app(WhatsAppOutbox::class);
+        Setting::set('clinic.address', '');
+        // Preparado antes de llenar la dirección: al enviarlo ya la lleva, porque sale de Ajustes en ese momento.
+        $reminder = $outbox->queueForAppointment($appointment, MessageTemplateKey::Reminder);
+
+        $this->assertStringContainsString("Hola Jorge, te recordamos tu cita de limpieza dental de mañana martes 3 de noviembre a las 4:00\u{00A0}p.\u{00A0}m. con {$doctor} en ".Setting::get('clinic.name').".\n\nAntes de venir: Ven con los dientes cepillados.\n\nConfirma tu asistencia aquí:", $outbox->draft($reminder));
+
+        Setting::set('clinic.address', 'Av. Larco 345');
+        Setting::set('clinic.district', 'Miraflores');
+
+        $this->assertStringContainsString(".\nTe esperamos en Av. Larco 345, Miraflores.\nAntes de venir: Ven con los dientes cepillados.\n\nConfirma", $outbox->draft($reminder));
+        foreach ([MessageTemplateKey::BookingConfirmation, MessageTemplateKey::FirstWebBooking, MessageTemplateKey::AppointmentScheduled] as $key) {
+            $this->assertStringContainsString("con {$doctor}.\nTe esperamos en Av. Larco 345, Miraflores.\n\n", $outbox->draft($outbox->queueForAppointment($appointment, $key)), $key->value);
+        }
+    }
+
+    public function test_every_notice_explains_each_piece_of_data_its_text_uses(): void
+    {
+        foreach (MessageTemplateKey::cases() as $key) {
+            preg_match_all('/\{\w+\}/', $key->defaultBody(), $used);
+
+            $this->assertSame([], array_diff($used[0], array_keys($key->placeholders())), $key->value);
+            $this->assertNotContains('', $key->placeholders(), $key->value);
+        }
+
+        // Un aviso de cita acepta los demás datos de la cita; uno de cuota explica su fecha como la de la cuota.
+        $this->assertArrayHasKey('{indicaciones}', MessageTemplateKey::Rescheduled->placeholders());
+        $this->assertArrayNotHasKey('{indicaciones}', MessageTemplateKey::Birthday->placeholders());
+        $this->assertSame('el día en que vence la cuota', MessageTemplateKey::InstallmentReminder->placeholders()['{fecha}']);
     }
 
     public function test_uses_the_text_edited_by_the_clinic(): void

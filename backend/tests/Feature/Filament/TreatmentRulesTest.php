@@ -120,7 +120,7 @@ class TreatmentRulesTest extends TestCase
         $this->assertTrue($notice->appointment->is($today));
 
         $body = app(WhatsAppOutbox::class)->render($notice);
-        $this->assertStringContainsString("Para que tu extracción simple quede bien:\n\n- Hoy no escupas ni te enjuagues.\n- Come blando y frío.\n\nSi tienes dolor fuerte", $body);
+        $this->assertStringContainsString("Estos son los cuidados después de tu extracción simple:\n\n- Hoy no escupas ni te enjuagues.\n- Come blando y frío.\n\nSi tienes dolor fuerte", $body);
     }
 
     public function test_the_treatment_form_proposes_the_usual_texts_for_that_kind_of_treatment(): void

@@ -25,7 +25,7 @@ class KeepRemindersUpToDateTest extends TestCase
         $this->get(WhatsappMessageResource::getUrl())
             ->assertOk()
             ->assertSee('Recordatorio de la cita')
-            ->assertSee('te recordamos tu cita de mañana martes 3 de noviembre')
+            ->assertSee('te recordamos tu cita de '.mb_strtolower($appointment->treatment->name).' de mañana martes 3 de noviembre')
             // Sin avisos con fecha de salida, esa pestaña no estorba.
             ->assertDontSee('Programados');
 

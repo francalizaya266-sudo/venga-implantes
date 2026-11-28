@@ -345,7 +345,7 @@ class BookingControllerTest extends TestCase
         $this->assertTrue(Appointment::sole()->campaign->is($campaign));
 
         $confirmation = app(WhatsAppOutbox::class)->render(WhatsappMessage::where('template_key', MessageTemplateKey::BookingConfirmation)->sole());
-        $this->assertStringContainsString("a las 10:00\u{00A0}a.\u{00A0}m. con {$cleaning->doctors->first()->name}.\nPrecio con la promoción Limpieza de verano: desde S/ 120 (normal desde S/ 150). Pagas en el consultorio con Yape, Plin, tarjeta o efectivo.\n\nConfirma tu asistencia", $confirmation);
+        $this->assertStringContainsString("a las 10:00\u{00A0}a.\u{00A0}m. con {$cleaning->doctors->first()->name}.\nTe esperamos en Jr. Apurímac 648, Juliaca.\nPrecio con la promoción Limpieza de verano: desde S/ 120 (normal desde S/ 150). Pagas en el consultorio con Yape, Plin, tarjeta o efectivo.\n\nConfirma tu asistencia", $confirmation);
     }
 
     public function test_a_promotion_for_a_treatment_that_is_not_booked_online_starts_with_the_evaluation(): void

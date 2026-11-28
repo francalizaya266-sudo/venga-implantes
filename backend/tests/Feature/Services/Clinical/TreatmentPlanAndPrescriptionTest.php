@@ -203,7 +203,7 @@ class TreatmentPlanAndPrescriptionTest extends TestCase
 
         $body = app(WhatsAppOutbox::class)->render($this->prescriptions()->whatsappDraft($prescription));
 
-        $this->assertSame("Hola Rosa, te enviamos tu receta e indicaciones de Dra. Ana Torres:\n\n• Paracetamol 500 mg: 1 tableta cada 8 horas si hay dolor\n\nIndicaciones:\nDieta blanda.", $body);
+        $this->assertSame("Hola Rosa, te enviamos tu receta e indicaciones de Dra. Ana Torres:\n\n• Paracetamol 500 mg: 1 tableta cada 8 horas si hay dolor\n\nIndicaciones:\nDieta blanda.\n\nSi tienes alguna duda o una reacción al medicamento, escríbenos.", $body);
 
         $plan = TreatmentPlan::create(['patient_id' => $patient->id, 'doctor_id' => $doctor->id, 'status' => TreatmentPlanStatus::Draft]);
         $plan->items()->create(['description' => 'Curación con resina', 'tooth' => '36', 'surfaces' => 'MO', 'unit_price' => 150, 'quantity' => 2, 'discount' => 50]);
