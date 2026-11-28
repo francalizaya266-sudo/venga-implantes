@@ -331,6 +331,12 @@ class ConsultationForm
                                             }
                                         })
                                         ->visible(fn (?Consultation $record) => $record && self::workableItems($record)->isNotEmpty()),
+                                    Callout::make('Lo marcaste aparte y también está en su plan')
+                                        ->key('alsoInThePlan')
+                                        ->description(fn (Get $get, ?Consultation $record) => self::alsoInThePlan($record, $get('treatments'), $get('planItems')))
+                                        ->icon(Heroicon::OutlinedExclamationTriangle)
+                                        ->warning()
+                                        ->visible(fn (Get $get, ?Consultation $record) => self::alsoInThePlan($record, $get('treatments'), $get('planItems')) !== null),
                                     Text::make('No tiene un plan de tratamiento vigente. Si necesita algo más, ármalo con las sugerencias debajo del odontograma o con "Agregar al plan".')
                                         ->color('gray')
                                         ->visible(fn (?Consultation $record) => ! $record || (self::workableItems($record)->isEmpty() && ! self::hidesOdontogram($record))),
@@ -1089,6 +1095,35 @@ class ConsultationForm
         }
 
         return $kept;
+    }
+
+    /**
+     * Lo marcado aparte que también está, sin marcar, en su plan vigente. Pasa cuando la cita no se agendó como
+     * sesión del plan y el tratamiento está en más de una pieza: no se adivina cuál fue. Se avisa porque aparte
+     * se cobra a precio de lista y el plan no avanza.
+     *
+     * @param  mixed  $treatments  Ids de los tratamientos marcados aparte.
+     * @param  mixed  $planItems  Ids de los procedimientos del plan marcados.
+     */
+    public static function alsoInThePlan(?Consultation $consultation, mixed $treatments, mixed $planItems): ?string
+    {
+        $treatments = array_map('intval', array_values((array) $treatments));
+
+        if (! $consultation || $treatments === []) {
+            return null;
+        }
+
+        $waiting = self::workableItems($consultation)
+            ->whereIn('treatment_id', $treatments)
+            ->whereNotIn('id', array_map('intval', array_values((array) $planItems)))
+            ->filter(fn (TreatmentPlanItem $item) => $item->isOpen());
+
+        if ($waiting->isEmpty()) {
+            return null;
+        }
+
+        return $waiting->map(fn (TreatmentPlanItem $item) => $item->label())->unique()->join(', ', ' y ')
+            .'. Si es lo que hiciste hoy, márcalo en "Del plan de tratamiento": así avanza el plan y vale el precio acordado. Si lo dejas aparte, se cobra a precio de lista y el plan no avanza.';
     }
 
     /** @return Collection<int, TreatmentPlanItem> */
