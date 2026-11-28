@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Filament;
 
+use App\Enums\TreatmentPlanStatus;
 use App\Filament\Resources\Consultations\Pages\EditConsultation;
 use App\Filament\Resources\Consultations\Schemas\ConsultationForm;
 use App\Models\Appointment;
@@ -9,6 +10,7 @@ use App\Models\Consultation;
 use App\Models\Doctor;
 use App\Models\Patient;
 use App\Models\Treatment;
+use App\Models\TreatmentPlan;
 use App\Services\Clinical\ConsultationService;
 use Database\Seeders\CatalogSeeder;
 use Filament\Actions\Testing\TestAction;
@@ -135,6 +137,31 @@ class AttendByVisitTest extends TestCase
 
         $this->assertNotNull($consultation->fresh()->closed_at);
         $this->assertSame('Dolor 8/10', $consultation->fresh()->vitalsSummary());
+    }
+
+    public function test_without_an_appointment_the_details_of_an_extraction_come_ready_to_write_once_it_is_marked(): void
+    {
+        $extraction = Treatment::where('slug', 'extraccion-simple')->firstOrFail();
+        $doctor = $this->doctorOffering($extraction);
+        $patient = Patient::factory()->create();
+        $plan = TreatmentPlan::create(['patient_id' => $patient->id, 'doctor_id' => $doctor->id, 'status' => TreatmentPlanStatus::Accepted]);
+        $item = $plan->items()->create(['treatment_id' => $extraction->id, 'description' => 'Extracción simple', 'tooth' => '38', 'unit_price' => 120]);
+        $consultation = app(ConsultationService::class)->startWithoutAppointment($patient, $doctor->user);
+        $this->actingAs($doctor->user);
+
+        // Sin cita no se sabe a qué viene: los datos de la extracción aparecen al guardarse que eso se hizo. Cada uno
+        // llega con su lugar en el formulario: sin él, el navegador no guarda la pieza ni el interruptor de la sutura.
+        Livewire::test(EditConsultation::class, ['record' => $consultation->getRouteKey()])
+            ->assertDontSee('Con sutura')
+            ->fillForm(['planItems' => [$item->id]])
+            ->call('autosave')
+            ->assertSee(['Cartuchos', 'Con sutura'])
+            ->assertSet('data.procedure_details', ['tooth' => null, 'anesthetic' => null, 'cartridges' => null, 'suture' => false, 'complications' => null])
+            ->fillForm(['procedure_details' => ['tooth' => '38', 'cartridges' => 2, 'suture' => true]])
+            ->call('autosave')
+            ->assertHasNoFormErrors();
+
+        $this->assertSame('Pieza 38 · Cartuchos 2 · Con sutura', $consultation->fresh()->procedureSummary());
     }
 
     /**
