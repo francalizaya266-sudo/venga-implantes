@@ -7,6 +7,8 @@ use App\Filament\Concerns\HasSettingsMenuGroup;
 use App\Filament\Pages\Concerns\EditsSettings;
 use App\Filament\Resources\MessageTemplates\MessageTemplateResource;
 use App\Filament\Resources\Supplies\SupplyResource;
+use App\Filament\Resources\Users\UserResource;
+use App\Filament\Support\DoubleCheck;
 use App\Models\Setting;
 use App\Services\Booking\WebAvailability;
 use App\Services\Web\PublicImages;
@@ -22,6 +24,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Filament\Schemas\Components\Actions;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Tabs;
 use Filament\Schemas\Components\Tabs\Tab;
@@ -34,7 +37,8 @@ use Filament\Support\Icons\Heroicon;
 
 /**
  * Datos del consultorio, reglas de la agenda y de las reservas web, las horas de los avisos, lo de dinero
- * (presupuestos, meta, reportes y el QR de Yape y Plin para cobrar) y si cada atención descuenta del inventario lo que usó.
+ * (presupuestos, meta, reportes y el QR de Yape y Plin para cobrar), si cada atención descuenta del inventario lo que usó
+ * y si al entrar al panel se pide la doble verificación.
  * Lo de la página web va en Página web › Puesta a punto. Lo que se guarda aquí reemplaza los valores de
  * config/consultorio.php.
  *
@@ -371,9 +375,82 @@ class Settings extends Page
                                             ->inline(false),
                                     ]),
                             ]),
+                        self::securityTab(),
                     ]),
             ])
             ->statePath('data');
+    }
+
+    /**
+     * No es una casilla más de la hoja: apagar la doble verificación le quita una protección a todas las cuentas, así que
+     * tiene su botón, se confirma con la contraseña y vale al instante, sin "Guardar".
+     */
+    private static function securityTab(): Tab
+    {
+        return Tab::make('Seguridad')
+            ->icon(Heroicon::OutlinedShieldCheck)
+            ->schema([
+                Section::make('Doble verificación al entrar al panel')
+                    ->description('Además de la contraseña, cada persona escribe el código que le muestra su celular. En cada computadora o celular se pide una sola vez al día.')
+                    ->headerActions([
+                        Action::make('users')
+                            ->label('Apagarla para una sola persona: en Usuarios')
+                            ->link()
+                            ->icon(Heroicon::OutlinedArrowTopRightOnSquare)
+                            ->url(fn () => UserResource::getUrl('index')),
+                    ])
+                    ->schema([
+                        Text::make(fn () => DoubleCheck::isOnForEveryone()
+                            ? 'Encendida para todo el equipo.'
+                            : 'Apagada para todo el equipo: se entra solo con la contraseña.')
+                            ->weight(FontWeight::Medium)
+                            ->color(fn () => DoubleCheck::isOnForEveryone() ? 'success' : 'warning'),
+                        Actions::make([
+                            self::stopDoubleCheckForEveryoneAction(),
+                            self::resumeDoubleCheckForEveryoneAction(),
+                        ])->key('doubleCheckActions'),
+                    ]),
+            ]);
+    }
+
+    /** Le quita una protección a todas las cuentas: quien lo hace lo confirma con su propia contraseña. */
+    private static function stopDoubleCheckForEveryoneAction(): Action
+    {
+        return Action::make('stopDoubleCheckForEveryone')
+            ->label('Apagarla para todo el equipo')
+            ->icon(Heroicon::OutlinedLockOpen)
+            ->color('danger')
+            ->outlined()
+            ->modalIcon(Heroicon::OutlinedLockOpen)
+            ->modalHeading('Apagar la doble verificación para todo el equipo')
+            ->modalDescription('Todos entrarán solo con su contraseña, sin el código del celular. Quien llegue a saber la contraseña de alguien del equipo podrá abrir el panel desde cualquier lugar, con los datos de los pacientes. Queda anotado en el historial de cambios.')
+            ->schema([DoubleCheck::ownPasswordField()])
+            ->modalSubmitActionLabel('Apagarla')
+            ->rateLimit(5)
+            ->visible(fn () => DoubleCheck::isOnForEveryone())
+            ->action(function (): void {
+                Setting::set(DoubleCheck::REQUIRED_SETTING, false);
+
+                Notification::make()->success()->title('Doble verificación apagada para todo el equipo')->body('Desde ahora se entra solo con la contraseña.')->send();
+            });
+    }
+
+    /** Lo contrario: devuelve la protección, así que basta con confirmarlo. */
+    private static function resumeDoubleCheckForEveryoneAction(): Action
+    {
+        return Action::make('resumeDoubleCheckForEveryone')
+            ->label('Encenderla para todo el equipo')
+            ->icon(Heroicon::OutlinedLockClosed)
+            ->requiresConfirmation()
+            ->modalHeading('Encender la doble verificación para todo el equipo')
+            ->modalDescription('Desde la próxima vez que entren, además de la contraseña se pide el código del celular. Quien todavía no la activó verá primero la pantalla para activarla. A quien se le apagó aparte en Usuarios se le sigue sin pedir.')
+            ->modalSubmitActionLabel('Encenderla')
+            ->visible(fn () => ! DoubleCheck::isOnForEveryone())
+            ->action(function (): void {
+                Setting::set(DoubleCheck::REQUIRED_SETTING, true);
+
+                Notification::make()->success()->title('Doble verificación encendida para todo el equipo')->send();
+            });
     }
 
     /**

@@ -5,8 +5,10 @@ namespace App\Filament\Pages\Auth;
 use App\Filament\Forms\WebPhotoUpload;
 use App\Filament\Forms\WeeklySchedule;
 use App\Filament\Support\CopyLink;
+use App\Filament\Support\DoubleCheck;
 use App\Models\Doctor;
 use App\Models\DoctorSchedule;
+use App\Models\User;
 use App\Services\Agenda\DoctorCalendarFeed;
 use Filament\Actions\Action;
 use Filament\Auth\Pages\EditProfile as BaseEditProfile;
@@ -14,7 +16,9 @@ use Filament\Forms\Components\Textarea;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Actions;
+use Filament\Schemas\Components\Component;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Text;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Database\Eloquent\Model;
@@ -152,6 +156,30 @@ class EditProfile extends BaseEditProfile
                             Notification::make()->success()->title('Enlace cambiado')->body('El anterior ya no funciona. Agrega el nuevo en tu celular.')->send();
                         }),
                 ])->key('calendarActions'),
+            ]);
+    }
+
+    /**
+     * "Doble verificación": el código en su celular, los códigos de recuperación y "Cambié de celular". A quien el
+     * administrador dejó de pedírsela se le dice eso y nada más: activarla aquí no cambiaría cómo entra.
+     */
+    public function getMultiFactorAuthenticationContentComponent(): ?Component
+    {
+        /** @var User $user */
+        $user = $this->getUser();
+
+        if (DoubleCheck::isAskedOf($user)) {
+            return parent::getMultiFactorAuthenticationContentComponent();
+        }
+
+        return Section::make()
+            ->label(__('filament-panels::auth/pages/edit-profile.multi_factor_authentication.label'))
+            ->compact()
+            ->secondary()
+            ->schema([
+                Text::make('Apagada: entras solo con tu contraseña, sin el código de tu celular. '.($user->isAdmin()
+                    ? 'Se enciende en Configuración › Ajustes › Seguridad (para todo el equipo) o en Configuración › Usuarios (para una persona).'
+                    : 'La enciende quien administra el panel.')),
             ]);
     }
 

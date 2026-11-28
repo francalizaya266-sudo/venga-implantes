@@ -9,7 +9,7 @@ return [
 
             'label' => 'Código en tu celular',
 
-            'below_content' => 'Cada vez que entras, además de tu contraseña escribes los 6 números que te muestra Google Authenticator en tu celular.',
+            'below_content' => 'Además de tu contraseña, escribes los 6 números que te muestra Google Authenticator en tu celular. En cada computadora o celular se te pide una vez al día.',
 
             'messages' => [
                 'enabled' => 'Activada',

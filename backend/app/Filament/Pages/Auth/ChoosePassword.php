@@ -2,11 +2,11 @@
 
 namespace App\Filament\Pages\Auth;
 
+use App\Filament\Support\DoubleCheck;
+use App\Http\Middleware\RequireDoubleCheck;
 use App\Models\User;
 use Closure;
 use Filament\Actions\Action;
-use Filament\Auth\MultiFactor\Http\Middleware\EnsureMultiFactorAuthenticationIsEnabled;
-use Filament\Auth\MultiFactor\MultiFactorChallenge;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
@@ -41,7 +41,7 @@ class ChoosePassword extends Page
     protected static string $layout = 'filament-panels::components.layout.simple';
 
     /** Se abre sin la doble verificación activada: la persona nueva la activa después de elegir su contraseña. */
-    protected static string|array $withoutRouteMiddleware = [EnsureMultiFactorAuthenticationIsEnabled::class];
+    protected static string|array $withoutRouteMiddleware = [RequireDoubleCheck::class];
 
     /** @var array<string, mixed>|null */
     public ?array $data = [];
@@ -153,10 +153,13 @@ class ChoosePassword extends Page
         ];
     }
 
-    /** Si ya tiene la doble verificación (se la pidieron al entrar); la persona nueva la activa después de esta pantalla. */
+    /**
+     * Si después de esta pantalla ya entra: tiene la doble verificación (se la pidieron al entrar) o no se le pide.
+     * La persona nueva a la que sí se le pide la activa después de esta pantalla.
+     */
     private function hasDoubleCheck(): bool
     {
-        return MultiFactorChallenge::make()->hasEnabledProviders($this->user());
+        return ! DoubleCheck::isPendingFor($this->user());
     }
 
     private function user(): User

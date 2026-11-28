@@ -98,6 +98,7 @@ final class ChangeHistory
         'reports.doctors_see_own' => 'Cada doctor ve sus propios ingresos y gráficos',
         'reports.monthly_goal' => 'Meta de cobro del mes',
         'inventory.deduct_on_close' => 'Al terminar una atención, revisar y descontar los materiales usados',
+        DoubleCheck::REQUIRED_SETTING => 'Doble verificación para todo el equipo',
         'payments.yape_qr' => 'QR de Yape',
         'payments.yape_holder' => 'Titular de Yape',
         'payments.plin_qr' => 'QR de Plin',
@@ -129,6 +130,7 @@ final class ChangeHistory
             'phone' => 'Celular',
             'is_active' => 'Puede entrar al panel',
             'must_change_password' => 'Tiene que elegir su contraseña al entrar',
+            'skips_double_check' => 'Entra sin doble verificación',
         ],
         Doctor::class => [
             'user_id' => 'Usuario del panel',
@@ -224,7 +226,7 @@ final class ChangeHistory
         ],
     ];
 
-    private const YES_NO = ['is_dentist', 'is_active', 'must_change_password', 'is_public', 'accepts_online_booking', 'show_price', 'is_evaluation', 'online_bookable', 'for_two', 'allows_upfront', 'allows_installments', 'reports.doctors_see_own', 'inventory.deduct_on_close'];
+    private const YES_NO = ['is_dentist', 'is_active', 'must_change_password', 'skips_double_check', DoubleCheck::REQUIRED_SETTING, 'is_public', 'accepts_online_booking', 'show_price', 'is_evaluation', 'online_bookable', 'for_two', 'allows_upfront', 'allows_installments', 'reports.doctors_see_own', 'inventory.deduct_on_close'];
 
     private const MONEY = ['price_from', 'price', 'upfront_discount', 'down_payment', 'monthly_amount', 'reports.monthly_goal', 'amount', 'discount'];
 

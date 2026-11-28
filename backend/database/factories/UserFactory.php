@@ -39,6 +39,12 @@ class UserFactory extends Factory
         ];
     }
 
+    /** El administrador dejó de pedirle la doble verificación: entra solo con su contraseña. */
+    public function skippingDoubleCheck(): static
+    {
+        return $this->state(fn () => ['skips_double_check' => true]);
+    }
+
     /** Todavía no activó el segundo factor: al entrar al panel solo ve la pantalla para hacerlo. */
     public function withoutMfa(): static
     {

@@ -36,6 +36,7 @@ use App\Http\Controllers\Reports\AgendaDayController;
 use App\Http\Controllers\Reports\CashClosingController;
 use App\Http\Controllers\Reports\EarningsExportController;
 use App\Http\Middleware\KeepRemindersUpToDate;
+use App\Http\Middleware\RequireDoubleCheck;
 use App\Http\Middleware\RequireOwnPassword;
 use App\Livewire\BellAlerts;
 use App\Models\Setting;
@@ -173,6 +174,10 @@ class AdminPanelProvider extends PanelProvider
             // pide el código de la app autenticadora. Es obligatorio: quien aún no lo tiene solo ve la pantalla para
             // activarlo, en tres pasos. Los códigos de recuperación sirven si pierde el celular.
             ->multiFactorAuthentication([PhoneAuthentication::make()->recoverable()], setUpRequiredAction: SetUpTwoFactor::class, isRequired: true)
+            // Dos salvedades (DoubleCheck): en cada equipo el código se pide una vez al día, y el administrador puede
+            // dejar de pedirlo a todo el equipo o a una persona. Por eso la pantalla para activarlo la exige este
+            // middleware y no el de Filament, que no conoce ninguna de las dos.
+            ->multiFactorAuthenticationRequiredMiddlewareName(RequireDoubleCheck::class)
             ->brandName(fn () => Setting::get('clinic.name'))
             // Con logo subido en la puesta a punto de la web, el panel lo muestra; si no, el diente de la web junto al nombre.
             ->brandLogo(fn () => app(ClinicInfo::class)->logoUrl() ?? view('filament.brand', ['name' => Setting::get('clinic.name')]))

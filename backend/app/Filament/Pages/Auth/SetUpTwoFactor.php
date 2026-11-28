@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages\Auth;
 
+use App\Filament\Support\DoubleCheck;
 use App\Models\User;
 use Closure;
 use Filament\Actions\Action;
@@ -55,7 +56,8 @@ class SetUpTwoFactor extends SetUpRequiredMultiFactorAuthentication
 
     public function mount(): void
     {
-        if ($this->isEnabled()) {
+        // Ya la tiene, o el administrador dejó de pedírsela: no hay nada que activar.
+        if (! DoubleCheck::isPendingFor($this->user())) {
             $this->redirect(Filament::getUrl());
 
             return;
@@ -167,7 +169,7 @@ class SetUpTwoFactor extends SetUpRequiredMultiFactorAuthentication
         $pending = $this->pending();
 
         // Lo que se armó al abrir la pantalla es de esa persona: no sirve si en esta sesión entró otra.
-        if (($pending['userKey'] ?? null) !== Filament::getUserScopedAuthIdentifier($user) || $this->isEnabled()) {
+        if (($pending['userKey'] ?? null) !== Filament::getUserScopedAuthIdentifier($user) || ! DoubleCheck::isPendingFor($user)) {
             $this->redirect(Filament::getUrl());
 
             return;
@@ -189,6 +191,9 @@ class SetUpTwoFactor extends SetUpRequiredMultiFactorAuthentication
             $provider->saveSecret($user, $pending['secret']);
             $provider->saveRecoveryCodes($user, $pending['recoveryCodes']);
         });
+
+        // Acaba de escribir el código de su celular en este equipo: hoy no se le vuelve a pedir aquí.
+        DoubleCheck::rememberThisDeviceToday($user);
 
         $this->isActivated = true;
     }

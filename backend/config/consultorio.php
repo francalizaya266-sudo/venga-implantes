@@ -211,6 +211,12 @@ return [
             'appointment_link_days_after' => 2,
             'access_link_hours' => 72,
         ],
+
+        'security' => [
+            // La doble verificación del panel: además de la contraseña, el código del celular. El administrador la
+            // apaga para todo el equipo en Ajustes › Seguridad, o para una sola persona en Usuarios.
+            'double_check_required' => true,
+        ],
     ],
 
     'backups' => [
