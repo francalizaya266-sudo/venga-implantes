@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Services\Clinical;
 
+use App\Enums\Dentition;
 use App\Enums\PlanItemStatus;
 use App\Enums\ToothState;
 use App\Enums\TreatmentPlanStatus;
@@ -52,7 +53,7 @@ class TreatmentPlanAndPrescriptionTest extends TestCase
         $this->odontograms()->toggle($odontogram, $this->condition('caries'), ToothState::Bad, 24, 'O', abbreviation: 'MB');
         $this->odontograms()->toggle($odontogram, $this->condition('caries'), ToothState::Bad, 46, 'O', abbreviation: 'CDP');
         $this->odontograms()->toggle($odontogram, $this->condition('extraccion_indicada'), ToothState::Bad, 48);
-        $this->odontograms()->toggle($odontogram, $this->condition('ausente'), ToothState::Good, 18);
+        $this->odontograms()->toggle($odontogram, $this->condition('ausente'), ToothState::Good, 17);
         $this->odontograms()->toggle($odontogram, $this->condition('restauracion'), ToothState::Good, 26, 'O');
 
         $rows = collect($this->suggestions()->rows($odontogram, $consultation));
@@ -65,7 +66,7 @@ class TreatmentPlanAndPrescriptionTest extends TestCase
                 ['46', 'O', 'Curación con resina', ['K02.1'], true],
                 ['46', 'O', 'Endodoncia', ['K04.0'], true],
                 ['48', null, 'Extracción simple', [], true],
-                ['18', null, 'Implante', ['K08.1'], false],
+                ['17', null, 'Implante', ['K08.1'], false],
             ],
             $rows->map(fn (array $row) => [$row['tooth'], $row['surfaces'], $row['treatment']?->name, $row['diagnoses']->pluck('code')->all(), $row['suggested']])->all(),
         );
@@ -90,6 +91,21 @@ class TreatmentPlanAndPrescriptionTest extends TestCase
         $this->assertSame([], $again->where('suggested', true)->pluck('tooth')->all());
         $this->assertSame(['24', '36', '46', '46', '48'], $again->where('done', true)->pluck('tooth')->all());
         $this->assertSame(['added' => 0, 'diagnoses' => []], collect($this->suggestions()->apply($consultation, $doctor->user, $again->where('optional', false)->pluck('key')->all()))->only(['added', 'diagnoses'])->all());
+    }
+
+    public function test_a_missing_wisdom_tooth_or_milk_tooth_is_not_offered_an_implant(): void
+    {
+        $doctor = $this->doctorOffering(Treatment::factory()->create());
+        $consultation = app(ConsultationService::class)->startWithoutAppointment(Patient::factory()->create(), $doctor->user);
+        $odontogram = $consultation->odontogram;
+        $this->odontograms()->changeDentition($odontogram, Dentition::Mixed);
+        $this->odontograms()->toggle($odontogram, $this->condition('ausente'), ToothState::Good, 18);
+        $this->odontograms()->toggle($odontogram, $this->condition('ausente'), ToothState::Good, 55);
+        $this->odontograms()->toggle($odontogram, $this->condition('ausente'), ToothState::Good, 36);
+
+        $rows = $this->suggestions()->rows($odontogram->fresh(), $consultation);
+
+        $this->assertSame([['36', 'Implante']], array_map(fn (array $row) => [$row['tooth'], $row['treatment']?->name], $rows));
     }
 
     public function test_marking_treated_finishes_the_plan_procedure_once_nothing_red_is_left_on_the_tooth(): void

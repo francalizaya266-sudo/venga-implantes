@@ -12,6 +12,7 @@ use App\Models\OdontogramCondition;
 use App\Models\OdontogramEntry;
 use App\Models\Patient;
 use App\Models\Treatment;
+use App\Models\TreatmentPlanItem;
 use App\Services\Clinical\FindingsDictation;
 use App\Services\Clinical\OdontogramService;
 use App\Services\Clinical\OdontogramSuggestions;
@@ -153,7 +154,11 @@ class OdontogramChart extends Component
         unset($this->odontogram, $this->newEntryIds);
     }
 
-    /** Toque con el pincel en una pieza o superficie: marca el hallazgo (en un puente, de $tooth a $toTooth). */
+    /**
+     * Toque con el pincel en una pieza o superficie: marca el hallazgo (en un puente, de $tooth a $toTooth).
+     * En azul vale lo mismo que "Tratado": si con eso queda hecho un procedimiento del plan, la atención lo marca
+     * como trabajado hoy.
+     */
     public function mark(int $tooth, ?string $surface = null, ?string $code = null, string $state = 'bad', ?string $abbreviation = null, ?int $toTooth = null): void
     {
         $condition = $code ? $this->conditions->firstWhere('code', $code) : null;
@@ -162,15 +167,47 @@ class OdontogramChart extends Component
             return;
         }
 
-        $this->tracked("{$condition->name} en la {$tooth}", fn () => $this->attempt(fn () => app(OdontogramService::class)->toggle(
-            $this->odontogram,
-            $condition,
-            ToothState::tryFrom($state) ?? ToothState::Bad,
-            $tooth,
-            $surface,
-            $toTooth,
-            $abbreviation,
-        )));
+        $worked = collect();
+
+        $this->tracked("{$condition->name} en la {$tooth}", function () use ($condition, $state, $tooth, $surface, $toTooth, $abbreviation, &$worked): void {
+            $this->attempt(function () use ($condition, $state, $tooth, $surface, $toTooth, $abbreviation, &$worked): void {
+                $worked = $this->paint($condition, ToothState::tryFrom($state) ?? ToothState::Bad, $tooth, $surface, $toTooth, $abbreviation);
+            });
+        });
+
+        $this->tellThePlan($worked);
+    }
+
+    /**
+     * Marca el hallazgo y devuelve los procedimientos del plan que con eso quedan trabajados hoy: los que pedía lo
+     * rojo que la marca azul dejó tratado y los de lo que se pintó (el implante que se puso, la restauración).
+     *
+     * @return Collection<int, TreatmentPlanItem>
+     */
+    private function paint(OdontogramCondition $condition, ToothState $state, int $tooth, ?string $surface, ?int $toTooth, ?string $abbreviation, bool $toggle = true): Collection
+    {
+        $consultation = $this->odontogram->consultation;
+        $painted = app(OdontogramService::class)->paint($this->odontogram, $condition, $state, $tooth, $surface, $toTooth, $abbreviation, $toggle);
+        $suggestions = app(OdontogramSuggestions::class);
+
+        $worked = collect($painted['treated'])
+            ->flatMap(fn (array $red) => $suggestions->finishedItems($consultation, $tooth, $red['code'], $red['abbreviation']));
+
+        return $painted['fresh']
+            ? $worked->merge($suggestions->itemsLeftDone($consultation, $tooth, $condition->code, $painted['entry']->surface))
+            : $worked;
+    }
+
+    /**
+     * La atención marca esos procedimientos del plan como trabajados hoy, a la vista para desmarcarlos.
+     *
+     * @param  Collection<int, TreatmentPlanItem>  $items
+     */
+    private function tellThePlan(Collection $items): void
+    {
+        if ($items->isNotEmpty()) {
+            $this->dispatch('odontogram-plan-items-worked', items: $items->pluck('id')->unique()->values()->all());
+        }
     }
 
     /**
@@ -194,9 +231,7 @@ class OdontogramChart extends Component
             }
         });
 
-        if ($finished->isNotEmpty()) {
-            $this->dispatch('odontogram-plan-items-worked', items: $finished->pluck('id')->unique()->values()->all());
-        }
+        $this->tellThePlan($finished);
     }
 
     /**
@@ -229,11 +264,11 @@ class OdontogramChart extends Component
         }
 
         $this->dictation = $text ?? $this->dictation;
-        $odontogram = $this->odontogram;
         $pending = [];
         $marked = 0;
+        $worked = collect();
 
-        $this->tracked('lo dictado', function () use ($odontogram, &$pending, &$marked): void {
+        $this->tracked('lo dictado', function () use (&$pending, &$marked, &$worked): void {
             foreach ($this->dictated as $finding) {
                 if ($finding['error']) {
                     $pending[] = $finding['text'];
@@ -245,7 +280,7 @@ class OdontogramChart extends Component
                     $condition = $this->conditions->firstWhere('code', $mark['code']);
 
                     try {
-                        app(OdontogramService::class)->place($odontogram, $condition, ToothState::from($mark['state']), $mark['tooth'], $mark['surface'], $mark['toTooth'], $mark['abbreviation']);
+                        $worked = $worked->merge($this->paint($condition, ToothState::from($mark['state']), $mark['tooth'], $mark['surface'], $mark['toTooth'], $mark['abbreviation'], toggle: false));
                         $marked++;
                     } catch (ClinicalException $e) {
                         $pending[] = $finding['text'];
@@ -261,6 +296,8 @@ class OdontogramChart extends Component
         if ($marked) {
             Notification::make()->success()->title($marked === 1 ? 'Se marcó 1 hallazgo.' : "Se marcaron {$marked} hallazgos.")->send();
         }
+
+        $this->tellThePlan($worked);
     }
 
     /** @param  int|list<int>  $entryIds */

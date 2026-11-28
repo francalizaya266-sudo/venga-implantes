@@ -2,8 +2,8 @@
 
 namespace App\Services\Clinical;
 
-use App\Enums\PlanItemStatus;
 use App\Enums\ToothState;
+use App\Enums\TreatmentKind;
 use App\Exceptions\ClinicalException;
 use App\Livewire\OdontogramChart;
 use App\Models\Consultation;
@@ -14,6 +14,8 @@ use App\Models\Treatment;
 use App\Models\TreatmentPlan;
 use App\Models\TreatmentPlanItem;
 use App\Models\User;
+use App\Support\Teeth;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
 
 /**
@@ -48,6 +50,22 @@ final class OdontogramSuggestions
         'ausente' => [['K08.1', 'implante']],
     ];
 
+    /** Lo que deja cada tratamiento, marcado en azul: pintarlo con el pincel dice que ese tratamiento se hizo. */
+    public const LEFT_BY = [
+        'restauracion' => 'curacion-con-resina',
+        'tratamiento_pulpar' => 'endodoncia',
+        'ausente' => 'extraccion-simple',
+        'implante' => 'implante',
+    ];
+
+    /** La clase de cada tratamiento de las reglas: el plan puede llevarlo con otro nombre del catálogo o escrito a mano. */
+    private const KINDS = [
+        'curacion-con-resina' => TreatmentKind::Filling,
+        'endodoncia' => TreatmentKind::RootCanal,
+        'extraccion-simple' => TreatmentKind::Extraction,
+        'implante' => TreatmentKind::Implant,
+    ];
+
     public function __construct(private readonly TreatmentPlanService $plans) {}
 
     /**
@@ -66,7 +84,7 @@ final class OdontogramSuggestions
 
         foreach ($odontogram->entries()->with('condition')->whereNull('to_tooth')->orderBy('tooth')->orderBy('id')->get() as $entry) {
             /** @var OdontogramEntry $entry */
-            $optional = self::OPTIONAL[$entry->condition->code] ?? null;
+            $optional = Teeth::takesImplant($entry->tooth) ? (self::OPTIONAL[$entry->condition->code] ?? null) : null;
 
             foreach ($optional ?? ($entry->state === ToothState::Bad ? self::rulesFor($entry->condition->code, $entry->abbreviation) : []) as [$diagnosis, $treatment]) {
                 $pairs->push(['entry' => $entry, 'diagnosis' => $diagnosis, 'treatment' => $treatment, 'optional' => $optional !== null]);
@@ -169,29 +187,90 @@ final class OdontogramSuggestions
      * Al marcar "Tratado" un hallazgo: los procedimientos del plan que con eso quedan hechos hoy
      * (misma pieza y tratamiento, y sin otra marca roja de la pieza que pida ese tratamiento).
      *
-     * @return Collection<int, TreatmentPlanItem>
+     * @return EloquentCollection<int, TreatmentPlanItem>
      */
-    public function finishedItems(Consultation $consultation, int $tooth, string $code, ?string $abbreviation): Collection
+    public function finishedItems(Consultation $consultation, int $tooth, string $code, ?string $abbreviation): EloquentCollection
     {
         $treatments = collect(self::rulesFor($code, $abbreviation))->pluck(1)->filter()->unique();
 
-        if ($treatments->isEmpty()) {
-            return collect();
+        return $this->openItemsFor($consultation, $tooth, $treatments->diff($this->askedInRed($consultation, $tooth)));
+    }
+
+    /**
+     * Al pintar en azul lo que deja un tratamiento (la restauración, el tratamiento pulpar, la pieza ausente, el
+     * implante): los procedimientos del plan de esa pieza que con eso quedan trabajados hoy. La restauración de una
+     * cara no cuenta mientras otra marca roja de la pieza pida lo mismo (otra cara con caries).
+     *
+     * @return EloquentCollection<int, TreatmentPlanItem>
+     */
+    public function itemsLeftDone(Consultation $consultation, int $tooth, string $code, ?string $surface): EloquentCollection
+    {
+        $treatment = self::LEFT_BY[$code] ?? null;
+
+        if ($treatment === null) {
+            return new EloquentCollection;
         }
 
-        $stillRed = $consultation->odontogram->entries()->with('condition')
+        $pending = $surface !== null ? $this->askedInRed($consultation, $tooth) : [];
+
+        return $this->openItemsFor($consultation, $tooth, collect([$treatment])->diff($pending));
+    }
+
+    /** @return list<string> Los tratamientos que todavía pide alguna marca roja de la pieza. */
+    private function askedInRed(Consultation $consultation, int $tooth): array
+    {
+        return $consultation->odontogram->entries()->with('condition')
             ->where('tooth', $tooth)->whereNull('to_tooth')->where('state', ToothState::Bad)->get()
             ->flatMap(fn (OdontogramEntry $entry) => collect(self::rulesFor($entry->condition->code, $entry->abbreviation))->pluck(1))
             ->filter()
+            ->values()
             ->all();
+    }
 
-        $slugs = $treatments->diff($stillRed);
+    /**
+     * Los procedimientos por hacer del plan en esa pieza para esos tratamientos. Vale el mismo tratamiento del
+     * catálogo; si el plan no lo tiene, el único de su clase en la pieza, que puede estar con otro nombre del
+     * catálogo ("Resina compuesta") o escrito a mano. Con dos de la misma clase no se adivina cuál: lo marca el doctor.
+     *
+     * @param  Collection<int, string>  $treatments  Slugs del catálogo.
+     * @return EloquentCollection<int, TreatmentPlanItem>
+     */
+    private function openItemsFor(Consultation $consultation, int $tooth, Collection $treatments): EloquentCollection
+    {
+        if ($treatments->isEmpty()) {
+            return new EloquentCollection;
+        }
 
-        return $this->plans->workableItems($consultation->patient, $consultation)
+        $open = $this->plans->workableItems($consultation->patient, $consultation)
             ->load('treatment')
-            ->filter(fn (TreatmentPlanItem $item) => $item->tooth === (string) $tooth && in_array($item->status, [PlanItemStatus::Pending, PlanItemStatus::InProgress], true))
-            ->filter(fn (TreatmentPlanItem $item) => $item->treatment_id && $slugs->contains($item->treatment?->slug))
-            ->values();
+            ->filter(fn (TreatmentPlanItem $item) => trim((string) $item->tooth) === (string) $tooth && $item->isOpen());
+
+        $found = $treatments->flatMap(function (string $slug) use ($open): array {
+            $same = $open->filter(fn (TreatmentPlanItem $item) => $item->treatment?->slug === $slug);
+
+            if ($same->isNotEmpty()) {
+                return $same->modelKeys();
+            }
+
+            $alike = $open->filter(fn (TreatmentPlanItem $item) => self::kindOf($item) === (self::KINDS[$slug] ?? null));
+
+            return $alike->count() === 1 ? $alike->modelKeys() : [];
+        });
+
+        return $open->only($found->all())->values();
+    }
+
+    /**
+     * La clase de trabajo de un procedimiento del plan: la de su tratamiento o, si se escribió a mano, la que dice
+     * su nombre. Un control ("Control post extracción") no es el trabajo mismo.
+     */
+    private static function kindOf(TreatmentPlanItem $item): TreatmentKind
+    {
+        /** @var Treatment|null $treatment */
+        $treatment = $item->treatment;
+        $treatment ??= new Treatment(['name' => $item->description]);
+
+        return TreatmentKind::isControl($treatment) ? TreatmentKind::Other : TreatmentKind::for($treatment);
     }
 
     /** @return list<array{0: string|null, 1: string|null}> */

@@ -5911,11 +5911,6 @@ $ignoreErrors[] = [
     'path' => __DIR__.'/app/Services/Clinical/OdontogramSuggestions.php',
 ];
 $ignoreErrors[] = [
-    'rawMessage' => 'Call to function in_array() with arguments string, array{App\\Enums\\PlanItemStatus::Pending, App\\Enums\\PlanItemStatus::InProgress} and true will always evaluate to false.',
-    'count' => 1,
-    'path' => __DIR__.'/app/Services/Clinical/OdontogramSuggestions.php',
-];
-$ignoreErrors[] = [
     'rawMessage' => 'Parameter #1 $odontogram of method App\\Services\\Clinical\\OdontogramSuggestions::rows() expects App\\Models\\Odontogram|null, Illuminate\\Database\\Eloquent\\Model|null given.',
     'count' => 1,
     'path' => __DIR__.'/app/Services/Clinical/OdontogramSuggestions.php',

@@ -26,6 +26,7 @@ use App\Services\Access\MagicLinkService;
 use App\Services\Agenda\AvailabilityService;
 use App\Services\Agenda\Slot;
 use App\Services\Billing\BillingService;
+use App\Services\Clinical\TreatmentPlanService;
 use App\Services\Inventory\InventoryService;
 use App\Services\StaffAlerts;
 use App\Services\WhatsApp\WhatsAppOutbox;
@@ -62,6 +63,7 @@ class AppointmentService
         private readonly BillingService $billing,
         private readonly WaitlistService $waitlist,
         private readonly InventoryService $inventory,
+        private readonly TreatmentPlanService $plans,
     ) {}
 
     /**
@@ -814,9 +816,11 @@ class AppointmentService
             'last_visit_at' => $appointment->starts_at,
         ])->save();
 
-        // Sin atención escrita (la cerró recepción), se carga el tratamiento de la cita y se descuentan sus materiales.
+        // Sin atención escrita (la cerró recepción), se carga el tratamiento de la cita, se descuentan sus materiales
+        // y, si era una sesión de su plan, el plan avanza: lo programado se da por hecho.
         $this->billing->chargeAppointment($appointment, $by);
         $this->inventory->useForAppointment($appointment, $by);
+        $this->plans->syncAppointment($appointment);
 
         // Los cuidados de ese tratamiento quedan listos en Avisos. Si la cita se cierra días después, ya no sirven.
         if (! $appointment->isFromAnEarlierDay() && filled($appointment->treatment?->aftercare)) {
