@@ -98,8 +98,11 @@ describe('changing the time of an appointment', () => {
     await user.type(options.getByLabelText('Motivo (opcional)'), 'Salgo tarde del trabajo');
     await user.click(options.getByRole('button', { name: 'Enviar mis 2 opciones' }));
 
-    expect(await screen.findByRole('status')).toHaveTextContent(
-      'Recibimos tu pedido. Te avisaremos por WhatsApp cuál quedó.',
+    // Hasta que la API responde sigue a la vista el aviso de los 2 horarios elegidos: se espera el que lo reemplaza.
+    await waitFor(() =>
+      expect(screen.getByRole('status')).toHaveTextContent(
+        'Recibimos tu pedido. Te avisaremos por WhatsApp cuál quedó.',
+      ),
     );
     expect(posted(calls)).toMatchObject([
       { url: CHANGE, body: { chosen: ['2026-11-05 09:00', '2026-11-06 10:00'], reason: 'Salgo tarde del trabajo' } },

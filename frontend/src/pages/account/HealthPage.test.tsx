@@ -1,4 +1,4 @@
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { mockApi, renderApp } from '@/test/app';
 import { account, healthData, page } from '@/test/fixtures';
@@ -65,7 +65,7 @@ describe('HealthPage', () => {
 
     const medication = question('¿Tomas algún medicamento?');
     expect(await medication.findByText('Elige Sí o No.')).toBeInTheDocument();
-    expect(medication.getByRole('radio', { name: 'No' })).toHaveFocus();
+    await waitFor(() => expect(medication.getByRole('radio', { name: 'No' })).toHaveFocus());
     expect(medication.getByLabelText('¿Cuál?')).toHaveAttribute('aria-invalid', 'true');
     // Lo que no se respondió viaja vacío: es la API la que dice qué falta.
     expect(calls.find((call) => call.method === 'POST')?.body).toMatchObject({

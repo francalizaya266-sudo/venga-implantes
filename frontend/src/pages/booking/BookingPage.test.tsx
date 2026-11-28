@@ -68,7 +68,9 @@ describe('BookingPage', () => {
     await user.click(screen.getByRole('checkbox', { name: /Acepto la política de privacidad/ }));
     await user.click(screen.getByRole('button', { name: 'Reservar cita' }));
 
-    expect(await step('¡Tu cita quedó reservada!')).toHaveFocus();
+    // El foco llega al título un instante después de pintarse la pantalla: se espera, no se mira antes.
+    const title = await step('¡Tu cita quedó reservada!');
+    await waitFor(() => expect(title).toHaveFocus());
     expect(calls.find((call) => call.method === 'POST')?.body).toEqual({
       patient_id: null,
       phone: '987654321',
@@ -158,7 +160,7 @@ describe('BookingPage', () => {
     expect(phone).toHaveAttribute('aria-invalid', 'true');
     expect(phone).toHaveAccessibleDescription('Escribe tu celular.');
     // En el celular el primer dato por corregir queda arriba, fuera de la vista: la pantalla va a él.
-    expect(phone).toHaveFocus();
+    await waitFor(() => expect(phone).toHaveFocus());
     expect(screen.getByText('Para reservar, acepta la política de privacidad.')).toBeInTheDocument();
 
     await user.type(phone, '987654321');
