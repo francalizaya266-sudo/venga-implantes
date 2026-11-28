@@ -24,7 +24,8 @@ interface Options {
   /** Qué hacer con el mensaje de la API en vez de mostrarlo arriba de la página (por ejemplo, llevarlo a otra). */
   onDone?: (message: string | null) => void;
   /** Qué hacer cuando la API dice que no (el horario se ocupó), en vez de mostrarlo arriba de la página. */
-  onRejected?: (problem: string) => void;
+  /** La API dijo que no: su mensaje y, si lo trae, su código ("my_account": la persona se agrega desde Mi cuenta). */
+  onRejected?: (problem: string, code?: string) => void;
 }
 
 /**
@@ -71,7 +72,7 @@ export function useAction() {
         }
 
         if (error instanceof ApiError && onRejected) {
-          onRejected(error.message);
+          onRejected(error.message, error.code);
         } else {
           flash.show({ tone: 'bad', text: problemOf(error) });
         }

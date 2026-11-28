@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { PickerDay, Slot } from '@/api/types';
 import { withArticle } from '@/lib/text';
 
@@ -20,6 +20,12 @@ interface Props {
   headingLevel?: 'h2' | 'h3';
   /** Se buscó con un doctor en particular: su nombre, para decir con quién no hay horarios. */
   doctor?: string | null;
+  /** Trae los días libres que siguen ("Ver más días"); sin él, la tira se queda con los que hay. */
+  onMoreDays?: () => void;
+  /** Hay más días libres después de los que se ven. */
+  more?: boolean;
+  /** Hasta qué día reserva la web, para decirlo cuando ya no hay más días. */
+  until?: string | null;
 }
 
 /** Días con horarios libres y los horarios del día elegido, primero los que no dejan huecos en la agenda. */
@@ -34,7 +40,20 @@ export function SlotPicker({
   full = false,
   headingLevel: Heading = 'h2',
   doctor = null,
+  onMoreDays,
+  more = false,
+  until = null,
 }: Props) {
+  const strip = useRef<HTMLDivElement>(null);
+  // Al llegar los días que siguen, el foco pasa al primero de ellos: el botón puede desaparecer al no haber más.
+  const firstNew = useRef<number | null>(null);
+  useEffect(() => {
+    if (firstNew.current !== null && days.length > firstNew.current) {
+      strip.current?.querySelectorAll<HTMLButtonElement>('.day')[firstNew.current]?.focus();
+      firstNew.current = null;
+    }
+  }, [days.length]);
+
   if (!days.length) {
     return (
       <div className="panel">
@@ -50,7 +69,7 @@ export function SlotPicker({
     <>
       <div className="stack">
         <Heading>Día</Heading>
-        <div className="days" role="group" aria-label="Días con horarios libres">
+        <div ref={strip} className="days" role="group" aria-label="Días con horarios libres">
           {days.map((option) => (
             <button
               key={option.date}
@@ -66,6 +85,21 @@ export function SlotPicker({
             </button>
           ))}
         </div>
+        {/* Antes la tira se quedaba en los 12 primeros días libres, aunque la web reservaba más adelante. */}
+        {onMoreDays && more ? (
+          <button
+            type="button"
+            className="link-btn"
+            onClick={() => {
+              firstNew.current = days.length;
+              onMoreDays();
+            }}
+          >
+            Ver más días
+          </button>
+        ) : onMoreDays && until ? (
+          <p className="muted small">Por ahora la web reserva hasta el {until}.</p>
+        ) : null}
       </div>
 
       {/* Al cambiar de día, "Ver más horarios" vuelve a empezar. */}

@@ -41,6 +41,7 @@ use App\Livewire\BellAlerts;
 use App\Models\Setting;
 use App\Services\Backup\FilesBackup;
 use App\Services\Web\ClinicInfo;
+use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\DateTimePicker;
@@ -135,12 +136,19 @@ class AdminPanelProvider extends PanelProvider
      * el idioma de la computadora (el del navegador la mostraba mm/dd/aaaa en una en inglés). Las fechas solas
      * (nacimiento, por ejemplo) siguen con el del navegador, que deja escribirlas de corrido. Una hora sola se lee
      * hh:mm, sin la fecha.
+     *
+     * Una ventana sin botón para guardar (el panel de la cita en la agenda, el detalle de un cambio, un cronograma)
+     * no tiene nada que se pierda: salir de la página con ella abierta ya no pregunta "¿Quieres salir del sitio
+     * web?". Las que tienen algo por guardar siguen preguntando.
      */
     public function boot(): void
     {
         CreateAction::configureUsing(fn (CreateAction $action) => $action
             ->modalHeading(fn (CreateAction $action): string => (string) $action->getLabel())
             ->modalSubmitActionLabel('Guardar'));
+
+        Action::configureUsing(fn (Action $action) => $action
+            ->unsavedChangesAlert(fn (Action $action): ?bool => $action->getModalSubmitAction() === null ? false : null));
 
         DateTimePicker::configureUsing(fn (DateTimePicker $picker) => $picker instanceof DatePicker ? $picker : $picker
             ->native(false)

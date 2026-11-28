@@ -366,6 +366,10 @@ export interface BookingDays extends SlotPicker {
   doctors: { id: number; name: string }[];
   doctor_id: number | null;
   days: PickerDay[];
+  /** Hay más días libres después de los que vinieron: se ofrece "Ver más días". */
+  more: boolean;
+  /** Hasta qué día reserva la web: "domingo 11 de enero". */
+  until: string;
 }
 
 export interface BookedAppointment {

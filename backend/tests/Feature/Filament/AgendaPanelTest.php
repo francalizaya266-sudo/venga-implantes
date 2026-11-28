@@ -181,6 +181,23 @@ class AgendaPanelTest extends TestCase
         Livewire::test(TodayStats::class)->assertSee('1 atendida')->assertDontSee('1 atendidas');
     }
 
+    public function test_leaving_the_page_with_the_appointment_panel_open_does_not_ask_about_unsaved_changes(): void
+    {
+        $treatment = Treatment::factory()->create();
+        $doctor = $this->doctorOffering($treatment);
+        $appointment = Appointment::factory()->for($doctor)->for($treatment)->at('2026-11-02 10:00')->create();
+        $this->actingAs(User::factory()->reception()->create());
+
+        // El panel de la cita solo muestra: ir a la ficha del paciente con él abierto no pregunta "¿Quieres salir del
+        // sitio web?".
+        $agenda = Livewire::test(Agenda::class)
+            ->mountAction('appointment', ['id' => $appointment->id])
+            ->assertSet('mountedActions.0.hasUnsavedChangesAlert', false);
+
+        // La nota sí se escribe: con ella abierta, sigue preguntando.
+        $agenda->mountAction('notes')->assertSet('mountedActions.1.hasUnsavedChangesAlert', true);
+    }
+
     public function test_reception_moves_an_appointment_from_its_page(): void
     {
         $treatment = Treatment::factory()->create(['duration_minutes' => 30]);

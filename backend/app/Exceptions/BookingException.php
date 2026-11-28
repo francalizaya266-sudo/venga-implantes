@@ -110,6 +110,11 @@ class BookingException extends RuntimeException
         return new self("Este celular ya tiene {$max} citas próximas reservadas. Escríbenos por WhatsApp para agendar más.");
     }
 
+    public static function newPersonNeedsMyAccount(): self
+    {
+        return new self('Este número ya está registrado. Para reservar para una persona nueva, entra a Mi cuenta: ahí eliges para quién es la cita o agregas a alguien. Si es para alguien que ya se atendió, escribe su nombre como lo registramos.');
+    }
+
     public static function patientInTreatment(): self
     {
         return new self('Como estás en tratamiento, tu doctor programa tus próximas sesiones. Escríbenos si necesitas un cambio.');

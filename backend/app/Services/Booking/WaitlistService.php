@@ -418,7 +418,10 @@ final class WaitlistService
 
     /**
      * Quién espera: el familiar que eligió desde el celular recordado, o la persona que escribió (si el número ya tenía
-     * a alguien con ese nombre, es la misma persona).
+     * a alguien con ese nombre, es la misma persona). Como al reservar, una persona nueva en un número ya registrado
+     * la agrega la familia, desde su celular o desde Mi cuenta.
+     *
+     * @throws AuthorizationException|BookingException
      */
     private function webPatient(Account $account, WebWaitlistData $data, bool $recognized): Patient
     {
@@ -437,7 +440,15 @@ final class WaitlistService
                 && FamilyNames::comparable((string) $patient->last_name) === FamilyNames::comparable((string) $data->lastName)
         );
 
-        return $existing ?? Patient::create([
+        if ($existing !== null) {
+            return $existing;
+        }
+
+        if (! $recognized && $account->patients()->exists()) {
+            throw BookingException::newPersonNeedsMyAccount();
+        }
+
+        return Patient::create([
             'account_id' => $account->getKey(),
             'first_name' => trim((string) $data->firstName),
             'last_name' => trim((string) $data->lastName),

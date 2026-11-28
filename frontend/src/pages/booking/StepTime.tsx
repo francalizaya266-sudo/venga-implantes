@@ -10,10 +10,12 @@ interface Props {
   onDoctor: (doctorId: number | null) => void;
   onDate: (date: string) => void;
   onTime: (slot: Slot) => void;
+  /** "Ver más días": trae los días libres que siguen. */
+  onMoreDays: () => void;
 }
 
 /** Paso 2: día y hora. En pantallas anchas, los días a un lado y los horarios al otro. */
-export function StepTime({ treatment, days, date, slots, onBack, onDoctor, onDate, onTime }: Props) {
+export function StepTime({ treatment, days, date, slots, onBack, onDoctor, onDate, onTime, onMoreDays }: Props) {
   return (
     <section className="stack" aria-labelledby="paso-2">
       <button type="button" className="link-btn" onClick={onBack}>
@@ -62,6 +64,9 @@ export function StepTime({ treatment, days, date, slots, onBack, onDoctor, onDat
           onTime={onTime}
           headingLevel="h3"
           doctor={days.doctors.find((doctor) => doctor.id === days.doctor_id)?.name ?? null}
+          onMoreDays={onMoreDays}
+          more={days.more}
+          until={days.until}
         />
       </div>
     </section>

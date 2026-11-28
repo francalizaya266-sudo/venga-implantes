@@ -46,6 +46,12 @@ class BookingController extends Controller
     /** Reservas seguidas que se aceptan desde una misma conexión en una hora. */
     private const MAX_PER_HOUR = 8;
 
+    /** Los días libres que muestra la tira de días al empezar, y los que suma cada "Ver más días". */
+    private const DAYS_PER_PAGE = 12;
+
+    /** Un tope para `dias`: la tira nunca pasa del último día que se reserva en la web (booking.horizon_days). */
+    private const MAX_DAYS = 120;
+
     public function __construct(
         private readonly WebAvailability $availability,
         private readonly PatientAccess $access,
@@ -112,7 +118,9 @@ class BookingController extends Controller
 
     /**
      * Los próximos días con horarios libres para un servicio (con un doctor o con el primero disponible) y los
-     * horarios del primer día, o del que ya venía elegido.
+     * horarios del primer día, o del que ya venía elegido. Empieza con 12 días; con `dias` trae más, para "Ver más
+     * días", hasta el último día que se reserva en la web. Antes la tira se quedaba en los 12 primeros (unas dos
+     * semanas) aunque se podía reservar hasta 45 días adelante.
      *
      * @return array{data: array<string, mixed>}
      */
@@ -122,8 +130,11 @@ class BookingController extends Controller
         $doctors = $this->availability->doctorsFor($treatment);
         $doctorId = $doctors->contains('id', $request->integer('doctor')) ? $request->integer('doctor') : null;
         $searched = $this->searched($doctors, $doctorId);
+        $count = min(max($request->integer('dias', self::DAYS_PER_PAGE), self::DAYS_PER_PAGE), self::MAX_DAYS);
 
-        $days = array_map(fn (CarbonImmutable $day) => $day->toDateString(), $this->availability->days($treatment, $searched));
+        // Uno más de los pedidos: si existe, hay más días para "Ver más días".
+        $found = array_map(fn (CarbonImmutable $day) => $day->toDateString(), $this->availability->days($treatment, $searched, $count + 1));
+        $days = array_slice($found, 0, $count);
         $date = in_array($request->query('date'), $days, true) ? (string) $request->query('date') : ($days[0] ?? null);
         $slots = $date ? $this->availability->slots($treatment, $searched, CarbonImmutable::parse($date)) : collect();
 
@@ -131,6 +142,9 @@ class BookingController extends Controller
             'doctors' => $doctors->map(fn (Doctor $doctor) => ['id' => $doctor->getKey(), 'name' => $doctor->name])->values(),
             'doctor_id' => $doctorId,
             ...SlotPickerResource::make(['days' => $days, 'date' => $date, 'slots' => $slots, 'suggested' => $this->availability->suggested($slots)])->resolve(),
+            'more' => count($found) > $count,
+            // "domingo 11 de enero": hasta dónde reserva la web, para decirlo cuando ya no hay más días.
+            'until' => $this->availability->lastDay()->translatedFormat('l j \d\e F'),
         ]];
     }
 
@@ -194,7 +208,12 @@ class BookingController extends Controller
         try {
             $appointment = $appointments->bookFromWeb($this->bookingData($request, $treatment, $slot, $existing, $family), $device);
         } catch (BookingException $e) {
-            return $e->getMessage() === BookingException::slotTaken()->getMessage() ? $this->slotTaken() : $this->problem($e->getMessage());
+            return match ($e->getMessage()) {
+                BookingException::slotTaken()->getMessage() => $this->slotTaken(),
+                // La web ofrece entrar a Mi cuenta junto al mensaje.
+                BookingException::newPersonNeedsMyAccount()->getMessage() => response()->json(['message' => $e->getMessage(), 'code' => 'my_account'], 422),
+                default => $this->problem($e->getMessage()),
+            };
         } catch (AuthorizationException $e) {
             return $this->problem($e->getMessage(), 403);
         }

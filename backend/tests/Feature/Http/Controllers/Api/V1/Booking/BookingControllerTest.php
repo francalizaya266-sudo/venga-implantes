@@ -10,11 +10,13 @@ use App\Enums\MessageTemplateKey;
 use App\Enums\PatientRelationship;
 use App\Enums\TreatmentPlanStatus;
 use App\Enums\UserRole;
+use App\Exceptions\BookingException;
 use App\Models\Account;
 use App\Models\Appointment;
 use App\Models\Campaign;
 use App\Models\Patient;
 use App\Models\RememberedDevice;
+use App\Models\Setting;
 use App\Models\Treatment;
 use App\Models\TreatmentPlan;
 use App\Models\User;
@@ -200,10 +202,10 @@ class BookingControllerTest extends TestCase
         $this->freezeMonday();
         $evaluation = Treatment::factory()->evaluation()->create();
         $this->doctorOffering($evaluation);
-        Patient::factory()->for(Account::factory()->create(['phone' => '+51987654321']))->create(['first_name' => 'Rosa']);
+        Patient::factory()->for(Account::factory()->create(['phone' => '+51987654321']))->create(['first_name' => 'Rosa', 'last_name' => 'Quispe Rojas']);
 
         // Ese número puede no ser de quien lo escribe: su cuenta no se abre hasta que toque un enlace que llega a ese WhatsApp.
-        $this->book($this->booking($evaluation))
+        $this->book($this->booking($evaluation, ['first_name' => 'Rosa']))
             ->assertCreated()
             ->assertJsonPath('data.remembered', false)
             ->assertCookieMissing(DeviceService::COOKIE);
@@ -268,6 +270,51 @@ class BookingControllerTest extends TestCase
 
         // Un servicio que no se reserva en la web no tiene horarios que ofrecer.
         $this->getJson(route('api.v1.booking.days', ['treatment' => Treatment::factory()->clinicOnly()->create()->id]))->assertNotFound();
+    }
+
+    public function test_a_new_person_on_a_registered_number_is_sent_to_my_account(): void
+    {
+        $this->freezeMonday();
+        $evaluation = Treatment::factory()->evaluation()->create();
+        $this->doctorOffering($evaluation);
+        $account = Account::factory()->create(['phone' => '+51987654321']);
+        Patient::factory()->for($account)->create(['first_name' => 'Rosa', 'last_name' => 'Quispe']);
+
+        $this->book($this->booking($evaluation, ['first_name' => 'Inventado', 'last_name' => 'Pérez']))
+            ->assertUnprocessable()
+            ->assertJsonPath('code', 'my_account')
+            ->assertJsonPath('message', BookingException::newPersonNeedsMyAccount()->getMessage());
+
+        $this->assertSame(1, $account->patients()->count());
+        $this->assertSame(0, Appointment::count());
+    }
+
+    public function test_more_days_are_shown_up_to_the_last_day_booked_on_the_website(): void
+    {
+        $this->freezeMonday();
+        Setting::set('booking.horizon_days', 20);
+        $evaluation = Treatment::factory()->evaluation()->create();
+        $this->doctorOffering($evaluation);
+
+        // Del lunes 2 al domingo 22 de noviembre atiende 18 días (no los domingos): primero se ven 12.
+        $this->getJson(route('api.v1.booking.days', ['treatment' => $evaluation->id]))
+            ->assertOk()
+            ->assertJsonCount(12, 'data.days')
+            ->assertJsonPath('data.days.11.date', '2026-11-14')
+            ->assertJsonPath('data.more', true)
+            ->assertJsonPath('data.until', 'domingo 22 de noviembre');
+
+        // "Ver más días" pide 24 y llegan los que quedan, sin pasar del último día.
+        $this->getJson(route('api.v1.booking.days', ['treatment' => $evaluation->id, 'dias' => 24]))
+            ->assertOk()
+            ->assertJsonCount(18, 'data.days')
+            ->assertJsonPath('data.days.17.date', '2026-11-21')
+            ->assertJsonPath('data.more', false);
+
+        // Menos de 12 no achica la tira.
+        $this->getJson(route('api.v1.booking.days', ['treatment' => $evaluation->id, 'dias' => 3]))
+            ->assertOk()
+            ->assertJsonCount(12, 'data.days');
     }
 
     public function test_arriving_from_a_campaign_shows_its_price_books_with_it_and_the_whatsapp_says_it(): void
@@ -535,7 +582,7 @@ class BookingControllerTest extends TestCase
         $this->assertTrue(Appointment::sole()->patient->is($child));
     }
 
-    public function test_someone_who_books_with_a_familys_number_from_another_phone_is_not_offered_until_the_family_books_for_them(): void
+    public function test_someone_who_books_with_a_familys_number_from_another_phone_is_sent_to_my_account_and_the_family_adds_them(): void
     {
         $this->freezeMonday();
         $evaluation = Treatment::factory()->evaluation()->create();
@@ -545,24 +592,19 @@ class BookingControllerTest extends TestCase
         Appointment::factory()->for($mother)->at('2026-10-20 10:00')->create(['status' => AppointmentStatus::Completed]);
         RememberedDevice::create(['account_id' => $account->id, 'token_hash' => hash('sha256', 'celular-de-rosa'), 'expires_at' => now()->addMonth(), 'verified_at' => now()]);
 
-        // Desde otro celular, con el número de Rosa: la web no pide códigos, así que la cita se crea.
-        $this->book($this->booking($evaluation, ['first_name' => 'Carlos', 'last_name' => 'Mamani Soto']))->assertCreated();
+        // Desde otro celular, con el número de Rosa: una persona nueva no se crea, la agrega la familia desde Mi cuenta.
+        $this->book($this->booking($evaluation, ['first_name' => 'Carlos', 'last_name' => 'Mamani Soto']))
+            ->assertUnprocessable()
+            ->assertJsonPath('code', 'my_account');
+        $this->assertSame(1, $account->patients()->count());
 
-        $carlos = $account->patients()->where('first_name', 'Carlos')->sole();
-        $this->assertFalse($carlos->appointments()->sole()->from_verified_device);
-
-        // En el celular de Rosa no aparece como familiar ni se puede elegir.
+        // Rosa, desde su celular, reserva para él: es de la familia y ya se le ofrece.
         $this->withCookie(DeviceService::COOKIE, 'celular-de-rosa');
-        $this->getJson(route('api.v1.booking.options'))->assertOk()->assertJsonPath('data.device.family.*.id', [$mother->id]);
-        $this->book(['treatment_id' => $evaluation->id, 'date' => '2026-11-02', 'time' => '11:00', 'patient_id' => $carlos->id, 'relationship' => PatientRelationship::Child->value])
-            ->assertUnprocessable();
-
-        // Si Rosa reserva para él con su nombre, es de la familia: no se crea otro Carlos.
-        $this->book(['treatment_id' => $evaluation->id, 'date' => '2026-11-02', 'time' => '11:00', 'who' => 'family', 'relationship' => PatientRelationship::Other->value, 'first_name' => 'carlos', 'last_name' => 'Mamani  Soto'])
+        $this->book(['treatment_id' => $evaluation->id, 'date' => '2026-11-02', 'time' => '11:00', 'who' => 'family', 'relationship' => PatientRelationship::Other->value, 'first_name' => 'Carlos', 'last_name' => 'Mamani Soto'])
             ->assertCreated();
 
-        $this->assertSame(2, $carlos->appointments()->count());
-        $this->assertSame(2, $account->patients()->count());
+        $carlos = $account->patients()->where('first_name', 'Carlos')->sole();
+        $this->assertTrue($carlos->appointments()->sole()->from_verified_device);
         $this->getJson(route('api.v1.booking.options'))->assertOk()->assertJsonPath('data.device.family.*.id', [$mother->id, $carlos->id]);
     }
 

@@ -8,6 +8,7 @@ import {
   bookingDevice,
   bookingOptions,
   bookingTreatment,
+  day,
   meta,
   page,
   slot,
@@ -256,6 +257,42 @@ describe('BookingPage', () => {
     expect(screen.getByText('con la Dra. Vega')).toBeInTheDocument();
   });
 
+  it('shows more days up to the last one booked on the web, and keeps them after choosing a time', async () => {
+    const more = [
+      day('2026-11-04', 'Miércoles 4 de noviembre'),
+      day('2026-11-05', 'Jueves 5 de noviembre'),
+      day('2026-11-06', 'Viernes 6 de noviembre'),
+    ];
+    bookingApi(
+      {},
+      {
+        [DAYS]: { data: bookingDays({ more: true }) },
+        [`${DAYS}&dias=14`]: { data: bookingDays({ days: more }) },
+        '/api/v1/booking/slots?treatment=3&date=2026-11-06': {
+          data: { date: '2026-11-06', day: 'Viernes 6 de noviembre', slots: [slot('10:00', '10:00 a. m.')] },
+        },
+      },
+    );
+    const { user, router } = renderApp('/reservar?tratamiento=limpieza-dental');
+
+    await step('Elige día y hora');
+    expect(screen.queryByText(/la web reserva hasta/)).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Ver más días' }));
+
+    // Llegan los que siguen, el foco pasa al primero de ellos y, sin más, se dice hasta cuándo se reserva.
+    expect(await screen.findByRole('button', { name: 'Viernes 6 de noviembre' })).toHaveFocus();
+    expect(screen.queryByRole('button', { name: 'Ver más días' })).not.toBeInTheDocument();
+    expect(screen.getByText('Por ahora la web reserva hasta el jueves 17 de diciembre.')).toBeInTheDocument();
+    expect(router.state.location.search).toBe('?tratamiento=limpieza-dental&dias=14');
+
+    await user.click(screen.getByRole('button', { name: 'Viernes 6 de noviembre' }));
+    await user.click(await screen.findByRole('button', { name: '10:00 a. m.' }));
+
+    await step('Tus datos');
+    expect(screen.getByText('Viernes 6 de noviembre, 10:00 a. m.')).toBeInTheDocument();
+    expect(router.state.location.search).toBe('?dias=14&tratamiento=limpieza-dental&fecha=2026-11-06&hora=10%3A00');
+  });
+
   it('lets choose the doctor when several attend the treatment', async () => {
     const doctors = [
       { id: 1, name: 'Dra. Vega' },
@@ -377,6 +414,44 @@ describe('BookingPage', () => {
     });
     // Sigue en el paso de horarios, por si igual encuentra uno.
     expect(screen.getByRole('button', { name: '9:00 a. m.' })).toBeInTheDocument();
+  });
+
+  it('sends a new person on a registered number to Mi cuenta, when booking and when joining the waiting list', async () => {
+    const myAccount = {
+      status: 422,
+      body: {
+        message: 'Este número ya está registrado. Para reservar para una persona nueva, entra a Mi cuenta.',
+        code: 'my_account',
+      },
+    };
+    bookingApi({}, { [BOOK]: myAccount, 'POST /api/v1/booking/waitlist': myAccount });
+    const { user } = renderApp(DETAILS);
+
+    await step('Tus datos');
+    await user.type(screen.getByLabelText('Tu celular'), '987654321');
+    await user.type(screen.getByLabelText('Tus nombres'), 'Inventado');
+    await user.type(screen.getByLabelText('Tus apellidos'), 'Pérez');
+    await user.click(screen.getByRole('checkbox', { name: /Acepto la política de privacidad/ }));
+    await user.click(screen.getByRole('button', { name: 'Reservar cita' }));
+
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('Este número ya está registrado.');
+    expect(within(alert).getByRole('link', { name: 'Entrar a Mi cuenta' })).toHaveAttribute('href', '/mi-cuenta');
+    // Sigue en sus datos, con lo escrito, por si la cita es para alguien que ya está registrado.
+    expect(screen.getByLabelText('Tus nombres')).toHaveValue('Inventado');
+
+    await user.click(screen.getByRole('button', { name: '← Cambiar horario' }));
+    await step('Elige día y hora');
+    const ask = within(screen.getByRole('region', { name: '¿Ningún horario te sirve?' }));
+    await user.click(ask.getByRole('button', { name: 'Avísame si se libera un horario' }));
+    await user.type(ask.getByLabelText('Tu celular'), '987654321');
+    await user.type(ask.getByLabelText('Nombres'), 'Inventado');
+    await user.type(ask.getByLabelText('Apellidos'), 'Pérez');
+    await user.click(ask.getByRole('checkbox', { name: /Acepto la política de privacidad/ }));
+    await user.click(ask.getByRole('button', { name: 'Avísame' }));
+
+    const problem = await ask.findByRole('alert');
+    expect(within(problem).getByRole('link', { name: 'Entrar a Mi cuenta' })).toHaveAttribute('href', '/mi-cuenta');
   });
 
   it('marks what the waiting list did not accept next to each field', async () => {

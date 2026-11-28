@@ -13,7 +13,8 @@ import type {
   Site,
   Slot,
 } from '@/api/types';
-import { withQuery } from '@/lib/paths';
+import { AppLink } from '@/components/ui/AppLink';
+import { paths, withQuery } from '@/lib/paths';
 import { BookingSummary } from '@/pages/booking/BookingSummary';
 import { StepDetails, type BookingDetails } from '@/pages/booking/StepDetails';
 import { StepService } from '@/pages/booking/StepService';
@@ -21,6 +22,9 @@ import { StepTime } from '@/pages/booking/StepTime';
 import { WaitlistAsk } from '@/pages/booking/WaitlistAsk';
 
 const STEPS = ['Servicio', 'Día y hora', 'Tus datos'];
+
+/** Los días libres que suma cada "Ver más días", como la tira con que empieza. */
+const DAYS_PER_PAGE = 12;
 
 /** Lo que el paso guarda en el historial del navegador. */
 interface StepState {
@@ -62,13 +66,18 @@ export function BookingWizard({ site, options, onPromoCode }: Props) {
   const [doctorChoice, setDoctorChoice] = useState<number | null | undefined>(undefined);
   const [pickedDate, setPickedDate] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // El número ya está registrado y la persona es nueva: junto al mensaje se ofrece entrar a Mi cuenta.
+  const [toAccount, setToAccount] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
 
+  // Con "Ver más días", cuántos días se ven queda en la dirección: recargar o volver del paso 3 no los pierde, ni el
+  // día que se eligió entre ellos.
   const daysUrl = treatment
     ? apiUrl('booking/days', {
         treatment: treatment.id,
         doctor: doctorChoice === undefined ? options.preferred_doctor_id : doctorChoice,
+        dias: params.get('dias'),
       })
     : null;
   const daysQuery = useQuery<DataResponse<BookingDays>>({
@@ -110,9 +119,14 @@ export function BookingWizard({ site, options, onPromoCode }: Props) {
     date?: string | null;
     time?: string | null;
   }): string {
-    const kept = Object.fromEntries(
-      [...params.entries()].filter(([key]) => !['tratamiento', 'fecha', 'hora'].includes(key)),
-    );
+    // Otro servicio tiene sus propios días: vuelve a empezar con los primeros.
+    const reset = [
+      'tratamiento',
+      'fecha',
+      'hora',
+      ...(next.treatment && next.treatment.id !== treatment?.id ? ['dias'] : []),
+    ];
+    const kept = Object.fromEntries([...params.entries()].filter(([key]) => !reset.includes(key)));
 
     return withQuery(location.pathname, {
       ...kept,
@@ -126,6 +140,20 @@ export function BookingWizard({ site, options, onPromoCode }: Props) {
     setError(null);
     setErrors({});
     void navigate(address, { state: stepState, replace, preventScrollReset: true });
+  }
+
+  /** "Ver más días": los días libres que siguen, sin sumar un paso al historial. */
+  function showMoreDays() {
+    const shown = days?.days.length ?? 0;
+
+    void navigate(
+      withQuery(location.pathname, { ...Object.fromEntries(params.entries()), dias: shown + DAYS_PER_PAGE }),
+      {
+        state: location.state,
+        replace: true,
+        preventScrollReset: true,
+      },
+    );
   }
 
   /** Vuelve al paso anterior: con el botón atrás si quedó justo detrás en el historial. */
@@ -188,6 +216,8 @@ export function BookingWizard({ site, options, onPromoCode }: Props) {
       // se vuelve al formulario: retroceder ahí la reservaría dos veces.
       void navigate(data.page_url, { state: { booked: data }, replace: true });
     } catch (problem) {
+      setToAccount(problem instanceof ApiError && problem.code === 'my_account');
+
       if (problem instanceof ApiError && Object.keys(problem.fieldErrors).length) {
         setErrors(problem.fieldErrors);
         setRejected((times) => times + 1);
@@ -198,6 +228,8 @@ export function BookingWizard({ site, options, onPromoCode }: Props) {
         setError(problem.message);
       } else {
         setError(problemOf(problem));
+        // El aviso sale arriba, sobre los pasos: en el celular quedaba fuera de la vista, junto al botón de reservar.
+        root.current?.scrollIntoView();
       }
     } finally {
       setBusy(false);
@@ -223,6 +255,12 @@ export function BookingWizard({ site, options, onPromoCode }: Props) {
       {error ? (
         <div className="flash bad" role="alert">
           {error}
+          {toAccount ? (
+            <>
+              {' '}
+              <AppLink href={paths.account}>Entrar a Mi cuenta</AppLink>
+            </>
+          ) : null}
         </div>
       ) : null}
 
@@ -272,6 +310,7 @@ export function BookingWizard({ site, options, onPromoCode }: Props) {
             setPickedDate(date);
             go(addressOf({ treatment, date, time: chosen.time }), { follows: true });
           }}
+          onMoreDays={showMoreDays}
         />
       ) : null}
 

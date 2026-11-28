@@ -163,7 +163,7 @@ Los 87 requerimientos están implementados y probados, así que la tabla no repi
 | ID | Regla | Dónde vive |
 | --- | --- | --- |
 | RN-01 | Dos citas del mismo doctor no se cruzan; después de cada cita se reserva tiempo de esterilización (10 min por defecto). Un sobrecupo solo pasa si se pide a propósito y nunca sobre un bloqueo o un horario apartado. | `AvailabilityService`, `AppointmentService::bookFromStaff`, `agenda.buffer_minutes` |
-| RN-02 | En la web se reserva con al menos 120 min de anticipación y hasta 45 días adelante. | `booking.min_lead_minutes`, `booking.horizon_days` |
+| RN-02 | En la web se reserva con al menos 120 min de anticipación y hasta 45 días adelante. La tira de días muestra primero 12 días libres y "Ver más días" suma los que siguen hasta ese límite. | `booking.min_lead_minutes`, `booking.horizon_days`, `BookingControllerTest` |
 | RN-03 | En la web, cada paciente tiene como máximo 2 citas futuras y cada celular 6. | `booking.max_web_appointments_per_patient`, `…_per_phone` |
 | RN-04 | En línea solo se reservan tratamientos marcados para la web con doctores que aceptan reservas en línea; lo demás empieza con una evaluación. | `AppointmentService::bookFromWeb`, `BookingException::treatmentNotBookableOnline` |
 | RN-05 | Un paciente en tratamiento no reserva por la web: su doctor programa las sesiones. | `BookingException::patientInTreatment` |
@@ -188,6 +188,7 @@ Los 87 requerimientos están implementados y probados, así que la tabla no repi
 | RN-24 | El doctor no maneja dinero: si el paciente debe algo al terminar la atención, recepción recibe el aviso para cobrarle. La administradora que también atiende elige cobrar ella o pasarlo a recepción; si no hay nadie activo en recepción, cobra ella. | `VisitCloseOut`, `VisitCloseOutTest` |
 | RN-25 | La campana muestra solo lo pendiente de hoy. Lo que solo informa se va después de verlo; lo que pide algo, cuando se hace: con su botón o desde otro lado (cobrarle, enviar la confirmación o el enlace de Mi cuenta, responder un cambio pedido, confirmar las citas por llamar). Los avisos de días anteriores quedan leídos, porque lo que pedían sigue en "Hoy" y en sus listas, y lo leído se borra al mes. | `StaffAlerts`, `BellAlerts`, `campana:limpiar`, `BellAlertsTest`, `LivePanelTest`, `VisitCloseOutTest` |
 | RN-26 | En su primera reserva web (un número que el consultorio no tenía), el WhatsApp que recibe el paciente no es la confirmación de la cita sino su enlace de Mi cuenta: entra directo a su cuenta y confirma ahí. Las reservas siguientes reciben la confirmación con el enlace de la cita. | `AppointmentService`, `BookingControllerTest`, `AppointmentServiceTest` |
+| RN-27 | Una persona nueva en un número ya registrado la agrega la familia: desde su celular recordado o entrando a Mi cuenta. Desde otro celular solo se reserva (o se anota en la lista de espera) para quien ya está en ese número, escribiendo su nombre. La web no muestra quiénes están en un número, porque diría quién se atiende en el consultorio. | `AppointmentService`, `WaitlistService`, `AppointmentServiceTest`, `BookingControllerTest`, `WaitlistControllerTest` |
 
 ## Restricciones
 

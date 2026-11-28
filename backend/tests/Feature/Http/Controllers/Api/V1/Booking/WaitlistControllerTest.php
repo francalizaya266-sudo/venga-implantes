@@ -168,10 +168,10 @@ class WaitlistControllerTest extends TestCase
     public function test_many_requests_from_the_same_connection_are_stopped_for_a_while(): void
     {
         foreach (range(1, 5) as $try) {
-            $this->ask($this->asking(['first_name' => 'Persona '.$try]))->assertCreated();
+            $this->ask($this->asking(['first_name' => 'Persona '.$try, 'phone' => '98765432'.$try]))->assertCreated();
         }
 
-        $this->ask($this->asking(['first_name' => 'Persona 6']))
+        $this->ask($this->asking(['first_name' => 'Persona 6', 'phone' => '987654326']))
             ->assertTooManyRequests()
             ->assertExactJson(['message' => 'Te anotaste varias veces seguidas. Espera un rato o escríbenos por WhatsApp.']);
         $this->assertDatabaseCount('waitlist_entries', 5);
@@ -199,17 +199,18 @@ class WaitlistControllerTest extends TestCase
         $this->assertDatabaseCount('waitlist_entries', 1);
     }
 
-    public function test_from_another_phone_a_new_person_does_not_join_the_family_of_that_number(): void
+    public function test_from_another_phone_a_new_person_on_a_registered_number_is_sent_to_my_account(): void
     {
         $account = Account::factory()->verified()->create(['phone' => '+51987654321']);
         Appointment::factory()->for(Patient::factory()->for($account))->confirmed()->create();
 
-        $this->ask($this->asking())->assertCreated();
+        // Como al reservar: una persona nueva en un número ya registrado la agrega la familia, desde Mi cuenta.
+        $this->ask($this->asking())
+            ->assertUnprocessable()
+            ->assertJsonPath('code', 'my_account');
 
-        // Como al reservar desde otro celular: la familia no la ve entre los suyos hasta que confirme una cita de ella.
-        $maria = WaitlistEntry::sole()->patient;
-        $this->assertTrue($maria->account->is($account));
-        $this->assertSame([$maria->id], $account->guestIds());
+        $this->assertDatabaseCount('waitlist_entries', 0);
+        $this->assertSame(1, $account->patients()->count());
     }
 
     public function test_from_the_remembered_phone_who_is_still_to_be_confirmed_cannot_be_chosen(): void
