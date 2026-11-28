@@ -252,14 +252,20 @@ class WhatsAppOutbox
             && $message->sent_at?->gt(now()->subDays(2));
     }
 
-    /** Enlace personal nuevo para quien recibe el aviso: a su cita, o a "Mi cuenta". */
+    /**
+     * Enlace personal nuevo para quien recibe el aviso: a su cita, o a "Mi cuenta" (el aviso de su primera reserva
+     * también, para que entre directo a su cuenta).
+     */
     private function linkFor(WhatsappMessage $message, ?User $by): ?string
     {
         if (! $message->account) {
             return null;
         }
 
-        return $message->appointment
+        /** @var MessageTemplateKey $key */
+        $key = $message->template_key;
+
+        return $message->appointment && ! $key->opensMyAccount()
             ? $this->links->issue($message->account, MagicLinkPurpose::Appointment, $message->appointment, $by)
             : $this->links->issue($message->account, MagicLinkPurpose::Access, null, $by);
     }

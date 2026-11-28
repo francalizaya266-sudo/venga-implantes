@@ -103,6 +103,7 @@ class RescheduleRequestService
                 'Solicitud de cambio de horario',
                 "{$appointment->patient->full_name} propone ".(count($proposedStarts) === 1 ? 'un horario' : count($proposedStarts).' horarios').' para su cita. Apruébala con un clic.',
                 link: ['label' => 'Ver la solicitud', 'url' => RescheduleRequestResource::getUrl()],
+                about: [StaffAlerts::ANSWER_REQUEST => $request->getKey()],
             );
 
             if ($doctorUser = $appointment->doctor->user) {

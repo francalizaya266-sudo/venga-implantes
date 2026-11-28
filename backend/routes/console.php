@@ -52,8 +52,9 @@ Schedule::command('lista-espera:liberar-apartados')
     ->everyFiveMinutes()
     ->withoutOverlapping();
 
-// La campana muestra lo de hoy: lo de días anteriores queda leído (sigue en "Hoy" y en sus listas). Cada pasada pone
-// al día lo que falte, así que con la laptop apagada a medianoche se hace apenas se prende.
+// La campana muestra lo pendiente de hoy: lo de días anteriores y lo que ya se hizo quedan leídos y se van (siguen en
+// "Hoy" y en sus listas), y lo leído hace más de un mes se borra. Cada pasada pone al día lo que falte, así que con la
+// laptop apagada a medianoche se hace apenas se prende.
 Schedule::command('campana:limpiar')
     ->everyFifteenMinutes()
     ->withoutOverlapping();

@@ -37,6 +37,7 @@ use App\Http\Controllers\Reports\CashClosingController;
 use App\Http\Controllers\Reports\EarningsExportController;
 use App\Http\Middleware\KeepRemindersUpToDate;
 use App\Http\Middleware\RequireOwnPassword;
+use App\Livewire\BellAlerts;
 use App\Models\Setting;
 use App\Services\Backup\FilesBackup;
 use App\Services\Web\ClinicInfo;
@@ -178,7 +179,8 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->defaultAvatarProvider(InitialsAvatarProvider::class)
             ->strictAuthorization()
-            ->databaseNotifications()
+            // La campana muestra solo lo pendiente: lo visto y lo ya hecho se va (BellAlerts).
+            ->databaseNotifications(livewireComponent: BellAlerts::class)
             ->databaseNotificationsPolling('30s')
             ->sidebarCollapsibleOnDesktop()
             // Todo el ancho del monitor en todas las pantallas, como Hoy: en uno grande las tablas no aprietan

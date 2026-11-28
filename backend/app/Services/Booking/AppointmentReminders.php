@@ -131,6 +131,8 @@ class AppointmentReminders
                     : 'Llama a esos pacientes para confirmar su asistencia. En la agenda salen con "Llamar".',
                 // Lleva a esas mismas citas: las de ese día que ya toca llamar.
                 link: ['label' => 'Ver citas por confirmar', 'url' => AppointmentResource::toConfirmUrl($ofTheDay->first()->starts_at, $ofTheDay->first()->starts_at, onlyToCall: true)],
+                // Se va de la campana cuando ninguna de esas citas sigue por confirmar.
+                about: [StaffAlerts::CALL_UNCONFIRMED => array_values($ofTheDay->modelKeys())],
             ));
 
         return $appointments->count();

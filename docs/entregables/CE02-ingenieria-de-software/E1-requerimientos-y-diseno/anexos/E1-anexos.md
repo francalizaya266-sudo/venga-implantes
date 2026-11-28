@@ -235,7 +235,7 @@ Escenario: reserva con un horario libre
   Dado que la limpieza dental se reserva en línea y el doctor tiene libre el jueves a las 10:00
   Cuando el paciente elige ese servicio, ese horario y escribe sus datos
   Entonces la cita queda "Pendiente" a su nombre
-  Y se prepara la confirmación por WhatsApp con su enlace personal
+  Y, por ser su primera reserva, se prepara el WhatsApp con su enlace de Mi cuenta, donde la confirma
   Y recepción recibe la alerta "Nueva cita web"
 Escenario: el horario se ocupó mientras escribía
   Dado que otra persona tomó ese horario hace un momento

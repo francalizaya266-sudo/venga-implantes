@@ -282,7 +282,7 @@ class LivePanelTest extends TestCase
             ->expectsOutput('2 avisos de días anteriores quedaron leídos.')
             ->assertSuccessful();
 
-        // La campana muestra lo de hoy; lo anterior sigue ahí, ya leído.
+        // La campana muestra lo de hoy; lo anterior queda leído (ya no se muestra) y se borra al mes.
         $this->assertSame(['Pidió su enlace de Mi cuenta'], $reception->unreadNotifications()->pluck('data')->pluck('title')->all());
         $this->assertSame(3, $reception->notifications()->count());
     }

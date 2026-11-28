@@ -109,6 +109,8 @@ describe('BookingPage', () => {
     expect(await step('¡Tu cita quedó reservada!')).toHaveFocus();
     expect(screen.getByText('Miércoles 4 de noviembre, 9:00 a. m.')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Mi cuenta' })).toHaveAttribute('href', '/mi-cuenta');
+    // Se confirma en Mi cuenta o con el enlace del WhatsApp, y el número va a la vista por si se escribió mal.
+    expect(screen.getByText(/con el enlace que te enviaremos por WhatsApp al 987 654 321\./)).toBeInTheDocument();
     expect(calls.map((call) => call.url)).toContain(BOOKED);
   });
 

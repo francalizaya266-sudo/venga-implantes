@@ -89,7 +89,9 @@ class MovedAppointmentNoticesTest extends TestCase
 
     public function test_approving_a_requested_change_leaves_only_the_notice_with_the_new_time(): void
     {
-        // Reservó en la web para el martes 3 a las 9:30 y la confirmación sigue sin enviarse (un día ocupado).
+        // Reservó en la web para el martes 3 a las 9:30, con un número que el consultorio ya tenía y desde otro celular,
+        // y la confirmación sigue sin enviarse (un día ocupado).
+        Account::factory()->create(['phone' => '+51987654321']);
         $appointment = app(AppointmentService::class)->bookFromWeb(new WebBookingData(
             doctorId: $this->doctor->id,
             treatmentId: $this->treatment->id,
