@@ -290,6 +290,26 @@ class TreatmentPlanPanelTest extends TestCase
         $this->actingAs($this->doctorOffering(Treatment::factory()->create())->user)->get($url)->assertForbidden();
     }
 
+    public function test_what_the_patient_gets_leaves_out_the_empty_abbreviation_boxes_and_the_printed_history_keeps_them(): void
+    {
+        [$doctor, $patient] = $this->patientWithCariesIn36();
+        $consultation = $patient->consultations()->sole();
+        $suggestions = app(OdontogramSuggestions::class);
+        $plan = $suggestions->apply($consultation, $doctor->user, [$suggestions->rows($consultation->odontogram, $consultation)[0]['key']])['plan'];
+        $this->actingAs($doctor->user);
+        $hidden = '.odv-box.is-empty { display: none; }';
+
+        // En "Mostrar al paciente" y en el plan que se le entrega, el recuadro de siglas sin sigla no se dibuja.
+        $this->get(ConsultationResource::presentUrl($consultation))->assertOk()->assertSee(['class="odv-box is-empty"', $hidden], false);
+        $this->get(TreatmentPlansRelationManager::printUrl($plan))->assertOk()->assertSee(['class="odv-box is-empty"', $hidden], false);
+
+        // La historia impresa sigue el formato de la norma: van todos.
+        $this->get(Filament::getPanel('admin')->route('print.history', ['patient' => $patient]))
+            ->assertOk()
+            ->assertSee('class="odv-box is-empty"', false)
+            ->assertDontSee('.odv-box.is-empty', false);
+    }
+
     public function test_the_budget_names_each_tooth_says_why_and_until_when_it_is_valid(): void
     {
         [$doctor, $patient] = $this->patientWithCariesIn36();

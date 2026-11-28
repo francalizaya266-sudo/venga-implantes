@@ -40,6 +40,8 @@
         .count.is-good b { color: var(--good); }
         .drawing { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; padding: 8px; }
         .drawing svg { display: block; width: 100%; min-width: 640px; height: auto; }
+        /* El recuadro de siglas sin sigla no le dice nada al paciente. */
+        .drawing .odv-box.is-empty { display: none; }
         .legend { display: flex; flex-wrap: wrap; gap: 4px 20px; margin: 10px 0 0; color: var(--muted); font-size: .9rem; }
         .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
         .legend .is-bad { background: var(--bad); }

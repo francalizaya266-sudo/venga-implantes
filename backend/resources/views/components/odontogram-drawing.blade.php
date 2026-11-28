@@ -7,6 +7,10 @@
     recuadro de siglas, su forma (corona y raíces, según el tipo de diente), sus cinco caras y su número. Las
     piezas superiores tienen las raíces hacia arriba y las inferiores hacia abajo: los números quedan en el centro,
     donde se tocan las dos arcadas. Rojo = por tratar; azul = tratado o en buen estado.
+
+    El recuadro que no tiene sigla (is-empty) no se ve en la pantalla ni en lo que es para el paciente (panel.css,
+    "Mostrar al paciente" y el plan impreso): vacío parece una casilla para escribir. En la historia impresa van
+    todos, como en el formato de la norma.
 --}}
 @php
     $W = 46;
@@ -132,7 +136,7 @@
                 <title>{{ $tooth }} · {{ Teeth::name($tooth) }}@if ($data['labels']): {{ collect($data['labels'])->map(fn ($label) => "{$label['text']} {$label['meaning']}")->implode(', ') }}@endif</title>
                 <rect class="odv-col" x="{{ $cx - $W / 2 + 1 }}" y="{{ $rowTop + 1 }}" width="{{ $W - 2 }}" height="{{ $rowHeight - 2 }}" rx="8" />
 
-                <rect class="odv-box" x="{{ $cx - $W / 2 + 4 }}" y="{{ $boxY }}" width="{{ $W - 8 }}" height="{{ $box }}" rx="3" />
+                <rect @class(['odv-box', 'is-empty' => ! $data['labels']]) x="{{ $cx - $W / 2 + 4 }}" y="{{ $boxY }}" width="{{ $W - 8 }}" height="{{ $box }}" rx="3" />
                 <text x="{{ $cx }}" y="{{ $boxY + 10.5 }}" class="odv-label">
                     @foreach (array_slice($data['labels'], 0, 2) as $i => $label)
                         <tspan fill="{{ $color($label['state']) }}">{{ $i ? ' ' : '' }}{{ $label['text'] }}</tspan>

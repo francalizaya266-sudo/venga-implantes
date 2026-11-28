@@ -30,6 +30,8 @@
         .mouth { display: flex; gap: 14px; align-items: center; margin: 4px 0 14px; break-inside: avoid; }
         .mouth .odontogram { flex: 0 1 430px; border: 1px solid var(--line); border-radius: 6px; padding: 4px; }
         .mouth svg { display: block; width: 100%; height: auto; }
+        /* El recuadro de siglas sin sigla no le dice nada al paciente (en la historia impresa van todos). */
+        .mouth .odv-box.is-empty { display: none; }
         .mouth p { margin: 0; font-size: .82rem; color: var(--muted); }
         .tooth-name { font-size: .78rem; color: var(--muted); }
         .why { font-size: .8rem; color: var(--muted); }

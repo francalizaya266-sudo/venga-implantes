@@ -1053,6 +1053,8 @@ button.agenda-slot:focus-visible { outline: 2px solid var(--primary-600); outlin
     .dark .odv-svg .odv-num { fill: #1e293b; }
     .dark .odv-svg .odv-midline, .dark .odv-svg .odv-bite { stroke: #8f9aab; }
 }
+/* El recuadro de siglas de la norma se ve solo cuando tiene una: vacío parece una casilla para escribir. Impreso van todos. */
+@media screen { .odv-svg .odv-box.is-empty { display: none; } }
 .odv-sheet:focus-visible { box-shadow: inset 0 0 0 2px var(--primary-500); }
 .odv-sides { display: flex; justify-content: space-between; padding: .125rem .375rem .25rem; font-size: .75rem; font-weight: 500; color: var(--odv-soft); }
 .odv-scroll { overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: thin; }

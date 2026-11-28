@@ -232,6 +232,30 @@ class OdontogramChartTest extends TestCase
             ->assertSeeHtml('--odv-teeth: 10"');
     }
 
+    public function test_the_abbreviation_box_is_seen_only_on_the_teeth_that_have_one(): void
+    {
+        [$doctor, $consultation] = $this->consultation();
+        $this->actingAs($doctor->user);
+        app(OdontogramService::class)->changeDentition(Odontogram::where('consultation_id', $consultation->id)->sole(), Dentition::Permanent);
+
+        // La caries lleva sigla (CD); la pieza ausente se dibuja con una X y no lleva ninguna.
+        $html = Livewire::test(OdontogramChart::class, ['record' => $consultation, 'editable' => true])
+            ->call('mark', 36, 'O', 'caries', 'bad', 'CD')
+            ->call('mark', 18, null, 'ausente', 'good', null)
+            ->html();
+
+        // De las 32 piezas, el recuadro de la 36 es el único con algo adentro: los demás van marcados como vacíos.
+        $this->assertSame(1, substr_count($html, 'class="odv-box"'));
+        $this->assertSame(31, substr_count($html, 'class="odv-box is-empty"'));
+        $this->assertMatchesRegularExpression('#class="odv-box"[^>]*>\s*<text[^>]*>(?:\s|<!--.*?-->)*<tspan[^>]*>CD</tspan>#', $html);
+
+        // Vacíos se esconden en la pantalla y nada más: en papel salen todos, como en el formato de la norma.
+        $this->assertMatchesRegularExpression(
+            '#@media screen\s*\{\s*\.odv-svg \.odv-box\.is-empty\s*\{\s*display:\s*none;\s*\}\s*\}#',
+            (string) file_get_contents(public_path('css/panel.css')),
+        );
+    }
+
     public function test_the_search_shortcut_is_listed_only_where_there_is_a_box_to_write_in(): void
     {
         [$doctor, $consultation] = $this->consultation();
