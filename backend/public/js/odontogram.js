@@ -47,9 +47,10 @@
         states: {},
         pending: {},
 
-        // La pieza abierta en la ficha, el filtro, la pantalla completa.
+        // La pieza abierta en la ficha (y si muestra los demás hallazgos, "Otro…"), el filtro, la pantalla completa.
         focus: null,
         faces: {},
+        restOpen: false,
         filter: null,
         expanded: false,
 
@@ -262,6 +263,66 @@
             return codes.filter((code) => this.catalog[code]);
         },
 
+        // Lo demás del catálogo, por nombre: lo que "Otro…" abre en la misma ficha.
+        get restList() {
+            const name = (code) => this.catalog[code].short;
+
+            return Object.keys(this.catalog)
+                .filter((code) => ! this.quickList.includes(code))
+                .sort((a, b) => name(a).localeCompare(name(b), 'es'));
+        },
+
+        // El hallazgo del pincel que no está entre los frecuentes de la pieza: se ve apretado junto a "Otro…", para
+        // saber cuál es y poder soltarlo sin volver a abrir la lista.
+        get otherTool() {
+            return this.tool && ! this.quickList.includes(this.tool) ? this.tool : null;
+        },
+
+        toggleRest() {
+            this.restOpen = ! this.restOpen;
+
+            if (this.restOpen) {
+                this.$nextTick(() => this.revealRest());
+            }
+        },
+
+        // La lista se abre al final de la ficha: se trae a la vista. En la ficha que sale desde abajo sube hasta
+        // quedar debajo de su cabecera fija (mida lo que mida), o hasta donde llegue si entra entera.
+        revealRest() {
+            const list = this.$refs.rest;
+            const card = list?.closest('.odv-card');
+
+            if (card && getComputedStyle(card).position === 'fixed') {
+                card.scrollBy({ top: list.getBoundingClientRect().top - card.querySelector('.odv-card-head').getBoundingClientRect().bottom });
+            } else {
+                list?.scrollIntoView({ block: 'nearest' });
+            }
+        },
+
+        // Elegido uno, la lista se cierra y la ficha vuelve arriba: ahí está lo que quedó marcado o, si falta tocar
+        // una cara o la otra pieza, las caras y la pista. En la ficha angosta la fila de botones se desliza hasta
+        // el final, donde queda el elegido.
+        pickRest(code) {
+            this.addHere(code);
+            this.closeRest();
+            this.$nextTick(() => {
+                const row = this.otherTool ? this.$refs.other?.parentElement : null;
+
+                this.$root.querySelector('.odv-card')?.scrollTo({ top: 0 });
+                row?.scrollTo({ left: row.scrollWidth });
+            });
+        },
+
+        // Al cerrarse, el foco que estaba en la lista vuelve a "Otro…": en un botón que ya no se ve se perdería, y con
+        // él las flechas y los atajos.
+        closeRest() {
+            if (this.$refs.rest?.contains(document.activeElement)) {
+                this.$refs.restToggle?.focus({ preventScroll: true });
+            }
+
+            this.restOpen = false;
+        },
+
         get facesHint() {
             if (! this.editable) {
                 return '';
@@ -283,6 +344,11 @@
         openTooth(tooth) {
             if (tooth === undefined || ! this.teeth[tooth]) {
                 return;
+            }
+
+            // Otra pieza: su ficha empieza sin la lista de "Otro…" (los frecuentes cambian con el tipo de diente).
+            if (tooth !== this.focus) {
+                this.closeRest();
             }
 
             this.focus = tooth;
@@ -346,7 +412,13 @@
         },
 
         closeTooth() {
+            // El foco que estaba en la ficha pasa al dibujo: con ella se perdería, y con él las flechas y los atajos.
+            if (this.$root.querySelector('.odv-card')?.contains(document.activeElement)) {
+                this.$refs.sheet?.focus({ preventScroll: true });
+            }
+
             this.focus = null;
+            this.restOpen = false;
             this.paint();
         },
 
