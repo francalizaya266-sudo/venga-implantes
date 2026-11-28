@@ -29,6 +29,16 @@ class User extends Authenticatable implements FilamentUser, HasAppAuthentication
     /** Segundo factor del panel (app autenticadora y códigos de recuperación): cifrados y fuera del historial. */
     use InteractsWithAppAuthentication, InteractsWithAppAuthenticationRecovery;
 
+    /**
+     * A todos se les pide la doble verificación hasta que el administrador la apague (ver DoubleCheck). El valor va
+     * también aquí porque a quien se acaba de crear se le pregunta antes de volver a leerlo de la base.
+     *
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'skips_double_check' => false,
+    ];
+
     protected static function booted(): void
     {
         // La contraseña y el secreto del segundo factor nunca se guardan en el historial, pero sí que cambiaron.
@@ -55,6 +65,7 @@ class User extends Authenticatable implements FilamentUser, HasAppAuthentication
             'last_login_at' => 'datetime',
             'password' => 'hashed',
             'must_change_password' => 'boolean',
+            'skips_double_check' => 'boolean',
             'role' => UserRole::class,
             'is_dentist' => 'boolean',
             'is_active' => 'boolean',

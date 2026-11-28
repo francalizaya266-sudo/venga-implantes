@@ -6,6 +6,7 @@ use App\Enums\UserRole;
 use App\Filament\Concerns\HasSettingsMenuGroup;
 use App\Filament\Concerns\HasSpanishLabels;
 use App\Filament\Resources\Users\Pages\ManageUsers;
+use App\Filament\Support\DoubleCheck;
 use App\Models\User;
 use App\Support\Phone;
 use BackedEnum;
@@ -21,6 +22,7 @@ use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
+use Filament\Support\Enums\Width;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\ToggleColumn;
@@ -142,6 +144,7 @@ class UserResource extends Resource
                     ->label('Último ingreso')
                     ->since()
                     ->placeholder('Nunca'),
+                self::doubleCheckColumn(),
                 // Con el mismo nombre que en la ficha: en la lista decía "Activo" y en la ficha "Puede entrar al panel".
                 ToggleColumn::make('is_active')
                     ->label('Puede entrar al panel')
@@ -157,30 +160,117 @@ class UserResource extends Resource
                 EditAction::make()
                     ->mutateDataUsing(fn (array $data, User $record) => self::withTemporaryPassword($data, $record))
                     ->successNotificationTitle('Usuario guardado'),
-                // La misma regla que en el resto de Configuración: se borra solo a quien se registró por error y nunca
-                // entró; a los demás se les quita el acceso.
                 ActionGroup::make([
-                    // Perdió el celular y los códigos de recuperación: al volver a entrar activa la doble verificación de nuevo.
-                    Action::make('resetMfa')
-                        ->label('Quitar doble verificación')
-                        ->icon(Heroicon::OutlinedDevicePhoneMobile)
-                        ->color('danger')
-                        ->requiresConfirmation()
-                        ->modalHeading(fn (User $record) => 'Quitar la doble verificación de '.$record->name)
-                        ->modalDescription('Úsalo solo si perdió el celular y sus códigos de recuperación. La próxima vez que entre la activará de nuevo con su celular.')
-                        ->visible(fn (User $record) => filled($record->getAppAuthenticationSecret()))
-                        ->action(function (User $record): void {
-                            $record->saveAppAuthenticationRecoveryCodes(null);
-                            $record->saveAppAuthenticationSecret(null);
-
-                            Notification::make()->success()->title('Doble verificación quitada')->send();
-                        }),
+                    self::lostPhoneAction(),
+                    self::stopDoubleCheckAction(),
+                    self::resumeDoubleCheckAction(),
+                    // La misma regla que en el resto de Configuración: se borra solo a quien se registró por error y nunca
+                    // entró; a los demás se les quita el acceso.
                     DeleteAction::make()
                         ->authorizationNotification()
                         ->modalDescription('Solo se borra a quien nunca entró al panel. A los demás se les apaga "Puede entrar al panel".')
-                        ->successNotificationTitle('Usuario borrado'),
-                ])->visible(fn (User $record) => ! self::isMe($record)),
+                        ->successNotificationTitle('Usuario borrado')
+                        ->visible(fn (User $record) => ! self::isMe($record)),
+                ])->dropdownWidth(Width::TwoExtraSmall),
             ]);
+    }
+
+    /** De un vistazo, a quién se le pide el código del celular y quién ya lo activó. */
+    private static function doubleCheckColumn(): TextColumn
+    {
+        return TextColumn::make('double_check')
+            ->label('Doble verificación')
+            ->state(fn (User $record): string => self::doubleCheckInWords($record))
+            ->badge()
+            ->color(fn (string $state): string => match ($state) {
+                'Activada' => 'success',
+                'Sin activar' => 'gray',
+                default => 'warning',
+            });
+    }
+
+    /**
+     * Perdió el celular y los códigos de recuperación: al volver a entrar activa la doble verificación de nuevo. Es otra
+     * cosa que dejar de pedírsela: aquí se le sigue pidiendo, con otro celular.
+     */
+    private static function lostPhoneAction(): Action
+    {
+        return Action::make('resetMfa')
+            ->label('Perdió su celular')
+            ->icon(Heroicon::OutlinedDevicePhoneMobile)
+            ->color('danger')
+            ->requiresConfirmation()
+            ->modalHeading(fn (User $record) => 'Quitar la doble verificación de '.$record->name)
+            ->modalDescription('Úsalo solo si perdió el celular y sus códigos de recuperación. La próxima vez que entre la activará de nuevo con su celular.')
+            ->visible(fn (User $record) => ! self::isMe($record) && filled($record->getAppAuthenticationSecret()))
+            ->action(function (User $record): void {
+                $record->saveAppAuthenticationRecoveryCodes(null);
+                $record->saveAppAuthenticationSecret(null);
+
+                Notification::make()->success()->title('Doble verificación quitada')->send();
+            });
+    }
+
+    /**
+     * A una persona se le puede dejar de pedir el código del celular: entra solo con su contraseña. También a uno mismo.
+     * Se confirma con la contraseña de quien lo hace y queda en el historial de cambios.
+     */
+    private static function stopDoubleCheckAction(): Action
+    {
+        return Action::make('stopDoubleCheck')
+            ->label(fn (User $record) => self::isMe($record) ? 'No pedirme doble verificación' : 'No pedirle doble verificación')
+            ->icon(Heroicon::OutlinedLockOpen)
+            ->color('danger')
+            ->modalIcon(Heroicon::OutlinedLockOpen)
+            ->modalHeading(fn (User $record) => self::isMe($record) ? 'Entrar sin doble verificación' : $record->name.' entrará sin doble verificación')
+            ->modalDescription(fn (User $record) => (self::isMe($record) ? 'Entrarás solo con tu contraseña' : 'Entrará solo con su contraseña').', sin el código del celular. Quien llegue a saber esa contraseña podrá abrir el panel desde cualquier lugar. Queda anotado en el historial de cambios.')
+            ->schema([DoubleCheck::ownPasswordField()])
+            ->modalSubmitActionLabel('Dejar de pedirla')
+            ->rateLimit(5)
+            ->visible(fn (User $record) => DoubleCheck::isAskedOf($record))
+            ->action(function (User $record): void {
+                $record->forceFill(['skips_double_check' => true])->save();
+
+                Notification::make()
+                    ->success()
+                    ->title(self::isMe($record) ? 'Ya no se te pide la doble verificación' : 'A '.$record->name.' ya no se le pide la doble verificación')
+                    ->body('Para volver a pedirla, este mismo menú.')
+                    ->send();
+            });
+    }
+
+    /** Lo contrario: se le vuelve a pedir. Devuelve una protección, así que basta con confirmarlo. */
+    private static function resumeDoubleCheckAction(): Action
+    {
+        return Action::make('resumeDoubleCheck')
+            ->label(fn (User $record) => self::isMe($record) ? 'Pedirme doble verificación' : 'Pedirle doble verificación')
+            ->icon(Heroicon::OutlinedLockClosed)
+            ->requiresConfirmation()
+            ->modalHeading(fn (User $record) => self::isMe($record) ? 'Volver a entrar con doble verificación' : $record->name.' volverá a entrar con doble verificación')
+            ->modalDescription(fn (User $record) => filled($record->getAppAuthenticationSecret())
+                ? 'Desde la próxima vez que entre, además de la contraseña se pide el código del celular.'
+                : 'Como todavía no la activó, lo primero que verá es la pantalla para activarla con su celular.')
+            ->modalSubmitActionLabel('Volver a pedirla')
+            ->visible(fn (User $record) => $record->skips_double_check)
+            ->action(function (User $record): void {
+                $record->forceFill(['skips_double_check' => false])->save();
+
+                Notification::make()
+                    ->success()
+                    ->title(self::isMe($record) ? 'Se te vuelve a pedir la doble verificación' : 'A '.$record->name.' se le vuelve a pedir la doble verificación')
+                    ->send();
+            });
+    }
+
+    /** La doble verificación de una persona, como sale en la lista. */
+    private static function doubleCheckInWords(User $record): string
+    {
+        return match (true) {
+            ! DoubleCheck::isOnForEveryone() => 'Apagada para todos',
+            (bool) $record->skips_double_check => 'No se le pide',
+            filled($record->getAppAuthenticationSecret()) => 'Activada',
+            default => 'Sin activar',
+        };
     }
 
     /**

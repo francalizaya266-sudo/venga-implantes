@@ -6,6 +6,7 @@ use App\Filament\Pages\Auth\SetUpTwoFactor;
 use Filament\Actions\Action;
 use Filament\Auth\MultiFactor\App\AppAuthentication;
 use Filament\Facades\Filament;
+use Filament\Forms\Components\Checkbox;
 use Filament\Forms\Components\OneTimeCodeInput;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Utilities\Get;
@@ -16,9 +17,10 @@ use Illuminate\Contracts\Auth\Authenticatable;
 use Livewire\Component;
 
 /**
- * La doble verificación con Google Authenticator, como la trae Filament pero sin "Apagar": en este panel es
- * obligatoria y apagarla solo llevaba a configurarla de nuevo. En Mi perfil queda "Cambié de celular": se confirma
- * con el celular de antes (o con un código de recuperación) y enseguida se escanea el código con el nuevo.
+ * La doble verificación con Google Authenticator, como la trae Filament pero sin "Apagar": nadie se la apaga a sí
+ * mismo desde Mi perfil (eso lo decide el administrador, ver DoubleCheck) y apagarla ahí solo llevaba a configurarla
+ * de nuevo. En Mi perfil queda "Cambié de celular": se confirma con el celular de antes (o con un código de
+ * recuperación) y enseguida se escanea el código con el nuevo.
  */
 class PhoneAuthentication extends AppAuthentication
 {
@@ -31,10 +33,20 @@ class PhoneAuthentication extends AppAuthentication
         );
     }
 
-    /** Al entrar, "No tengo mi celular a la mano" deja solo el código de recuperación. */
+    /**
+     * Al entrar, "No tengo mi celular a la mano" deja solo el código de recuperación. Debajo, la casilla que ya viene
+     * marcada: en este equipo no se le vuelve a pedir el código hasta mañana (DoubleCheck). Quien entra desde un equipo
+     * prestado la desmarca.
+     */
     public function getChallengeFormComponents(Authenticatable $user): array
     {
-        return self::recoveryCodeInsteadOfPhone(parent::getChallengeFormComponents($user), 'Mejor uso mi celular');
+        return [
+            ...self::recoveryCodeInsteadOfPhone(parent::getChallengeFormComponents($user), 'Mejor uso mi celular'),
+            Checkbox::make(DoubleCheck::REMEMBER_FIELD)
+                ->label('Hoy no volver a pedirme el código en este equipo')
+                ->helperText('Mañana se te pide de nuevo. Desmárcala si esta computadora o este celular no es tuyo ni del consultorio.')
+                ->default(true),
+        ];
     }
 
     /**
