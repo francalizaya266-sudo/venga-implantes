@@ -212,7 +212,7 @@ class ClinicalPanelTest extends TestCase
         $this->actingAs($doctor->user);
 
         Livewire::test(EditConsultation::class, ['record' => $consultation->getRouteKey()])
-            ->assertSee(['Profilaxis completa', 'Atajos: /ext /limp /res'])
+            ->assertSee(['Profilaxis completa', 'Atajos: /limp /res /ext /eval'])
             ->call('callSchemaComponentMethod', 'form.procedures', 'recordSnippetUse', ['id' => $snippet->id])
             ->fillForm(['procedures' => 'Pulido y fluorización de piezas anteriores.'])
             ->callAction(TestAction::make('saveAsOption')->schemaComponent('procedures'), data: [

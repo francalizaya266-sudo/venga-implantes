@@ -31,4 +31,16 @@ class TextSnippetTest extends TestCase
 
         $this->assertSame(['B mía', 'A compartida'], $labels);
     }
+
+    public function test_options_not_used_yet_show_the_doctors_own_first_and_then_the_shared_ones_as_they_were_created(): void
+    {
+        $doctor = User::factory()->doctor()->create();
+        TextSnippet::create(['field' => SnippetField::Indications, 'label' => 'Zeta, la de todos los días', 'body' => '...']);
+        TextSnippet::create(['field' => SnippetField::Indications, 'label' => 'Alfa, la que llegó después', 'body' => '...']);
+        TextSnippet::create(['user_id' => $doctor->id, 'field' => SnippetField::Indications, 'label' => 'La mía', 'body' => '...']);
+
+        $labels = TextSnippet::query()->availableFor($doctor, SnippetField::Indications)->pluck('label')->all();
+
+        $this->assertSame(['La mía', 'Zeta, la de todos los días', 'Alfa, la que llegó después'], $labels);
+    }
 }

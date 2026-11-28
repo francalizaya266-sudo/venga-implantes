@@ -85,18 +85,6 @@ class DemoSeeder extends Seeder
             $treatments[$slug]?->update(['price_from' => $price]);
         }
 
-        $treatments['limpieza-dental']->update(['description' => <<<'MD'
-            La limpieza retira el sarro y la placa que el cepillo no alcanza, sobre todo entre los dientes y bajo la encía. Así se previenen las caries, el sangrado de encías y el mal aliento.
-
-            ## Cómo es la sesión
-
-            1. Revisamos tus dientes y encías.
-            2. Retiramos el sarro con ultrasonido y pulimos.
-            3. Te damos indicaciones de cepillado según lo que vimos.
-
-            Dura unos 45 minutos y no duele; si tienes las encías sensibles, avísanos y vamos más despacio.
-            MD]);
-
         // Único doctor: hace todos los tratamientos del catálogo.
         $vega->treatments()->sync($treatments->where('slug', '!=', 'control-de-ortodoncia')->modelKeys());
         $vega->treatments()->attach($treatments['control-de-ortodoncia']->id, ['duration_minutes' => 20]);

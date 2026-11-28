@@ -33,7 +33,11 @@ class TextSnippet extends Model
         return $this->hasMany(TextSnippetUsage::class);
     }
 
-    /** Opciones que ve un doctor en un campo: compartidas + personales, las más usadas primero. */
+    /**
+     * Opciones que ve un doctor en un campo: compartidas + personales, las que más usa primero. Entre las que
+     * todavía no usa van primero las suyas y después las del equipo en el orden en que se crearon, para que las
+     * de todos los días no queden escondidas detrás de las más nuevas.
+     */
     #[Scope]
     protected function availableFor(Builder $query, User $user, SnippetField $field): Builder
     {
@@ -48,7 +52,8 @@ class TextSnippet extends Model
                     ->limit(1),
             ])
             ->orderByDesc('my_usage')
-            ->orderBy('label');
+            ->orderByRaw('user_id is null')
+            ->orderBy('id');
     }
 
     /** Ya se usó en alguna historia: no se borra, se archiva para que deje de ofrecerse. */
