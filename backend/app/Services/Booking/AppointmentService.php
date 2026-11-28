@@ -65,8 +65,11 @@ class AppointmentService
     ) {}
 
     /**
-     * Reserva desde la web: queda reservada al instante si el horario está libre.
-     * El paciente confirma después con el enlace que recepción le envía.
+     * Reserva desde la web: queda reservada al instante si el horario está libre, "Por confirmar".
+     *
+     * El paciente la confirma con el WhatsApp que recepción le envía. En su primera reserva (un número que el
+     * consultorio no tenía) ese WhatsApp no es la confirmación de la cita sino su enlace de Mi cuenta: entra directo a
+     * su cuenta, la confirma ahí y desde ahí maneja sus citas.
      */
     public function bookFromWeb(WebBookingData $data, ?RememberedDevice $device = null): Appointment
     {
@@ -88,6 +91,7 @@ class AppointmentService
 
         return DB::transaction(function () use ($data, $doctor, $treatment, $phone, $recognized, $fromVerifiedDevice) {
             $account = Account::withTrashed()->firstOrCreate(['phone' => $phone]);
+            $isFirstBooking = $account->wasRecentlyCreated;
 
             if ($account->trashed()) {
                 $account->restore();
@@ -153,16 +157,36 @@ class AppointmentService
 
             $appointment->logEvent('created', 'patient');
             $this->waitlist->settle($appointment);
-            $this->outbox->queueForAppointment($appointment, MessageTemplateKey::BookingConfirmation);
-            $this->alerts->toReception(
-                'Nueva cita web',
-                "{$patient->full_name} · {$treatment->name} · {$this->when($appointment)} con {$doctor->name}. Envíale la confirmación por WhatsApp."
-                    .($appointment->hasUnknownPromoCode() ? " Escribió el código {$appointment->promo_code}, que no es de ninguna promoción vigente: revísalo con el paciente." : ''),
-                link: ['label' => 'Enviar la confirmación', 'url' => WhatsappMessageResource::getUrl()],
-            );
+            $this->tellReceptionAboutWebBooking($appointment, $isFirstBooking);
 
             return $appointment;
         });
+    }
+
+    /**
+     * Deja listo el WhatsApp de la cita web nueva y le pide a recepción enviarlo: en su primera reserva, su enlace de Mi
+     * cuenta; si no, la confirmación de la cita. El aviso de la campana se va solo cuando ese WhatsApp ya se envió.
+     */
+    private function tellReceptionAboutWebBooking(Appointment $appointment, bool $isFirstBooking): void
+    {
+        /** @var Patient $patient */
+        $patient = $appointment->patient;
+        /** @var Doctor $doctor */
+        $doctor = $appointment->doctor;
+        /** @var Treatment $treatment */
+        $treatment = $appointment->treatment;
+
+        $this->outbox->queueForAppointment($appointment, $isFirstBooking ? MessageTemplateKey::FirstWebBooking : MessageTemplateKey::BookingConfirmation);
+        $this->alerts->toReception(
+            'Nueva cita web',
+            "{$patient->full_name} · {$treatment->name} · {$this->when($appointment)} con {$doctor->name}. "
+                .($isFirstBooking
+                    ? 'Es su primera reserva: envíale por WhatsApp su enlace de Mi cuenta, donde la confirma.'
+                    : 'Envíale la confirmación por WhatsApp.')
+                .($appointment->hasUnknownPromoCode() ? " Escribió el código {$appointment->promo_code}, que no es de ninguna promoción vigente: revísalo con el paciente." : ''),
+            link: ['label' => $isFirstBooking ? 'Enviar el enlace' : 'Enviar la confirmación', 'url' => WhatsappMessageResource::getUrl()],
+            about: [StaffAlerts::SEND_CONFIRMATION => $appointment->getKey()],
+        );
     }
 
     /**

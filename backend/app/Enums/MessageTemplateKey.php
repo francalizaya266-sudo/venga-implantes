@@ -8,6 +8,7 @@ use Filament\Support\Contracts\HasLabel;
 enum MessageTemplateKey: string implements HasLabel
 {
     case BookingConfirmation = 'booking_confirmation';
+    case FirstWebBooking = 'first_web_booking';
     case AppointmentScheduled = 'appointment_scheduled';
     case Reminder = 'appointment_reminder';
     case Rescheduled = 'appointment_rescheduled';
@@ -35,6 +36,7 @@ enum MessageTemplateKey: string implements HasLabel
     public const TELLS_THE_DATE = [
         self::Reminder,
         self::BookingConfirmation,
+        self::FirstWebBooking,
         self::AppointmentScheduled,
         self::Rescheduled,
         self::RescheduleApproved,
@@ -63,10 +65,17 @@ enum MessageTemplateKey: string implements HasLabel
         self::InstallmentOverdue,
     ];
 
+    /** Su {enlace} abre Mi cuenta, aunque el aviso sea de una cita: así entra directo a su cuenta y la maneja desde ahí. */
+    public function opensMyAccount(): bool
+    {
+        return in_array($this, [self::AccessLink, self::FirstWebBooking], true);
+    }
+
     public function getLabel(): string
     {
         return match ($this) {
             self::BookingConfirmation => 'Confirmación de reserva web',
+            self::FirstWebBooking => 'Primera reserva web: su enlace de Mi cuenta',
             self::AppointmentScheduled => 'Cita programada por el consultorio',
             self::Reminder => 'Recordatorio de la cita',
             self::Rescheduled => 'Cambio de horario',
@@ -97,6 +106,8 @@ enum MessageTemplateKey: string implements HasLabel
     {
         return match ($this) {
             self::BookingConfirmation => "Hola {nombre} 👋, te escribimos de {consultorio}.\nTu cita de {tratamiento} quedó reservada para el {fecha} a las {hora} con {doctor}.\n{precio}\n\nConfirma tu asistencia, cambia el horario o cancela aquí:\n{enlace}",
+            // Su primera reserva: el enlace no es el de la cita sino el de su cuenta, donde la confirma y ve todo lo demás.
+            self::FirstWebBooking => "Hola {nombre} 👋, te escribimos de {consultorio}.\nTu cita de {tratamiento} quedó reservada para el {fecha} a las {hora} con {doctor}.\n{precio}\n\nYa tienes tu cuenta con nosotros. Entra a Mi cuenta para confirmar tu asistencia, cambiar el horario o cancelar:\n{enlace}\n\nNo compartas este enlace con nadie.",
             self::AppointmentScheduled => "Hola {nombre}, te escribimos de {consultorio}.\nTu próxima cita de {tratamiento} es el {fecha} a las {hora} con {doctor}.\n\nPuedes confirmarla aquí:\n{enlace}",
             self::Reminder => "Hola {nombre}, te recordamos tu cita {cuando} a las {hora} con {doctor} en {consultorio}.\n{indicaciones}\n\nConfirma tu asistencia aquí:\n{enlace}",
             self::Rescheduled => "Hola {nombre}, tu cita de {tratamiento} cambió al {fecha} a las {hora} con {doctor}.\n\nConfirma el nuevo horario aquí:\n{enlace}",

@@ -142,9 +142,10 @@ class BookingControllerTest extends TestCase
         $this->assertSame(PatientRelationship::Self, $appointment->patient->relationship);
     }
 
-    public function test_a_first_booking_with_a_new_number_enters_my_account_without_waiting_for_the_link(): void
+    public function test_a_first_booking_with_a_new_number_enters_my_account_and_its_whatsapp_brings_the_account(): void
     {
         $this->freezeMonday();
+        User::factory()->reception()->create();
         $evaluation = Treatment::factory()->evaluation()->create();
         $this->doctorOffering($evaluation);
 
@@ -175,6 +176,23 @@ class BookingControllerTest extends TestCase
             ->postJson($response->json('data.origin_url'), ['origin' => AppointmentOrigin::Facebook->value])
             ->assertOk();
         $this->assertSame(AppointmentOrigin::Facebook, $appointment->fresh()->origin);
+
+        // El WhatsApp que envía recepción no es la confirmación de la cita: trae su cuenta. Al entrar, este celular ve
+        // todo, y la cita sigue por confirmar hasta que la confirme ahí.
+        $this->assertStringEndsWith('Es su primera reserva: envíale por WhatsApp su enlace de Mi cuenta, donde la confirma.', $this->receptionAlertBody());
+        $text = app(WhatsAppOutbox::class)->render(WhatsappMessage::where('template_key', MessageTemplateKey::FirstWebBooking)->sole());
+        $this->assertSame(1, preg_match('~/c/([A-Za-z0-9]{32})~', $text, $link));
+        $this->getJson(route('api.v1.links.show', $link[1]))->assertOk()->assertJsonPath('data.kind', 'access');
+        $this->withCookie(DeviceService::COOKIE, $phone)->postJson(route('api.v1.links.enter', $link[1]))->assertOk();
+        $this->withCookie(DeviceService::COOKIE, $phone)
+            ->getJson(route('api.v1.account.show'))
+            ->assertJsonPath('data.elevated', true)
+            ->assertJsonPath('data.upcoming.0.status', 'Por confirmar')
+            ->assertJsonPath('data.upcoming.0.can_confirm', true);
+        $this->withCookie(DeviceService::COOKIE, $phone)
+            ->postJson(route('api.v1.account.appointments.confirm', $appointment))
+            ->assertOk();
+        $this->assertSame(AppointmentStatus::Confirmed, $appointment->fresh()->status);
     }
 
     public function test_a_number_the_clinic_already_has_is_not_remembered_without_its_link(): void
@@ -191,6 +209,8 @@ class BookingControllerTest extends TestCase
             ->assertCookieMissing(DeviceService::COOKIE);
 
         $this->assertSame(0, RememberedDevice::count());
+        // Ese enlace es el de la confirmación por WhatsApp, que recepción envía.
+        $this->assertSame(MessageTemplateKey::BookingConfirmation, WhatsappMessage::sole()->template_key);
     }
 
     public function test_the_birth_date_comes_in_three_fields_and_an_incomplete_one_is_rejected(): void
@@ -269,6 +289,8 @@ class BookingControllerTest extends TestCase
         $this->assertSame(['was' => 'S/ 150', 'now' => 'desde S/ 120'], $offered['price']);
         $this->assertSame('Precio con la promoción Limpieza de verano: desde S/ 120 (normal desde S/ 150).', $offered['price_line']);
 
+        // Con un número que el consultorio ya tenía, desde otro celular: le llega la confirmación por WhatsApp.
+        Account::factory()->create(['phone' => '+51987654321']);
         $this->book($this->booking($cleaning, ['campaign_slug' => 'limpieza-verano']))
             ->assertCreated()
             ->assertJsonPath('data.price_line', 'Precio con la promoción Limpieza de verano: desde S/ 120 (normal desde S/ 150).');
@@ -482,6 +504,8 @@ class BookingControllerTest extends TestCase
         $appointment = Appointment::sole();
         $this->assertTrue($appointment->patient->is($child));
         $this->assertTrue($appointment->from_verified_device);
+        // Ya tenía su cuenta: le llega la confirmación de siempre.
+        $this->assertSame(MessageTemplateKey::BookingConfirmation, WhatsappMessage::sole()->template_key);
 
         // "Otra persona": un familiar nuevo queda en el mismo celular.
         $this->book(['treatment_id' => $evaluation->id, 'date' => '2026-11-02', 'time' => '11:00', 'who' => 'family', 'relationship' => PatientRelationship::Parent->value, 'first_name' => 'Juana', 'last_name' => 'Rojas'])

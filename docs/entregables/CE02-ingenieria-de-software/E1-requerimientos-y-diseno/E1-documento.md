@@ -186,7 +186,8 @@ Los 87 requerimientos están implementados y probados, así que la tabla no repi
 | RN-22 | Una promoción cuenta una visita por persona y sus cupos son personas, no citas; terminada, ofrece las vigentes. | `SiteContentTest`, `CampaignReportTest` |
 | RN-23 | Un caso de antes y después solo se publica con el consentimiento escrito del paciente. | `SmileCaseResource`, `WebContentPanelTest` |
 | RN-24 | El doctor no maneja dinero: si el paciente debe algo al terminar la atención, recepción recibe el aviso para cobrarle. La administradora que también atiende elige cobrar ella o pasarlo a recepción; si no hay nadie activo en recepción, cobra ella. | `VisitCloseOut`, `VisitCloseOutTest` |
-| RN-25 | La campana muestra lo de hoy: los avisos de días anteriores quedan leídos, porque lo que pedían sigue en "Hoy" y en sus listas. El aviso de cobrarle se cierra al cobrar o cuando el paciente ya no debe nada. | `StaffAlerts`, `campana:limpiar`, `LivePanelTest`, `VisitCloseOutTest` |
+| RN-25 | La campana muestra solo lo pendiente de hoy. Lo que solo informa se va después de verlo; lo que pide algo, cuando se hace: con su botón o desde otro lado (cobrarle, enviar la confirmación o el enlace de Mi cuenta, responder un cambio pedido, confirmar las citas por llamar). Los avisos de días anteriores quedan leídos, porque lo que pedían sigue en "Hoy" y en sus listas, y lo leído se borra al mes. | `StaffAlerts`, `BellAlerts`, `campana:limpiar`, `BellAlertsTest`, `LivePanelTest`, `VisitCloseOutTest` |
+| RN-26 | En su primera reserva web (un número que el consultorio no tenía), el WhatsApp que recibe el paciente no es la confirmación de la cita sino su enlace de Mi cuenta: entra directo a su cuenta y confirma ahí. Las reservas siguientes reciben la confirmación con el enlace de la cita. | `AppointmentService`, `BookingControllerTest`, `AppointmentServiceTest` |
 
 ## Restricciones
 
@@ -229,7 +230,7 @@ Escenario: reserva con un horario libre
   Dado que la limpieza dental se reserva en línea y el doctor tiene libre el jueves a las 10:00
   Cuando el paciente elige ese servicio, ese horario y escribe sus datos
   Entonces la cita queda "Pendiente" a su nombre
-  Y se prepara la confirmación por WhatsApp con su enlace personal
+  Y, por ser su primera reserva, se prepara el WhatsApp con su enlace de Mi cuenta, donde la confirma
   Y recepción recibe la alerta "Nueva cita web"
 Escenario: el horario se ocupó mientras escribía
   Dado que otra persona tomó ese horario hace un momento

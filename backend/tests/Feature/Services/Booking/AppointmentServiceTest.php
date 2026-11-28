@@ -4,6 +4,7 @@ namespace Tests\Feature\Services\Booking;
 
 use App\Enums\AppointmentStatus;
 use App\Enums\BookingChannel;
+use App\Enums\MagicLinkPurpose;
 use App\Enums\MessageStatus;
 use App\Enums\MessageTemplateKey;
 use App\Enums\PatientRelationship;
@@ -12,6 +13,7 @@ use App\Exceptions\BookingException;
 use App\Models\Account;
 use App\Models\Appointment;
 use App\Models\Doctor;
+use App\Models\MagicLink;
 use App\Models\Patient;
 use App\Models\RememberedDevice;
 use App\Models\ScheduleBlock;
@@ -20,6 +22,7 @@ use App\Models\User;
 use App\Models\WhatsappMessage;
 use App\Services\Booking\AppointmentService;
 use App\Services\Booking\WebBookingData;
+use App\Services\WhatsApp\WhatsAppOutbox;
 use Carbon\CarbonImmutable;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
@@ -66,20 +69,69 @@ class AppointmentServiceTest extends TestCase
         $this->assertNull($appointment->patient->account->phone_verified_at, 'El celular se verifica al tocar el enlace, no al reservar.');
     }
 
-    public function test_web_booking_prepares_the_confirmation_message_and_alerts_reception(): void
+    public function test_a_first_booking_with_a_new_number_sends_its_my_account_link_instead_of_the_confirmation(): void
+    {
+        $this->freezeMonday();
+        $reception = User::factory()->reception()->create();
+        $treatment = Treatment::factory()->evaluation()->create(['name' => 'Evaluación']);
+        $doctor = $this->doctorOffering($treatment);
+        $doctor->update(['name' => 'Dr. Luis Rojas']);
+
+        $appointment = $this->service()->bookFromWeb($this->webBooking($doctor, $treatment, '2026-11-03 10:00'));
+
+        // El WhatsApp no es la confirmación de la cita: es su enlace de Mi cuenta, donde la confirma y ve todo lo demás.
+        $message = WhatsappMessage::sole();
+        $this->assertSame(MessageTemplateKey::FirstWebBooking, $message->template_key);
+        $this->assertSame(MessageStatus::Pending, $message->status);
+        $this->assertTrue($message->appointment->is($appointment));
+        $text = app(WhatsAppOutbox::class)->render($message, $reception);
+        $this->assertStringContainsString("quedó reservada para el martes 3 de noviembre a las 10:00\u{00A0}a.\u{00A0}m. con Dr. Luis Rojas.", $text);
+        $this->assertStringContainsString('Entra a Mi cuenta para confirmar tu asistencia, cambiar el horario o cancelar:', $text);
+        $link = MagicLink::sole();
+        $this->assertSame(MagicLinkPurpose::Access, $link->purpose);
+        $this->assertNull($link->appointment_id);
+        $this->assertSame(AppointmentStatus::Pending, $appointment->fresh()->status);
+
+        $alert = $reception->notifications()->sole();
+        $this->assertStringEndsWith('con Dr. Luis Rojas. Es su primera reserva: envíale por WhatsApp su enlace de Mi cuenta, donde la confirma.', $alert->data['body']);
+        $this->assertSame(['Enviar el enlace'], array_column($alert->data['actions'], 'label'));
+        $this->assertSame(['confirmation' => $appointment->id], $alert->data['viewData']);
+    }
+
+    public function test_a_number_the_clinic_already_has_booked_from_another_phone_gets_the_whatsapp_confirmation(): void
     {
         $this->freezeMonday();
         $reception = User::factory()->reception()->create();
         $treatment = Treatment::factory()->evaluation()->create();
         $doctor = $this->doctorOffering($treatment);
+        Account::factory()->create(['phone' => '+51987654321']);
 
         $appointment = $this->service()->bookFromWeb($this->webBooking($doctor, $treatment, '2026-11-03 10:00'));
 
+        // Quien lo escribió puede no ser su dueño: el enlace para confirmarla llega al WhatsApp de ese número.
         $message = WhatsappMessage::sole();
         $this->assertSame(MessageTemplateKey::BookingConfirmation, $message->template_key);
         $this->assertSame(MessageStatus::Pending, $message->status);
         $this->assertTrue($message->appointment->is($appointment));
-        $this->assertSame(1, $reception->notifications()->count());
+        $alert = $reception->notifications()->sole();
+        $this->assertStringEndsWith('Envíale la confirmación por WhatsApp.', $alert->data['body']);
+        $this->assertSame(['Enviar la confirmación'], array_column($alert->data['actions'], 'label'));
+        $this->assertSame(['confirmation' => $appointment->id], $alert->data['viewData']);
+    }
+
+    public function test_a_booking_from_the_remembered_phone_of_the_family_gets_the_usual_confirmation(): void
+    {
+        $this->freezeMonday();
+        User::factory()->reception()->create();
+        $treatment = Treatment::factory()->evaluation()->create();
+        $doctor = $this->doctorOffering($treatment);
+        $account = Account::factory()->verified()->create(['phone' => '+51987654321']);
+        $device = RememberedDevice::create(['account_id' => $account->id, 'token_hash' => str_repeat('c', 64), 'expires_at' => now()->addMonth(), 'verified_at' => now()]);
+
+        $this->service()->bookFromWeb($this->webBooking($doctor, $treatment, '2026-11-03 10:00'), $device);
+
+        // Ya tenía su cuenta: solo la primera reserva cambia de WhatsApp.
+        $this->assertSame(MessageTemplateKey::BookingConfirmation, WhatsappMessage::sole()->template_key);
     }
 
     public function test_rejects_a_web_booking_on_a_taken_slot(): void

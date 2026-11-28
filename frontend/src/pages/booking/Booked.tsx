@@ -58,9 +58,11 @@ export function Booked({ appointment, clinic, howToPay }: Props) {
           <li>
             <strong>Confirma tu asistencia.</strong>{' '}
             {appointment.remembered ? (
+              // En su primera reserva, el WhatsApp trae su enlace de Mi cuenta; después, el de la cita. Con los dos la
+              // confirma, y el número va a la vista para que note si lo escribió mal.
               <>
-                Tu cita queda por confirmar. Te escribiremos por WhatsApp para recordártela, y desde ya puedes
-                confirmarla o cambiarla en <AppLink href={paths.account}>Mi cuenta</AppLink>.
+                Tu cita queda por confirmar. Confírmala en <AppLink href={paths.account}>Mi cuenta</AppLink>, desde este
+                celular o con el enlace que te enviaremos por WhatsApp al {appointment.phone}.
               </>
             ) : (
               <>

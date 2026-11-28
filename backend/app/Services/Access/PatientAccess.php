@@ -103,6 +103,7 @@ class PatientAccess
             'Pidió su enlace de Mi cuenta',
             "{$name} quiere entrar a Mi cuenta. El enlace está listo en Avisos.",
             link: ['label' => 'Enviar el enlace', 'url' => WhatsappMessageResource::getUrl()],
+            about: [StaffAlerts::SEND_ACCESS_LINK => $account->getKey()],
         );
     }
 }
