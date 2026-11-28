@@ -182,11 +182,14 @@ class TreatmentPlan extends Model
 
     /**
      * "1 de 3 hechos · 1 en curso": cuántos procedimientos están terminados y cuántos ya se empezaron. Uno de varias
-     * sesiones no cuenta como hecho hasta la última, pero se ve que ya se está trabajando.
+     * sesiones no cuenta como hecho hasta la última, pero se ve que ya se está trabajando. Con $items, solo de esos
+     * (Mi cuenta cuenta lo que el paciente ya aceptó).
+     *
+     * @param  Collection<int, TreatmentPlanItem>|null  $items
      */
-    public function progressText(): string
+    public function progressText(?Collection $items = null): string
     {
-        $items = $this->items->where('status', '!=', PlanItemStatus::Cancelled);
+        $items = ($items ?? $this->items)->where('status', '!=', PlanItemStatus::Cancelled);
         $started = $items->where('status', PlanItemStatus::InProgress)->count();
 
         return $items->where('status', PlanItemStatus::Done)->count().' de '.$items->count().' hechos'.($started > 0 ? " · {$started} en curso" : '');

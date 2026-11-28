@@ -164,11 +164,16 @@ export interface NextFree {
 
 export interface AppointmentCard {
   id: number;
+  patient_id: number;
   kicker: string;
   status: string;
   tone: 'ok' | 'bad' | 'quiet' | null;
   when: string;
+  /** "Hoy", "Mañana" o "En 5 días"; null si ya no se espera o falta más de un mes. */
+  countdown: string | null;
   what: string;
+  /** La cita como archivo para el calendario del celular; null si ya no se puede mover. */
+  calendar_url: string | null;
   guest_notice: boolean;
   ask_health: { patient_id: number; text: string } | null;
   pending_request: string | null;
@@ -389,24 +394,88 @@ export interface BookedAppointment {
   promo_notice: string | null;
 }
 
+/** Un tratamiento del plan: qué es, en qué pieza (con su nombre) y cómo va. */
+export interface PlanItem {
+  id: number;
+  label: string;
+  detail: string | null;
+  state: string;
+  status: 'pending' | 'in_progress' | 'done';
+  sessions: { done: number; planned: number } | null;
+}
+
+/** Un pago del cronograma del plan: la inicial, una cuota o el pago único. */
+export interface PlanInstallment {
+  id: number;
+  label: string;
+  day: string;
+  amount: string;
+  state: 'paid' | 'due' | 'late' | 'upcoming';
+  state_label: string;
+  /** Lo que falta de un pago que ya venció y se abonó en parte. */
+  left: string | null;
+}
+
 export interface PlanCard {
   id: number;
+  patient_id: number;
   title: string;
   state: string;
   tone: 'ok' | 'bad' | null;
   who: string;
+  /** Terminado y pagado: va plegado, como historial. */
+  finished: boolean;
   included_in: string | null;
+  /** "1 de 3 hechos · 1 en curso": lo mismo que lee el doctor en el panel. */
+  steps: { done: number; started: number; total: number; text: string };
+  /** La sesión del plan que ya tiene fecha. */
+  next_session: string | null;
   progress: {
     percent: number;
     total: string;
     paid: string;
     remaining: string;
     owed: { label: string; amount: string; late: boolean } | null;
-    next: { amount: string; day: string; label: string } | null;
+    next: { amount: string; day: string; date: string; label: string } | null;
   } | null;
   payment: string | null;
-  items_summary: string;
-  items: { id: number; label: string; state: string; done: boolean }[];
+  installments: PlanInstallment[];
+  items: PlanItem[];
+}
+
+/** Lo que el paciente se llevó a casa de una cita atendida. */
+export interface VisitNotes {
+  done: string[];
+  indications: string | null;
+  medicines: { name: string; how: string | null }[];
+  aftercare: string | null;
+}
+
+export interface PastAppointment {
+  id: number;
+  patient_id: number;
+  date: string;
+  name: string;
+  treatment: string;
+  doctor: string;
+  status: string;
+  tone: 'ok' | 'bad' | 'quiet';
+  visit: VisitNotes | null;
+}
+
+/** Una persona de la cuenta, con sus datos, como la ve Mi cuenta después de verificar. */
+export interface AccountMember {
+  id: number;
+  name: string;
+  short_name: string;
+  initials: string;
+  is_self: boolean;
+  relationship: string;
+  document: string | null;
+  birth_date: string | null;
+  email: string | null;
+  /** A quien todavía no nos contó su salud, la invitación a hacerlo; null si ya la tenemos. */
+  ask_health: string | null;
 }
 
 /** Avisos de la familia: si este celular los muestra, en cuántos se activaron y si además van por WhatsApp. */
@@ -427,19 +496,16 @@ export type AccountData =
       elevated: boolean;
       notices: NoticesState | null;
       upcoming: AppointmentCard[];
+      /** Lo que falta agendar: la próxima sesión de quien sigue en tratamiento y el control de quien ya le toca. */
+      sessions: Welcome['sessions'];
+      checkups: Welcome['checkups'];
       plans: PlanCard[] | null;
-      balances: { name: string; text: string; owed: boolean }[] | null;
-      past: { id: number; date: string; name: string; treatment: string; status: string }[] | null;
-      family:
-        | {
-            id: number;
-            name: string;
-            relationship: string;
-            document: string | null;
-            birth_date: string | null;
-            email: string | null;
-          }[]
-        | null;
+      balances: { patient_id: number; name: string; text: string; owed: boolean }[] | null;
+      /** Lo que debe la familia entre todos; null si nadie debe. */
+      owed_total: string | null;
+      payments: { id: number; patient_id: number; date: string; name: string; amount: string; method: string }[] | null;
+      past: PastAppointment[] | null;
+      family: AccountMember[] | null;
     };
 
 export interface HealthData {

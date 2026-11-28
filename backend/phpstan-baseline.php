@@ -3492,26 +3492,11 @@ $ignoreErrors[] = [
 ];
 $ignoreErrors[] = [
     'rawMessage' => 'Access to an undefined property Illuminate\\Database\\Eloquent\\Model::$name.',
-    'count' => 4,
-    'path' => __DIR__.'/app/Http/Controllers/Api/V1/Account/AccountController.php',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Access to an undefined property Illuminate\\Database\\Eloquent\\Model::$patient.',
-    'count' => 1,
-    'path' => __DIR__.'/app/Http/Controllers/Api/V1/Account/AccountController.php',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Access to an undefined property Illuminate\\Database\\Eloquent\\Model::$phone.',
     'count' => 2,
     'path' => __DIR__.'/app/Http/Controllers/Api/V1/Account/AccountController.php',
 ];
 $ignoreErrors[] = [
-    'rawMessage' => 'Call to an undefined method Illuminate\\Database\\Eloquent\\Model::guestIds().',
-    'count' => 1,
-    'path' => __DIR__.'/app/Http/Controllers/Api/V1/Account/AccountController.php',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Call to an undefined method Illuminate\\Database\\Eloquent\\Model::patients().',
+    'rawMessage' => 'Access to an undefined property Illuminate\\Database\\Eloquent\\Model::$phone.',
     'count' => 1,
     'path' => __DIR__.'/app/Http/Controllers/Api/V1/Account/AccountController.php',
 ];
@@ -3522,16 +3507,6 @@ $ignoreErrors[] = [
 ];
 $ignoreErrors[] = [
     'rawMessage' => 'Cannot call method format() on string.',
-    'count' => 3,
-    'path' => __DIR__.'/app/Http/Controllers/Api/V1/Account/AccountController.php',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Cannot call method getLabel() on string.',
-    'count' => 3,
-    'path' => __DIR__.'/app/Http/Controllers/Api/V1/Account/AccountController.php',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Parameter #1 $account of method App\\Http\\Controllers\\Api\\V1\\Account\\AccountController::plansOf() expects App\\Models\\Account, Illuminate\\Database\\Eloquent\\Model|null given.',
     'count' => 1,
     'path' => __DIR__.'/app/Http/Controllers/Api/V1/Account/AccountController.php',
 ];
@@ -3541,37 +3516,7 @@ $ignoreErrors[] = [
     'path' => __DIR__.'/app/Http/Controllers/Api/V1/Account/AccountController.php',
 ];
 $ignoreErrors[] = [
-    'rawMessage' => 'Parameter #1 $callback of method Illuminate\\Database\\Eloquent\\Collection<int,App\\Models\\Appointment>::map() contains unresolvable type.',
-    'count' => 1,
-    'path' => __DIR__.'/app/Http/Controllers/Api/V1/Account/AccountController.php',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Parameter #1 $callback of method Illuminate\\Database\\Eloquent\\Collection<int,Illuminate\\Database\\Eloquent\\Model>::map() contains unresolvable type.',
-    'count' => 1,
-    'path' => __DIR__.'/app/Http/Controllers/Api/V1/Account/AccountController.php',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Parameter #1 $callback of method Illuminate\\Database\\Eloquent\\Collection<int,Illuminate\\Database\\Eloquent\\Model>::map() expects callable(Illuminate\\Database\\Eloquent\\Model, int): array{id: int<0, max>, label: string, state: mixed, done: false}, Closure(App\\Models\\TreatmentPlanItem): array{id: int<0, max>, label: string, state: mixed, done: false} given.',
-    'count' => 1,
-    'path' => __DIR__.'/app/Http/Controllers/Api/V1/Account/AccountController.php',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Parameter #1 $callback of method Illuminate\\Support\\Collection<int,Illuminate\\Database\\Eloquent\\Model>::filter() expects (callable(Illuminate\\Database\\Eloquent\\Model, int): bool)|null, Closure(App\\Models\\TreatmentPlanItem): bool given.',
-    'count' => 1,
-    'path' => __DIR__.'/app/Http/Controllers/Api/V1/Account/AccountController.php',
-];
-$ignoreErrors[] = [
     'rawMessage' => 'Result of && is always false.',
-    'count' => 1,
-    'path' => __DIR__.'/app/Http/Controllers/Api/V1/Account/AccountController.php',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Strict comparison using !== between string and App\\Enums\\PlanItemStatus::Cancelled will always evaluate to true.',
-    'count' => 1,
-    'path' => __DIR__.'/app/Http/Controllers/Api/V1/Account/AccountController.php',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Strict comparison using !== between string and App\\Enums\\PlanItemStatus::Done will always evaluate to true.',
     'count' => 1,
     'path' => __DIR__.'/app/Http/Controllers/Api/V1/Account/AccountController.php',
 ];
@@ -3582,16 +3527,6 @@ $ignoreErrors[] = [
 ];
 $ignoreErrors[] = [
     'rawMessage' => 'Strict comparison using === between string and App\\Enums\\PatientRelationship::Self will always evaluate to false.',
-    'count' => 1,
-    'path' => __DIR__.'/app/Http/Controllers/Api/V1/Account/AccountController.php',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Strict comparison using === between string and App\\Enums\\PlanItemStatus::Done will always evaluate to false.',
-    'count' => 1,
-    'path' => __DIR__.'/app/Http/Controllers/Api/V1/Account/AccountController.php',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Strict comparison using === between string and App\\Enums\\TreatmentPlanStatus::Completed will always evaluate to false.',
     'count' => 1,
     'path' => __DIR__.'/app/Http/Controllers/Api/V1/Account/AccountController.php',
 ];
@@ -3936,68 +3871,23 @@ $ignoreErrors[] = [
     'path' => __DIR__.'/app/Http/Requests/Api/V1/StoreBookingRequest.php',
 ];
 $ignoreErrors[] = [
-    'rawMessage' => 'Access to an undefined property Illuminate\\Database\\Eloquent\\Model::$first_name.',
-    'count' => 1,
-    'path' => __DIR__.'/app/Http/Resources/V1/AppointmentCardResource.php',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Access to an undefined property Illuminate\\Database\\Eloquent\\Model::$full_name.',
-    'count' => 1,
-    'path' => __DIR__.'/app/Http/Resources/V1/AppointmentCardResource.php',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Access to an undefined property Illuminate\\Database\\Eloquent\\Model::$id.',
-    'count' => 1,
-    'path' => __DIR__.'/app/Http/Resources/V1/AppointmentCardResource.php',
-];
-$ignoreErrors[] = [
     'rawMessage' => 'Access to an undefined property Illuminate\\Database\\Eloquent\\Model::$name.',
     'count' => 2,
     'path' => __DIR__.'/app/Http/Resources/V1/AppointmentCardResource.php',
 ];
 $ignoreErrors[] = [
-    'rawMessage' => 'Access to an undefined property Illuminate\\Database\\Eloquent\\Model::$relationship.',
-    'count' => 1,
-    'path' => __DIR__.'/app/Http/Resources/V1/AppointmentCardResource.php',
-];
-$ignoreErrors[] = [
     'rawMessage' => 'Cannot call method format() on string.',
-    'count' => 2,
-    'path' => __DIR__.'/app/Http/Resources/V1/AppointmentCardResource.php',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Cannot call method getLabel() on string.',
     'count' => 1,
     'path' => __DIR__.'/app/Http/Resources/V1/AppointmentCardResource.php',
 ];
 $ignoreErrors[] = [
     'rawMessage' => 'Cannot call method toImmutable() on string.',
-    'count' => 2,
+    'count' => 1,
     'path' => __DIR__.'/app/Http/Resources/V1/AppointmentCardResource.php',
 ];
 $ignoreErrors[] = [
     'rawMessage' => 'Parameter #1 $callback of method Illuminate\\Database\\Eloquent\\Collection<int,Illuminate\\Database\\Eloquent\\Model>::map() expects callable(Illuminate\\Database\\Eloquent\\Model, int): non-falsy-string, Closure(App\\Models\\RescheduleRequestOption): non-falsy-string given.',
     'count' => 1,
-    'path' => __DIR__.'/app/Http/Resources/V1/AppointmentCardResource.php',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Result of && is always false.',
-    'count' => 3,
-    'path' => __DIR__.'/app/Http/Resources/V1/AppointmentCardResource.php',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Strict comparison using === between string and App\\Enums\\AppointmentStatus::Cancelled will always evaluate to false.',
-    'count' => 1,
-    'path' => __DIR__.'/app/Http/Resources/V1/AppointmentCardResource.php',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Strict comparison using === between string and App\\Enums\\AppointmentStatus::Confirmed will always evaluate to false.',
-    'count' => 1,
-    'path' => __DIR__.'/app/Http/Resources/V1/AppointmentCardResource.php',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Strict comparison using === between string and App\\Enums\\AppointmentStatus::Pending will always evaluate to false.',
-    'count' => 5,
     'path' => __DIR__.'/app/Http/Resources/V1/AppointmentCardResource.php',
 ];
 $ignoreErrors[] = [

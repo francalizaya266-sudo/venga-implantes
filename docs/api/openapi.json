@@ -2997,7 +2997,7 @@
         "additionalProperties": false
       },
       "AccountData": {
-        "description": "Sin celular recordado solo dice \"guest: true\". Planes, saldos, citas pasadas y datos de la familia llegan cuando este celular tocó un enlace que llegó al WhatsApp del número (\"elevated\"), y siguen llegando hasta que salga; si solo reservó con un número nuevo, son null. \"notices\" dice si este celular muestra los avisos de citas y cuotas en la pantalla y si además van por WhatsApp.",
+        "description": "Sin celular recordado solo dice \"guest: true\". Planes, saldos, pagos, citas pasadas y datos de la familia llegan cuando este celular tocó un enlace que llegó al WhatsApp del número (\"elevated\"), y siguen llegando hasta que salga; si solo reservó con un número nuevo, son null. \"notices\" dice si este celular muestra los avisos de citas y cuotas en la pantalla y si además van por WhatsApp.",
         "oneOf": [
           {
             "type": "object",
@@ -3021,8 +3021,12 @@
               "elevated",
               "notices",
               "upcoming",
+              "sessions",
+              "checkups",
               "plans",
               "balances",
+              "owed_total",
+              "payments",
               "past",
               "family"
             ],
@@ -3075,6 +3079,19 @@
                   "$ref": "#/components/schemas/AppointmentCard"
                 }
               },
+              "sessions": {
+                "type": "array",
+                "description": "Lo que falta agendar, igual que en el inicio: la próxima sesión de quien sigue en tratamiento.",
+                "items": {
+                  "$ref": "#/components/schemas/PendingSession"
+                }
+              },
+              "checkups": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/PendingCheckup"
+                }
+              },
               "plans": {
                 "type": [
                   "array",
@@ -3092,11 +3109,15 @@
                 "items": {
                   "type": "object",
                   "required": [
+                    "patient_id",
                     "name",
                     "text",
                     "owed"
                   ],
                   "properties": {
+                    "patient_id": {
+                      "type": "integer"
+                    },
                     "name": {
                       "type": "string"
                     },
@@ -3110,22 +3131,34 @@
                   "additionalProperties": false
                 }
               },
-              "past": {
+              "owed_total": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "Lo que debe la familia entre todos. Null si nadie debe o sin verificar."
+              },
+              "payments": {
                 "type": [
                   "array",
                   "null"
                 ],
+                "description": "Lo que la familia pagó, lo más reciente primero (sin los pagos anulados).",
                 "items": {
                   "type": "object",
                   "required": [
                     "id",
+                    "patient_id",
                     "date",
                     "name",
-                    "treatment",
-                    "status"
+                    "amount",
+                    "method"
                   ],
                   "properties": {
                     "id": {
+                      "type": "integer"
+                    },
+                    "patient_id": {
                       "type": "integer"
                     },
                     "date": {
@@ -3134,14 +3167,23 @@
                     "name": {
                       "type": "string"
                     },
-                    "treatment": {
+                    "amount": {
                       "type": "string"
                     },
-                    "status": {
+                    "method": {
                       "type": "string"
                     }
                   },
                   "additionalProperties": false
+                }
+              },
+              "past": {
+                "type": [
+                  "array",
+                  "null"
+                ],
+                "items": {
+                  "$ref": "#/components/schemas/PastAppointment"
                 }
               },
               "family": {
@@ -3150,51 +3192,76 @@
                   "null"
                 ],
                 "items": {
-                  "type": "object",
-                  "required": [
-                    "id",
-                    "name",
-                    "relationship",
-                    "document",
-                    "birth_date",
-                    "email"
-                  ],
-                  "properties": {
-                    "id": {
-                      "type": "integer"
-                    },
-                    "name": {
-                      "type": "string"
-                    },
-                    "relationship": {
-                      "type": "string"
-                    },
-                    "document": {
-                      "type": [
-                        "string",
-                        "null"
-                      ]
-                    },
-                    "birth_date": {
-                      "type": [
-                        "string",
-                        "null"
-                      ]
-                    },
-                    "email": {
-                      "type": [
-                        "string",
-                        "null"
-                      ]
-                    }
-                  },
-                  "additionalProperties": false
+                  "$ref": "#/components/schemas/AccountMember"
                 }
               }
             },
             "additionalProperties": false
           }
         ]
+      },
+      "AccountMember": {
+        "type": "object",
+        "description": "Una persona de la cuenta, con sus datos, como la ve Mi cuenta después de verificar.",
+        "required": [
+          "id",
+          "name",
+          "short_name",
+          "initials",
+          "is_self",
+          "relationship",
+          "document",
+          "birth_date",
+          "email",
+          "ask_health"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "short_name": {
+            "type": "string",
+            "description": "Como se le nombra en la cuenta: con apellido si otra persona lleva su nombre."
+          },
+          "initials": {
+            "type": "string"
+          },
+          "is_self": {
+            "type": "boolean"
+          },
+          "relationship": {
+            "type": "string"
+          },
+          "document": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "birth_date": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "email": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "ask_health": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A quien todavía no contó su salud, la invitación a hacerlo. Null si el consultorio ya la tiene."
+          }
+        },
+        "additionalProperties": false
       },
       "AppCode": {
         "type": "object",
@@ -3231,11 +3298,14 @@
         "type": "object",
         "required": [
           "id",
+          "patient_id",
           "kicker",
           "status",
           "tone",
           "when",
+          "countdown",
           "what",
+          "calendar_url",
           "guest_notice",
           "ask_health",
           "pending_request",
@@ -3247,6 +3317,9 @@
         ],
         "properties": {
           "id": {
+            "type": "integer"
+          },
+          "patient_id": {
             "type": "integer"
           },
           "kicker": {
@@ -3271,9 +3344,23 @@
           "when": {
             "type": "string"
           },
+          "countdown": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Cuánto falta, en días: \"Hoy\", \"Mañana\" o \"En 5 días\". Null si la cita ya no se espera o falta más de un mes."
+          },
           "what": {
             "type": "string",
             "description": "Tratamiento · doctor."
+          },
+          "calendar_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "La cita como archivo .ics para el calendario del celular (dirección firmada). Null si ya no se puede mover."
           },
           "guest_notice": {
             "type": "boolean",
@@ -5200,6 +5287,185 @@
         },
         "additionalProperties": false
       },
+      "PastAppointment": {
+        "type": "object",
+        "required": [
+          "id",
+          "patient_id",
+          "date",
+          "name",
+          "treatment",
+          "doctor",
+          "status",
+          "tone",
+          "visit"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "patient_id": {
+            "type": "integer"
+          },
+          "date": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "treatment": {
+            "type": "string"
+          },
+          "doctor": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "tone": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "bad",
+              "quiet"
+            ]
+          },
+          "visit": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "description": "Lo que el paciente se llevó a casa de una cita atendida. La historia clínica (examen, diagnóstico, evolución) no viaja.",
+            "required": [
+              "done",
+              "indications",
+              "medicines",
+              "aftercare"
+            ],
+            "properties": {
+              "done": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Lo que se hizo de su plan en esa cita."
+              },
+              "indications": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "Las indicaciones del doctor."
+              },
+              "medicines": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "name",
+                    "how"
+                  ],
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "how": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "aftercare": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "Los cuidados del tratamiento, los mismos que van por WhatsApp."
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      "PendingCheckup": {
+        "type": "object",
+        "description": "A quién ya le toca su control, con el enlace para reservarlo a su nombre.",
+        "required": [
+          "patient_id",
+          "kicker",
+          "title",
+          "note",
+          "url",
+          "button"
+        ],
+        "properties": {
+          "patient_id": {
+            "type": "integer"
+          },
+          "kicker": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "note": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "button": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PendingSession": {
+        "type": "object",
+        "description": "A quién le faltan sesiones de su plan y no tiene cita: cuántas lleva y el botón para pedir la próxima.",
+        "required": [
+          "patient_id",
+          "kicker",
+          "title",
+          "done",
+          "total",
+          "note",
+          "requested",
+          "button"
+        ],
+        "properties": {
+          "patient_id": {
+            "type": "integer"
+          },
+          "kicker": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "done": {
+            "type": "integer"
+          },
+          "total": {
+            "type": "integer"
+          },
+          "note": {
+            "type": "string"
+          },
+          "requested": {
+            "type": "boolean"
+          },
+          "button": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
       "PhoneSubscription": {
         "type": "object",
         "description": "La suscripción del navegador (PushSubscription.toJSON()) y su cifrado.",
@@ -5283,18 +5549,25 @@
         "type": "object",
         "required": [
           "id",
+          "patient_id",
           "title",
           "state",
           "tone",
           "who",
+          "finished",
           "included_in",
+          "steps",
+          "next_session",
           "progress",
           "payment",
-          "items_summary",
+          "installments",
           "items"
         ],
         "properties": {
           "id": {
+            "type": "integer"
+          },
+          "patient_id": {
             "type": "integer"
           },
           "title": {
@@ -5317,12 +5590,49 @@
           "who": {
             "type": "string"
           },
+          "finished": {
+            "type": "boolean",
+            "description": "Terminado y pagado: Mi cuenta lo muestra plegado, como historial."
+          },
           "included_in": {
             "type": [
               "string",
               "null"
             ],
             "description": "Plan que va dentro del 2x1 de otro familiar."
+          },
+          "steps": {
+            "type": "object",
+            "description": "Cuántos tratamientos del plan están hechos y cuántos ya se empezaron, de los que el paciente aceptó.",
+            "required": [
+              "done",
+              "started",
+              "total",
+              "text"
+            ],
+            "properties": {
+              "done": {
+                "type": "integer"
+              },
+              "started": {
+                "type": "integer"
+              },
+              "total": {
+                "type": "integer"
+              },
+              "text": {
+                "type": "string",
+                "description": "\"1 de 3 hechos · 1 en curso\": las mismas palabras que lee el doctor en el panel (RN-28)."
+              }
+            },
+            "additionalProperties": false
+          },
+          "next_session": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "La sesión del plan que ya tiene fecha: \"Miércoles 4 de noviembre, 10:00 a. m.\"."
           },
           "progress": {
             "type": [
@@ -5383,6 +5693,7 @@
                 "required": [
                   "amount",
                   "day",
+                  "date",
                   "label"
                 ],
                 "properties": {
@@ -5391,6 +5702,10 @@
                   },
                   "day": {
                     "type": "string"
+                  },
+                  "date": {
+                    "type": "string",
+                    "format": "date"
                   },
                   "label": {
                     "type": "string"
@@ -5407,35 +5722,127 @@
               "null"
             ]
           },
-          "items_summary": {
-            "type": "string"
+          "installments": {
+            "type": "array",
+            "description": "El cronograma de pagos; vacío si se paga por sesión o va incluido en un 2x1.",
+            "items": {
+              "$ref": "#/components/schemas/PlanInstallment"
+            }
           },
           "items": {
             "type": "array",
             "items": {
-              "type": "object",
-              "required": [
-                "id",
-                "label",
-                "state",
-                "done"
-              ],
-              "properties": {
-                "id": {
-                  "type": "integer"
-                },
-                "label": {
-                  "type": "string"
-                },
-                "state": {
-                  "type": "string"
-                },
-                "done": {
-                  "type": "boolean"
-                }
-              },
-              "additionalProperties": false
+              "$ref": "#/components/schemas/PlanItem"
             }
+          }
+        },
+        "additionalProperties": false
+      },
+      "PlanInstallment": {
+        "type": "object",
+        "required": [
+          "id",
+          "label",
+          "day",
+          "amount",
+          "state",
+          "state_label",
+          "left"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "label": {
+            "type": "string",
+            "description": "\"Inicial\", \"Cuota 3 de 18\" o \"Pago único\"."
+          },
+          "day": {
+            "type": "string",
+            "description": "\"Miércoles 2 de diciembre\"; con el año cuando no es el de hoy."
+          },
+          "amount": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "paid",
+              "due",
+              "late",
+              "upcoming"
+            ]
+          },
+          "state_label": {
+            "type": "string",
+            "description": "\"Pagado\", \"Vence hoy\", \"Vencido\" o \"Por vencer\"."
+          },
+          "left": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Lo que falta de un pago vencido que ya se abonó en parte."
+          }
+        },
+        "additionalProperties": false
+      },
+      "PlanItem": {
+        "type": "object",
+        "required": [
+          "id",
+          "label",
+          "detail",
+          "state",
+          "status",
+          "sessions"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "label": {
+            "type": "string",
+            "description": "El tratamiento. Lleva la pieza (\"· pieza 36\") solo cuando no se reconoce su nombre."
+          },
+          "detail": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "La pieza con su nombre: \"Primer molar inferior izquierdo · caras oclusal y mesial\"."
+          },
+          "state": {
+            "type": "string",
+            "description": "\"Hecho\", \"En curso\", \"Por hacer\" o \"3 de 10 sesiones\"."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "in_progress",
+              "done"
+            ]
+          },
+          "sessions": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "description": "Solo en lo que lleva más de una sesión.",
+            "required": [
+              "done",
+              "planned"
+            ],
+            "properties": {
+              "done": {
+                "type": "integer"
+              },
+              "planned": {
+                "type": "integer"
+              }
+            },
+            "additionalProperties": false
           }
         },
         "additionalProperties": false
@@ -6588,79 +6995,13 @@
           "sessions": {
             "type": "array",
             "items": {
-              "type": "object",
-              "required": [
-                "patient_id",
-                "kicker",
-                "title",
-                "done",
-                "total",
-                "note",
-                "requested",
-                "button"
-              ],
-              "properties": {
-                "patient_id": {
-                  "type": "integer"
-                },
-                "kicker": {
-                  "type": "string"
-                },
-                "title": {
-                  "type": "string"
-                },
-                "done": {
-                  "type": "integer"
-                },
-                "total": {
-                  "type": "integer"
-                },
-                "note": {
-                  "type": "string"
-                },
-                "requested": {
-                  "type": "boolean"
-                },
-                "button": {
-                  "type": "string"
-                }
-              },
-              "additionalProperties": false
+              "$ref": "#/components/schemas/PendingSession"
             }
           },
           "checkups": {
             "type": "array",
             "items": {
-              "type": "object",
-              "required": [
-                "patient_id",
-                "kicker",
-                "title",
-                "note",
-                "url",
-                "button"
-              ],
-              "properties": {
-                "patient_id": {
-                  "type": "integer"
-                },
-                "kicker": {
-                  "type": "string"
-                },
-                "title": {
-                  "type": "string"
-                },
-                "note": {
-                  "type": "string"
-                },
-                "url": {
-                  "type": "string"
-                },
-                "button": {
-                  "type": "string"
-                }
-              },
-              "additionalProperties": false
+              "$ref": "#/components/schemas/PendingCheckup"
             }
           }
         },

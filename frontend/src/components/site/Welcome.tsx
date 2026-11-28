@@ -2,6 +2,7 @@ import { useAction } from '@/api/actions';
 import { apiUrl } from '@/api/client';
 import type { Clinic, Welcome as WelcomeData } from '@/api/types';
 import { AppointmentCard } from '@/components/site/AppointmentCard';
+import { CheckupCard, SessionCard } from '@/components/site/FollowUpCards';
 import { AppLink } from '@/components/ui/AppLink';
 import { useLeave } from '@/lib/leave';
 import { paths } from '@/lib/paths';
@@ -40,41 +41,11 @@ export function Welcome({ welcome, clinic }: { welcome: WelcomeData; clinic: Cli
             ))}
 
             {welcome.sessions.map((session) => (
-              <article key={session.patient_id} className="welcome-card" data-welcome="sessions">
-                <span className="welcome-kicker">{session.kicker}</span>
-                <strong className="welcome-when">{session.title}</strong>
-                <div className="meter" role="img" aria-label={`${session.done} de ${session.total} sesiones hechas`}>
-                  <span style={{ width: `${Math.round((session.done / session.total) * 100)}%` }} />
-                </div>
-                <p className="muted">{session.note}</p>
-                <div className="welcome-actions">
-                  {session.requested ? (
-                    <p className="welcome-done">Ya la pediste. Te escribiremos por WhatsApp con el horario.</p>
-                  ) : (
-                    <button
-                      type="button"
-                      className="btn small"
-                      disabled={busy}
-                      onClick={() => void run(apiUrl(`account/patients/${session.patient_id}/next-session`))}
-                    >
-                      {session.button}
-                    </button>
-                  )}
-                </div>
-              </article>
+              <SessionCard key={session.patient_id} session={session} />
             ))}
 
             {welcome.checkups.map((checkup) => (
-              <article key={checkup.patient_id} className="welcome-card" data-welcome="checkup">
-                <span className="welcome-kicker">{checkup.kicker}</span>
-                <strong className="welcome-when">{checkup.title}</strong>
-                <p className="muted">{checkup.note}</p>
-                <div className="welcome-actions">
-                  <AppLink href={checkup.url} className="btn small">
-                    {checkup.button}
-                  </AppLink>
-                </div>
-              </article>
+              <CheckupCard key={checkup.patient_id} checkup={checkup} />
             ))}
           </div>
           {welcome.more > 0 ? (
