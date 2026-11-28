@@ -7,16 +7,19 @@
 @php
     $withTooth ??= true;
     $showHead ??= true;
+    $linkLabel ??= 'Ver en su historia';
 @endphp
 <div class="visit-plans">
     @foreach ($plans as $plan)
         @php
             $items = $plan->items->reject(fn ($item) => $item->status === PlanItemStatus::Cancelled);
-            $done = $items->where('status', PlanItemStatus::Done)->count();
+            // De lo que va en varias sesiones se dice cuántas lleva hechas: "Sesión 2 de 2" se leía como terminado.
             $state = fn ($item) => collect([
-                $item->status !== PlanItemStatus::Done && $item->sessions_planned > 1
-                    ? 'Sesión '.min($item->sessions_done + 1, $item->sessions_planned).' de '.$item->sessions_planned
-                    : $item->status->getLabel(),
+                match (true) {
+                    $item->status === PlanItemStatus::Done || $item->sessions_planned <= 1 => $item->status->getLabel(),
+                    $item->sessions_done > 0 => min($item->sessions_done, $item->sessions_planned).' de '.$item->sessions_planned.' sesiones hechas',
+                    default => $item->status->getLabel().' · '.$item->sessions_planned.' sesiones',
+                },
                 $plan->accepted_at !== null && $item->accepted_at === null && $item->status !== PlanItemStatus::Done ? 'falta que lo acepte' : null,
             ])->filter()->implode(' · ');
         @endphp
@@ -73,9 +76,9 @@
                 </div>
             @endif
             <div class="visit-plan-foot">
-                <span>Total <strong>{{ Money::format($plan->total()) }}</strong> · {{ $done }} de {{ $items->count() }} hechos</span>
+                <span>Total <strong>{{ Money::format($plan->total()) }}</strong> · {{ $plan->progressText() }}</span>
                 @if ($url)
-                    <x-filament::link :href="$url" size="sm">Ver en su historia</x-filament::link>
+                    <x-filament::link :href="$url" size="sm">{{ $linkLabel }}</x-filament::link>
                 @endif
             </div>
         </div>

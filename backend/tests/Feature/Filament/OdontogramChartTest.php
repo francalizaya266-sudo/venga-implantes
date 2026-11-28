@@ -232,6 +232,19 @@ class OdontogramChartTest extends TestCase
             ->assertSeeHtml('--odv-teeth: 10"');
     }
 
+    public function test_the_search_shortcut_is_listed_only_where_there_is_a_box_to_write_in(): void
+    {
+        [$doctor, $consultation] = $this->consultation();
+        $this->actingAs($doctor->user);
+
+        Livewire::test(OdontogramChart::class, ['record' => $consultation, 'editable' => true])
+            ->assertSee(['Buscar o escribir', 'Abrir la pieza 36']);
+
+        Livewire::test(OdontogramChart::class, ['record' => $consultation->patient])
+            ->assertDontSee('Buscar o escribir')
+            ->assertSee('Abrir la pieza 36');
+    }
+
     /** @return array{0: Doctor, 1: Consultation} */
     private function consultation(): array
     {

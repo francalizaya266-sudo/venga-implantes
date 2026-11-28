@@ -180,6 +180,18 @@ class TreatmentPlan extends Model
             ->sum(fn (TreatmentPlanItem $item) => $item->subtotal()), 2);
     }
 
+    /**
+     * "1 de 3 hechos · 1 en curso": cuántos procedimientos están terminados y cuántos ya se empezaron. Uno de varias
+     * sesiones no cuenta como hecho hasta la última, pero se ve que ya se está trabajando.
+     */
+    public function progressText(): string
+    {
+        $items = $this->items->where('status', '!=', PlanItemStatus::Cancelled);
+        $started = $items->where('status', PlanItemStatus::InProgress)->count();
+
+        return $items->where('status', PlanItemStatus::Done)->count().' de '.$items->count().' hechos'.($started > 0 ? " · {$started} en curso" : '');
+    }
+
     /** Lo aceptado se paga con cronograma (pago único o cuotas), no sesión por sesión. */
     public function hasSchedule(): bool
     {

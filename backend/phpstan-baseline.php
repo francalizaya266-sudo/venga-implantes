@@ -571,11 +571,6 @@ $ignoreErrors[] = [
     'path' => __DIR__.'/app/Filament/Pages/Agenda.php',
 ];
 $ignoreErrors[] = [
-    'rawMessage' => 'Parameter #1 $time of method App\\Filament\\Pages\\Agenda::minuteOf() expects DateTimeInterface, string|null given.',
-    'count' => 2,
-    'path' => __DIR__.'/app/Filament/Pages/Agenda.php',
-];
-$ignoreErrors[] = [
     'rawMessage' => 'Parameter #2 $from of method Illuminate\\Database\\Eloquent\\Builder<App\\Models\\ScheduleBlock>::affecting() expects Carbon\\CarbonInterface, string given.',
     'count' => 1,
     'path' => __DIR__.'/app/Filament/Pages/Agenda.php',
@@ -1672,7 +1667,7 @@ $ignoreErrors[] = [
 ];
 $ignoreErrors[] = [
     'rawMessage' => 'Parameter #1 $callback of method Illuminate\\Support\\Collection<int,Illuminate\\Database\\Eloquent\\Model>::reject() expects bool|(callable(Illuminate\\Database\\Eloquent\\Model, int): bool)|Illuminate\\Database\\Eloquent\\Model, Closure(App\\Models\\TreatmentPlanItem): false given.',
-    'count' => 2,
+    'count' => 1,
     'path' => __DIR__.'/app/Filament/Resources/Patients/RelationManagers/TreatmentPlansRelationManager.php',
 ];
 $ignoreErrors[] = [
@@ -1697,7 +1692,7 @@ $ignoreErrors[] = [
 ];
 $ignoreErrors[] = [
     'rawMessage' => 'Strict comparison using === between string and App\\Enums\\PlanItemStatus::Cancelled will always evaluate to false.',
-    'count' => 2,
+    'count' => 1,
     'path' => __DIR__.'/app/Filament/Resources/Patients/RelationManagers/TreatmentPlansRelationManager.php',
 ];
 $ignoreErrors[] = [
@@ -1842,11 +1837,6 @@ $ignoreErrors[] = [
 ];
 $ignoreErrors[] = [
     'rawMessage' => 'Cannot call method getLabel() on string.',
-    'count' => 2,
-    'path' => __DIR__.'/app/Filament/Resources/Patients/Tables/PatientsTable.php',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Using nullsafe method call on non-nullable type string. Use -> instead.',
     'count' => 1,
     'path' => __DIR__.'/app/Filament/Resources/Patients/Tables/PatientsTable.php',
 ];
@@ -3027,16 +3017,6 @@ $ignoreErrors[] = [
 ];
 $ignoreErrors[] = [
     'rawMessage' => 'Method App\\Filament\\Support\\PatientSummary::origin() should return array{label: string, color: string, icon: string, url: string|null, action: array{name: string, arguments: array<string, mixed>}|null}|null but returns array{label: non-falsy-string, color: \'gray\', icon: \'heroicon-m-megaphone\', url: null}.',
-    'count' => 1,
-    'path' => __DIR__.'/app/Filament/Support/PatientSummary.php',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Method App\\Filament\\Support\\PatientSummary::unfinishedPlan() never returns array{label: string, color: string, icon: string, url: string|null, action: array{name: string, arguments: array<string, mixed>}|null} so it can be removed from the return type.',
-    'count' => 1,
-    'path' => __DIR__.'/app/Filament/Support/PatientSummary.php',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Method App\\Filament\\Support\\PatientSummary::unfinishedPlan() should return array{label: string, color: string, icon: string, url: string|null, action: array{name: string, arguments: array<string, mixed>}|null}|null but returns array{label: \'Plan a medias:…\', color: \'warning\', icon: \'heroicon-m…\', url: string}|array{label: \'Presupuesto sin…\', color: \'warning\', icon: \'heroicon-m…\', url: null}|null.',
     'count' => 1,
     'path' => __DIR__.'/app/Filament/Support/PatientSummary.php',
 ];
@@ -5907,11 +5887,6 @@ $ignoreErrors[] = [
 ];
 $ignoreErrors[] = [
     'rawMessage' => 'Call to an undefined method Illuminate\\Support\\Collection::load().',
-    'count' => 1,
-    'path' => __DIR__.'/app/Services/Clinical/OdontogramSuggestions.php',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Call to function in_array() with arguments string, array{App\\Enums\\PlanItemStatus::Pending, App\\Enums\\PlanItemStatus::InProgress} and true will always evaluate to false.',
     'count' => 1,
     'path' => __DIR__.'/app/Services/Clinical/OdontogramSuggestions.php',
 ];

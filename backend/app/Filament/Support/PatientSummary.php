@@ -12,11 +12,13 @@ use App\Filament\Resources\Appointments\AppointmentResource;
 use App\Filament\Resources\Consultations\ConsultationResource;
 use App\Filament\Resources\LabOrders\LabOrderResource;
 use App\Filament\Resources\Patients\PatientResource;
+use App\Filament\Resources\TreatmentPlans\TreatmentPlanResource;
 use App\Models\Appointment;
 use App\Models\Charge;
 use App\Models\LabOrder;
 use App\Models\Patient;
 use App\Models\Payment;
+use App\Models\TreatmentPlan;
 use App\Models\User;
 use App\Services\Clinical\ConsentService;
 use App\Services\Dashboard\FollowUps;
@@ -171,7 +173,7 @@ final class PatientSummary
             $seesMoney ? self::balance($patient, $insights, $withActions && $user->can('create', Payment::class)) : null,
             self::nextVisit($patient, $next),
             $next === null ? self::lastVisit($patient, $insights, $step) : null,
-            in_array($step, ['schedule', 'plan_answer'], true) ? null : self::unfinishedPlan($patient),
+            self::plan($patient, $user, $step),
             self::labWork($patient, $user),
             self::noShows($patient, $insights),
             self::birthday($patient, $withActions),
@@ -323,26 +325,37 @@ final class PatientSummary
         ];
     }
 
-    /** @return Chip|null */
-    private static function unfinishedPlan(Patient $patient): ?array
+    /**
+     * Su plan: cómo va el que aceptó ("Plan: 1 de 3 hechos · 1 en curso"), con el aviso si le quedan procedimientos
+     * y ninguna cita; o el presupuesto que no respondió. Lo que ya dice el siguiente paso no se repite.
+     *
+     * @return Chip|null
+     */
+    private static function plan(Patient $patient, User $user, ?string $step): ?array
     {
         $patients = Patient::query()->whereKey($patient->getKey());
+        /** @var TreatmentPlan|null $plan */
+        $plan = $patient->treatmentPlans()->whereIn('status', TreatmentPlan::ACCEPTED_STATUSES)->with('items')->oldest('id')->first();
 
-        return match (true) {
-            (clone $patients)->withUnscheduledPlan()->exists() => [
-                'label' => 'Plan a medias: falta agendar',
-                'color' => 'warning',
+        if ($plan !== null) {
+            $unscheduled = $step !== 'schedule' && (clone $patients)->withUnscheduledPlan()->exists();
+
+            return [
+                'label' => 'Plan: '.$plan->progressText().($unscheduled ? ' · falta agendar' : ''),
+                'color' => $unscheduled ? 'warning' : 'gray',
                 'icon' => 'heroicon-m-clipboard-document-list',
-                'url' => AppointmentResource::newUrl(['patient' => $patient->getKey()]),
-            ],
-            (clone $patients)->withPlanAwaitingAnswer()->exists() => [
-                'label' => 'Presupuesto sin respuesta',
-                'color' => 'warning',
-                'icon' => 'heroicon-m-clipboard-document-list',
-                'url' => null,
-            ],
-            default => null,
-        };
+                'url' => match (true) {
+                    $unscheduled => AppointmentResource::newUrl(['patient' => $patient->getKey()]),
+                    $user->can('viewBudget', $plan) => TreatmentPlanResource::getUrl('view', ['record' => $plan]),
+                    default => null,
+                },
+                'action' => null,
+            ];
+        }
+
+        return $step !== 'plan_answer' && (clone $patients)->withPlanAwaitingAnswer()->exists()
+            ? ['label' => 'Presupuesto sin respuesta', 'color' => 'warning', 'icon' => 'heroicon-m-clipboard-document-list', 'url' => null, 'action' => null]
+            : null;
     }
 
     /**

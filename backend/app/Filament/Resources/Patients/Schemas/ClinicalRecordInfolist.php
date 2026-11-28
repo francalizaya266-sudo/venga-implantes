@@ -4,12 +4,14 @@ namespace App\Filament\Resources\Patients\Schemas;
 
 use App\Enums\Sex;
 use App\Filament\Actions\EditMedicalBackgroundAction;
+use App\Filament\Resources\Patients\PatientResource;
 use App\Filament\Support\ClinicalAlerts;
 use App\Filament\Support\PageLayout;
 use App\Livewire\OdontogramChart;
 use App\Models\MedicalBackground;
 use App\Models\Patient;
 use App\Models\StockMovement;
+use App\Models\TreatmentPlan;
 use App\Models\User;
 use App\Services\Inventory\InventoryService;
 use Filament\Infolists\Components\TextEntry;
@@ -17,8 +19,10 @@ use Filament\Schemas\Components\Actions;
 use Filament\Schemas\Components\Group;
 use Filament\Schemas\Components\Livewire;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\View;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
+use Illuminate\Database\Eloquent\Collection;
 
 /**
  * La historia clínica en dos columnas: a la izquierda los antecedentes (y los implantes colocados), a la derecha
@@ -39,7 +43,7 @@ class ClinicalRecordInfolist
                 Group::make(fn (Patient $record) => array_filter([ClinicalAlerts::callout($record, withLink: false)]))
                     ->visible(fn (Patient $record) => ClinicalAlerts::for($record) !== [])
                     ->columnSpanFull(),
-                Group::make([self::background(), self::implants()])
+                Group::make([self::background(), self::plan(), self::implants()])
                     ->columnSpan(PageLayout::NARROW),
                 Section::make('Odontograma')
                     ->icon(Heroicon::OutlinedSquares2x2)
@@ -108,6 +112,35 @@ class ClinicalRecordInfolist
                     ->columnSpanFull()
                     ->visible(fn (Patient $record) => $record->medicalBackground !== null),
             ]);
+    }
+
+    /**
+     * Su plan vigente, a la vista sin bajar a la pestaña Presupuestos: cada procedimiento con su precio, en qué va
+     * y cuántos lleva hechos. Sin plan vigente no aparece.
+     */
+    private static function plan(): Section
+    {
+        return Section::make('Plan de tratamiento')
+            ->key('plan')
+            ->icon(Heroicon::OutlinedClipboardDocumentList)
+            ->description('Cómo va: lo hecho y lo que falta.')
+            ->schema([
+                View::make('filament.consultations.plans')
+                    ->viewData(fn (Patient $record) => [
+                        'plans' => self::openPlans($record),
+                        'payments' => [],
+                        'paymentOptions' => [],
+                        'url' => PatientResource::getUrl('clinical', ['record' => $record, 'relation' => '1']),
+                        'linkLabel' => 'Ver presupuestos',
+                    ]),
+            ])
+            ->visible(fn (Patient $record) => self::openPlans($record)->isNotEmpty());
+    }
+
+    /** @return Collection<int, TreatmentPlan> Los planes vigentes del paciente, del más antiguo al más nuevo. */
+    private static function openPlans(Patient $patient): Collection
+    {
+        return TreatmentPlan::query()->whereBelongsTo($patient)->open()->with('items')->orderBy('id')->get();
     }
 
     /** Los implantes que se le pusieron, con su serie y lote, por si el fabricante pide revisar alguno. */

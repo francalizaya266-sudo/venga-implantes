@@ -206,9 +206,31 @@ class EditConsultation extends EditRecord
     protected function afterSave(): void
     {
         app(PrescriptionService::class)->syncForConsultation($this->getConsultation(), $this->prescriptionItems);
+        $this->makeRoomForProcedureDetails();
         $this->savedFingerprint = $this->fingerprint();
         $this->autosavedAt = now()->format('H:i');
         $this->unsavedReason = null;
+    }
+
+    /**
+     * En una atención sin cita, los datos propios del tratamiento (pieza, anestesia, sutura) aparecen recién al
+     * guardarse qué se trabajó. Llegan con su lugar en el formulario: sin él, lo que se escribe en ellos no se guarda.
+     */
+    private function makeRoomForProcedureDetails(): void
+    {
+        $fields = $this->getConsultation()->procedureKind()->detailFields();
+
+        if ($fields === []) {
+            return;
+        }
+
+        $details = $this->data['procedure_details'] ?? [];
+
+        foreach ($fields as $key => $field) {
+            $details[$key] ??= $field['type'] === 'toggle' ? false : null;
+        }
+
+        $this->data['procedure_details'] = $details;
     }
 
     /**
@@ -362,6 +384,8 @@ class EditConsultation extends EditRecord
             ->modalDescription(fn () => $this->closeDescription())
             ->modalWidth(fn () => self::tracksInventory() ? Width::ThreeExtraLarge : null)
             ->modalSubmitActionLabel('Sí, terminar')
+            // Con varios materiales la ventana es más alta que una laptop: el botón se queda a la vista.
+            ->stickyModalFooter()
             ->fillForm(fn () => self::tracksInventory()
                 ? ['supplies_used' => app(InventoryService::class)->plannedUsage($this->getConsultation(), $this->data['planItems'] ?? null, $this->data['treatments'] ?? null)]
                 : [])

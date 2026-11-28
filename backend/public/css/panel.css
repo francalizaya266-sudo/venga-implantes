@@ -185,6 +185,11 @@
 .dark .agenda-help { color: var(--gray-400); }
 .dark .agenda-help summary { color: var(--primary-400); }
 .dark .agenda-help summary::before { background: rgb(255 255 255 / .08); }
+/* Al lado de la ayuda: que una cita se mueve arrastrándola. Con la ayuda abierta sobra (ahí ya lo dice). */
+.agenda-tip { display: inline-flex; align-items: center; gap: .35rem; margin: 0 auto 0 0; font-size: .8125rem; color: var(--gray-500); }
+.agenda-tip-icon { width: .875rem; height: .875rem; flex: none; }
+.agenda-tip-touch, .agenda-help[open] + .agenda-tip { display: none; }
+.dark .agenda-tip { color: var(--gray-400); }
 
 /* El marco: un solo trazo fino alrededor y esquinas redondeadas; adentro, nada de cajas. */
 .agenda-frame { overflow: auto; max-height: calc(100dvh - 16.5rem); border-radius: 1rem; background: var(--ag-surface); box-shadow: 0 0 0 1px var(--ag-line); overscroll-behavior: contain; scroll-snap-type: x proximity; scroll-padding-left: 3.5rem; }
@@ -270,11 +275,11 @@
 
 /* Dónde cae la cita que se arrastra. */
 .agenda-drop { position: absolute; left: 3px; right: 4px; z-index: 3; pointer-events: none; border-radius: .5rem; background: color-mix(in oklab, var(--primary-500) 12%, transparent); box-shadow: inset 0 0 0 1.5px var(--primary-500); }
-.agenda-drop.is-refused { background: color-mix(in oklab, var(--danger-500) 8%, transparent); box-shadow: inset 0 0 0 1.5px var(--danger-500); }
+.agenda-drop:is(.is-refused, .is-taken) { background: color-mix(in oklab, var(--danger-500) 8%, transparent); box-shadow: inset 0 0 0 1.5px var(--danger-500); }
 .agenda-drop span { position: absolute; top: -.25rem; left: 0; transform: translateY(-100%); padding: .0625rem .4rem; border-radius: 9999px; background: var(--primary-600); color: #fff; font-size: .75rem; font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.agenda-drop.is-refused span { background: var(--danger-600); }
-.agenda-drop.is-outside:not(.is-refused) { background: color-mix(in oklab, var(--warning-500) 12%, transparent); box-shadow: inset 0 0 0 1.5px var(--warning-500); }
-.agenda-drop.is-outside:not(.is-refused) span { background: var(--warning-600); }
+.agenda-drop:is(.is-refused, .is-taken) span { background: var(--danger-600); }
+.agenda-drop.is-outside:not(.is-refused, .is-taken) { background: color-mix(in oklab, var(--warning-500) 12%, transparent); box-shadow: inset 0 0 0 1.5px var(--warning-500); }
+.agenda-drop.is-outside:not(.is-refused, .is-taken) span { background: var(--warning-600); }
 
 /* La cita. */
 .agenda-appt {
@@ -410,6 +415,7 @@
     /* Con tres vistas, "Ayuda" deja lugar para las pestañas. */
     .agenda-help-long { display: none; }
     .agenda-help-short { display: inline; }
+    .agenda-tip { display: none; }
     .agenda-frame { border-radius: .875rem; }
     /* Sin desplazamiento propio: "clip" recorta las esquinas redondeadas sin crear otro scroll, y la fila
        del doctor queda pegada bajo la barra de arriba mientras se baja. */
@@ -425,6 +431,8 @@
     .agenda-nav-btn.is-icon { width: 2.75rem; }
     .agenda-modes .fi-tabs-item { padding-block: .4375rem; }
     .agenda-help summary { display: inline-flex; align-items: center; min-height: 2.75rem; }
+    .agenda-tip-mouse { display: none; }
+    .agenda-tip-touch { display: inline; }
     .agenda-appt-step .fi-btn::after { content: ""; position: absolute; inset-inline: -.25rem; top: calc(50% - 1.375rem); height: 2.75rem; }
     /* El ícono solo, en la esquina: la zona del dedo crece hacia adentro de la tarjeta y termina en su borde, sin
        llegar a la cita de abajo. */
@@ -2512,6 +2520,13 @@ a.ap-visit:hover { background: var(--gray-50); }
     .fi-ta-table > tbody > .fi-ta-row:not(.fi-ta-group-header-row):hover { background: color-mix(in oklab, var(--primary-50) 60%, transparent); }
     .dark .fi-ta-table > tbody > .fi-ta-row:not(.fi-ta-group-header-row):hover { background: rgb(255 255 255 / .035); }
 }
+/* La lista de pacientes en la computadora: filas más bajas, con el documento chico bajo el nombre, para que en una
+   laptop entren seis en vez de cuatro. En el celular cada fila ya es una tarjeta con su propio espacio. */
+@media (min-width: 40rem) {
+    .fi-resource-pacientes.fi-resource-list-records-page .fi-ta-table > tbody .fi-ta-text { padding-block: .5rem; }
+    .fi-resource-pacientes.fi-resource-list-records-page .fi-ta-table > tbody .fi-ta-text-has-descriptions { gap: .0625rem; }
+    .fi-resource-pacientes.fi-resource-list-records-page .fi-ta-table > tbody .fi-ta-text-description { font-size: .75rem; line-height: 1rem; }
+}
 
 /* Las pestañas de cada lista: la elegida, en el azul de la marca. */
 .fi-tabs-item.fi-active { background: var(--primary-50); }
@@ -2600,6 +2615,12 @@ a.ap-visit:hover { background: var(--gray-50); }
  */
 @media (min-width: 64rem) {
     .fi-no.fi-vertical-align-start { flex-direction: column; justify-content: flex-end; }
+    /*
+     * Con el panel de la cita abierto, abajo a la derecha están sus botones ("Llegó", "Pasó a consulta", "Ver todo de
+     * la cita"). El aviso de lo que se acaba de hacer salía encima, bajo el cursor (y con el cursor encima no se va;
+     * el de "Paciente en sala" ni se va solo): va a la izquierda del panel, que mide 28rem.
+     */
+    body:has(.fi-modal-slide-over.fi-modal-open) .fi-no.fi-vertical-align-start { inset-inline-end: 29rem; }
 }
 
 

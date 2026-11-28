@@ -659,6 +659,38 @@ class PatientsAndSetupPanelTest extends TestCase
             ->assertDontSee(['Plan sin agendar', 'Presupuesto sin respuesta']);
     }
 
+    public function test_the_patients_list_says_whose_phone_it_is_only_when_it_is_not_the_patients_own(): void
+    {
+        $account = Account::factory()->create(['phone' => '+51987654321']);
+        $mother = Patient::factory()->for($account)->create(['first_name' => 'Rosa', 'last_name' => 'Quispe']);
+        $son = Patient::factory()->dependentOf($account)->create(['first_name' => 'Mateo', 'last_name' => 'Quispe']);
+        $this->actingAs(User::factory()->reception()->create());
+
+        // Casi todos son el titular: repetirlo en cada fila estorba. Del hijo sí se dice, porque el celular es de su mamá.
+        Livewire::test(ListPatients::class)
+            ->assertTableColumnDoesNotHaveDescription('account.phone', 'Titular', $mother)
+            ->assertTableColumnHasDescription('account.phone', 'Hijo(a)', $son);
+    }
+
+    public function test_the_tabs_to_win_patients_back_give_the_room_of_age_and_last_visit_to_what_is_due(): void
+    {
+        $this->actingAs(User::factory()->reception()->create());
+
+        // Con todas las columnas, "Le toca" quedaba de una palabra por línea en una laptop.
+        Livewire::test(ListPatients::class)
+            ->assertTableColumnVisible('birth_date')
+            ->assertTableColumnVisible('last_visit_at')
+            ->assertTableColumnHidden('follow_up')
+            ->set('activeTab', 'checkup')
+            ->assertTableColumnVisible('follow_up')
+            ->assertTableColumnHidden('birth_date')
+            ->assertTableColumnHidden('last_visit_at')
+            ->set('activeTab', 'missed')
+            ->assertTableColumnVisible('follow_up')
+            ->assertTableColumnHidden('birth_date')
+            ->assertTableColumnHidden('last_visit_at');
+    }
+
     public function test_the_patients_list_finds_a_phone_written_with_spaces_and_offers_to_register_who_is_missing(): void
     {
         $rosa = Patient::factory()->for(Account::factory()->state(['phone' => '+51987654321']))->create(['first_name' => 'Rosa', 'last_name' => 'Quispe']);

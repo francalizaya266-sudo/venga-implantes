@@ -1075,7 +1075,22 @@ final class TreatmentPlanService
     }
 
     /**
-     * Sesiones hechas = atenciones terminadas en que se trabajó el procedimiento.
+     * Recalcula el avance del procedimiento del que la cita es una sesión, al cerrarla recepción con "Atendido".
+     * Con atención escrita no hace nada: ahí el avance lo lleva lo que el doctor dejó marcado.
+     */
+    public function syncAppointment(Appointment $appointment): void
+    {
+        /** @var TreatmentPlanItem|null $item */
+        $item = $appointment->planItem;
+
+        if ($item !== null && ! $appointment->consultation()->exists()) {
+            $this->syncItems([$item]);
+        }
+    }
+
+    /**
+     * Sesiones hechas = atenciones terminadas en que se trabajó el procedimiento, más las citas de esa sesión
+     * que recepción cerró sin atención escrita ("Atendido"): ahí lo programado se da por hecho y se cobra.
      * El estado del procedimiento y del plan se deducen de ahí.
      *
      * @param  iterable<TreatmentPlanItem>  $items
@@ -1085,7 +1100,8 @@ final class TreatmentPlanService
         $plans = collect();
 
         foreach ($items as $item) {
-            $done = $item->consultations()->whereNotNull('closed_at')->count();
+            $done = $item->consultations()->whereNotNull('closed_at')->count()
+                + $item->appointments()->where('status', AppointmentStatus::Completed)->whereDoesntHave('consultation')->count();
 
             $item->sessions_done = min($done, 255);
 

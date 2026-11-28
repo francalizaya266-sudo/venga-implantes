@@ -42,6 +42,12 @@ final class Teeth
         return in_array($tooth, self::all($dentition), true);
     }
 
+    /** Donde se pone un implante si la pieza falta: una de adulto que no sea la muela del juicio (ni esa ni un diente de leche se reponen). */
+    public static function takesImplant(int $tooth): bool
+    {
+        return self::quadrant($tooth) <= 4 && $tooth % 10 !== 8;
+    }
+
     public static function quadrant(int $tooth): int
     {
         return intdiv($tooth, 10);

@@ -86,7 +86,10 @@
                     <details class="odv-keys">
                         <summary>Atajos</summary>
                         <dl>
-                            <dt><kbd>/</kbd></dt><dd>Buscar o escribir</dd>
+                            {{-- En modo lectura no hay cuadro donde buscar o escribir. --}}
+                            @if ($canEdit)
+                                <dt><kbd>/</kbd></dt><dd>Buscar o escribir</dd>
+                            @endif
                             <dt><kbd>3</kbd> <kbd>6</kbd></dt><dd>Abrir la pieza 36</dd>
                             <dt><kbd>←</kbd> <kbd>→</kbd></dt><dd>Pieza de al lado</dd>
                             <dt><kbd>↑</kbd> <kbd>↓</kbd></dt><dd>La otra arcada</dd>

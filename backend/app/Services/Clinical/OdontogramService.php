@@ -60,7 +60,7 @@ final class OdontogramService
     ): ?OdontogramEntry {
         [$attributes, $existing] = $this->prepare($odontogram, $condition, $state, $tooth, $surface, $toTooth, $abbreviation);
 
-        if ($existing && $existing->state === $attributes['state'] && $existing->abbreviation === $attributes['abbreviation']) {
+        if ($existing && self::isSameMark($existing, $attributes)) {
             $existing->delete();
 
             return null;
@@ -82,6 +82,122 @@ final class OdontogramService
         [$attributes, $existing] = $this->prepare($odontogram, $condition, $state, $tooth, $surface, $toTooth, $abbreviation);
 
         return $this->save($odontogram, $attributes, $existing);
+    }
+
+    /**
+     * Marca con el pincel (o al dictar). En azul, lo que deja un tratamiento responde a lo rojo que lo pedía, igual
+     * que "Tratado": la restauración sobre la caries de esa cara, la pieza ausente sobre la extracción indicada.
+     * Así no quedan las dos marcas, una encima de la otra, y se sabe qué quedó tratado.
+     *
+     * @param  bool  $toggle  Con el pincel, tocar la misma marca la quita; al dictar se deja como está.
+     * @return array{entry: OdontogramEntry|null, treated: list<array{code: string, abbreviation: string|null}>, fresh: bool} La marca que quedó (null si se quitó), lo rojo que con eso quedó tratado y si la marca azul es de ahora.
+     */
+    public function paint(
+        Odontogram $odontogram,
+        OdontogramCondition $condition,
+        ToothState $state,
+        int $tooth,
+        ?string $surface = null,
+        ?int $toTooth = null,
+        ?string $abbreviation = null,
+        bool $toggle = true,
+    ): array {
+        [$attributes, $existing] = $this->prepare($odontogram, $condition, $state, $tooth, $surface, $toTooth, $abbreviation);
+        $blue = $attributes['state'] === ToothState::Good;
+        $answered = $blue ? $this->answeredBy($odontogram, $condition, $tooth, $attributes['surface']) : new EloquentCollection;
+
+        if ($answered->isNotEmpty()) {
+            return $this->treatAnswered($answered, $condition, $abbreviation);
+        }
+
+        if ($toggle && $existing && self::isSameMark($existing, $attributes)) {
+            $existing->delete();
+
+            return ['entry' => null, 'treated' => [], 'fresh' => false];
+        }
+
+        // Cómo estaba antes: la misma marca que estaba en rojo y pasa a azul también quedó tratada, con la sigla que tenía.
+        $before = self::stateOf($existing);
+        $treated = $blue && $before === ToothState::Bad ? [['code' => $condition->code, 'abbreviation' => $existing->abbreviation]] : [];
+
+        return ['entry' => $this->save($odontogram, $attributes, $existing), 'treated' => $treated, 'fresh' => $blue && $before !== ToothState::Good];
+    }
+
+    /**
+     * Pasa a tratado lo rojo que la marca azul responde, como "Tratado" en cada una.
+     *
+     * @param  EloquentCollection<int, OdontogramEntry>  $answered
+     * @return array{entry: OdontogramEntry|null, treated: list<array{code: string, abbreviation: string|null}>, fresh: bool}
+     */
+    private function treatAnswered(EloquentCollection $answered, OdontogramCondition $condition, ?string $abbreviation): array
+    {
+        return DB::transaction(function () use ($answered, $condition, $abbreviation): array {
+            $entry = null;
+
+            // Si la marca nueva es de toda la pieza (ausente), tratar la primera ya se lleva las demás.
+            foreach ($condition->applies_to === 'tooth' ? $answered->take(1) : $answered as $red) {
+                $entry = $this->markTreated($red, $abbreviation);
+            }
+
+            return [
+                'entry' => $entry,
+                'treated' => $answered->map(fn (OdontogramEntry $red) => ['code' => self::conditionOf($red)->code, 'abbreviation' => $red->abbreviation])->values()->all(),
+                'fresh' => true,
+            ];
+        });
+    }
+
+    /**
+     * Lo rojo de la pieza que queda tratado al marcar ese hallazgo en azul: la caries de esa cara bajo una
+     * restauración; la extracción indicada o el remanente de una pieza que se marca ausente.
+     *
+     * @return EloquentCollection<int, OdontogramEntry>
+     */
+    private function answeredBy(Odontogram $odontogram, OdontogramCondition $condition, int $tooth, ?string $surface): EloquentCollection
+    {
+        $codes = array_keys(self::TREATED_AS, $condition->code, true);
+
+        if ($codes === []) {
+            return new EloquentCollection;
+        }
+
+        return OdontogramEntry::query()
+            ->with('condition')
+            ->where('odontogram_id', $odontogram->getKey())
+            ->where('tooth', $tooth)
+            ->whereNull('to_tooth')
+            ->where('state', ToothState::Bad)
+            ->whereHas('condition', fn ($query) => $query->whereIn('code', $codes))
+            ->when($condition->applies_to === 'surface', fn ($query) => $query->where('surface', $surface))
+            ->get();
+    }
+
+    /** El hallazgo de la marca, con su tipo (el análisis estático no lo ve). */
+    private static function conditionOf(OdontogramEntry $entry): OdontogramCondition
+    {
+        /** @var OdontogramCondition $condition */
+        $condition = $entry->condition;
+
+        return $condition;
+    }
+
+    /** El estado de la marca, con su tipo (el análisis estático no lo ve). Null si no hay marca. */
+    private static function stateOf(?OdontogramEntry $entry): ?ToothState
+    {
+        /** @var ToothState|null $state */
+        $state = $entry?->state;
+
+        return $state;
+    }
+
+    /**
+     * La marca que ya estaba es la misma que se quiere poner: el mismo color y la misma sigla.
+     *
+     * @param  array<string, mixed>  $attributes
+     */
+    private static function isSameMark(OdontogramEntry $existing, array $attributes): bool
+    {
+        return $existing->state === $attributes['state'] && $existing->abbreviation === $attributes['abbreviation'];
     }
 
     /** Si una marca roja se puede pasar a tratada de un toque. */

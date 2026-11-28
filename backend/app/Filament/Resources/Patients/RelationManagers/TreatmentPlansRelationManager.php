@@ -99,11 +99,7 @@ class TreatmentPlansRelationManager extends RelationManager
                     ->wrap(),
                 TextColumn::make('progress')
                     ->label('Avance')
-                    ->state(function (TreatmentPlan $record) {
-                        $items = $record->items->reject(fn (TreatmentPlanItem $item) => $item->status === PlanItemStatus::Cancelled);
-
-                        return $items->where('status', PlanItemStatus::Done)->count().' de '.$items->count().' hechos';
-                    }),
+                    ->state(fn (TreatmentPlan $record) => $record->progressText()),
                 TextColumn::make('total')
                     ->label('Total')
                     ->state(fn (TreatmentPlan $record) => Money::format($record->total())),
