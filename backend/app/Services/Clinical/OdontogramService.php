@@ -60,7 +60,7 @@ final class OdontogramService
     ): ?OdontogramEntry {
         [$attributes, $existing] = $this->prepare($odontogram, $condition, $state, $tooth, $surface, $toTooth, $abbreviation);
 
-        if ($existing && $existing->state === $attributes['state'] && $existing->abbreviation === $attributes['abbreviation']) {
+        if ($existing && self::isSameMark($existing, $attributes)) {
             $existing->delete();
 
             return null;
@@ -107,33 +107,44 @@ final class OdontogramService
         $answered = $blue ? $this->answeredBy($odontogram, $condition, $tooth, $attributes['surface']) : new EloquentCollection;
 
         if ($answered->isNotEmpty()) {
-            return DB::transaction(function () use ($answered, $condition, $abbreviation): array {
-                $entry = null;
-
-                // Si la marca nueva es de toda la pieza (ausente), tratar la primera ya se lleva las demás.
-                foreach ($condition->applies_to === 'tooth' ? $answered->take(1) : $answered as $red) {
-                    $entry = $this->markTreated($red, $abbreviation);
-                }
-
-                return [
-                    'entry' => $entry,
-                    'treated' => $answered->map(fn (OdontogramEntry $red) => ['code' => self::conditionOf($red)->code, 'abbreviation' => $red->abbreviation])->values()->all(),
-                    'fresh' => true,
-                ];
-            });
+            return $this->treatAnswered($answered, $condition, $abbreviation);
         }
 
-        if ($toggle && $existing && $existing->state === $attributes['state'] && $existing->abbreviation === $attributes['abbreviation']) {
+        if ($toggle && $existing && self::isSameMark($existing, $attributes)) {
             $existing->delete();
 
             return ['entry' => null, 'treated' => [], 'fresh' => false];
         }
 
-        // La misma marca que estaba en rojo y pasa a azul también quedó tratada.
-        $wasRed = $existing !== null && self::stateOf($existing) === ToothState::Bad;
-        $treated = $blue && $wasRed ? [['code' => $condition->code, 'abbreviation' => $existing->abbreviation]] : [];
+        // Cómo estaba antes: la misma marca que estaba en rojo y pasa a azul también quedó tratada, con la sigla que tenía.
+        $before = self::stateOf($existing);
+        $treated = $blue && $before === ToothState::Bad ? [['code' => $condition->code, 'abbreviation' => $existing->abbreviation]] : [];
 
-        return ['entry' => $this->save($odontogram, $attributes, $existing), 'treated' => $treated, 'fresh' => $blue && ($existing === null || $wasRed)];
+        return ['entry' => $this->save($odontogram, $attributes, $existing), 'treated' => $treated, 'fresh' => $blue && $before !== ToothState::Good];
+    }
+
+    /**
+     * Pasa a tratado lo rojo que la marca azul responde, como "Tratado" en cada una.
+     *
+     * @param  EloquentCollection<int, OdontogramEntry>  $answered
+     * @return array{entry: OdontogramEntry|null, treated: list<array{code: string, abbreviation: string|null}>, fresh: bool}
+     */
+    private function treatAnswered(EloquentCollection $answered, OdontogramCondition $condition, ?string $abbreviation): array
+    {
+        return DB::transaction(function () use ($answered, $condition, $abbreviation): array {
+            $entry = null;
+
+            // Si la marca nueva es de toda la pieza (ausente), tratar la primera ya se lleva las demás.
+            foreach ($condition->applies_to === 'tooth' ? $answered->take(1) : $answered as $red) {
+                $entry = $this->markTreated($red, $abbreviation);
+            }
+
+            return [
+                'entry' => $entry,
+                'treated' => $answered->map(fn (OdontogramEntry $red) => ['code' => self::conditionOf($red)->code, 'abbreviation' => $red->abbreviation])->values()->all(),
+                'fresh' => true,
+            ];
+        });
     }
 
     /**
@@ -170,13 +181,23 @@ final class OdontogramService
         return $condition;
     }
 
-    /** El estado de la marca, con su tipo (el análisis estático no lo ve). */
-    private static function stateOf(OdontogramEntry $entry): ToothState
+    /** El estado de la marca, con su tipo (el análisis estático no lo ve). Null si no hay marca. */
+    private static function stateOf(?OdontogramEntry $entry): ?ToothState
     {
-        /** @var ToothState $state */
-        $state = $entry->state;
+        /** @var ToothState|null $state */
+        $state = $entry?->state;
 
         return $state;
+    }
+
+    /**
+     * La marca que ya estaba es la misma que se quiere poner: el mismo color y la misma sigla.
+     *
+     * @param  array<string, mixed>  $attributes
+     */
+    private static function isSameMark(OdontogramEntry $existing, array $attributes): bool
+    {
+        return $existing->state === $attributes['state'] && $existing->abbreviation === $attributes['abbreviation'];
     }
 
     /** Si una marca roja se puede pasar a tratada de un toque. */
