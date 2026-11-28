@@ -1837,11 +1837,6 @@ $ignoreErrors[] = [
 ];
 $ignoreErrors[] = [
     'rawMessage' => 'Cannot call method getLabel() on string.',
-    'count' => 2,
-    'path' => __DIR__.'/app/Filament/Resources/Patients/Tables/PatientsTable.php',
-];
-$ignoreErrors[] = [
-    'rawMessage' => 'Using nullsafe method call on non-nullable type string. Use -> instead.',
     'count' => 1,
     'path' => __DIR__.'/app/Filament/Resources/Patients/Tables/PatientsTable.php',
 ];

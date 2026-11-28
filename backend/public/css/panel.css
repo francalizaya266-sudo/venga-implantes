@@ -2520,6 +2520,13 @@ a.ap-visit:hover { background: var(--gray-50); }
     .fi-ta-table > tbody > .fi-ta-row:not(.fi-ta-group-header-row):hover { background: color-mix(in oklab, var(--primary-50) 60%, transparent); }
     .dark .fi-ta-table > tbody > .fi-ta-row:not(.fi-ta-group-header-row):hover { background: rgb(255 255 255 / .035); }
 }
+/* La lista de pacientes en la computadora: filas más bajas, con el documento chico bajo el nombre, para que en una
+   laptop entren seis en vez de cuatro. En el celular cada fila ya es una tarjeta con su propio espacio. */
+@media (min-width: 40rem) {
+    .fi-resource-pacientes.fi-resource-list-records-page .fi-ta-table > tbody .fi-ta-text { padding-block: .5rem; }
+    .fi-resource-pacientes.fi-resource-list-records-page .fi-ta-table > tbody .fi-ta-text-has-descriptions { gap: .0625rem; }
+    .fi-resource-pacientes.fi-resource-list-records-page .fi-ta-table > tbody .fi-ta-text-description { font-size: .75rem; line-height: 1rem; }
+}
 
 /* Las pestañas de cada lista: la elegida, en el azul de la marca. */
 .fi-tabs-item.fi-active { background: var(--primary-50); }

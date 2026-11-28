@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Patients\Tables;
 
 use App\Enums\AppointmentStatus;
 use App\Enums\MessageTemplateKey;
+use App\Enums\PatientRelationship;
 use App\Filament\Resources\Patients\PatientResource;
 use App\Models\Charge;
 use App\Models\Patient;
@@ -70,7 +71,8 @@ class PatientsTable
 
     /**
      * En "Les toca control" y "Faltaron o cancelaron", en vez de la próxima cita (no tienen) va qué le toca o qué
-     * pasó, y si ya se le escribió.
+     * pasó, y si ya se le escribió. Ahí la edad y la última visita ceden su lugar: con ellas esa columna quedaba
+     * de una palabra por línea en una laptop, y cuándo vino ya lo dice "Le toca".
      *
      * @return list<TextColumn>
      */
@@ -86,12 +88,13 @@ class PatientsTable
             TextColumn::make('account.phone')
                 ->label('Celular')
                 ->formatStateUsing(fn (string $state) => Phone::display($state))
-                ->description(fn (Patient $record) => $record->relationship?->getLabel())
+                ->description(fn (Patient $record) => self::phoneOwner($record))
                 ->placeholder('Sin celular'),
             TextColumn::make('birth_date')
                 ->label('Edad')
                 ->formatStateUsing(fn (Patient $record) => $record->age !== null ? $record->age.' años' : null)
-                ->placeholder('—'),
+                ->placeholder('—')
+                ->hidden(fn ($livewire) => PatientRowActions::followUpTemplate($livewire) !== null),
             TextColumn::make('next_appointment_at')
                 ->label('Próxima cita')
                 ->dateTime('D d/m H:i')
@@ -108,7 +111,8 @@ class PatientsTable
                 ->label('Última visita')
                 ->date('d/m/Y')
                 ->placeholder('Aún no viene')
-                ->sortable(),
+                ->sortable()
+                ->hidden(fn ($livewire) => PatientRowActions::followUpTemplate($livewire) !== null),
             TextColumn::make('balance_due')
                 ->label('Saldo')
                 ->formatStateUsing(fn ($state) => (float) $state == 0 ? '—' : Money::balance($state))
@@ -122,6 +126,15 @@ class PatientsTable
                 ->alignEnd()
                 ->visible(fn () => self::seesBalances()),
         ];
+    }
+
+    /** De quién es el celular, solo cuando no es suyo (el de su mamá, su esposo): casi todos son el titular. */
+    private static function phoneOwner(Patient $patient): ?string
+    {
+        /** @var PatientRelationship|null $relationship */
+        $relationship = $patient->relationship;
+
+        return $relationship === PatientRelationship::Self ? null : $relationship?->getLabel();
     }
 
     /**
