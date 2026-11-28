@@ -218,66 +218,60 @@ class StaffAlerts
      */
     public function closeDone(): int
     {
+        $kinds = [self::SEND_CONFIRMATION, self::SEND_ACCESS_LINK, self::ANSWER_REQUEST, self::CALL_UNCONFIRMED];
         $open = DatabaseNotification::query()
             ->whereNull('read_at')
-            ->where(fn ($query) => $query
-                ->whereNotNull('data->viewData->'.self::SEND_CONFIRMATION)
-                ->orWhereNotNull('data->viewData->'.self::SEND_ACCESS_LINK)
-                ->orWhereNotNull('data->viewData->'.self::ANSWER_REQUEST)
-                ->orWhereNotNull('data->viewData->'.self::CALL_UNCONFIRMED))
+            ->where(fn ($query) => collect($kinds)->each(fn (string $kind) => $query->orWhereNotNull('data->viewData->'.$kind)))
             ->get(['id', 'data']);
+        $done = collect();
 
-        if ($open->isEmpty()) {
-            return 0;
+        foreach ($kinds as $kind) {
+            // Cada aviso de esta clase con aquello de lo que es: un id, o varios en el de las citas por llamar.
+            $about = $open->mapWithKeys(fn (DatabaseNotification $alert) => [$alert->getKey() => self::ids($alert->data['viewData'][$kind] ?? [])])->filter();
+
+            if ($about->isNotEmpty()) {
+                $stillOpen = $this->stillOpen($kind, array_values(array_unique(array_merge(...$about->values()->all()))));
+                $done = $done->merge($about->filter(fn (array $ids) => array_intersect($ids, $stillOpen) === [])->keys());
+            }
         }
 
-        // Cada aviso con aquello de lo que es (un id, o varios en el de las citas por llamar), por clase de aviso.
-        $about = fn (string $key): Collection => $open->mapWithKeys(fn (DatabaseNotification $alert) => [$alert->getKey() => $alert->data['viewData'][$key] ?? null])->filter();
-        $ids = fn (Collection $ids): array => $ids->flatten()->map(fn (mixed $id): int => (int) $id)->unique()->values()->all();
+        return $done->isEmpty() ? 0 : DatabaseNotification::query()->whereKey($done->all())->whereNull('read_at')->update(['read_at' => now()]);
+    }
 
-        $confirmations = $about(self::SEND_CONFIRMATION);
-        $unsentConfirmations = WhatsappMessage::query()->pending()
-            ->whereIn('template_key', [MessageTemplateKey::BookingConfirmation, MessageTemplateKey::FirstWebBooking])
-            ->whereIn('appointment_id', $ids($confirmations))
-            ->pluck('appointment_id')
-            ->map(fn (mixed $id): int => (int) $id)
-            ->all();
+    /**
+     * De aquello de lo que hablan los avisos de una clase, lo que todavía sigue por hacer: la confirmación o el enlace
+     * por enviar, la solicitud sin responder, la cita por confirmar.
+     *
+     * @param  list<int>  $ids
+     * @return list<int>
+     */
+    private function stillOpen(string $kind, array $ids): array
+    {
+        $pending = match ($kind) {
+            self::SEND_CONFIRMATION => WhatsappMessage::query()->pending()
+                ->whereIn('template_key', [MessageTemplateKey::BookingConfirmation, MessageTemplateKey::FirstWebBooking])
+                ->whereIn('appointment_id', $ids)
+                ->pluck('appointment_id'),
+            self::SEND_ACCESS_LINK => WhatsappMessage::query()->pending()
+                ->where('template_key', MessageTemplateKey::AccessLink)
+                ->whereIn('account_id', $ids)
+                ->pluck('account_id'),
+            self::ANSWER_REQUEST => RescheduleRequest::query()->whereKey($ids)->where('status', RescheduleRequestStatus::Pending)->pluck('id'),
+            self::CALL_UNCONFIRMED => Appointment::query()->whereKey($ids)->where('status', AppointmentStatus::Pending)->pluck('id'),
+            default => collect(),
+        };
 
-        $links = $about(self::SEND_ACCESS_LINK);
-        $unsentLinks = WhatsappMessage::query()->pending()
-            ->where('template_key', MessageTemplateKey::AccessLink)
-            ->whereIn('account_id', $ids($links))
-            ->pluck('account_id')
-            ->map(fn (mixed $id): int => (int) $id)
-            ->all();
+        return self::ids($pending->all());
+    }
 
-        $requests = $about(self::ANSWER_REQUEST);
-        $unansweredRequests = RescheduleRequest::query()
-            ->whereKey($ids($requests))
-            ->where('status', RescheduleRequestStatus::Pending)
-            ->pluck('id')
-            ->map(fn (mixed $id): int => (int) $id)
-            ->all();
-
-        $toCall = $about(self::CALL_UNCONFIRMED);
-        $stillToCall = Appointment::query()
-            ->whereKey($ids($toCall))
-            ->where('status', AppointmentStatus::Pending)
-            ->pluck('id')
-            ->map(fn (mixed $id): int => (int) $id)
-            ->all();
-
-        $done = $confirmations->reject(fn (mixed $appointment) => in_array((int) $appointment, $unsentConfirmations, true))
-            ->union($links->reject(fn (mixed $account) => in_array((int) $account, $unsentLinks, true)))
-            ->union($requests->reject(fn (mixed $request) => in_array((int) $request, $unansweredRequests, true)))
-            ->union($toCall->reject(fn (mixed $appointments) => array_intersect($ids(collect($appointments)), $stillToCall) !== []))
-            ->keys();
-
-        if ($done->isEmpty()) {
-            return 0;
-        }
-
-        return DatabaseNotification::query()->whereKey($done)->whereNull('read_at')->update(['read_at' => now()]);
+    /**
+     * Los id de lo que habla un aviso, como números: uno solo o una lista.
+     *
+     * @return list<int>
+     */
+    private static function ids(mixed $about): array
+    {
+        return array_values(array_map(intval(...), (array) $about));
     }
 
     /**
