@@ -212,17 +212,60 @@ class AppointmentServiceTest extends TestCase
         $this->freezeMonday();
         $treatment = Treatment::factory()->evaluation()->create();
         $doctor = $this->doctorOffering($treatment);
-        Account::factory()->create(['phone' => '+51987654321', 'web_booking_limit' => 3]);
+        $account = Account::factory()->create(['phone' => '+51987654321', 'web_booking_limit' => 3]);
+        $device = RememberedDevice::create(['account_id' => $account->id, 'token_hash' => str_repeat('c', 64), 'expires_at' => now()->addMonth(), 'verified_at' => now()]);
 
-        $this->service()->bookFromWeb($this->webBooking($doctor, $treatment, '2026-11-03 09:00'));
-        $this->service()->bookFromWeb($this->webBooking($doctor, $treatment, '2026-11-03 10:00', ['firstName' => 'Mateo', 'lastName' => 'Rojas', 'relationship' => PatientRelationship::Child]));
-        $this->service()->bookFromWeb($this->webBooking($doctor, $treatment, '2026-11-03 11:00', ['firstName' => 'Rosa', 'lastName' => 'Huamán', 'relationship' => PatientRelationship::Parent]));
+        $this->service()->bookFromWeb($this->webBooking($doctor, $treatment, '2026-11-03 09:00'), $device);
+        $this->service()->bookFromWeb($this->webBooking($doctor, $treatment, '2026-11-03 10:00', ['firstName' => 'Mateo', 'lastName' => 'Rojas', 'relationship' => PatientRelationship::Child]), $device);
+        $this->service()->bookFromWeb($this->webBooking($doctor, $treatment, '2026-11-03 11:00', ['firstName' => 'Rosa', 'lastName' => 'Huamán', 'relationship' => PatientRelationship::Parent]), $device);
 
-        $this->assertSame(3, Account::sole()->patients()->count());
+        $this->assertSame(3, $account->patients()->count());
 
         $this->expectExceptionObject(BookingException::phoneLimit(3));
 
-        $this->service()->bookFromWeb($this->webBooking($doctor, $treatment, '2026-11-03 12:00', ['firstName' => 'Lucía', 'lastName' => 'Rojas', 'relationship' => PatientRelationship::Child]));
+        $this->service()->bookFromWeb($this->webBooking($doctor, $treatment, '2026-11-03 12:00', ['firstName' => 'Lucía', 'lastName' => 'Rojas', 'relationship' => PatientRelationship::Child]), $device);
+    }
+
+    public function test_from_another_phone_a_registered_number_books_only_for_who_is_already_there(): void
+    {
+        $this->freezeMonday();
+        $treatment = Treatment::factory()->evaluation()->create();
+        $doctor = $this->doctorOffering($treatment);
+        $account = Account::factory()->create(['phone' => '+51987654321']);
+        $maria = Patient::factory()->for($account)->create(['first_name' => 'María', 'last_name' => 'Quispe']);
+
+        // Quien ya está en el número reserva escribiendo su nombre.
+        $this->assertTrue($this->service()->bookFromWeb($this->webBooking($doctor, $treatment, '2026-11-03 09:00'))->patient->is($maria));
+
+        // Una persona nueva no: la agrega la familia desde Mi cuenta. No se crea nada.
+        try {
+            $this->service()->bookFromWeb($this->webBooking($doctor, $treatment, '2026-11-03 10:00', ['firstName' => 'Inventado', 'lastName' => 'Pérez']));
+            $this->fail('Se creó una persona nueva en un número ajeno.');
+        } catch (BookingException $e) {
+            $this->assertSame(BookingException::newPersonNeedsMyAccount()->getMessage(), $e->getMessage());
+        }
+
+        $this->assertSame(1, $account->patients()->count());
+        $this->assertSame(1, Appointment::count());
+
+        // Desde el celular de la familia, sí.
+        $device = RememberedDevice::create(['account_id' => $account->id, 'token_hash' => str_repeat('d', 64), 'expires_at' => now()->addMonth(), 'verified_at' => now()]);
+        $mateo = $this->service()->bookFromWeb($this->webBooking($doctor, $treatment, '2026-11-03 10:00', ['firstName' => 'Mateo', 'lastName' => 'Quispe', 'relationship' => PatientRelationship::Child]), $device);
+
+        $this->assertSame('Mateo', $mateo->patient->first_name);
+        $this->assertSame(2, $account->patients()->count());
+    }
+
+    public function test_a_registered_number_without_patients_yet_books_for_its_first_one_from_any_phone(): void
+    {
+        $this->freezeMonday();
+        $treatment = Treatment::factory()->evaluation()->create();
+        $doctor = $this->doctorOffering($treatment);
+        $account = Account::factory()->create(['phone' => '+51987654321']);
+
+        $appointment = $this->service()->bookFromWeb($this->webBooking($doctor, $treatment, '2026-11-03 09:00'));
+
+        $this->assertTrue($appointment->patient->account->is($account));
     }
 
     public function test_reuses_the_family_member_with_the_same_name_instead_of_duplicating(): void

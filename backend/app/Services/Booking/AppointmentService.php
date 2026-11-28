@@ -102,6 +102,7 @@ class AppointmentService
             }
 
             $patient = $this->resolveWebPatient($account, $data, $recognized);
+            $this->assertNewPersonFromTheFamily($account, $patient, $recognized);
 
             if ($patient->exists && $patient->hasActiveTreatment()) {
                 throw BookingException::patientInTreatment();
@@ -1139,6 +1140,21 @@ class AppointmentService
                 : $data->relationship,
             'origin' => $data->origin,
         ]);
+    }
+
+    /**
+     * Una persona nueva en un número ya registrado la agrega la familia: desde su celular, o entrando a Mi cuenta con
+     * su enlace. Desde otro celular solo se reserva para quien ya está en ese número (escribiendo su nombre). Antes
+     * cualquiera podía escribir un número ajeno y crear ahí un paciente con cada nombre que inventara. La web no
+     * muestra quiénes están en el número: diría quién se atiende en el consultorio a quien escriba un número ajeno.
+     *
+     * @throws BookingException
+     */
+    private function assertNewPersonFromTheFamily(Account $account, Patient $patient, bool $recognized): void
+    {
+        if (! $recognized && ! $patient->exists && $account->patients()->exists()) {
+            throw BookingException::newPersonNeedsMyAccount();
+        }
     }
 
     private function assertWebLimits(Account $account, Patient $patient): void

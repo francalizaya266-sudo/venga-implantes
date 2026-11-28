@@ -57,7 +57,8 @@ class WaitlistController extends Controller
                 acceptsPrivacy: $request->boolean('accepts_privacy') || $request->privacyAlreadyAccepted(),
             ), $treatment, $doctor, $device);
         } catch (BookingException $e) {
-            return response()->json(['message' => $e->getMessage()], 422);
+            // Una persona nueva en un número ya registrado: la web ofrece entrar a Mi cuenta junto al mensaje.
+            return response()->json(['message' => $e->getMessage(), ...($e->getMessage() === BookingException::newPersonNeedsMyAccount()->getMessage() ? ['code' => 'my_account'] : [])], 422);
         } catch (AuthorizationException $e) {
             return response()->json(['message' => $e->getMessage()], 403);
         }

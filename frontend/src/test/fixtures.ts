@@ -174,6 +174,8 @@ export function bookingDays(changes: Partial<BookingDays> = {}): BookingDays {
     date: '2026-11-04',
     day: 'Miércoles 4 de noviembre',
     slots: [slot('09:00', '9:00 a. m.'), slot('15:00', '3:00 p. m.')],
+    more: false,
+    until: 'jueves 17 de diciembre',
     ...changes,
   };
 }

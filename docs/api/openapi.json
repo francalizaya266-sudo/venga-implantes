@@ -632,6 +632,16 @@
             }
           },
           {
+            "name": "dias",
+            "in": "query",
+            "required": false,
+            "description": "Cuántos días libres traer, para \"Ver más días\": 12 o más (12 si no se da), sin pasar del último día que se reserva en la web.",
+            "schema": {
+              "type": "integer",
+              "minimum": 12
+            }
+          },
+          {
             "name": "date",
             "in": "query",
             "required": false,
@@ -644,7 +654,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Los próximos días libres y los horarios del primero (o del elegido).",
+            "description": "Los próximos días libres y los horarios del primero (o del elegido), y si hay más días después.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3425,7 +3435,9 @@
           "days",
           "date",
           "day",
-          "slots"
+          "slots",
+          "more",
+          "until"
         ],
         "properties": {
           "doctors": {
@@ -3477,6 +3489,14 @@
             "items": {
               "$ref": "#/components/schemas/Slot"
             }
+          },
+          "more": {
+            "type": "boolean",
+            "description": "Hay más días libres después de los que vienen: se muestra \"Ver más días\"."
+          },
+          "until": {
+            "type": "string",
+            "description": "Hasta qué día reserva la web, como \"domingo 11 de enero\"."
           }
         },
         "additionalProperties": false
@@ -5710,7 +5730,7 @@
       },
       "Rejected": {
         "type": "object",
-        "description": "Un 422 que puede venir de la validación (con \"errors\") o de una regla del consultorio (solo \"message\", por ejemplo \"Ese horario ya no está libre\").",
+        "description": "Un 422 que puede venir de la validación (con \"errors\") o de una regla del consultorio (solo \"message\", por ejemplo \"Ese horario ya no está libre\"). Con \"code\": \"my_account\", la persona es nueva en un número ya registrado: la web ofrece entrar a Mi cuenta.",
         "required": [
           "message"
         ],
@@ -5726,6 +5746,12 @@
                 "type": "string"
               }
             }
+          },
+          "code": {
+            "type": "string",
+            "enum": [
+              "my_account"
+            ]
           }
         },
         "additionalProperties": false

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useAction } from '@/api/actions';
 import { apiUrl } from '@/api/client';
 import type { BookingDevice, BookingTreatment } from '@/api/types';
+import { AppLink } from '@/components/ui/AppLink';
 import { paths } from '@/lib/paths';
 import { withArticle } from '@/lib/text';
 
@@ -41,6 +42,8 @@ export function WaitlistAsk({ treatment, doctor, device, noTimes }: Props) {
   const [open, setOpen] = useState(false);
   const [done, setDone] = useState<string | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
+  // Una persona nueva en un número ya registrado: se ofrece entrar a Mi cuenta junto al mensaje.
+  const [toAccount, setToAccount] = useState(false);
   const [details, setDetails] = useState<WaitlistDetails>(() => ({
     patient_id: device?.patient_id ?? null,
     phone: '',
@@ -91,7 +94,13 @@ export function WaitlistAsk({ treatment, doctor, device, noTimes }: Props) {
         days: details.days,
         accepts_privacy: details.accepts_privacy,
       },
-      { onDone: (message) => setDone(message), onRejected: setProblem },
+      {
+        onDone: (message) => setDone(message),
+        onRejected: (message, code) => {
+          setProblem(message);
+          setToAccount(code === 'my_account');
+        },
+      },
     ).then((accepted) => {
       if (!accepted) {
         setRejected((times) => times + 1);
@@ -284,6 +293,12 @@ export function WaitlistAsk({ treatment, doctor, device, noTimes }: Props) {
           {problem ? (
             <p className="form-problems" role="alert">
               {problem}
+              {toAccount ? (
+                <>
+                  {' '}
+                  <AppLink href={paths.account}>Entrar a Mi cuenta</AppLink>
+                </>
+              ) : null}
             </p>
           ) : null}
 
