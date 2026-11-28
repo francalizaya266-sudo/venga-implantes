@@ -566,6 +566,11 @@ details.more[open] > summary::after { transform: translateY(.06em) rotate(225deg
 .appointment .actions form { margin: 0; }
 .appointment .btn.quiet { background: var(--ground); }
 .appointment details.more form { margin-top: 10px; }
+/* En Mi cuenta la cita dice cuánto falta ("Mañana") y lleva sus enlaces: guardarla en el calendario y cómo llegar. */
+.appointment .countdown { display: block; margin-bottom: 3px; font-size: .9375rem; font-weight: 700; letter-spacing: 0; color: var(--accent); }
+.appointment-links { display: flex; flex-wrap: wrap; gap: 0 20px; font-size: .9375rem; }
+.appointment-links a { display: inline-flex; align-items: center; gap: 7px; min-height: 44px; font-weight: 650; text-decoration: none; }
+.appointment-links svg { flex: none; width: 20px; height: 20px; }
 .appointment.solo { padding: 20px; }
 .appointment.solo .actions > * { flex: 1 1 100%; }
 .appointment.solo .actions .btn { width: 100%; min-height: 52px; font-size: 1rem; }
@@ -573,13 +578,75 @@ details.more[open] > summary::after { transform: translateY(.06em) rotate(225deg
 .welcome .appointment .btn.quiet, .welcome .appointment .note:not(.guest) { background: var(--surface); }
 .welcome .appointment .health-ask { background: var(--surface); box-shadow: none; }
 
-.plan-card { background: var(--surface); border-radius: var(--radius); padding: 18px; display: grid; gap: 12px; }
-.plan-card h3 { font-size: 1.125rem; margin: 0; line-height: 1.25; }
-.plan-card p { margin: 0; }
-.plan-card .badge { flex: none; white-space: nowrap; }
-.plan-card dd .small { display: block; font-weight: 400; }
-.plan-card .meter { height: 8px; border-radius: 999px; background: var(--surface-strong); overflow: hidden; }
-.plan-card .meter span { display: block; height: 100%; border-radius: 999px; background: var(--accent); }
+/*
+   Un tratamiento (plan) en Mi cuenta. A un lado, su ruta: una barra con un tramo por tratamiento y, debajo, cada uno
+   con su parada (hecho, en curso, por hacer). Al otro, el pago: cuánto va, cuánto falta y cada cuota con su fecha.
+   En el celular, la ruta arriba y el pago debajo.
+*/
+.plan { background: var(--surface); border-radius: 20px; padding: 12px; display: grid; gap: 14px; }
+.plan + .plan, .plans-finished > .plan { margin-top: 2px; }
+.plan p { margin: 0; }
+.plan-head { align-items: start; padding: 6px 6px 0; }
+.plan .plan-head h3 { font-family: var(--display); font-size: 1.25rem; line-height: 1.2; letter-spacing: -.02em; }
+.plan-head .badge { flex: none; white-space: nowrap; }
+.plan-body { display: grid; gap: 14px; }
+.plan-part { display: grid; gap: 12px; align-content: start; min-width: 0; padding: 16px; border-radius: var(--radius); background: var(--ground); }
+.plan-part h4 { margin: 0; font-size: .9375rem; font-weight: 650; color: var(--muted); }
+.plan-count { font-family: var(--display); font-size: 1.375rem; font-weight: 700; line-height: 1.2; letter-spacing: -.02em; }
+.plan-count span { font-family: var(--font); font-size: 1rem; font-weight: 400; letter-spacing: 0; color: var(--muted); }
+.plan .meter { height: 10px; border-radius: 999px; background: var(--surface-strong); overflow: hidden; }
+.plan .meter span { display: block; height: 100%; border-radius: 999px; background: var(--accent); }
+/* Un tramo por tratamiento: verde el hecho, azul hasta donde va el que está en curso, vacío el que falta. */
+.plan-meter { display: flex; gap: 4px; height: 10px; }
+.plan-meter > span { flex: 1 1 0; min-width: 6px; border-radius: 999px; background: var(--surface-strong); overflow: hidden; }
+.plan-meter > span > span { display: block; height: 100%; border-radius: 999px; background: #1c62d6; }
+.plan-meter > .done > span { background: var(--mint); }
+.plan-route { list-style: none; margin: 0; padding: 0; display: grid; }
+.plan-route li { position: relative; display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; align-items: start; gap: 4px 12px; padding: 0 0 16px; }
+.plan-route li:last-child { padding-bottom: 0; }
+/* La línea que une las paradas: verde hasta lo hecho. */
+.plan-route li:not(:last-child)::before { content: ""; position: absolute; left: 12px; top: 26px; bottom: 0; width: 2px; background: var(--surface-strong); }
+.plan-route li.done:not(:last-child)::before { background: var(--mint); }
+.plan-route .stop { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--ground); box-shadow: inset 0 0 0 2px var(--field-line); color: #fff; }
+.plan-route .stop svg { width: 16px; height: 16px; stroke-width: 2.6; }
+.plan-route .done .stop { background: var(--mint); box-shadow: none; }
+.plan-route .in_progress .stop { box-shadow: inset 0 0 0 2px #1c62d6; }
+.plan-route .in_progress .stop::after { content: ""; width: 10px; height: 10px; border-radius: 50%; background: #1c62d6; }
+.plan-route .what, .plan-dues .what, .payments .what, .past .what { display: grid; gap: 1px; min-width: 0; }
+.plan-route .what strong { font-weight: 650; line-height: 1.3; overflow-wrap: anywhere; }
+.plan-route .done .what strong { color: var(--muted); }
+.plan-route .state { font-size: .875rem; font-weight: 700; line-height: 26px; white-space: nowrap; color: var(--muted); }
+.plan-route .done .state { color: var(--ok); }
+.plan-route .in_progress .state { color: var(--accent); }
+/* En un celular angosto el nombre y cómo va no caben en la misma línea: cómo va baja debajo del nombre. */
+@media (max-width: 379px) {
+  .plan-route li { grid-template-columns: 26px minmax(0, 1fr); }
+  .plan-route .state { grid-column: 2; line-height: 1.3; }
+}
+.plan-next { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 12px; background: var(--sky-band); line-height: 1.35; }
+.plan-next svg { flex: none; width: 22px; height: 22px; color: #1c62d6; }
+.plan-next.ask { display: grid; justify-items: start; gap: 10px; background: var(--warn-bg); color: var(--warn); }
+.plan-next.ask p { font-weight: 650; }
+.plan-next .welcome-done { color: var(--ok); font-weight: 650; }
+.plan-part dd .small { display: block; font-weight: 400; }
+/* El cronograma: cada pago con su fecha y, a la derecha, el monto y cómo va. */
+.plan-dues, .payments, .past { list-style: none; margin: 0; padding: 0; display: grid; }
+.plan-dues { margin-top: 10px; }
+.plan-dues li, .payments li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-top: 1px solid var(--line); }
+.plan-dues .amount { display: grid; gap: 1px; justify-items: end; text-align: right; flex: none; }
+.plan-dues .amount .small { font-size: .875rem; font-weight: 700; color: var(--muted); }
+.plan-dues .paid .amount .small { color: var(--ok); }
+.plan-dues .paid .what strong, .plan-dues .paid .amount strong { color: var(--muted); font-weight: 600; }
+.plan-dues .due .amount .small { color: var(--warn); }
+.plan-dues .late .amount .small, .plan-dues .late .amount strong { color: var(--bad); }
+.plans-finished { margin-top: 4px; }
+.plans-finished > .plan { margin-top: 12px; }
+@media (min-width: 1100px) {
+    .plan { padding: 22px; gap: 16px; }
+    .plan-head { padding: 0; }
+    .plan-body { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); align-items: start; }
+    .plan-part { padding: 20px; }
+}
 
 /* Inicio para quien vuelve: lo suyo arriba (su cita, sus sesiones, su control), cada cosa con su botón. */
 .welcome { margin: 8px 0 48px; padding: 16px; border-radius: 24px; background: var(--surface); display: grid; gap: 16px; }
@@ -602,10 +669,6 @@ details.more[open] > summary::after { transform: translateY(.06em) rotate(225deg
     .welcome { padding: 28px; }
     .welcome-cards { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
 }
-.plan-items { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 8px; }
-.plan-items li { display: flex; justify-content: space-between; gap: 12px; }
-.plan-items li.done > span:first-child { text-decoration: line-through; color: var(--muted); }
-.plan-items li > span:last-child { flex: none; font-size: .9375rem; }
 .owed { color: var(--bad); }
 
 /* Web pública: inicio y páginas de contenido */
@@ -1365,7 +1428,63 @@ main.with-band > .wrap:first-child .flash { margin: 16px 0; }
 .account-card > .spread { align-items: center; }
 @media (max-width: 479px) { .account-card > .spread h2 svg { display: none; } }
 .appointments, .family { display: grid; gap: 12px; }
-.family { margin-top: 10px; }
+/* Lo que falta agendar va entre las citas, con su mismo fondo. */
+.account .welcome-card { background: var(--surface); box-shadow: none; }
+.account .welcome-card .meter span { background: #1c62d6; }
+/* De quién ver, en una familia: una tira que se desliza en el celular. */
+.account-people { margin-bottom: -12px; }
+/*
+   El resumen: lo importante en una frase por tema, con su ícono. Cada una lleva a su parte de la página. El ícono
+   cambia de color cuando hay algo que hacer (confirmar, pagar) o cuando algo venció.
+*/
+.account-summary ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.summary-line {
+    position: relative; display: grid; grid-template-columns: 46px minmax(0, 1fr); align-items: center; gap: 14px; min-height: 76px;
+    padding: 14px 40px 14px 14px; border-radius: 20px; background: var(--surface); color: var(--ink); text-decoration: none;
+    transition: transform .16s var(--ease-out), background-color .15s ease;
+}
+.summary-line::after { content: ""; position: absolute; right: 18px; top: 50%; width: 9px; height: 9px; margin-top: -5px; border-right: 2px solid var(--accent); border-bottom: 2px solid var(--accent); transform: rotate(-45deg); }
+.summary-line:active { transform: scale(.985); }
+.summary-icon { width: 46px; height: 46px; border-radius: 14px; display: grid; place-items: center; background: var(--ground); color: #1c62d6; }
+.summary-icon svg { width: 26px; height: 26px; }
+.summary-text { display: grid; gap: 3px; min-width: 0; }
+.summary-text strong { font-family: var(--display); font-size: 1.0625rem; font-weight: 700; line-height: 1.25; letter-spacing: -.015em; overflow-wrap: anywhere; }
+.summary-text > span { font-size: .9375rem; line-height: 1.4; color: var(--muted); }
+.summary-text > .meter { height: 6px; margin-top: 5px; border-radius: 999px; background: var(--surface-strong); overflow: hidden; }
+.summary-text > .meter span { display: block; height: 100%; border-radius: 999px; background: var(--mint); }
+.summary-line.warn .summary-icon { background: var(--warn-bg); color: var(--warn); }
+.summary-line.ok .summary-icon { background: var(--ok-bg); color: var(--ok); }
+.summary-line.bad .summary-icon { background: var(--bad-bg); color: var(--bad); }
+.summary-line.bad strong { color: var(--bad); }
+/* Pagos: el saldo de cada quien y lo que ya pagó. */
+.balance { align-items: center; padding: 14px 16px; border-radius: var(--radius); background: var(--surface); }
+.balance strong { flex: none; text-align: right; }
+.balance.settled { color: var(--ok); font-weight: 650; background: var(--ok-bg); }
+.payments li:first-child, .plan-dues li:first-child { border-top: 0; }
+.payments .amount { flex: none; font-variant-numeric: tabular-nums; }
+.plan-dues strong, .payments strong { font-variant-numeric: tabular-nums; }
+details.more > .payments, details.more > .past { margin-top: 4px; border-top: 1px solid var(--line); }
+/* Citas anteriores: cada una con lo que el paciente se llevó a casa. */
+.past > li { display: grid; gap: 8px; padding: 14px 0; border-top: 1px solid var(--line); }
+.past > li:first-child { border-top: 0; padding-top: 2px; }
+.past .spread { align-items: start; }
+.past .badge { flex: none; white-space: nowrap; }
+.visit { display: grid; gap: 14px; margin-top: 10px; padding: 16px; border-radius: var(--radius); background: var(--surface); }
+.visit h4 { margin: 0 0 4px; font-size: .9375rem; font-weight: 700; color: var(--accent); }
+.visit p { margin: 0; }
+.visit ul { margin: 0; padding-left: 1.2em; display: grid; gap: 4px; }
+/* Las indicaciones se escriben con saltos de línea: se respetan. */
+.lines { white-space: pre-line; }
+/* Cada persona de la cuenta, con sus datos y lo que puede hacer. */
+.person { display: grid; gap: 14px; align-content: start; padding: 18px; border-radius: 20px; background: var(--surface); }
+.person p { margin: 0; }
+.person-head { display: flex; align-items: center; gap: 12px; }
+.person-head .avatar { flex: none; display: grid; place-items: center; width: 46px; height: 46px; border-radius: 50%; background: var(--ground); color: var(--btn); font-family: var(--display); font-weight: 700; }
+.person-head h3 { font-size: 1.0625rem; line-height: 1.25; overflow-wrap: anywhere; }
+.person .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 18px; }
+.person .btn.quiet { background: var(--ground); }
+/* Lo que se guarda hasta confirmar que es el titular. */
+.locked-list { margin: 0; padding-left: 1.2em; display: grid; gap: 6px; color: var(--muted); }
 /* Avisos y app: los pasos para instalarla en iPhone, con los íconos que se ven en Safari, y el código para la app. */
 .account-card h3 { font-size: 1.0625rem; line-height: 1.3; }
 /* Sobre el fondo del recuadro, el botón secundario en blanco: con el mismo celeste no se veía que era un botón. */
@@ -1390,9 +1509,17 @@ main.with-band > .wrap:first-child .flash { margin: 16px 0; }
     .account-main { gap: 22px; }
     .account-card { padding: 24px; border-radius: 24px; background: var(--ground); border: 1px solid var(--card-line); box-shadow: var(--card-shadow); }
     .family { grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); }
+    .account-people { margin-bottom: -4px; }
+    .summary-line { background: var(--ground); border: 1px solid var(--card-line); box-shadow: var(--card-shadow); }
+    .summary-icon { background: var(--surface); }
+    .summary-line:hover { background: #f8fbff; }
 }
 @media (min-width: 1200px) {
     .appointments { grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); align-items: start; }
+    /* En pantallas anchas las frases del resumen van lado a lado. */
+    .account-summary ul { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+    .summary-line { height: 100%; align-items: start; }
+    .summary-line::after { top: 37px; }
 }
 
 /*

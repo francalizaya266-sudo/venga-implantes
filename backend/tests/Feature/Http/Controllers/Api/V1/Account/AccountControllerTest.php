@@ -6,12 +6,15 @@ use App\Enums\AppointmentStatus;
 use App\Enums\MagicLinkPurpose;
 use App\Enums\MessageTemplateKey;
 use App\Enums\PatientRelationship;
+use App\Enums\PaymentMethod;
 use App\Enums\PlanItemStatus;
 use App\Enums\PlanPaymentMode;
 use App\Enums\RescheduleRequestStatus;
 use App\Enums\TreatmentPlanStatus;
 use App\Models\Account;
 use App\Models\Appointment;
+use App\Models\Charge;
+use App\Models\Consultation;
 use App\Models\Doctor;
 use App\Models\Patient;
 use App\Models\Payment;
@@ -195,10 +198,305 @@ class AccountControllerTest extends TestCase
             ->assertJsonPath('data.plans.1.progress.total', 'S/ 2,000.00')
             ->assertJsonPath('data.plans.1.progress.remaining', 'S/ 1,200.00')
             ->assertJsonPath('data.plans.1.progress.owed', ['label' => 'Para pagar ya', 'amount' => 'S/ 600.00', 'late' => false])
-            ->assertJsonPath('data.plans.1.progress.next', ['amount' => 'S/ 600.00', 'day' => 'Miércoles 2 de diciembre', 'label' => 'Cuota 2 de 2'])
-            ->assertJsonPath('data.plans.1.items_summary', 'Tratamientos: 1 de 2 hechos')
+            ->assertJsonPath('data.plans.1.progress.next', ['amount' => 'S/ 600.00', 'day' => 'Miércoles 2 de diciembre', 'date' => '2026-12-02', 'label' => 'Cuota 2 de 2'])
+            // Las mismas palabras que lee el doctor en el panel (RN-28).
+            ->assertJsonPath('data.plans.1.steps', ['done' => 1, 'started' => 1, 'total' => 2, 'text' => '1 de 2 hechos · 1 en curso'])
             ->assertJsonPath('data.plans.1.items.*.state', ['Hecho', '3 de 10 sesiones'])
-            ->assertJsonPath('data.balances', [['name' => $this->mother->full_name, 'text' => 'S/ 600.00 por pagar', 'owed' => true]]);
+            ->assertJsonPath('data.balances', [['patient_id' => $this->mother->id, 'name' => $this->mother->full_name, 'text' => 'S/ 600.00 por pagar', 'owed' => true]])
+            ->assertJsonPath('data.owed_total', 'S/ 600.00');
+    }
+
+    public function test_a_plan_shows_only_what_the_family_accepted_with_its_tooth_its_next_session_and_every_cuota(): void
+    {
+        $doctor = Doctor::factory()->create(['name' => 'Dra. Vega']);
+        $plan = TreatmentPlan::create(['patient_id' => $this->mother->id, 'doctor_id' => $doctor->id, 'title' => 'Ortodoncia', 'status' => TreatmentPlanStatus::InProgress, 'payment_mode' => PlanPaymentMode::Installments, 'accepted_at' => now()->subMonth()]);
+        $accepted = ['accepted_at' => now()->subMonth(), 'in_payment_schedule' => true];
+        $plan->items()->createMany([
+            ['description' => 'Colocación de brackets', 'unit_price' => 1500, 'status' => PlanItemStatus::Done] + $accepted,
+            ['description' => 'Control de ortodoncia', 'unit_price' => 400, 'sessions_planned' => 10, 'sessions_done' => 3, 'status' => PlanItemStatus::InProgress] + $accepted,
+            ['description' => 'Curación con resina', 'tooth' => '36', 'surfaces' => 'O', 'unit_price' => 100] + $accepted,
+            // Lo que se canceló y lo que la familia no aceptó no se cuentan ni se muestran.
+            ['description' => 'Blanqueamiento', 'unit_price' => 450, 'status' => PlanItemStatus::Cancelled] + $accepted,
+            ['description' => 'Carillas', 'unit_price' => 900],
+        ]);
+        $plan->installments()->createMany([
+            ['number' => 0, 'due_on' => '2026-10-02', 'amount' => 800],
+            ['number' => 1, 'due_on' => '2026-10-20', 'amount' => 600],
+            ['number' => 2, 'due_on' => '2027-01-04', 'amount' => 600],
+        ]);
+        app(BillingService::class)->chargeDueInstallments();
+        // Pagó la inicial y abonó S/ 200 de la cuota que ya venció.
+        Payment::factory()->for($this->mother)->create(['amount' => 1000]);
+        $control = $plan->items()->where('description', 'Control de ortodoncia')->sole();
+        // La sesión cancelada no cuenta: la próxima es la que sigue en pie.
+        Appointment::factory()->for($this->mother)->for($doctor)->at('2026-11-03 09:00')->cancelled()->create(['treatment_plan_item_id' => $control->id]);
+        Appointment::factory()->for($this->mother)->for($doctor)->at('2026-11-04 10:00')->confirmed()->create(['treatment_plan_item_id' => $control->id]);
+
+        $this->rememberDevice()
+            ->getJson(route('api.v1.account.show'))
+            ->assertOk()
+            ->assertJsonPath('data.plans.0.patient_id', $this->mother->id)
+            ->assertJsonPath('data.plans.0.state', 'Atrasado')
+            ->assertJsonPath('data.plans.0.tone', 'bad')
+            ->assertJsonPath('data.plans.0.finished', false)
+            ->assertJsonPath('data.plans.0.steps', ['done' => 1, 'started' => 1, 'total' => 3, 'text' => '1 de 3 hechos · 1 en curso'])
+            // La pieza va con su nombre, no con su número.
+            ->assertJsonPath('data.plans.0.items.*.label', ['Colocación de brackets', 'Control de ortodoncia', 'Curación con resina'])
+            ->assertJsonPath('data.plans.0.items.*.detail', [null, null, 'Primer molar inferior izquierdo · cara oclusal'])
+            ->assertJsonPath('data.plans.0.items.*.state', ['Hecho', '3 de 10 sesiones', 'Por hacer'])
+            ->assertJsonPath('data.plans.0.items.*.status', ['done', 'in_progress', 'pending'])
+            ->assertJsonPath('data.plans.0.items.*.sessions', [null, ['done' => 3, 'planned' => 10], null])
+            ->assertJsonPath('data.plans.0.next_session', "Miércoles 4 de noviembre, 10:00\u{00A0}a.\u{00A0}m.")
+            ->assertJsonPath('data.plans.0.progress.percent', 50)
+            ->assertJsonPath('data.plans.0.progress.owed', ['label' => 'Vencido', 'amount' => 'S/ 400.00', 'late' => true])
+            // El pago que sigue cae en otro año: se dice cuál.
+            ->assertJsonPath('data.plans.0.progress.next', ['amount' => 'S/ 600.00', 'day' => 'Lunes 4 de enero de 2027', 'date' => '2027-01-04', 'label' => 'Cuota 2 de 2'])
+            ->assertJsonPath('data.plans.0.installments.*.label', ['Inicial', 'Cuota 1 de 2', 'Cuota 2 de 2'])
+            ->assertJsonPath('data.plans.0.installments.*.day', ['Viernes 2 de octubre', 'Martes 20 de octubre', 'Lunes 4 de enero de 2027'])
+            ->assertJsonPath('data.plans.0.installments.*.amount', ['S/ 800.00', 'S/ 600.00', 'S/ 600.00'])
+            ->assertJsonPath('data.plans.0.installments.*.state', ['paid', 'late', 'upcoming'])
+            ->assertJsonPath('data.plans.0.installments.*.state_label', ['Pagado', 'Vencido', 'Por vencer'])
+            // De la cuota vencida solo se pide lo que falta.
+            ->assertJsonPath('data.plans.0.installments.*.left', [null, 'S/ 400.00', null]);
+    }
+
+    public function test_a_cuota_that_is_due_today_is_not_late_yet(): void
+    {
+        $plan = TreatmentPlan::create(['patient_id' => $this->mother->id, 'doctor_id' => Doctor::factory()->create()->id, 'title' => 'Implante', 'status' => TreatmentPlanStatus::Accepted, 'payment_mode' => PlanPaymentMode::Installments, 'accepted_at' => now()]);
+        $plan->items()->create(['description' => 'Implante dental', 'unit_price' => 900, 'accepted_at' => now(), 'in_payment_schedule' => true]);
+        $plan->installments()->createMany([
+            ['number' => 0, 'due_on' => '2026-11-02', 'amount' => 300],
+            ['number' => 1, 'due_on' => '2026-12-02', 'amount' => 600],
+        ]);
+        app(BillingService::class)->chargeDueInstallments();
+
+        $this->rememberDevice()
+            ->getJson(route('api.v1.account.show'))
+            ->assertOk()
+            ->assertJsonPath('data.plans.0.state', 'Por pagar')
+            ->assertJsonPath('data.plans.0.tone', null)
+            ->assertJsonPath('data.plans.0.steps.text', '0 de 1 hechos')
+            ->assertJsonPath('data.plans.0.next_session', null)
+            ->assertJsonPath('data.plans.0.progress.owed', ['label' => 'Para pagar ya', 'amount' => 'S/ 300.00', 'late' => false])
+            ->assertJsonPath('data.plans.0.installments.*.state_label', ['Vence hoy', 'Por vencer'])
+            ->assertJsonPath('data.plans.0.installments.*.left', [null, null]);
+    }
+
+    public function test_finished_and_paid_plans_go_last_and_cancelled_ones_are_not_shown(): void
+    {
+        $doctor = Doctor::factory()->create();
+        $done = ['status' => PlanItemStatus::Done, 'accepted_at' => now()];
+        // El más reciente ya se terminó y se pagó: queda al final, como historial.
+        $sealants = TreatmentPlan::create(['patient_id' => $this->child->id, 'doctor_id' => $doctor->id, 'title' => 'Sellantes', 'status' => TreatmentPlanStatus::Completed, 'payment_mode' => PlanPaymentMode::PerSession, 'accepted_at' => now()]);
+        $sealant = $sealants->items()->create(['description' => 'Sellante', 'unit_price' => 80] + $done);
+        Charge::factory()->for($this->child)->create(['treatment_plan_item_id' => $sealant->id, 'amount' => 80]);
+        Payment::factory()->for($this->child)->create(['amount' => 80]);
+        // Terminado pero con saldo: sigue arriba hasta que se pague.
+        $crown = TreatmentPlan::create(['patient_id' => $this->mother->id, 'doctor_id' => $doctor->id, 'title' => 'Corona', 'status' => TreatmentPlanStatus::Completed, 'payment_mode' => PlanPaymentMode::PerSession, 'accepted_at' => now()->subWeek()]);
+        $crownItem = $crown->items()->create(['description' => 'Corona de porcelana', 'unit_price' => 700] + $done);
+        Charge::factory()->for($this->mother)->create(['treatment_plan_item_id' => $crownItem->id, 'amount' => 700]);
+        $this->mateoHalfwayThroughHisPlan($doctor)->update(['title' => 'Curaciones']);
+        TreatmentPlan::create(['patient_id' => $this->mother->id, 'doctor_id' => $doctor->id, 'title' => 'Blanqueamiento', 'status' => TreatmentPlanStatus::Cancelled, 'accepted_at' => now()]);
+
+        $this->rememberDevice()
+            ->getJson(route('api.v1.account.show'))
+            ->assertOk()
+            ->assertJsonPath('data.plans.*.title', ['Corona', 'Curaciones', 'Sellantes'])
+            ->assertJsonPath('data.plans.*.finished', [false, false, true])
+            ->assertJsonPath('data.plans.*.state', ['Por pagar', 'Al día', 'Terminado'])
+            ->assertJsonPath('data.plans.2.progress.percent', 100)
+            ->assertJsonPath('data.plans.2.progress.remaining', 'S/ 0.00');
+    }
+
+    public function test_a_past_appointment_keeps_what_the_patient_took_home_and_nothing_of_the_clinical_record(): void
+    {
+        $doctor = Doctor::factory()->create(['name' => 'Dra. Vega']);
+        $endodontics = Treatment::factory()->create(['name' => 'Endodoncia', 'aftercare' => 'No mastiques de ese lado por dos días.']);
+        $plan = TreatmentPlan::create(['patient_id' => $this->mother->id, 'doctor_id' => $doctor->id, 'status' => TreatmentPlanStatus::InProgress, 'accepted_at' => now()->subMonth()]);
+        $worked = $plan->items()->createMany([
+            ['description' => 'Endodoncia', 'tooth' => '36', 'unit_price' => 600, 'status' => PlanItemStatus::Done, 'accepted_at' => now()->subMonth()],
+            ['description' => 'Radiografía periapical', 'unit_price' => 40, 'status' => PlanItemStatus::Done, 'accepted_at' => now()->subMonth()],
+        ]);
+        $attended = Appointment::factory()->for($this->mother)->for($doctor)->for($endodontics)->at('2026-10-20 10:00')->create(['status' => AppointmentStatus::Completed]);
+        $consultation = Consultation::factory()->for($this->mother)->for($doctor)->create([
+            'appointment_id' => $attended->id,
+            'closed_at' => '2026-10-20 10:40',
+            'chief_complaint' => 'Dolor al masticar',
+            'clinical_exam' => 'Caries profunda con compromiso pulpar.',
+            'procedures' => 'Apertura cameral y conductometría.',
+            'indications' => ' Toma el analgésico después de comer. ',
+        ]);
+        $consultation->planItems()->attach($worked);
+        $consultation->prescriptions()->create(['patient_id' => $this->mother->id, 'doctor_id' => $doctor->id, 'issued_at' => '2026-10-20 10:30'])
+            ->items()->createMany([
+                ['medication' => 'Paracetamol 500 mg', 'instructions' => null, 'sort_order' => 2],
+                ['medication' => 'Ibuprofeno 400 mg', 'instructions' => '1 tableta cada 8 horas por 3 días', 'sort_order' => 1],
+            ]);
+        // El doctor todavía no cerró esta atención: lo que va escribiendo no sale a la web.
+        $open = Appointment::factory()->for($this->child)->for($doctor)->at('2026-10-27 10:00')->create(['status' => AppointmentStatus::Completed]);
+        Consultation::factory()->for($this->child)->for($doctor)->create(['appointment_id' => $open->id, 'closed_at' => null, 'indications' => 'Borrador de indicaciones']);
+        Appointment::factory()->for($this->child)->for($doctor)->at('2026-10-13 10:00')->create(['status' => AppointmentStatus::NoShow]);
+        Appointment::factory()->for($this->mother)->for($doctor)->at('2026-10-06 10:00')->cancelled()->create();
+        // La cita de otra familia no aparece.
+        Appointment::factory()->for($doctor)->at('2026-10-21 10:00')->create(['status' => AppointmentStatus::Completed]);
+
+        $this->rememberDevice()
+            ->getJson(route('api.v1.account.show'))
+            ->assertOk()
+            // La más reciente primero.
+            ->assertJsonPath('data.past.*.date', ['27/10/2026', '20/10/2026', '13/10/2026', '06/10/2026'])
+            ->assertJsonPath('data.past.*.name', ['Mateo', 'Rosa', 'Mateo', 'Rosa'])
+            ->assertJsonPath('data.past.*.status', ['Atendida', 'Atendida', 'No asistió', 'Cancelada'])
+            ->assertJsonPath('data.past.*.tone', ['ok', 'ok', 'bad', 'bad'])
+            ->assertJsonPath('data.past.1.patient_id', $this->mother->id)
+            ->assertJsonPath('data.past.1.treatment', 'Endodoncia')
+            ->assertJsonPath('data.past.1.doctor', 'Dra. Vega')
+            ->assertJsonPath('data.past.1.visit', [
+                'done' => ['Endodoncia · Primer molar inferior izquierdo', 'Radiografía periapical'],
+                'indications' => 'Toma el analgésico después de comer.',
+                'medicines' => [
+                    ['name' => 'Ibuprofeno 400 mg', 'how' => '1 tableta cada 8 horas por 3 días'],
+                    ['name' => 'Paracetamol 500 mg', 'how' => null],
+                ],
+                'aftercare' => 'No mastiques de ese lado por dos días.',
+            ])
+            ->assertJsonPath('data.past.0.visit', null)
+            ->assertJsonPath('data.past.2.visit', null)
+            // La historia clínica no sale del consultorio: ni el motivo, ni el examen, ni lo que anotó el doctor.
+            ->assertDontSee(['Dolor al masticar', 'Caries profunda', 'Apertura cameral', 'Borrador de indicaciones']);
+    }
+
+    public function test_todays_appointment_that_is_still_expected_stays_among_the_upcoming_and_not_in_the_past(): void
+    {
+        // Lunes 8:00 a. m.: la de las 7:00 ya empezó y sigue confirmada; la otra de hoy ya se atendió.
+        $expected = Appointment::factory()->for($this->mother)->at('2026-11-02 07:00')->confirmed()->create();
+        $attended = Appointment::factory()->for($this->child)->at('2026-11-02 07:30')->create(['status' => AppointmentStatus::Completed]);
+
+        $this->rememberDevice()
+            ->getJson(route('api.v1.account.show'))
+            ->assertOk()
+            ->assertJsonPath('data.upcoming.*.id', [$expected->id])
+            ->assertJsonPath('data.upcoming.0.countdown', 'Hoy')
+            ->assertJsonPath('data.past.*.id', [$attended->id]);
+    }
+
+    public function test_an_attended_appointment_that_left_nothing_to_take_home_has_nothing_to_open(): void
+    {
+        $attended = Appointment::factory()->for($this->mother)->for(Treatment::factory()->create(['aftercare' => null]))->at('2026-10-20 10:00')->create(['status' => AppointmentStatus::Completed]);
+        Consultation::factory()->for($this->mother)->create(['appointment_id' => $attended->id, 'closed_at' => now(), 'indications' => null]);
+
+        $this->rememberDevice()
+            ->getJson(route('api.v1.account.show'))
+            ->assertOk()
+            ->assertJsonPath('data.past.0.status', 'Atendida')
+            ->assertJsonPath('data.past.0.visit', null);
+    }
+
+    public function test_the_family_sees_what_it_paid_and_what_it_owes_between_everyone(): void
+    {
+        $lucia = Patient::factory()->dependentOf($this->account)->create(['first_name' => 'Lucía']);
+        Charge::factory()->for($this->mother)->create(['amount' => 400]);
+        Charge::factory()->for($this->child)->create(['amount' => 50]);
+        Charge::factory()->for($lucia)->create(['amount' => 120]);
+        Payment::factory()->for($this->mother)->create(['amount' => 150, 'method' => PaymentMethod::Yape, 'paid_at' => '2026-10-28 09:00']);
+        Payment::factory()->for($this->child)->create(['amount' => 80, 'method' => PaymentMethod::Cash, 'paid_at' => '2026-10-30 09:00']);
+        // Un pago anulado no se cuenta ni se muestra, y el de otra familia tampoco.
+        Payment::factory()->for($this->mother)->create(['amount' => 999, 'paid_at' => '2026-10-31 09:00', 'voided_at' => now()]);
+        Payment::factory()->create(['amount' => 777]);
+
+        $this->rememberDevice()
+            ->getJson(route('api.v1.account.show'))
+            ->assertOk()
+            ->assertJsonPath('data.payments', [
+                ['id' => Payment::where('amount', 80)->sole()->id, 'patient_id' => $this->child->id, 'date' => '30/10/2026', 'name' => 'Mateo', 'amount' => 'S/ 80.00', 'method' => PaymentMethod::Cash->getLabel()],
+                ['id' => Payment::where('amount', 150)->sole()->id, 'patient_id' => $this->mother->id, 'date' => '28/10/2026', 'name' => 'Rosa', 'amount' => 'S/ 150.00', 'method' => PaymentMethod::Yape->getLabel()],
+            ])
+            // Cada quien con su saldo; lo que Mateo tiene a favor no se le resta a lo que deben las demás.
+            ->assertJsonPath('data.balances.*.patient_id', [$lucia->id, $this->child->id, $this->mother->id])
+            ->assertJsonPath('data.balances.*.text', ['S/ 120.00 por pagar', 'S/ 30.00 a favor', 'S/ 250.00 por pagar'])
+            ->assertJsonPath('data.balances.*.owed', [true, false, true])
+            ->assertJsonPath('data.owed_total', 'S/ 370.00');
+    }
+
+    public function test_a_family_that_owes_nothing_has_no_balances_and_nothing_to_pay(): void
+    {
+        Charge::factory()->for($this->mother)->create(['amount' => 150]);
+        Payment::factory()->for($this->mother)->create(['amount' => 150]);
+
+        $this->rememberDevice()
+            ->getJson(route('api.v1.account.show'))
+            ->assertOk()
+            ->assertJsonPath('data.balances', [])
+            ->assertJsonPath('data.owed_total', null)
+            ->assertJsonCount(1, 'data.payments');
+    }
+
+    public function test_my_account_says_who_still_has_a_session_to_ask_for_or_a_checkup_to_book_without_showing_the_plan(): void
+    {
+        $evaluation = Treatment::factory()->evaluation()->create();
+        $doctor = $this->doctorOffering($evaluation);
+        $doctor->update(['name' => 'Dra. Vega']);
+        $this->mateoHalfwayThroughHisPlan($doctor);
+        $lucia = Patient::factory()->dependentOf($this->account)->create(['first_name' => 'Lucía', 'last_visit_at' => now()->subMonths(7)]);
+
+        // Lo mismo que saluda en el inicio a un celular recordado: sin montos, y el plan sigue pidiendo el enlace.
+        $this->rememberDevice(verified: false)
+            ->getJson(route('api.v1.account.show'))
+            ->assertOk()
+            ->assertJsonPath('data.sessions.0.patient_id', $this->child->id)
+            ->assertJsonPath('data.sessions.0.title', 'A Mateo le falta 1 de 3 sesiones')
+            ->assertJsonPath('data.sessions.0.button', 'Pedir su próxima sesión')
+            ->assertJsonPath('data.sessions.0.requested', false)
+            ->assertJsonPath('data.checkups.0.kicker', 'Control de Lucía')
+            ->assertJsonPath('data.checkups.0.url', route('site.booking', ['tratamiento' => $evaluation->slug, 'para' => $lucia->id]))
+            ->assertJsonPath('data.plans', null)
+            ->assertJsonPath('data.payments', null)
+            ->assertJsonPath('data.owed_total', null);
+    }
+
+    public function test_each_upcoming_appointment_says_how_soon_it_is_and_can_be_saved_to_the_calendar(): void
+    {
+        $today = Appointment::factory()->for($this->mother)->at('2026-11-02 15:00')->confirmed()->create();
+        Appointment::factory()->for($this->child)->at('2026-11-03 09:00')->create();
+        Appointment::factory()->for($this->mother)->at('2026-11-07 09:00')->create();
+        // Falta más de un mes: la fecha ya lo dice.
+        Appointment::factory()->for($this->child)->at('2026-12-15 09:00')->create();
+
+        $response = $this->rememberDevice(verified: false)
+            ->getJson(route('api.v1.account.show'))
+            ->assertOk()
+            ->assertJsonPath('data.upcoming.*.patient_id', [$this->mother->id, $this->child->id, $this->mother->id, $this->child->id])
+            ->assertJsonPath('data.upcoming.*.countdown', ['Hoy', 'Mañana', 'En 5 días', null]);
+
+        // La dirección va firmada: abre el archivo de esa cita y de ninguna otra.
+        $this->get($response->json('data.upcoming.0.calendar_url'))
+            ->assertOk()
+            ->assertHeader('Content-Type', 'text/calendar; charset=UTF-8');
+
+        // Ya está en el consultorio: no hay nada que guardar en el calendario.
+        $today->update(['status' => AppointmentStatus::CheckedIn]);
+
+        $this->getJson(route('api.v1.account.show'))
+            ->assertOk()
+            ->assertJsonPath('data.upcoming.0.countdown', 'Hoy')
+            ->assertJsonPath('data.upcoming.0.calendar_url', null);
+    }
+
+    public function test_each_person_of_the_family_comes_with_their_data_and_whether_they_still_have_to_tell_their_health(): void
+    {
+        $this->mother->update(['last_name' => 'Quispe Huamán', 'birth_date' => '1988-03-09', 'email' => 'rosa@example.com']);
+        $this->mother->medicalBackground()->create(['allergies' => 'Penicilina']);
+        $this->child->update(['last_name' => 'Flores Quispe', 'birth_date' => null, 'email' => null, 'document_number' => null]);
+
+        $this->rememberDevice()
+            ->getJson(route('api.v1.account.show'))
+            ->assertOk()
+            ->assertJsonPath('data.family', [
+                ['id' => $this->child->id, 'name' => 'Mateo Flores Quispe', 'short_name' => 'Mateo', 'initials' => 'MF', 'is_self' => false, 'relationship' => $this->child->relationship->getLabel(), 'document' => null, 'birth_date' => null, 'email' => null, 'ask_health' => 'Cuéntanos de la salud de Mateo en dos minutos.'],
+                // Lo que ya contó de su salud no viaja a la web: solo se sabe que ya lo contó.
+                ['id' => $this->mother->id, 'name' => 'Rosa Quispe Huamán', 'short_name' => 'Rosa', 'initials' => 'RQ', 'is_self' => true, 'relationship' => 'Titular', 'document' => '40123456', 'birth_date' => '09/03/1988', 'email' => 'rosa@example.com', 'ask_health' => null],
+            ])
+            ->assertDontSee('Penicilina');
     }
 
     public function test_the_home_greets_a_returning_patient_with_their_appointment_their_sessions_and_their_checkup(): void

@@ -4,38 +4,31 @@ namespace App\Http\Controllers\Api\V1\Account;
 
 use App\Enums\AppointmentStatus;
 use App\Enums\PatientRelationship;
-use App\Enums\PlanItemStatus;
-use App\Enums\TreatmentPlanStatus;
 use App\Exceptions\BookingException;
 use App\Filament\Resources\Patients\PatientResource;
 use App\Http\Controllers\Api\V1\Account\Concerns\ChangesAppointments;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\ChangeAppointmentRequest;
 use App\Http\Resources\V1\AppointmentCardResource;
+use App\Http\Resources\V1\WelcomeResource;
 use App\Models\Account;
 use App\Models\Appointment;
 use App\Models\Patient;
 use App\Models\RememberedDevice;
-use App\Models\TreatmentPlan;
-use App\Models\TreatmentPlanItem;
 use App\Services\Access\DeviceService;
 use App\Services\Access\PatientAccess;
-use App\Services\Billing\BillingService;
 use App\Services\Booking\AppointmentService;
 use App\Services\Booking\PatientChangePolicy;
-use App\Services\Clinical\TreatmentPlanService;
 use App\Services\Notices\PhoneNotices;
 use App\Services\StaffAlerts;
+use App\Services\Web\AccountDetails;
 use App\Services\Web\PageMeta;
 use App\Services\Web\ReturningPatient;
-use App\Support\Dates;
 use App\Support\FamilyNames;
 use App\Support\Initials;
-use App\Support\Money;
 use App\Support\Phone;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\RateLimiter;
 
 /**
@@ -51,8 +44,7 @@ class AccountController extends Controller
         private readonly DeviceService $devices,
         private readonly AppointmentService $appointments,
         private readonly PatientChangePolicy $policy,
-        private readonly BillingService $billing,
-        private readonly TreatmentPlanService $plans,
+        private readonly AccountDetails $details,
         private readonly PageMeta $meta,
         private readonly PhoneNotices $notices,
     ) {}
@@ -60,7 +52,7 @@ class AccountController extends Controller
     /**
      * @return array{data: array<string, mixed>, meta: array<string, mixed>}
      */
-    public function show(Request $request): array
+    public function show(Request $request, ReturningPatient $returning): array
     {
         $meta = $this->meta->for(page: 'cuenta', noindex: true);
         $device = $this->access->device($request);
@@ -69,10 +61,11 @@ class AccountController extends Controller
             return ['data' => ['guest' => true], 'meta' => $meta];
         }
 
+        /** @var Account $account */
         $account = $device->account;
         // Un celular que tocó un enlace del número ve todo; el que solo reservó, sus próximas citas.
         $elevated = $device->isVerified();
-        $patients = $account->patients()->orderBy('first_name')->get();
+        $patients = Patient::query()->whereBelongsTo($account)->orderBy('first_name')->get();
         // Quien reservó con este número desde otro celular: su cita se ve, pero no cuenta como familia todavía.
         $guests = $account->guestIds();
         // La familia es quien ya está reconocido: a quien está por confirmar no se le saluda ni se le cuenta.
@@ -81,11 +74,9 @@ class AccountController extends Controller
         // Dos personas de la familia con el mismo nombre se muestran con su apellido, para saber de quién es cada cita.
         $names = FamilyNames::for($patients);
 
-        $appointments = fn () => Appointment::query()
-            ->whereHas('patient', fn ($query) => $query->whereBelongsTo($account))
-            ->with(['patient', 'doctor', 'treatment']);
-        $upcoming = $appointments()
-            ->with(['patient.medicalBackground', 'pendingRescheduleRequest.options'])
+        $upcoming = Appointment::query()
+            ->whereIn('patient_id', $patients->modelKeys())
+            ->with(['patient.medicalBackground', 'doctor', 'treatment', 'pendingRescheduleRequest.options'])
             ->where('starts_at', '>=', now()->startOfDay())
             ->whereIn('status', [AppointmentStatus::Pending, AppointmentStatus::Confirmed, AppointmentStatus::CheckedIn, AppointmentStatus::InProgress])
             ->oldest('starts_at')
@@ -97,6 +88,10 @@ class AccountController extends Controller
             ->unique('patient_id')
             ->pluck('id')
             ->all();
+
+        // Lo mismo que saluda en el inicio: las sesiones que faltan agendar y los controles, sin montos.
+        $welcome = WelcomeResource::make($returning->for($account))->resolve($request);
+        $money = $elevated ? $this->details->balances($patients) : null;
 
         return [
             'data' => [
@@ -114,23 +109,15 @@ class AccountController extends Controller
                     // Pidió cambiarla y espera respuesta: se le recuerda y no se le ofrece pedirlo otra vez.
                     pendingRequest: $appointment->pendingRescheduleRequest,
                 ))->values(),
-                'plans' => $elevated ? $this->plansOf($account, $names) : null,
-                'balances' => $elevated ? $this->balancesOf($patients) : null,
-                'past' => $elevated ? $appointments()->where('starts_at', '<', now())->latest('starts_at')->limit(20)->get()->map(fn (Appointment $appointment) => [
-                    'id' => $appointment->id,
-                    'date' => $appointment->starts_at->format('d/m/Y'),
-                    'name' => $names[$appointment->patient_id],
-                    'treatment' => $appointment->treatment->name,
-                    'status' => $appointment->status->getLabel(),
-                ])->values() : null,
-                'family' => $elevated ? $family->map(fn (Patient $patient) => [
-                    'id' => $patient->id,
-                    'name' => $patient->full_name,
-                    'relationship' => $patient->relationship->getLabel(),
-                    'document' => $patient->document_number ?: null,
-                    'birth_date' => $patient->birth_date?->format('d/m/Y'),
-                    'email' => $patient->email ?: null,
-                ])->values() : null,
+                // Lo que falta agendar: la próxima sesión de quien sigue en tratamiento y el control de quien ya le toca.
+                'sessions' => $welcome['sessions'],
+                'checkups' => $welcome['checkups'],
+                'plans' => $elevated ? $this->details->plans($patients, $names) : null,
+                'balances' => $money['balances'] ?? null,
+                'owed_total' => $money['owed_total'] ?? null,
+                'payments' => $elevated ? $this->details->payments($patients, $names) : null,
+                'past' => $elevated ? $this->details->past($patients, $names) : null,
+                'family' => $elevated ? $this->details->family($family, $names) : null,
             ],
             'meta' => $meta,
         ];
@@ -260,107 +247,6 @@ class AccountController extends Controller
         $this->devices->forget($request);
 
         return $this->done('Listo. Este celular ya no está recordado.');
-    }
-
-    /**
-     * Los planes que la familia aceptó, con lo hecho, lo pagado y la próxima cuota. Los terminados y
-     * pagados ya no se muestran.
-     *
-     * @param  array<int, string>  $names
-     * @return Collection<int, array<string, mixed>>
-     */
-    private function plansOf(Account $account, array $names): Collection
-    {
-        return TreatmentPlan::query()
-            ->whereHas('patient', fn ($query) => $query->whereBelongsTo($account))
-            ->whereNotNull('accepted_at')
-            ->whereNot('status', TreatmentPlanStatus::Cancelled)
-            ->with(['patient', 'doctor', 'items', 'installments', 'includedIn.patient'])
-            ->latest('accepted_at')
-            ->get()
-            ->map(fn (TreatmentPlan $plan) => [
-                'plan' => $plan,
-                // En un 2x1, la otra persona no paga: su plan va incluido en el de quien paga.
-                'progress' => $plan->included_in_plan_id ? null : $this->billing->planProgress($plan),
-                'payment' => $plan->included_in_plan_id ? null : $this->plans->paymentText($plan),
-            ])
-            ->reject(fn (array $row) => $row['plan']->status === TreatmentPlanStatus::Completed && ($row['progress']['remaining'] ?? 0) <= 0)
-            ->map(fn (array $row) => $this->planCard($row['plan'], $row['progress'], $row['payment'], $names))
-            ->values();
-    }
-
-    /**
-     * Un plan como lo lee el paciente: cómo va el pago y cuántos tratamientos lleva hechos.
-     *
-     * @param  array{total: float, paid: float, owed: float, remaining: float, late: bool, next: array<string, mixed>|null}|null  $progress
-     * @param  array<int, string>  $names
-     * @return array<string, mixed>
-     */
-    private function planCard(TreatmentPlan $plan, ?array $progress, ?string $payment, array $names): array
-    {
-        $items = $plan->items->filter(fn (TreatmentPlanItem $item) => $item->accepted_at !== null && $item->status !== PlanItemStatus::Cancelled)->values();
-        $done = $items->where('status', PlanItemStatus::Done)->count();
-        [$state, $tone] = match (true) {
-            $progress === null => ['Incluido en el 2x1', 'ok'],
-            $progress['late'] => ['Atrasado', 'bad'],
-            $progress['owed'] > 0 => ['Por pagar', null],
-            $progress['remaining'] <= 0 => ['Pagado', 'ok'],
-            default => ['Al día', 'ok'],
-        };
-
-        return [
-            'id' => $plan->id,
-            'title' => $plan->title ?: 'Plan de tratamiento',
-            'state' => $state,
-            'tone' => $tone,
-            'who' => $names[$plan->patient_id].' · '.$plan->doctor?->name,
-            'included_in' => $progress === null ? $plan->includedIn?->patient?->first_name : null,
-            'progress' => $progress === null ? null : [
-                'percent' => $progress['total'] > 0 ? (int) round(min(1, $progress['paid'] / $progress['total']) * 100) : 100,
-                'total' => Money::format($progress['total']),
-                'paid' => Money::format($progress['paid']),
-                'remaining' => Money::format($progress['remaining']),
-                'owed' => $progress['owed'] > 0 ? [
-                    'label' => $progress['late'] ? 'Vencido' : 'Para pagar ya',
-                    'amount' => Money::format($progress['owed']),
-                    'late' => $progress['late'],
-                ] : null,
-                'next' => $progress['next'] ? [
-                    'amount' => Money::format($progress['next']['due']),
-                    'day' => Dates::day($progress['next']['installment']->due_on),
-                    'label' => $progress['next']['installment']->label(),
-                ] : null,
-            ],
-            'payment' => $payment,
-            'items_summary' => 'Tratamientos: '.$done.' de '.$items->count().' '.($items->count() === 1 ? 'hecho' : 'hechos'),
-            'items' => $items->map(fn (TreatmentPlanItem $item) => [
-                'id' => $item->id,
-                'label' => $item->label(),
-                'state' => $item->sessions_planned > 1 && $item->status !== PlanItemStatus::Done
-                    ? $item->sessions_done.' de '.$item->sessions_planned.' sesiones'
-                    : $item->status->getLabel(),
-                'done' => $item->status === PlanItemStatus::Done,
-            ])->values(),
-        ];
-    }
-
-    /**
-     * El saldo de cada persona de la familia que debe o tiene algo a favor.
-     *
-     * @param  Collection<int, Patient>  $patients
-     * @return Collection<int, array{name: string, text: string, owed: bool}>
-     */
-    private function balancesOf(Collection $patients): Collection
-    {
-        return $patients
-            ->map(fn (Patient $patient) => ['name' => $patient->full_name, 'balance' => $patient->balance()])
-            ->reject(fn (array $row) => $row['balance'] === 0.0)
-            ->map(fn (array $row) => [
-                'name' => $row['name'],
-                'text' => $row['balance'] > 0 ? Money::format($row['balance']).' por pagar' : Money::format(-$row['balance']).' a favor',
-                'owed' => $row['balance'] > 0,
-            ])
-            ->values();
     }
 
     private function device(Request $request): RememberedDevice

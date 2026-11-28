@@ -27,3 +27,13 @@ export function withArticle(name: string): string {
   }
   return name;
 }
+
+/** "indicaciones", "indicaciones y receta", "lo que se hizo, indicaciones y receta". */
+export function listOf(parts: string[]): string {
+  return parts.length > 1 ? `${parts.slice(0, -1).join(', ')} y ${parts[parts.length - 1]}` : (parts[0] ?? '');
+}
+
+/** La primera letra en minúscula, para seguir una frase: "Miércoles 2 de diciembre" → "miércoles 2 de diciembre". */
+export function lowerFirst(text: string): string {
+  return text.charAt(0).toLowerCase() + text.slice(1);
+}

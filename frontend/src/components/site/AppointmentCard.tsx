@@ -3,6 +3,7 @@ import { useAction } from '@/api/actions';
 import type { AppointmentCard as Appointment, Clinic } from '@/api/types';
 import { HealthAsk } from '@/components/site/HealthAsk';
 import { AppLink } from '@/components/ui/AppLink';
+import { Icon } from '@/components/ui/Icon';
 import { paths } from '@/lib/paths';
 import { whatsappUrl } from '@/lib/whatsapp';
 
@@ -16,13 +17,23 @@ interface Props {
   cancelUrl?: string;
   /** La cita es lo único de la página (el enlace de WhatsApp): botones a todo el ancho. */
   solo?: boolean;
+  /** En Mi cuenta: cuánto falta ("Mañana"), guardarla en el calendario y cómo llegar. */
+  extras?: boolean;
 }
 
 /**
  * La tarjeta de una cita. Es la misma en el enlace de WhatsApp, en Mi cuenta y en el inicio: mismo orden y
  * mismas palabras ("Confirmar asistencia", "Cambiar horario", "Cancelar cita").
  */
-export function AppointmentCard({ appointment, clinic, confirmUrl, changeHref, cancelUrl, solo = false }: Props) {
+export function AppointmentCard({
+  appointment,
+  clinic,
+  confirmUrl,
+  changeHref,
+  cancelUrl,
+  solo = false,
+  extras = false,
+}: Props) {
   const { run, busy } = useAction();
   const [reason, setReason] = useState('');
   const cancelByWhatsapp = whatsappUrl(clinic, appointment.cancel_message);
@@ -41,7 +52,10 @@ export function AppointmentCard({ appointment, clinic, confirmUrl, changeHref, c
         <span className="kicker">{appointment.kicker}</span>
         <span className={`badge${appointment.tone ? ` ${appointment.tone}` : ''}`}>{appointment.status}</span>
       </div>
-      <strong className="when">{appointment.when}</strong>
+      <strong className="when">
+        {extras && appointment.countdown ? <span className="countdown">{appointment.countdown}</span> : null}
+        {appointment.when}
+      </strong>
       <p>{appointment.what}</p>
 
       {appointment.guest_notice ? (
@@ -93,6 +107,23 @@ export function AppointmentCard({ appointment, clinic, confirmUrl, changeHref, c
                 </AppLink>
               )}
             </div>
+          ) : null}
+
+          {extras && (appointment.calendar_url || clinic.directions_url) ? (
+            <p className="appointment-links">
+              {appointment.calendar_url ? (
+                <a href={appointment.calendar_url}>
+                  <Icon name="calendar" />
+                  Guardar en mi calendario
+                </a>
+              ) : null}
+              {clinic.directions_url ? (
+                <a href={clinic.directions_url} rel="noopener" target="_blank">
+                  <Icon name="pin" />
+                  Cómo llegar
+                </a>
+              ) : null}
+            </p>
           ) : null}
 
           {cancelUrl && appointment.can_cancel ? (
