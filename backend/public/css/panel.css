@@ -1151,6 +1151,8 @@ button.agenda-slot:focus-visible { outline: 2px solid var(--primary-600); outlin
 .odv-treat:hover { background: var(--odv-accent-soft); }
 .odv-quick-label { font-size: .75rem; font-weight: 600; color: var(--odv-soft); }
 .odv-quick-list { display: flex; flex-wrap: wrap; gap: .375rem; }
+/* "Otro…": los demás hallazgos, a todo el ancho de la ficha (así entran más por fila) y en varias filas también en la angosta. */
+.odv-card .odv-quick-rest { grid-column: 1 / -1; flex-wrap: wrap; overflow-x: visible; padding-top: .625rem; border-top: 1px solid var(--odv-line); }
 
 /* Tableta y celular: la ficha sale desde abajo, encima de la barra, y el dibujo queda a la vista. */
 @media (max-width: 63.99rem) {
@@ -1175,6 +1177,8 @@ html.odv-locked :has(.odv.is-expanded) { z-index: 45 !important; }
     .odv.is-expanded .odv-card { position: sticky; top: 0; }
     .odv.is-expanded .odv-card-body { grid-template-columns: minmax(0, 1fr); grid-template-areas: "faces" "hint" "list" "quick"; }
     .odv.is-expanded .odv-faces { max-width: 11rem; margin-inline: auto; }
+    /* Al costado sobra alto: los hallazgos van en varias filas, todos a la vista (con el mouse, la fila que se desliza escondía "Otro…"). */
+    .odv.is-expanded .odv-card .odv-quick-list { flex-wrap: wrap; overflow-x: visible; }
 }
 
 /* La lista: por tratar primero; la pieza lleva a su ficha. */

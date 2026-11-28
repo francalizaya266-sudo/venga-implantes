@@ -256,6 +256,34 @@ class OdontogramChartTest extends TestCase
         );
     }
 
+    public function test_the_tooth_card_opens_the_findings_that_are_not_among_its_frequent_ones_and_only_for_who_edits(): void
+    {
+        [$doctor, $consultation] = $this->consultation();
+        $this->actingAs($doctor->user);
+
+        // "Otro…" abre los demás en la misma ficha (el buscador de arriba puede haber quedado fuera de la vista).
+        $catalog = Livewire::test(OdontogramChart::class, ['record' => $consultation, 'editable' => true])
+            ->assertSeeHtml([
+                'x-on:click="toggleRest()" x-bind:aria-expanded="restOpen" x-text="restOpen ? \'Menos\' : \'Otro…\'"',
+                'x-show="restOpen" x-cloak role="group" aria-label="Los demás hallazgos"',
+                'x-for="code in restList"',
+                'x-on:click="pickRest(code)"',
+            ])
+            ->viewData('config')['catalog'];
+
+        // Lo que la ficha ofrece primero tiene que estar en el catálogo: el navegador saca de ahí el botón, y el resto.
+        foreach (OdontogramChart::QUICK as $toothType => $codes) {
+            $this->assertSame([], array_values(array_diff($codes, array_keys($catalog))), $toothType);
+        }
+
+        // En los botones, los dos de ortodoncia se llaman igual y quedan juntos en la lista.
+        $this->assertSame(['Ortodoncia fija', 'Ortodoncia removible'], [$catalog['ortodoncia_fija']['short'], $catalog['ortodoncia_removible']['short']]);
+
+        // Sin poder cambiar, la ficha no ofrece marcar nada.
+        Livewire::test(OdontogramChart::class, ['record' => $consultation])
+            ->assertDontSeeHtml(['toggleRest()', 'pickRest(code)', 'Los demás hallazgos']);
+    }
+
     public function test_the_search_shortcut_is_listed_only_where_there_is_a_box_to_write_in(): void
     {
         [$doctor, $consultation] = $this->consultation();

@@ -340,8 +340,17 @@
                                             <template x-for="code in quickList" x-bind:key="code">
                                                 <button type="button" class="odv-chip" x-bind:aria-pressed="tool === code" x-on:click="addHere(code)" x-bind:title="catalog[code].name" x-text="catalog[code].short"></button>
                                             </template>
-                                            <button type="button" class="odv-chip is-ghost" x-on:click="$refs.omni?.focus()">Otro…</button>
+                                            {{-- El del pincel, si no es de los frecuentes: se ve cuál es y tocarlo de nuevo lo suelta. Con x-show y no x-if: al soltarlo, lo que sigue (llevar la pieza a la vista) todavía lo busca en la página. --}}
+                                            <button type="button" class="odv-chip" x-ref="other" x-show="otherTool" x-cloak aria-pressed="true" x-on:click="addHere(otherTool)" x-bind:title="catalog[otherTool]?.name" x-text="catalog[otherTool]?.short"></button>
+                                            <button type="button" class="odv-chip is-ghost" x-ref="restToggle" x-on:click="toggleRest()" x-bind:aria-expanded="restOpen" x-text="restOpen ? 'Menos' : 'Otro…'">Otro…</button>
                                         </div>
+                                    </div>
+
+                                    {{-- Los demás hallazgos de la norma se abren aquí mismo, a todo el ancho de la ficha: el buscador de arriba puede haber quedado fuera de la vista. --}}
+                                    <div class="odv-quick-list odv-quick-rest" x-ref="rest" x-show="restOpen" x-cloak role="group" aria-label="Los demás hallazgos">
+                                        <template x-for="code in restList" x-bind:key="code">
+                                            <button type="button" class="odv-chip" x-bind:aria-pressed="tool === code" x-on:click="pickRest(code)" x-bind:title="catalog[code].name" x-text="catalog[code].short"></button>
+                                        </template>
                                     </div>
                                 @endif
                             </div>

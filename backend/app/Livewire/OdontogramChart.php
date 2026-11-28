@@ -51,7 +51,7 @@ class OdontogramChart extends Component
     /** Los primeros botones de hallazgos se ven siempre, aunque la fila sea angosta. */
     public const ALWAYS_SHOWN_CHIPS = 3;
 
-    /** Lo que la ficha de la pieza ofrece marcar primero, según el tipo de diente; el resto se busca. */
+    /** Lo que la ficha de la pieza ofrece marcar primero, según el tipo de diente; el resto lo abre "Otro…" ahí mismo. */
     public const QUICK = [
         'posterior' => ['caries', 'restauracion', 'sellante', 'corona', 'tratamiento_pulpar', 'extraccion_indicada', 'ausente', 'fractura', 'remanente_radicular', 'implante'],
         'anterior' => ['caries', 'restauracion', 'corona', 'tratamiento_pulpar', 'fractura', 'extraccion_indicada', 'ausente', 'remanente_radicular', 'implante', 'giroversion'],
@@ -61,6 +61,7 @@ class OdontogramChart extends Component
     public const CHIP_NAMES = [
         'restauracion' => 'Restauración', 'extraccion_indicada' => 'Extracción', 'ausente' => 'Ausente',
         'corona' => 'Corona', 'implante' => 'Implante', 'ortodoncia_fija' => 'Ortodoncia fija',
+        'ortodoncia_removible' => 'Ortodoncia removible',
     ];
 
     /** Siglas para hallazgos que no tienen una propia en el catálogo. */
