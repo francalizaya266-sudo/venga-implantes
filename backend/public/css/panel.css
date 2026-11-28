@@ -2615,6 +2615,12 @@ a.ap-visit:hover { background: var(--gray-50); }
  */
 @media (min-width: 64rem) {
     .fi-no.fi-vertical-align-start { flex-direction: column; justify-content: flex-end; }
+    /*
+     * Con el panel de la cita abierto, abajo a la derecha están sus botones ("Llegó", "Pasó a consulta", "Ver todo de
+     * la cita"). El aviso de lo que se acaba de hacer salía encima, bajo el cursor (y con el cursor encima no se va;
+     * el de "Paciente en sala" ni se va solo): va a la izquierda del panel, que mide 28rem.
+     */
+    body:has(.fi-modal-slide-over.fi-modal-open) .fi-no.fi-vertical-align-start { inset-inline-end: 29rem; }
 }
 
 
