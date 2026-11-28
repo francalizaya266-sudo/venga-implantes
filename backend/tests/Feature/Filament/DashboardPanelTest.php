@@ -1003,7 +1003,7 @@ class DashboardPanelTest extends TestCase
             ->assertSee(['Pedir su opinión en Google', 'Rosa Quispe', 'Hoy: Limpieza dental · 2 atenciones'])
             ->assertDontSee(['Luis Mamani', 'Ana Flores', 'Pedro Huamán', 'Carmen Rojas'])
             ->mountAction('whatsapp', ['template' => MessageTemplateKey::ReviewRequest->value, 'patient' => $rosa->id])
-            ->assertSchemaStateSet(['body' => "Hola Rosa, gracias por confiar en Clínica Vega Implant. Si te sentiste bien atendido, ¿nos dejas tu opinión en Google? Toma un minuto y ayuda a otras personas a encontrarnos:\nhttps://g.page/r/vega/review"])
+            ->assertSchemaStateSet(['body' => "Hola Rosa, gracias por confiar en Clínica Vega Implant. Si te gustó cómo te atendimos, ¿nos dejas tu opinión en Google? Toma un minuto y ayuda a otras personas a encontrarnos:\nhttps://g.page/r/vega/review"])
             ->callMountedAction()
             ->assertHasNoErrors();
         $this->answerWhatsApp($followUps);

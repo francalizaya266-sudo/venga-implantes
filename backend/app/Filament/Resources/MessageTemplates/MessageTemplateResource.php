@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\MessageTemplates;
 
+use App\Enums\MessageTemplateKey;
 use App\Filament\Concerns\HasSpanishLabels;
 use App\Filament\Resources\MessageTemplates\Pages\ManageMessageTemplates;
 use App\Models\MessageTemplate;
@@ -19,6 +20,7 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\ToggleColumn;
 use Filament\Tables\Table;
+use Illuminate\Support\HtmlString;
 
 /** Textos de los avisos de WhatsApp. Las palabras entre llaves se reemplazan solas. */
 class MessageTemplateResource extends Resource
@@ -39,8 +41,6 @@ class MessageTemplateResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedChatBubbleBottomCenterText;
 
-    public const PLACEHOLDERS = '{nombre} quien recibe · {paciente} · {fecha} · {cuando} en el recordatorio ("de mañana lunes 16 de noviembre") · {hora} · {doctor} · {tratamiento} · {precio} de la cita (con la campaña) · {indicaciones} del tratamiento antes de venir · {cuidados} del tratamiento para después · {consultorio} · {direccion} · {enlace} enlace personal · {receta} · {plan}, {total} y {vigencia} (hasta cuándo vale) del presupuesto · {cuota}, {plan} y {monto} en los avisos de cuota · {pendiente} del plan sin próxima cita · {control} en el llamado a control · {que_paso} en el aviso a quien faltó o canceló ("No pudimos verte en tu cita de…" o "Se canceló tu cita de…") · {hasta} hasta cuándo se guarda el horario ofrecido a la lista de espera · {monto}, {medio}, {numero}, {detalle} y {saldo} en la constancia de pago · {opinion} enlace para dejar la opinión en Google · {cobrado}, {arqueo}, {cerro}, {atendidos}, {faltas}, {sin_cerrar}, {descuentos} (los puestos antes de cobrar), {precios} (los cambiados al cobrar), {siguiente} y {sin_confirmar} en el resumen del día para quien administra';
-
     public static function form(Schema $schema): Schema
     {
         return $schema
@@ -49,7 +49,7 @@ class MessageTemplateResource extends Resource
                     ->label('Texto')
                     ->rows(8)
                     ->required()
-                    ->helperText('Puedes usar: '.self::PLACEHOLDERS),
+                    ->helperText(fn (?MessageTemplate $record) => self::placeholdersHelp($record)),
                 Toggle::make('is_active')
                     ->label('Usar este texto')
                     ->helperText('Si lo desactivas, se usa el texto original del sistema.'),
@@ -65,6 +65,25 @@ class MessageTemplateResource extends Resource
                             ->default('es'),
                     ]),
             ]);
+    }
+
+    /**
+     * Debajo del texto: solo los datos entre llaves que ese aviso sabe llenar, uno por línea y con lo que pone cada
+     * uno. Antes salía la lista de todos los avisos juntos y no se sabía cuáles servían en el que se estaba editando.
+     */
+    private static function placeholdersHelp(?MessageTemplate $record): ?HtmlString
+    {
+        if ($record === null) {
+            return null;
+        }
+
+        /** @var MessageTemplateKey $key */
+        $key = $record->key;
+        $lines = collect($key->placeholders())
+            ->map(fn (string $help, string $placeholder) => '<strong>'.e($placeholder).'</strong> '.e($help).'.')
+            ->implode('<br>');
+
+        return new HtmlString('Las palabras entre llaves se cambian solas al enviar. En este aviso puedes usar:<br>'.$lines);
     }
 
     public static function table(Table $table): Table

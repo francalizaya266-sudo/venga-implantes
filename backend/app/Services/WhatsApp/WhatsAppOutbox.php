@@ -15,6 +15,7 @@ use App\Models\Treatment;
 use App\Models\User;
 use App\Models\WhatsappMessage;
 use App\Services\Access\MagicLinkService;
+use App\Services\Web\ClinicInfo;
 use App\Support\CampaignText;
 use App\Support\Dates;
 use App\Support\Phone;
@@ -184,6 +185,11 @@ class WhatsAppOutbox
             $params['cuando'] = $startsAt ? Dates::ofDay($startsAt, withDate: true) : 'del '.($params['fecha'] ?? '');
         }
 
+        // "Te esperamos en Av. Larco 345, Miraflores." sale de Ajustes al enviarlo: sin dirección, el aviso va sin esa línea.
+        if (str_contains($body, '{donde}')) {
+            $params['donde'] = self::whereWeAre();
+        }
+
         if ($issueLink && str_contains($body, '{enlace}') && ($link = $this->linkFor($message, $by))) {
             $params['enlace'] = $link;
         }
@@ -194,6 +200,14 @@ class WhatsAppOutbox
         $body = preg_replace("/\n{3,}/", "\n\n", strtr($body, $replacements));
 
         return ['body' => $body, 'params' => $params];
+    }
+
+    /** "Te esperamos en" y la dirección del consultorio con su distrito, o nada si en Ajustes no hay dirección. */
+    public static function whereWeAre(): string
+    {
+        $clinic = app(ClinicInfo::class);
+
+        return $clinic->address() ? 'Te esperamos en '.rtrim((string) $clinic->fullAddress(), '. ').'.' : '';
     }
 
     /**

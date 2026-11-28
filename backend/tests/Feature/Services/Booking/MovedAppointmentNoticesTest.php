@@ -222,7 +222,7 @@ class MovedAppointmentNoticesTest extends TestCase
         app(AppointmentReminders::class)->prepareReminders();
 
         $reminder = $this->pendingNotice($appointment, MessageTemplateKey::Reminder);
-        $this->assertStringContainsString('tu cita de mañana viernes 6 de noviembre', $this->text($reminder));
+        $this->assertStringContainsString('tu cita de limpieza dental de mañana viernes 6 de noviembre', $this->text($reminder));
         $this->assertSame($this->hourOf('2026-11-06 11:00'), $reminder->params['hora']);
     }
 
