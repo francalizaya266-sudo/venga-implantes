@@ -487,6 +487,23 @@ class Agenda extends Page
                     ->helperText('Queda confirmada y no se le pide confirmar. Si no, se prepara el aviso para que confirme.'),
             ])
             ->modalSubmitActionLabel(fn (array $arguments) => $this->targetIsPast($arguments) || $this->outsideHours($arguments) ? 'Mover igual' : 'Sí, mover')
+            // Soltada donde no cabe (otra cita, un bloqueo, un horario apartado): se dice ahí mismo, sin preguntar
+            // antes "¿Mover la cita?". La de otro doctor ni se pregunta.
+            ->mountUsing(function (Action $action, array $arguments, ?Schema $schema): void {
+                $appointment = Appointment::find($arguments['id'] ?? null);
+
+                if (! $appointment || ! auth()->user()->can('update', $appointment)) {
+                    $action->cancel();
+                }
+
+                if ($clash = $this->clashAtTarget($appointment, $arguments)) {
+                    Notification::make()->danger()->title($clash)->send();
+
+                    $action->cancel();
+                }
+
+                $schema?->fill();
+            })
             ->action(function (array $arguments, array $data) {
                 $appointment = Appointment::find($arguments['id'] ?? null);
                 [$doctor, $start] = $this->target($arguments);
@@ -508,6 +525,24 @@ class Agenda extends Page
     private function targetIsPast(array $arguments): bool
     {
         return (bool) $this->target($arguments)[1]?->isPast();
+    }
+
+    /**
+     * Por qué la cita no cabe donde se soltó: se cruza con otra cita o con un bloqueo, el horario está apartado para
+     * alguien de la lista de espera, o el paciente ya está a esa hora en otro sillón. Dicho como en el resto del
+     * panel; null si cabe.
+     *
+     * @param  array<string, mixed>  $arguments
+     */
+    private function clashAtTarget(Appointment $appointment, array $arguments): ?string
+    {
+        [$doctor, $start] = $this->target($arguments);
+
+        if (! $doctor || ! $start) {
+            return null;
+        }
+
+        return app(AppointmentService::class)->clashWhenMovedByStaff($appointment, $doctor, $start)?->getMessage();
     }
 
     /**
@@ -700,6 +735,8 @@ class Agenda extends Page
             'hours' => range(intdiv($from, 60), intdiv($to - 1, 60)),
             'doctors' => $this->managesAll() ? $this->doctors()->mapWithKeys(fn (Doctor $doctor) => [$doctor->getKey() => $doctor->name.($doctor->is_active ? '' : ' (ya no atiende)')]) : collect(),
             'wholeClinic' => $this->wholeClinic(),
+            // Hay alguna cita en la grilla que quien mira puede arrastrar a otro horario.
+            'canDrag' => $this->mode !== 'list' && collect($columns)->contains(fn (array $column) => collect($column['appointments'])->contains('draggable', true)),
             // En la semana de todo el consultorio, quién es quién: el color de cada doctor.
             'doctorKey' => $this->wholeClinic()
                 ? $this->doctors()->map(fn (Doctor $doctor) => ['name' => $doctor->name, 'initials' => self::initials($doctor->name), 'color' => $doctor->agenda_color ?: '#1e4f91'])->all()
@@ -1196,6 +1233,7 @@ class Agenda extends Page
                         ->values()
                         ->all(),
                     'laneBlocks' => $laneBlocks,
+                    'taken' => $present->flatMap(fn (array $column) => $column['taken'])->unique(fn (array $slot) => implode('|', $slot))->values()->all(),
                     'appointments' => collect($appointments)->sortBy('start')->values()->all(),
                     'load' => $load[$day->toDateString()] ?? null,
                     'level' => self::loadLevel($load[$day->toDateString()] ?? null),
@@ -1287,6 +1325,17 @@ class Agenda extends Page
                 ->all()
             : [];
         $appointments = $this->appointmentsFor($doctor, $day, $blocks)->all();
+        // Lo ofrecido a alguien de la lista de espera queda apartado mientras responde.
+        $holds = $visible['holds']
+            ->filter(function (WaitlistEntry $hold) use ($doctor, $day): bool {
+                /** @var CarbonInterface $offeredFrom */
+                $offeredFrom = $hold->offered_starts_at;
+                /** @var CarbonInterface $offeredUntil */
+                $offeredUntil = $hold->offered_until;
+
+                return (int) $hold->offered_doctor_id === (int) $doctor->getKey() && $offeredFrom->lt($day->endOfDay()) && $offeredUntil->gt($day->startOfDay());
+            })
+            ->values();
 
         return [
             ...$this->dayHeading($day),
@@ -1301,28 +1350,76 @@ class Agenda extends Page
             'working' => $working,
             'blocks' => [
                 ...$blocks->map(fn (ScheduleBlock $block) => $this->blockCard($block, $day)),
-                // Lo ofrecido a alguien de la lista de espera queda apartado mientras responde.
-                ...$visible['holds']
-                    ->filter(function (WaitlistEntry $hold) use ($doctor, $day): bool {
-                        /** @var CarbonInterface $offeredFrom */
-                        $offeredFrom = $hold->offered_starts_at;
-                        /** @var CarbonInterface $offeredUntil */
-                        $offeredUntil = $hold->offered_until;
-
-                        return (int) $hold->offered_doctor_id === (int) $doctor->getKey() && $offeredFrom->lt($day->endOfDay()) && $offeredUntil->gt($day->startOfDay());
-                    })
-                    ->map(fn (WaitlistEntry $hold) => [
-                        'start' => $this->minuteOf($hold->offered_starts_at),
-                        'end' => $this->minuteOf($hold->offered_until),
-                        'label' => 'Apartado para '.$hold->patient->full_name.' · hasta las '.$hold->held_until->format('H:i'),
-                        'hold' => true,
-                        'own' => true,
-                    ]),
+                ...$holds->map(fn (WaitlistEntry $hold) => [
+                    'start' => $this->holdMinutes($hold)[0],
+                    'end' => $this->holdMinutes($hold)[1],
+                    'label' => 'Apartado para '.$hold->patient->full_name.' · hasta las '.$hold->held_until->format('H:i'),
+                    'hold' => true,
+                    'own' => true,
+                ]),
             ],
+            'taken' => $this->takenSlots($doctor, $day, $appointments, $blocks, $holds),
             'appointments' => $appointments,
             // Hoy, en el día: a quién atiende ahora y cuántos lo esperan en sala.
             'live' => $this->mode === 'day' && $day->isToday() ? self::doctorNow($appointments, $working) : null,
         ];
+    }
+
+    /**
+     * Lo que una cita arrastrada no puede pisar en la columna de ese doctor, para avisar "ocupado" antes de soltarla:
+     * las citas que ocupan su horario (con su tiempo para preparar el sillón), los bloqueos y lo apartado para la
+     * lista de espera. Son las mismas reglas con que el servidor decide al soltarla.
+     *
+     * De cada tramo: `id` es la cita (0 si no es una), `doctor` de quién es (0, de todo el consultorio), `patient`
+     * para quién se apartó (a él no le estorba) y `buffer` si además hay que dejarle libre el tiempo de preparar el
+     * sillón de la cita que se mueve (un bloqueo no lo pide).
+     *
+     * @param  list<array<string, mixed>>  $appointments
+     * @param  Collection<int, ScheduleBlock>  $blocks
+     * @param  Collection<int, WaitlistEntry>  $holds
+     * @return list<array{from: int, to: int, id: int, doctor: int, patient: int, buffer: bool}>
+     */
+    private function takenSlots(Doctor $doctor, CarbonImmutable $day, array $appointments, Collection $blocks, Collection $holds): array
+    {
+        $doctorId = (int) $doctor->getKey();
+
+        return [
+            ...collect($appointments)
+                ->filter(fn (array $card) => $card['occupies'])
+                ->map(fn (array $card) => ['from' => $card['start'], 'to' => $card['until'], 'id' => $card['id'], 'doctor' => $doctorId, 'patient' => 0, 'buffer' => true])
+                ->values(),
+            ...$blocks->map(fn (ScheduleBlock $block) => [
+                'from' => $this->blockCard($block, $day)['start'],
+                'to' => $this->blockCard($block, $day)['end'],
+                'id' => 0,
+                'doctor' => $block->doctor_id === null ? 0 : $doctorId,
+                'patient' => 0,
+                'buffer' => false,
+            ]),
+            ...$holds->map(fn (WaitlistEntry $hold) => [
+                'from' => $this->holdMinutes($hold)[0],
+                'to' => $this->holdMinutes($hold)[1],
+                'id' => 0,
+                'doctor' => $doctorId,
+                'patient' => (int) $hold->patient_id,
+                'buffer' => true,
+            ]),
+        ];
+    }
+
+    /**
+     * De qué minuto a qué minuto del día va lo apartado para alguien de la lista de espera.
+     *
+     * @return array{0: int, 1: int}
+     */
+    private function holdMinutes(WaitlistEntry $hold): array
+    {
+        /** @var CarbonInterface $offeredFrom */
+        $offeredFrom = $hold->offered_starts_at;
+        /** @var CarbonInterface $offeredUntil */
+        $offeredUntil = $hold->offered_until;
+
+        return [$this->minuteOf($offeredFrom), $this->minuteOf($offeredUntil)];
     }
 
     /**
@@ -1482,6 +1579,9 @@ class Agenda extends Page
                 'settled' => self::isSettled($a, $seesMoney),
                 'url' => AppointmentResource::getUrl('view', ['record' => $a]),
                 'draggable' => $a->status->isChangeable() && $user->can('update', $a),
+                'doctorId' => (int) $a->doctor_id,
+                'patientId' => (int) $a->patient_id,
+                'occupies' => self::occupiesItsTime($a),
             ])
             ->map(fn (array $card) => [...$card, 'hint' => self::hint($card)])
             ->pipe(fn (Collection $cards) => self::inLanes($cards));
@@ -1496,6 +1596,15 @@ class Agenda extends Page
     private static function takesStep(array $card): bool
     {
         return $card['end'] - $card['start'] >= self::STEP_MINUTES && $card['lanes'] === 1 && ! $card['unclosed'];
+    }
+
+    /** La cita ocupa su horario. La que no asistió o se canceló ya lo dejó libre: otra puede soltarse encima. */
+    private static function occupiesItsTime(Appointment $appointment): bool
+    {
+        /** @var AppointmentStatus $status */
+        $status = $appointment->status;
+
+        return in_array($status, AppointmentStatus::occupying(), true);
     }
 
     /** Atendida y sin deuda (para quien no ve los saldos, atendida basta): lo que "Enfoque" deja tenue. */

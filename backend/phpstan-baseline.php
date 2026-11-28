@@ -571,11 +571,6 @@ $ignoreErrors[] = [
     'path' => __DIR__.'/app/Filament/Pages/Agenda.php',
 ];
 $ignoreErrors[] = [
-    'rawMessage' => 'Parameter #1 $time of method App\\Filament\\Pages\\Agenda::minuteOf() expects DateTimeInterface, string|null given.',
-    'count' => 2,
-    'path' => __DIR__.'/app/Filament/Pages/Agenda.php',
-];
-$ignoreErrors[] = [
     'rawMessage' => 'Parameter #2 $from of method Illuminate\\Database\\Eloquent\\Builder<App\\Models\\ScheduleBlock>::affecting() expects Carbon\\CarbonInterface, string given.',
     'count' => 1,
     'path' => __DIR__.'/app/Filament/Pages/Agenda.php',

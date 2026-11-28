@@ -699,6 +699,15 @@ class AppointmentService
         return $appointment;
     }
 
+    /**
+     * Lo que impediría al personal mover la cita a ese horario, sin moverla: la agenda lo dice apenas se suelta la
+     * cita ahí, antes de preguntar nada. Null si cabe.
+     */
+    public function clashWhenMovedByStaff(Appointment $appointment, Doctor $doctor, CarbonInterface $startsAt): ?BookingException
+    {
+        return $this->clashOf($appointment, $doctor, $startsAt, requireWorkingHours: false, actor: 'staff');
+    }
+
     public function cancelByPatient(Appointment $appointment, ?string $reason = null): void
     {
         if (! $this->policy->canSelfCancel($appointment)) {
@@ -999,30 +1008,58 @@ class AppointmentService
         }
     }
 
-    private function move(Appointment $appointment, Doctor $doctor, CarbonInterface $startsAt, bool $requireWorkingHours, string $actor): Appointment
+    /**
+     * Lo que la cita ocuparía con ese doctor: la duración que se le puso a mano se conserva (si no, la que ese doctor
+     * tarda en el tratamiento) y el tiempo para preparar el sillón que pide el tratamiento.
+     *
+     * @return array{0: int, 1: int} Minutos de la cita y minutos de esterilización.
+     */
+    private function lengthWith(Appointment $appointment, Doctor $doctor): array
     {
         $treatment = $appointment->treatment;
-        // La duración que se le puso a mano se conserva; si no, la que ese doctor tarda en el tratamiento.
-        $duration = $appointment->custom_duration ? $appointment->durationMinutes() : $doctor->durationFor($treatment);
-        $buffer = $treatment->bufferMinutes();
+
+        return [
+            $appointment->custom_duration ? $appointment->durationMinutes() : $doctor->durationFor($treatment),
+            $treatment->bufferMinutes(),
+        ];
+    }
+
+    /**
+     * Lo que impide poner la cita en ese horario: está apartado para alguien de la lista de espera, se cruza con otra
+     * cita o con un bloqueo, o el paciente ya está a esa hora en otro sillón. Null si cabe. Al paciente no se le dice
+     * con quién se cruza.
+     */
+    private function clashOf(Appointment $appointment, Doctor $doctor, CarbonInterface $startsAt, bool $requireWorkingHours, string $actor): ?BookingException
+    {
+        [$duration, $buffer] = $this->lengthWith($appointment, $doctor);
+        $availability = $this->availability->forPatient($appointment->patient_id);
+
+        if ($actor !== 'patient' && ($hold = $availability->holdAt($doctor, $startsAt, $duration, $buffer))) {
+            return BookingException::held($hold);
+        }
+
+        if (! $availability->isFree($doctor, $startsAt, $duration, $buffer, $appointment->getKey(), $requireWorkingHours)) {
+            return $actor === 'patient'
+                ? BookingException::slotTaken()
+                : BookingException::overlaps($availability->clashAt($doctor, $startsAt, $duration, $buffer, $appointment->getKey()));
+        }
+
+        if ($own = $availability->patientClashAt($startsAt, $duration, $appointment->getKey())) {
+            return $actor === 'patient' ? BookingException::alreadyBookedThen() : BookingException::patientBusy($own);
+        }
+
+        return null;
+    }
+
+    private function move(Appointment $appointment, Doctor $doctor, CarbonInterface $startsAt, bool $requireWorkingHours, string $actor): Appointment
+    {
+        [$duration, $buffer] = $this->lengthWith($appointment, $doctor);
 
         return DB::transaction(function () use ($appointment, $doctor, $startsAt, $requireWorkingHours, $actor, $duration, $buffer) {
             $this->lockAgenda($doctor);
 
-            $availability = $this->availability->forPatient($appointment->patient_id);
-
-            if ($actor !== 'patient' && ($hold = $availability->holdAt($doctor, $startsAt, $duration, $buffer))) {
-                throw BookingException::held($hold);
-            }
-
-            if (! $availability->isFree($doctor, $startsAt, $duration, $buffer, $appointment->getKey(), $requireWorkingHours)) {
-                throw $actor === 'patient'
-                    ? BookingException::slotTaken()
-                    : BookingException::overlaps($availability->clashAt($doctor, $startsAt, $duration, $buffer, $appointment->getKey()));
-            }
-
-            if ($own = $availability->patientClashAt($startsAt, $duration, $appointment->getKey())) {
-                throw $actor === 'patient' ? BookingException::alreadyBookedThen() : BookingException::patientBusy($own);
+            if ($clash = $this->clashOf($appointment, $doctor, $startsAt, $requireWorkingHours, $actor)) {
+                throw $clash;
             }
 
             $from = $appointment->starts_at;

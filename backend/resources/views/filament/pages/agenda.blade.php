@@ -136,6 +136,15 @@
                 <p>"Enfoque" deja tenues las citas atendidas y pagadas, para ver de un vistazo lo que todavía pide algo.</p>
                 <p>"Falta consentimiento" y "Lab pendiente", "Lab atrasado" o "Lab listo" avisan antes de que llegue el paciente. Pasa el mouse para ver el detalle.</p>
             </details>
+
+            {{-- Mover una cita arrastrándola es lo que más se usa y no se adivina: se dice a la vista, solo si hay alguna que se pueda mover. --}}
+            @if ($canDrag)
+                <p class="agenda-tip">
+                    <x-filament::icon icon="heroicon-m-arrows-up-down" class="agenda-tip-icon" />
+                    <span class="agenda-tip-mouse">Arrastra una cita para cambiarla de horario.</span>
+                    <span class="agenda-tip-touch">Mantén presionada una cita y arrástrala para cambiarla de horario.</span>
+                </p>
+            @endif
         </div>
 
         {{-- En la semana de todo el consultorio: de quién es cada cita (el punto de color junto al nombre). --}}
@@ -196,7 +205,7 @@
                 refused: null,
                 pointer: null,
                 droppedAt: 0,
-                preview: { top: 0, height: 0, time: '', outside: false },
+                preview: { top: 0, height: 0, time: '', outside: false, taken: false },
                 hover: null,
                 refresher: null,
 
@@ -316,6 +325,9 @@
                         treatment: card.dataset.treatment,
                         time: card.dataset.start,
                         minutes: Number(card.dataset.minutes),
+                        buffer: Number(card.dataset.buffer),
+                        owner: Number(card.dataset.doctor),
+                        patient: Number(card.dataset.patient),
                         x: event.clientX,
                         y: event.clientY,
                         offset: event.clientY - rect.top,
@@ -358,7 +370,24 @@
                     const minutes = this.minuteAt(point.clientY, column, this.dragging.offset);
                     // Fuera del horario de atención se puede soltar igual, pero se ve antes (y se vuelve a preguntar).
                     const inside = JSON.parse(column.dataset.working || '[]').some(([from, to]) => minutes >= from && minutes + this.dragging.minutes <= to);
-                    this.preview = { top: (minutes - this.from) * this.scale, height: this.dragging.height, time: this.label(minutes), outside: ! inside };
+                    this.preview = { top: (minutes - this.from) * this.scale, height: this.dragging.height, time: this.label(minutes), outside: ! inside, taken: allowed && this.takenAt(column, minutes) };
+                },
+
+                /**
+                 * Encima de otra cita, de un bloqueo o de un horario apartado la cita no entra: se ve antes de soltarla.
+                 * Al soltar igual decide el servidor, que además dice con quién se cruza.
+                 */
+                takenAt(column, minutes) {
+                    const drag = this.dragging;
+                    // En la semana de todo el consultorio la columna es el día: la cita sigue con su doctor.
+                    const doctor = Number(column.dataset.doctor) || drag.owner;
+                    const end = minutes + drag.minutes;
+
+                    return JSON.parse(column.dataset.taken || '[]').some((slot) => slot.id !== drag.id
+                        && slot.patient !== drag.patient
+                        && (slot.doctor === 0 || slot.doctor === doctor)
+                        && minutes < slot.to
+                        && end + (slot.buffer ? drag.buffer : 0) > slot.from);
                 },
 
                 autoScroll() {
@@ -489,6 +518,7 @@
                         data-treatments="{{ implode(',', $column['treatments']) }}"
                         data-working="{{ json_encode(array_map(fn (array $range) => [$range['start'], $range['end']], $column['working'])) }}"
                         data-busy="{{ json_encode([...array_map(fn (array $appt) => [$appt['start'], $appt['until']], $column['appointments']), ...array_map(fn (array $block) => [$block['start'], $block['end']], $column['blocks'])]) }}"
+                        data-taken="{{ json_encode($column['taken']) }}"
                         :class="{ 'is-over': over === @js($column['key']), 'is-refused': refused === @js($column['key']) }"
                         style="height: {{ $height }}px"
                         x-on:click="create($event, $el, {{ $column['doctorId'] }}, @js($column['date']))"
@@ -506,9 +536,9 @@
                             class="agenda-drop"
                             x-cloak
                             x-show="over === @js($column['key']) || refused === @js($column['key'])"
-                            :class="{ 'is-refused': refused === @js($column['key']), 'is-outside': preview.outside }"
+                            :class="{ 'is-refused': refused === @js($column['key']), 'is-taken': preview.taken, 'is-outside': preview.outside }"
                             :style="{ top: preview.top + 'px', height: preview.height + 'px' }"
-                        ><span x-text="refused === @js($column['key']) ? 'No realiza este tratamiento' : preview.time + (preview.outside ? ' · fuera de horario' : '')"></span></div>
+                        ><span x-text="refused === @js($column['key']) ? 'No realiza este tratamiento' : preview.time + (preview.taken ? ' · ocupado' : (preview.outside ? ' · fuera de horario' : ''))"></span></div>
 
                         @foreach ($column['working'] as $range)
                             <div class="agenda-work" style="top: {{ ($range['start'] - $from) * $scale }}px; height: {{ ($range['end'] - $range['start']) * $scale }}px"></div>
@@ -546,6 +576,9 @@
                                     data-treatment="{{ $appt['treatmentId'] }}"
                                     data-start="{{ sprintf('%02d:%02d', intdiv($appt['start'], 60), $appt['start'] % 60) }}"
                                     data-minutes="{{ $appt['end'] - $appt['start'] }}"
+                                    data-buffer="{{ $appt['until'] - $appt['end'] }}"
+                                    data-doctor="{{ $appt['doctorId'] }}"
+                                    data-patient="{{ $appt['patientId'] }}"
                                     :class="{ 'is-lifted': dragging && dragging.id === {{ $appt['id'] }} }"
                                     x-on:pointerdown="start($event, $el)"
                                 @endif
